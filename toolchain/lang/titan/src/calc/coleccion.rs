@@ -23,7 +23,9 @@ use super::*;
 /// by cell as `fits` says (an int where a dec goes), and `[]` / `{}` (ANY)
 /// wherever a list or a map goes.
 pub(super) fn fits_collection(want: &Class, got: &Class) -> bool {
-    let cell = |w: &Class, g: &Class| *g == Class::Any || fits(w, g);
+    // TA1: a byte widens as a VALUE, not as a CELL -- a `[byte]` keeps one
+    // byte per cell, and going to `[int]` would be another list, not a look.
+    let cell = |w: &Class, g: &Class| *g == Class::Any || (fits(w, g) && (*g != Class::Byte || *w == Class::Byte));
     match (want, got) {
         (Class::List(w), Class::List(g) | Class::Table(g, _)) => cell(w, g),
         (Class::Map(wk, wv), Class::Map(gk, gv)) => cell(wk, gk) && cell(wv, gv),

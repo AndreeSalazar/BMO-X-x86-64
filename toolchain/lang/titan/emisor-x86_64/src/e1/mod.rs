@@ -777,7 +777,7 @@ impl<'m> E1<'m> {
             }
             // ... y sobre una PARTE: `push(mut nave.carga, x)`
             Op::SetAt { local, path, value: Value::Lib(lib @ (Lib::Push | Lib::DropLast | Lib::Put | Lib::Remove), args, at), .. } => {
-                let (h, c, ty) = self.path(*local, path, *at)?;
+                let (h, c, ty, _) = self.path(*local, path, *at)?;
                 self.mutate_at(h, &c, ty, *lib, args, *at)?;
             }
             Op::Let { local, value, ty, at, .. } => {
@@ -808,11 +808,16 @@ impl<'m> E1<'m> {
                 }
             }
             Op::SetAt { local, path, value, at } => {
-                let (dst, cell, ty) = self.path(*local, path, *at)?;
+                let (dst, cell, ty, byte_cell) = self.path(*local, path, *at)?;
                 let (p, c) = self.eval(value)?;
-                let p = self.ensure_owned(p, &c);
-                self.drop_at(dst, &cell);
-                self.convert(dst, p, &c, &cell, ty.as_ref(), *at)?;
+                if byte_cell {
+                    // TA1: `l[i] = v` en una `[byte]`: UN byte de la lista
+                    self.byte_cell_write(dst, p);
+                } else {
+                    let p = self.ensure_owned(p, &c);
+                    self.drop_at(dst, &cell);
+                    self.convert(dst, p, &c, &cell, ty.as_ref(), *at)?;
+                }
             }
             // LB7b: el director, en su propia linea (`director.rs`).
             Op::Director { what, args, at } => {
@@ -1091,7 +1096,7 @@ fn calls_in(v: &Value, out: &mut Vec<usize>) {
             calls_in(a, out);
             calls_in(b, out);
         }
-        Value::Neg(a, _) | Value::Not(a, _) | Value::Repeat(a, _, _) | Value::Field(a, _, _) | Value::Len(a, _) | Value::Round(a, _, _) | Value::Is(a, _, _, _) | Value::Payload(a, _, _, _, _) | Value::Number(a, _, _) => calls_in(a, out),
+        Value::Neg(a, _) | Value::Not(a, _) | Value::Repeat(a, _, _) | Value::Field(a, _, _) | Value::Len(a, _) | Value::Round(a, _, _) | Value::Is(a, _, _, _) | Value::Payload(a, _, _, _, _) | Value::Number(a, _, _) | Value::Byte(a, _) => calls_in(a, out),
         Value::Table(items, _) | Value::Record(_, items, _) | Value::Variant(_, _, items, _) | Value::Lib(_, items, _) | Value::Director(_, items, _) => items.iter().for_each(|a| calls_in(a, out)),
         Value::Map(items, _) => items.iter().for_each(|(k, v)| {
             calls_in(k, out);

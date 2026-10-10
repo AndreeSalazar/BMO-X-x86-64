@@ -38,6 +38,8 @@ justo antes de `mod main`) es su PORQUE en la TAB: que diga por que existe.
 | 10 | `trait` | lo que un valor sabe hacer, y fn para cualquiera que lo sepa | T0085-T0087 |
 | 11 | `gpu` | la 3060: `gpu fn`, una celda por hilo; `f32` vive alli | T0090, T0091 (el plan: `docs/plan/PLAN_EL_CENTAURO.md`) |
 | 12 | (ninguna) | lo que viene de fuera: `lee()` de la biblioteca, y el programa CORRE en la maquina | los de siempre, y T0060-T0062 tambien al correr (el plan: `docs/plan/PLAN_LA_ENTRADA.md`) |
+| 13 | (ninguna) | lo que crece: listas `[T]` y mapas `{K: V}`, con `push`, `pop`, `put`, `get`... | T0063, T0069, T0071, T0072, T0077, T0079 de nuevo (el plan: `docs/plan/PLAN_LISTAS_Y_MAPAS.md`) |
+| 14 | (ninguna) | el BYTE: `byte` de 0 a 255, `byte(x)`, y `[byte]` con UN byte por celda | T0060 y T0071 de nuevo (el plan: TA1 de `docs/plan/PLAN_LA_TINTA.md`) |
 
 ---
 
@@ -1297,6 +1299,55 @@ calculo y nadie se quedo. Sin recolector: se suelta donde el juez ya sabe que
 el valor muere. Al acabar no queda NADA pedido -- y si quedara, el programa lo
 dice. La vara, la de siempre: el calculo, programa a programa y al azar
 (`emisor-x86_64/tests/e1.rs`).
+
+---
+
+## Nivel 14 -- el byte (25 palabras: + ninguna; `byte` y `byte(x)`) -- 10-10, TA1 de PLAN_LA_TINTA
+
+```text
+# pixeles.titan (el corazon)
+    let mut px: [byte] = []
+    for y in range(alto)
+        for x in range(ancho)
+            push(mut px, gris(x, y))      # gris devuelve un byte
+    px[y * ancho + 3] = byte(0)           # la goma
+    let v = px[i]                         # leido, cuenta como un int
+    suma = suma + v
+```
+
+**Un BYTE es un numero entero de 0 a 255, y una lista de bytes guarda UN
+byte por celda.** Es lo que pide un programa de dibujo: una pagina de manga
+de imprenta son 52 millones de pixeles, 420 MB en `[int]` y 52 MB en `[byte]`
+(`docs/plan/PLAN_LA_TINTA.md`, la cuenta que manda).
+
+```text
+   byte                  el tipo: let b: byte = ...   [byte]   fn f(c: byte) -> byte
+   byte(x)               un int a byte: si x no va de 0 a 255, NO T0060
+                         (al compilar si se sabe; al correr si viene de fuera)
+   leido                 cuenta como el int que es: b + 1, b < 200, t[b],
+                         range(b), print(b) -- y su resultado es un int
+   un byte donde va      un int o un dec: entra (200 es 200, nada se pierde)
+   un int donde va       un byte: NO T0071 -- se dice con byte(x), que mira
+                         que quepa. Nunca un corte callado
+   [byte] y [int]        dos listas distintas: una [byte] no se mira como
+                         [int] (seria otra lista, no otra mirada): T0071
+```
+
+```text
+   let b: byte = 7         NO T0071: un int no entra callado; byte(7)
+   push(mut px, 7)         NO T0071: lo mismo en una [byte]
+   byte(256)               NO T0060: no cabe en un byte
+   byte(i) con i = 300     NO T0060 al correr, en su linea
+```
+
+**En la maquina** (E1, `emisor-x86_64/src/e1/coleccion.rs`): un byte SUELTO
+--un local, un campo, el valor de un mapa, lo que lleva un `Hay`-- es una
+palabra de 8, como un int: la aritmetica no sabe que existe. Solo la CELDA
+de una `[byte]` mide un byte: se lee con `movzx` y se escribe con el byte
+bajo. La vara, la de siempre (`emisor-x86_64/tests/bytes.rs`): el calculo y
+la maquina escriben lo mismo, o el mismo NO en la misma linea; y la medida
+que justifica el tipo -- tres millones de celdas caben en `[byte]` y no
+caben en `[int]` en el monton que da el emulador --.
 
 ---
 

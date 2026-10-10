@@ -25,7 +25,7 @@ const RBP: u8 = super::RBP;
 impl E1<'_> {
     pub fn show(&mut self, p: Place, c: &Class, inside: bool) -> Result<(), String> {
         match c {
-            Class::Int => {
+            Class::Int | Class::Byte => {
                 self.load(p, RAX);
                 fmt::write_i64(&mut self.code);
             }

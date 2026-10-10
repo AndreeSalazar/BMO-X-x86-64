@@ -120,6 +120,10 @@ pub(super) fn classes(f: &Function, m: &Module) -> Result<(), Message> {
                     // let only integers WRITTEN up to 2^24 in, which f32
                     // counts exactly.
                     let name = &f.locals[*local].name;
+                    // TA1: `range(n)` with a byte counts with ints.
+                    if name.starts_with("#i") || name.starts_with("#fin") {
+                        c = counted(c);
+                    }
                     if (name.starts_with("#i") || name.starts_with("#fin")) && c != Class::Int && !(f.gpu && c == Class::F32) {
                         return Err(Message::new(
                             Code::Mixed,
@@ -227,7 +231,7 @@ pub(super) fn classes(f: &Function, m: &Module) -> Result<(), Message> {
 pub(super) fn step_class(c: &Class, st: &PathStep, known: &[Option<Class>], m: &Module, at: At) -> Result<Class, Message> {
     match st {
         PathStep::Index(i) => {
-            let ic = class(i, known, m)?;
+            let ic = counted(class(i, known, m)?);
             if ic != Class::Int {
                 return Err(wrong(i.at(), &Class::Int, &ic, m.defs(), "una celda se pide con su numero: 0, 1, 2...", "a[0]"));
             }
@@ -392,7 +396,7 @@ pub(super) fn director(what: Director, args: &[Value], at: At, known: &[Option<C
     }
     let got: Vec<Class> = args.iter().map(|a| class(a, known, m)).collect::<Result<_, _>>()?;
     let int = |k: usize, what: &str, how: &str| -> Result<(), Message> {
-        if got[k] == Class::Int {
+        if counted(got[k].clone()) == Class::Int {
             Ok(())
         } else {
             Err(wrong(args[k].at(), &Class::Int, &got[k], m.defs(), what, how))
@@ -514,6 +518,7 @@ pub(super) fn director(what: Director, args: &[Value], at: At, known: &[Option<C
 pub(super) fn keeps(c: &Class, k: usize, d: Defs) -> bool {
     let ty = match c {
         Class::Int => "int".to_string(),
+        Class::Byte => "byte".to_string(),
         Class::Dec => "dec".to_string(),
         Class::Text => "text".to_string(),
         Class::Bool => "bool".to_string(),
@@ -728,6 +733,11 @@ pub fn class(v: &Value, known: &[Option<Class>], m: &Module) -> Result<Class, Me
         Value::Lib(lib, args, at) => lib_class(*lib, args, *at, known, m)?,
         Value::Map(items, at) => map_class(items, *at, known, m)?,
         // `numero(t)` (the prelude): it reads a TEXT, and gives its case.
+        // `byte(x)` (TA1): it reads a whole number, and gives a byte.
+        Value::Byte(inner, at) => match class(inner, known, m)? {
+            Class::Int | Class::Byte => Class::Byte,
+            other => return Err(wrong(*at, &Class::Int, &other, types, "`byte` vuelve UN numero entero un byte (de 0 a 255)", "byte(200), o byte(x) con x un int")),
+        },
         Value::Number(inner, e, at) => match class(inner, known, m)? {
             Class::Text => Class::Enum(*e),
             other => return Err(wrong(*at, &Class::Text, &other, types, "`numero` mira si UN TEXTO es un numero entero", "numero(linea), con la linea que trae lee()")),
@@ -738,7 +748,7 @@ pub fn class(v: &Value, known: &[Option<Class>], m: &Module) -> Result<Class, Me
                 return Err(Message::new(Code::Mixed, at.0, at.1, &format!("`len` cuenta las celdas de una tabla, una lista o un mapa, y aqui hay {}", other.name(types)), "solo una tabla, una lista o un mapa tienen celdas que contar", "len([1, 2, 3])"))
             }
         },
-        Value::Neg(inner, at) => match class(inner, known, m)? {
+        Value::Neg(inner, at) => match counted(class(inner, known, m)?) {
             c if c.number() || c == Class::F32 => c,
             c => return Err(Message::new(Code::Mixed, at.0, at.1, &format!("{} no tiene signo", c.name(types)), &format!("aqui hay {} con un `-` delante", c.name(types)), "el `-` va delante de un numero")),
         },
@@ -777,7 +787,7 @@ pub fn class(v: &Value, known: &[Option<Class>], m: &Module) -> Result<Class, Me
             }
         }
         Value::Bin(op, l, r, at) => {
-            let (a, b) = (class(l, known, m)?, class(r, known, m)?);
+            let (a, b) = (counted(class(l, known, m)?), counted(class(r, known, m)?));
             let numbers = a.number() && b.number();
             let dec = numbers && (a == Class::Dec || b == Class::Dec);
             match *op {

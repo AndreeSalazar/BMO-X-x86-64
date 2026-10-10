@@ -1,0 +1,9 @@
+# espera: T0071
+# un int no entra CALLADO donde va un byte: se dice con `byte(x)`, que
+# comprueba que cabe
+mod main "un int donde va un byte"
+
+fn main()
+    let mut px: [byte] = []
+    push(mut px, 7)
+    print(px)

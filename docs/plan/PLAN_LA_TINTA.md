@@ -370,8 +370,8 @@ casa: primero lo que no toca nada, despues lo que pide el metal.
 
 ## 5a. Lo que TITAN++ necesita antes (el lenguaje y sus puertas)
 
-- [ ] TA0 -- las decisiones de la seccion 7, contestadas por el propietario
-- [ ] TA1 -- el BYTE: un tipo de 8 bits sin signo y las tablas grandes en un bloque de memoria pedido (`[u8]` de millones de celdas), con su codigo T y su ejemplo en `toolchain/lang/titan/ejemplos/`; nivel nuevo de la GRAMATICA
+- [x] TA0 -- las decisiones de la seccion 7, contestadas por el propietario. **10-10:** D5 (TB1 con raton) y D6 contestadas; D3 a medias (Wacom basica, el modelo despues); D2 propuesta (TINTA); D1 y D4 esperan a cuando hagan falta (D4, a TC8)
+- [x] TA1 -- el BYTE: un tipo de 8 bits sin signo y las tablas grandes en un bloque de memoria pedido (`[u8]` de millones de celdas), con su codigo T y su ejemplo en `toolchain/lang/titan/ejemplos/`; nivel nuevo de la GRAMATICA. **HECHO el 10-10 (nivel 14):** `byte` (0 a 255), `byte(x)` que comprueba (T0060, al compilar o al correr), y `[byte]` con UN byte por celda en E1 (`e1/coleccion.rs`); leido, un byte cuenta como un int; un int no entra callado donde va un byte (T0071). Sin codigo nuevo: los NO son T0060 y T0071. Pruebas: `emisor-x86_64/tests/bytes.rs` (E0 == E1 en ocho programas, los NO, y la MEDIDA: tres millones de celdas caben en `[byte]` -- 32 MiB del monton -- y no caben en `[int]`; saboteado con celdas de 8: cae); ejemplos `nivel14/pixeles`, `histograma` y dos NO; dentro de una `gpu fn`, `byte()` es T0090
 - [x] TA2 -- la VENTANA: el nodo `screen` de TITAN++ (pedir superficie, escribir una fila de pixeles, presentar), con su permiso en el Titan.toml y su linea en el certificado. **HECHA el 10-10** (F1 de [`EL_FOCO.md`](EL_FOCO.md)): `director.ventana`, `pixel`, `rect`, `fila` y `presenta`
 - [x] TA3 -- la ENTRADA de la ventana: el nodo `input` (raton: x, y, botones; y la presion cuando llegue TC1), con REX. **HECHA el 10-10** (F3 de [`EL_FOCO.md`](EL_FOCO.md)): `director.evento`, `codigo`, `raton_x`, `raton_y`, `botones` y `se_ve`; la presion de la Wacom, cuando llegue TC1
 - [ ] TA4 -- el DISCO: leer y escribir ficheros de ESTRATOS desde TITAN++, con permiso. **A medias el 10-10**: leer un fichero entero (`director.fichero`, F2 de [`EL_FOCO.md`](EL_FOCO.md)) y GUARDAR un texto (`director.guarda`, R1 de EL_FOCO: la app RESOLUCION); y, desde el corte 4e, BYTE A BYTE (`director.crea`, `escribe`, `cierra`: `apps/bico` y `apps/png`); falta que sea sobre ESTRATOS
@@ -447,18 +447,33 @@ casa: primero lo que no toca nada, despues lo que pide el metal.
 
 Ninguna corre prisa: se contestan el dia que se empiece.
 
+> **10-10, EMPEZADO.** El propietario: *"aprobado empieza en orden mas
+> preciso y mejor eso lo recomendado y tengo wacom ya te mostrare el modelo
+> luego es basico con lapiz digital empieza asi completo [...] y poner en
+> check de lista que estan aprobado y que no para testear en mi bmo-X"*. Lo
+> recomendado era: TB1 primero (el lienzo minimo, con raton), despues
+> Minecraft en 3D (VERRANO), e ILLAPA al final. Las respuestas, abajo; la
+> lista para probar, en la seccion 5h.
+
 ```text
    D1  LA IDENTIDAD     la frase de LOS_TRES_VERTICES ("un sistema que promete
                         Photoshop...") se queda, o se reescribe con --sellar?
                         (el propietario, 07-10: "la ironia no es imposible")
    D2  EL NOMBRE        como se llama la app y en que tecla vive (F1..F12 ya
                         estan todas: una nueva en la rejilla, o dentro de F1)
+                        PROPUESTO (10-10): TINTA, `apps/tinta.bex`, con su
+                        icono en el escritorio como RESOLUCION; sin tecla F.
+                        Se cambia si el propietario dice otro
    D3  LA TABLETA       CONTESTADA EN PARTE (07-10): una WACOM basica. Falta
                         el modelo exacto (en Windows: Administrador de
-                        dispositivos, o la etiqueta de abajo: CTL-xxxx)
+                        dispositivos, o la etiqueta de abajo: CTL-xxxx).
+                        10-10: "basico con lapiz digital"; el modelo, despues
+                        (TC1 espera a eso)
    D4  LA PAGINA        el tamanio objetivo: B4 a 600 ppp en blanco y negro
                         (manga de imprenta), o 350 ppp en color
    D5  EL PRIMER TEST   TB1 con raton, o esperar a la Wacom
+                        CONTESTADA (10-10): TB1 con RATON, ya; la Wacom entra
+                        por el mismo camino (`input`) cuando se sepa su modelo
    D6  LOS FORMATOS     CONTESTADA (07-10): ni .psd ni .clip; lo propio es
                         la `.obra` (seccion 4b, "me encanta"), y sale en PNG,
                         SVG y PDF

@@ -1,0 +1,40 @@
+# espera: BIEN
+# sale: claros 7, medios 4, oscuros 5
+# sale: invertida: [255, 235, 155, 55, 0, 255]
+# sale: 16 pixeles; la primera fila se repite: true
+# el histograma de una imagen guardada en bytes: cuantos pixeles hay de cada
+# tono, y la imagen INVERTIDA (255 - v) -- lo que hace un programa de dibujo
+# con una capa, celda a celda
+mod main "el histograma de una imagen de bytes"
+
+fn invierte(px: [byte]) -> [byte]
+    let mut out: [byte] = []
+    for v in px
+        push(mut out, byte(255 - v))
+    return out
+
+fn main()
+    let fila: [byte] = [byte(0), byte(20), byte(100), byte(200), byte(255), byte(0)]
+    let mut img: [byte] = []
+    for k in range(2)
+        for v in fila
+            push(mut img, v)
+    push(mut img, byte(128))
+    push(mut img, byte(90))
+    push(mut img, byte(30))
+    push(mut img, byte(240))
+    let mut cuenta: [int; 3] = [0, 0, 0]
+    for v in img
+        if v < 64
+            cuenta[0] = cuenta[0] + 1
+        else
+            if v < 192
+                cuenta[1] = cuenta[1] + 1
+            else
+                cuenta[2] = cuenta[2] + 1
+    print("claros ", cuenta[0], ", medios ", cuenta[1], ", oscuros ", cuenta[2])
+    print("invertida: ", invierte(fila))
+    let mut primera: [byte] = []
+    for i in range(6)
+        push(mut primera, img[6 + i])
+    print(len(img), " pixeles; la primera fila se repite: ", primera == fila)

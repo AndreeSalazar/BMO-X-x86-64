@@ -163,6 +163,11 @@ pub struct Function {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Ty {
     Int,
+    /// `byte`: a whole number from 0 to 255 (TA1 of `docs/plan/PLAN_LA_TINTA.md`,
+    /// 10-10). It counts as an `int` (nothing is lost going up), an `int`
+    /// becomes one only through `byte(x)` -- a NO if it does not fit --, and
+    /// a list of them, `[byte]`, keeps ONE byte per cell: the pixels of a page.
+    Byte,
     Text,
     Bool,
     /// The exact decimal (level 6).
@@ -190,6 +195,7 @@ impl Ty {
     pub fn name(&self) -> String {
         match self {
             Ty::Int => "int".into(),
+            Ty::Byte => "byte".into(),
             Ty::Text => "text".into(),
             Ty::Bool => "bool".into(),
             Ty::Dec => "dec".into(),

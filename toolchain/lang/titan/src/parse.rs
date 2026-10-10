@@ -309,6 +309,7 @@ impl<'a> Parser<'a> {
         let t = self.next();
         match &t.kind {
             Kind::Name(n) if n == "int" => Ok(Ty::Int),
+            Kind::Name(n) if n == "byte" => Ok(Ty::Byte),
             Kind::Name(n) if n == "text" => Ok(Ty::Text),
             Kind::Name(n) if n == "bool" => Ok(Ty::Bool),
             Kind::Name(n) if n == "dec" && LEVEL_NOW >= 7 && self.peek().kind == Kind::Sym("(") => {

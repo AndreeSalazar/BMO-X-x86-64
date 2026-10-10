@@ -9,7 +9,7 @@ use crate::maestros::Master;
 use bmo_titan_contrato::{Permission, Permissions};
 
 /// El nombre de cada familia: el titulo de su nivel en GRAMATICA.md.
-pub static FAMILIES: [&str; 14] = [
+pub static FAMILIES: [&str; 15] = [
     "un programa que saluda",
     "calcular",
     "contar",
@@ -24,10 +24,11 @@ pub static FAMILIES: [&str; 14] = [
     "la 3060",
     "lo que viene de fuera",
     "lo que crece",
+    "el byte",
 ];
 
 /// Cuantos hay: la TAB mide sus tablas con esto.
-pub const COUNT: usize = 40;
+pub const COUNT: usize = 42;
 
 /// `static`, no `const`: UNA copia en `.rodata`, que Ring 3 lee por indice
 /// sin traerla a una pila de 64 KiB.
@@ -471,5 +472,27 @@ pub static MASTERS: [Master; COUNT] = [
         typed: &[],
         out: &["..~~.", ".#~~.", "##...", "el mundo tiene 7 bloques; agua: 4"],
         source: "# sale: ..~~.\n# sale: .#~~.\n# sale: ##...\n# sale: el mundo tiene 7 bloques; agua: 4\n# un mundo de cubos en chico: cada bloque, por su SITIO -- un mapa cuya clave es un registro\nmod main \"un mundo de bloques\"\n\ntype Sitio\n    x: int\n    y: int\n\nfn pinta(mundo: {Sitio: text}, alto: int, ancho: int)\n    for y in range(alto)\n        let mut fila = \"\"\n        for x in range(ancho)\n            match get(mundo, Sitio { x: x, y: y })\n                Hay(b)\n                    fila = fila + b\n                NoHay\n                    fila = fila + \".\"\n        print(fila)\n\nfn main()\n    let mut mundo: {Sitio: text} = {}\n    for x in range(2)\n        put(mut mundo, Sitio { x: x, y: 2 }, \"#\")\n    put(mut mundo, Sitio { x: 1, y: 1 }, \"#\")\n    for y in range(2)\n        for x in range(2, 4)\n            put(mut mundo, Sitio { x: x, y: y }, \"~\")\n    pinta(mundo, 3, 5)\n    let mut agua = 0\n    for s in mundo\n        match get(mundo, s)\n            Hay(b)\n                if b == \"~\"\n                    agua = agua + 1\n            NoHay\n                print(\"?\")\n    print(\"el mundo tiene \", len(mundo), \" bloques; agua: \", agua)\n",
+    },
+    Master {
+        name: "histograma",
+        level: 14,
+        why: "con una capa, celda a celda",
+        says: "el histograma de una imagen de bytes",
+        words: &["fn", "let", "mut", "if", "else", "for", "return"],
+        asks: Permissions::NONE,
+        typed: &[],
+        out: &["claros 7, medios 4, oscuros 5", "invertida: [255, 235, 155, 55, 0, 255]", "16 pixeles; la primera fila se repite: true"],
+        source: "# sale: claros 7, medios 4, oscuros 5\n# sale: invertida: [255, 235, 155, 55, 0, 255]\n# sale: 16 pixeles; la primera fila se repite: true\n# el histograma de una imagen guardada en bytes: cuantos pixeles hay de cada\n# tono, y la imagen INVERTIDA (255 - v) -- lo que hace un programa de dibujo\n# con una capa, celda a celda\nmod main \"el histograma de una imagen de bytes\"\n\nfn invierte(px: [byte]) -> [byte]\n    let mut out: [byte] = []\n    for v in px\n        push(mut out, byte(255 - v))\n    return out\n\nfn main()\n    let fila: [byte] = [byte(0), byte(20), byte(100), byte(200), byte(255), byte(0)]\n    let mut img: [byte] = []\n    for k in range(2)\n        for v in fila\n            push(mut img, v)\n    push(mut img, byte(128))\n    push(mut img, byte(90))\n    push(mut img, byte(30))\n    push(mut img, byte(240))\n    let mut cuenta: [int; 3] = [0, 0, 0]\n    for v in img\n        if v < 64\n            cuenta[0] = cuenta[0] + 1\n        else\n            if v < 192\n                cuenta[1] = cuenta[1] + 1\n            else\n                cuenta[2] = cuenta[2] + 1\n    print(\"claros \", cuenta[0], \", medios \", cuenta[1], \", oscuros \", cuenta[2])\n    print(\"invertida: \", invierte(fila))\n    let mut primera: [byte] = []\n    for i in range(6)\n        push(mut primera, img[6 + i])\n    print(len(img), \" pixeles; la primera fila se repite: \", primera == fila)\n",
+    },
+    Master {
+        name: "pixeles",
+        level: 14,
+        why: "255) y si no, NO; leido, un byte cuenta como el int que es",
+        says: "un degradado de grises en una [byte]",
+        words: &["fn", "let", "mut", "if", "for", "return"],
+        asks: Permissions::NONE,
+        typed: &[],
+        out: &["  . ::==", " .. :==#", "..: ==##", ".:: =###", "32 pixeles, 32 bytes; tinta: 3550"],
+        source: "# sale:   . ::==\n# sale:  .. :==#\n# sale: ..: ==##\n# sale: .:: =###\n# sale: 32 pixeles, 32 bytes; tinta: 3550\n# una imagen de grises en una lista de BYTES: un pixel, UN byte -- como\n# guarda su pagina un programa de dibujo. `byte(x)` dice que cabe (de 0 a\n# 255) y si no, NO; leido, un byte cuenta como el int que es\nmod main \"un degradado de grises en una [byte]\"\n\nfn gris(x: int, y: int) -> byte\n    return byte((x + y) * 25)\n\nfn letra(v: int) -> text\n    if v < 50\n        return \" \"\n    if v < 100\n        return \".\"\n    if v < 150\n        return \":\"\n    if v < 200\n        return \"=\"\n    return \"#\"\n\nfn main()\n    let ancho = 8\n    let alto = 4\n    let mut px: [byte] = []\n    for y in range(alto)\n        for x in range(ancho)\n            push(mut px, gris(x, y))\n    # la goma: una franja vuelve a blanco (0)\n    for y in range(alto)\n        px[y * ancho + 3] = byte(0)\n    let mut suma = 0\n    for y in range(alto)\n        let mut fila = \"\"\n        for x in range(ancho)\n            let v = px[y * ancho + x]\n            suma = suma + v\n            fila = fila + letra(v)\n        print(fila)\n    print(len(px), \" pixeles, \", len(px), \" bytes; tinta: \", suma)\n",
     },
 ];

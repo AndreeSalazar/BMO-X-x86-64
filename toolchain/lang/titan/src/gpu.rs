@@ -413,6 +413,8 @@ mod tests {
         assert_eq!(code("gpu fn d(x: [f32; 2]) -> f32\n    return 1.0\nfn main()\n    print(1)\n"), Code::GpuBody);
         assert_eq!(code("gpu fn d(mut x: f32) -> f32\n    return x\nfn main()\n    print(1)\n"), Code::GpuBody);
         assert_eq!(code("gpu fn d(x: f32)\n    let y = x\nfn main()\n    print(1)\n"), Code::GpuBody);
+        // TA1: el byte se queda en la CPU
+        assert_eq!(code("gpu fn d(x: f32) -> f32\n    let b = byte(3)\n    return x\nfn main()\n    print(1)\n"), Code::GpuBody);
         // f32 with a dec does not mix, not even inside: the literal is f32 there.
         assert_eq!(code("fn main()\n    let xs: [f32; 1] = [1.0]\n    let y = round(xs[0] * 2.0, 1)\n    print(y)\n"), Code::F32Cpu);
         // Tables of different lengths: no thread for the missing cell.
@@ -595,6 +597,8 @@ fn expr(p: &Program, e: &Expr, hondo: usize, forma: Forma) -> Result<u64, Messag
             Ok(cost.saturating_add(body(p, g, &g.body, hondo, forma_de(p, g))?))
         }
         Expr::Call { callee, line, col, .. } if callee.starts_with("director.") => Err(no_director(callee, *line, *col)),
+        // TA1: el byte es de la CPU (los pixeles guardados); en la 3060 todo es f32.
+        Expr::Call { callee, line, col, .. } if callee == "byte" => Err(no(*line, *col, "`byte()` dentro de una gpu fn", "en la 3060 cada numero es un f32: el byte es de la CPU, donde se GUARDAN los pixeles (`[byte]`, TA1); lo que la gpu fn cuenta llega y sale como f32", "cuenta en f32 aqui, y vuelvelo byte en la CPU: byte(...) al guardar")),
         // A name nobody declared is the checker's NO (T0051), after this one.
         Expr::Call { callee, args, .. } if !p.functions.iter().any(|g| g.name == *callee) => {
             let mut cost = 1u64;

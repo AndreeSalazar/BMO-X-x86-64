@@ -20,7 +20,7 @@ use crate::tree::{Arm, Expr, Mode, Program, Stmt, Ty};
 /// What the library gives: `print` (level 0), `len` (6), and `lee` -- the
 /// line typed on the program's own console (E1, `docs/plan/PLAN_LA_ENTRADA.md`)
 /// -- and the lists and maps of level 13 (`docs/plan/PLAN_LISTAS_Y_MAPAS.md`).
-const LIBRARY: [&str; 10] = ["print", "len", "lee", "numero", "push", "pop", "put", "get", "has", "remove"];
+const LIBRARY: [&str; 11] = ["print", "len", "lee", "numero", "byte", "push", "pop", "put", "get", "has", "remove"];
 
 /// The library's fn of lists and maps (level 13): how many values each takes,
 /// whether it CHANGES its first one (then it goes lent: `push(mut l, x)`), and
@@ -459,7 +459,7 @@ fn lends_only_in_calls(p: &Program, e: &Expr) -> Result<(), Message> {
 /// enum it is, with no `Forma::` in front; the values each case carries of a
 /// type that exists; and none that contains itself (a value, not a pointer).
 fn enums(p: &Program) -> Result<(), Message> {
-    let builtin = ["int", "text", "bool", "dec"];
+    let builtin = ["int", "byte", "text", "bool", "dec"];
     for (i, e) in p.enums.iter().enumerate() {
         let clash = p.enums[..i].iter().any(|o| o.name == e.name) || p.types.iter().any(|t| t.name == e.name) || p.functions.iter().any(|f| f.name == e.name) || builtin.contains(&e.name.as_str());
         if clash {
@@ -699,7 +699,7 @@ fn known_ty(p: &Program, t: &Ty, line: usize, col: usize) -> Result<(), Message>
 /// holds itself would never end: TITAN++ keeps values, not pointers).
 fn types(p: &Program) -> Result<(), Message> {
     for (i, t) in p.types.iter().enumerate() {
-        if p.types[..i].iter().any(|u| u.name == t.name) || p.functions.iter().any(|f| f.name == t.name) || ["int", "text", "bool", "dec"].contains(&t.name.as_str()) {
+        if p.types[..i].iter().any(|u| u.name == t.name) || p.functions.iter().any(|f| f.name == t.name) || ["int", "byte", "text", "bool", "dec"].contains(&t.name.as_str()) {
             return Err(Message::new(Code::Taken, t.line, t.col, &format!("`{}` ya es el nombre de otra cosa", t.name), "un nombre dice UNA cosa", "llama al tipo de otra forma"));
         }
         for (k, f) in t.fields.iter().enumerate() {
@@ -869,6 +869,16 @@ fn target(p: &Program, callee: &str, n: usize, line: usize, col: usize, as_value
             }
             if !as_value {
                 return Err(Message::new(Code::Result, line, col, "`numero(...)` da un caso, y aqui nadie lo mira", "Es(n) o NoEs: lo que dice se perderia", "match numero(linea)"));
+            }
+            return Ok(());
+        }
+        if callee == "byte" {
+            // `byte(x)` (TA1): an int as a byte -- 0 to 255, or a NO.
+            if n != 1 {
+                return Err(Message::new(Code::Args, line, col, &format!("`byte` pide 1 valor, y aqui se le dan {}", n), "`byte` vuelve UN numero entero un byte (de 0 a 255)", "byte(200)"));
+            }
+            if !as_value {
+                return Err(Message::new(Code::Result, line, col, "`byte(...)` da un byte, y aqui nadie lo guarda", "el byte se perderia nada mas hacerse", "guardalo: let b = byte(200)"));
             }
             return Ok(());
         }
