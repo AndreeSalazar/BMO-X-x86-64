@@ -170,9 +170,28 @@ memoria) y lo que se hizo:
       entera; el PCIe en Gen1 de Gen3               por defecto (649 us), el
                                                     page flip (LA_RAM 8) y el
                                                     enlace en Gen3
-   5  las puertas largas con las interrupciones     QUEDA: esperar el semaforo
-      cerradas y la 3060 esperada girando dentro    por interrupcion, o el
-      (`latido tarde 1632 ms`, METAL_2026-10-08)    anillo (sin esperar dentro)
+   5  las puertas largas con las interrupciones     A MEDIAS (10-10): la espera
+      cerradas y la 3060 esperada girando dentro    ya no "cede" -- dentro de
+      (`latido tarde 1632 ms`, METAL_2026-10-08)    un syscall, `yield_current`
+                                                    no soltaba el CPU y movia
+                                                    `current` a otra tarea en
+                                                    cada vuelta --, y la puerta
+                                                    larga sale a nombre de
+                                                    QUIEN llamo (se lee al
+                                                    entrar). La de 1632 ms era
+                                                    "op 4": no la 3060 (esa es
+                                                    la 53); lo mas probable,
+                                                    cerrar un fichero (FAT32 y
+                                                    el FLUSH del disco con
+                                                    IF=0). El proximo save lo
+                                                    dira. QUEDA: abrir las
+                                                    interrupciones DENTRO de la
+                                                    espera (sti/hlt/cli,
+                                                    re-publicando la pila del
+                                                    trap; que nadie mas entre
+                                                    a la 3060 mientras; que la
+                                                    tarea no muera con
+                                                    prestamos), en el metal
    6  el camino frio del cubo, frecuente: la        QUEDA: rehacer solo las
       huella del caliente lleva el numero de        ordenes en caliente
       vertices, que cambia al girar

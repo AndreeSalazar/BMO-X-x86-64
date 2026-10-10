@@ -1329,7 +1329,12 @@ extern "C" fn dispatch(frame: &mut TrapFrame) -> u64 {
     meter::count_class(clase as usize);
     // ** LA PUERTA LARGA (03-10): que operacion y cuanto, si pasa de 2 ms.
     // Se lee ANTES de llamar: la operacion puede reescribir los registros.
+    // Y DE QUIEN, al ENTRAR (10-10): al salir, `current` puede ser ya otra
+    // tarea (EXIT, WAIT, un cambio), y la puerta salia a nombre de la siguiente.
     let (__larga, __op) = (larga::empieza(), frame.rsi);
+    // SAFETY: el despacho entero corre con IF=0 (`MSR_SFMASK`): nada cambia
+    // `current` entre la entrada y aqui (`current_tid_en_trap`).
+    let __quien = unsafe { scheduler::current_tid_en_trap() };
     let status = match frame.rax as u32 {
         NR_INVOKE => invoke(frame),
         NR_WAIT => wait(frame),
@@ -1340,7 +1345,7 @@ extern "C" fn dispatch(frame: &mut TrapFrame) -> u64 {
     };
     frame.rax = (status.code as u64) | ((status.flags as u64) << 32);
     frame.rdx = status.value;
-    larga::acaba(__larga, __op, clase as u32, unsafe { scheduler::current_tid_en_trap() });
+    larga::acaba(__larga, __op, clase as u32, __quien);
     let salida = percpu::trap_rsp();
     meter::stop(__metro);
     salida

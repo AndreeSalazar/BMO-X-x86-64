@@ -513,23 +513,25 @@ static FRACTAL_PRESTADO: core::sync::atomic::AtomicBool = core::sync::atomic::At
 /// PLAZO del vigilante (E7): pasado, el trabajo se corta.
 const FRACTAL_ESPERA_US: u64 = bmo_gpu_ga10x::vigilante::PLAZO_US;
 
-/// Hasta aqui se espera GIRANDO; despues, cediendo el CPU en cada vuelta.
+/// Una vuelta de espera a la 3060: GIRANDO, siempre.
 ///
-/// ** Metal 24-09 (todos los save de la tarde): `el latido del bus llego
-/// TARDE ... 995 ms`, "el CPU lo tuvo d.bex durante 1001 ms". Era esto: un
-/// trabajo que no volvia (el triangulo 3D) dejaba al kernel dando vueltas UN
-/// SEGUNDO entero sin soltar el CPU, y el hilo del bus USB -- teclado y raton
-/// -- no corria. Un trabajo bueno tarda 30..800 us: se sigue midiendo
-/// girando, exacto; pasados 20 ms ya no es un trabajo bueno y se cede.
-const GIRANDO_US: u64 = 20_000;
-
-/// Una vuelta de espera a la 3060.
-fn esperando(us: u64) {
-    if us < GIRANDO_US {
-        core::hint::spin_loop();
-    } else {
-        crate::ring0::task::scheduler::yield_current();
-    }
+/// ** 10-10 (el cuello de botella 5 de `docs/plan/EL_FOCO.md`): pasados
+/// 20 ms aqui se llamaba a `yield_current` (desde el metal del 24-09: "el
+/// CPU lo tuvo d.bex durante 1001 ms" -- se quiso soltar el CPU), y DENTRO de un syscall eso
+/// no cede nada -- las interrupciones siguen cerradas (`MSR_SFMASK`) y este
+/// bucle sigue en el mismo CPU --: solo movia `s.current` a otra tarea en
+/// cada vuelta (su CR3, su pila de syscall, `current_pid`), y la puerta
+/// acababa "volviendo" a la ultima elegida. La puerta larga del 08-10
+/// (`latido tarde 1632 ms`) salio por eso a nombre de quien NO era. Girar
+/// con `pause` es lo mismo para el reloj y no ensucia el planificador.
+///
+/// [!] Lo que SIGUE pasando, dicho: el tiempo de una espera larga -- hasta el
+/// plazo del vigilante, 1 s, y sus cortes -- va con las interrupciones
+/// cerradas. Quitarlo pide abrir una ventana con interrupciones dentro de la
+/// espera (o esperar la 3060 por interrupcion), y eso se prueba en el metal:
+/// el plan, en 1e de EL_FOCO.
+fn esperando(_us: u64) {
+    core::hint::spin_loop();
 }
 
 fn pixeles_del_fractal() -> Option<&'static [u32]> {
