@@ -170,6 +170,10 @@ y `puerta.rs`; el juez en `platform/drivers/gpu/ga10x/src/sass/juez.rs`):
       de descriptores en la VRAM y subir la textura. **Como se sabe:** el
       muestreo puntual da los bits de la CPU; el lineal, dentro de la
       tolerancia que diga LI2g.
+      **09-10, decidida (DL17 de PLAN_LAS_LIBRERIAS):** las formas que pide
+      el juego -- con nivel, arrays, cubos, 3D y Load --, por capas: E8g de
+      PLAN_LA_LENGUA_DE_LA_3060 (lo que dijo `ptxas` de cada una, y el
+      orden). Y el LDC con indice de las luces (DL18, E8f), su vecino.
 - [ ] **LI2d -- varios render targets y la profundidad** (N5.8; V2/M1 de
       `PLAN_VERRANO.md`). El G-buffer: hasta 8 destinos y el z-buffer en la
       VRAM. **Como se sabe:** la escena 3D dura (A11) pintada por la 3060
