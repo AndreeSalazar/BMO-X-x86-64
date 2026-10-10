@@ -2712,11 +2712,18 @@ siendo lo que nunca fallo; "Reiniciar" no corta la corriente de la tarjeta.
                              sin WPR2           pararse; el GSP    DONE a los  (360 y 3600, IGUAL al
                                                 espero 119 ms;     186 ms; P0  juez): LB7 en el metal
                                                 FRTS->booter 483
+     2  09-10 22:41  SI      fria: GSP parado,  246961 us hasta    SI: INIT_   bankcat (F5) dos veces y
+                             sin WPR2           pararse; el GSP    DONE a los  Freedoom (foto del
+                                                espero 115 ms;     185 ms; P0  propietario); la 3060
+                                                FRTS->booter 461               PAGO copia, GR, sombreo
+                                                                               y lienzo
   ```
 
-  Uno de diez. Lo que falta para cerrar G0: nueve mas con el paso 1, de
-  Windows Y de BMO-X, y uno MALO si llega (con su autopsia: que variable
-  cambio). Si los diez salen buenos, el paso 1 era la variable (W2 de
+  Dos de diez, y casi calcados: el booter ~247 ms, el GSP esperando
+  ~117 ms, INIT_DONE a ~185 ms de CORE_RESUME -- el tiempo de un BUENO, para
+  la tabla de H2 si llega un malo --. Lo que falta para cerrar G0: ocho mas
+  con el paso 1, de Windows Y de BMO-X, y uno MALO si llega (con su
+  autopsia: que variable cambio). Si los diez salen buenos, el paso 1 era la variable (W2 de
   29-09 + el inicio rapido), y H2/H4 se aparcan con ese motivo.
 
 
