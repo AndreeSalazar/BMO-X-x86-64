@@ -62,8 +62,10 @@ pub(crate) fn poner(dsk: &mut Desktop, p: &bmo::Pantalla, tapado: bool) {
     let toca = ahora.wrapping_sub(e.pintado) >= FOTOGRAMA_MS * e.por_ms;
     let ms = ahora / e.por_ms;
     let (px, py) = (dsk.tick.ax, dsk.tick.ay);
-    // La de debajo del puntero, si es una app y nada la tapa.
-    let encima = if px != u32::MAX && crate::desktop::paint::app_encima(dsk, px, py) { dsk.table.at(px, py) } else { None };
+    // La de debajo del puntero, si es una app y nada la tapa (10-10: nada de
+    // delante la pisa; si no, su borde vivo caeria encima de la de delante).
+    let encima = if px != u32::MAX { crate::desktop::paint::app_en(dsk, px, py) } else { None }
+        .filter(|&i| !crate::desktop::foco::tapada(dsk, Ventana::App(i as u8)));
     let mut vivo = false;
     for i in 0..MAX {
         let Some(s) = dsk.table.get_mut(i) else {

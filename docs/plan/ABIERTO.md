@@ -8,7 +8,7 @@
 
 ```text
    749 casillas ABIERTAS en 69 planes
-   598 hechas
+   599 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -351,7 +351,7 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] 6 compilar hola.ada el frontend de Ada dentro del mismo
 - ... y 4 mas
 
-## [`EL_FOCO.md`](EL_FOCO.md) -- 6 abiertas, 7 hechas
+## [`EL_FOCO.md`](EL_FOCO.md) -- 6 abiertas, 8 hechas
 
 *EL FOCO -- una cosa a la vez, hasta el final (10-10)*
 

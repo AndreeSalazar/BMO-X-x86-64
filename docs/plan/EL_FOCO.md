@@ -257,6 +257,27 @@ Cada paso entra con sus pruebas en el anfitrion; el metal, UNA vez, al final
       juego vuelve. [!] Que el juego se MUEVA detras de la tarjeta (como en
       Windows) pide que la 3060 componga la tarjeta encima: Q0b.
 
+- [x] **R3 -- las ventanas YA NO SE PISAN** (10-10, el propietario: *"al
+      estar con una ventana con cualquier app choca, se mezclan o uno
+      predomina"*). El DIRECTOR no tenia apilado entre apps: las pegaba en el
+      orden de su hueco (la que cambiaba despues tapaba a la otra, estuviera
+      delante o no), siempre ENCIMA de las ventanas del sistema, el clic iba
+      a la primera de la mesa, y el CROMO de una de detras (borde, titulo y
+      fondo, pintado entero al perder el foco o al soltar Alt) caia encima de
+      la de delante. Ahora hay UN apilado, la lista del foco
+      (`foco::apilado`; la geometria pura y probada en `bmo_foco::encima`):
+      cada app se pega sin los trozos que le tapan las de delante -- apps y
+      del sistema --, de atras hacia delante; si una de detras repinta su
+      cromo, lo de delante que pisa se devuelve; el clic, el realce y el
+      borde vivo van a la que se VE; y una del sistema esta tapada solo si
+      algo de DELANTE la pisa. Una app quieta destapada por otra que se movio
+      se repega. **Falta el metal:** dos apps solapadas (NAVEGAR y
+      RESOLUCION, o DOOM en ventana) y una del sistema (CABINA) encima y
+      debajo, con clics. [!] En el modo Puntero (Alt+M) el foco sigue al
+      raton, y con el el apilado: pasar por encima trae delante. [!] Una app
+      que pone la 3060 a pantalla completa sigue escribiendo la pantalla
+      entera: una ventana del sistema delante de ella pide Q0b.
+
 **Lo del propietario, en cada arranque:** apagar (no reiniciar), `gpu init`
 y `save`: cada `SALIDA.TXT` es una fila de G0 hasta diez. Y una decision que
 espera sin prisa: el CUBO de E8g (la division de la 3060, la de la casa, o

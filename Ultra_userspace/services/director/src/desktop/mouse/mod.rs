@@ -251,8 +251,12 @@ fn repartir(
     // un clic en la LUDOTECA, encima del boton "save" de Ejecutar, corria
     // `save` en la terminal tapada (visto en el Ryzen: "save, linea limpia"
     // cuatro veces). Lo que se ve encima es lo que recibe el clic.
-    let under_pointer = if crate::desktop::paint::app_encima(dsk, pos.x, pos.y) {
+    // ** 10-10: la de DELANTE en el punto, por el apilado -- app o del sistema --.
+    let delante = crate::desktop::foco::delante_en(dsk, pos.x, pos.y);
+    let under_pointer = if matches!(delante, Some(Ventana::App(_))) {
         None
+    } else if let Some(v) = delante.filter(|&v| at(v)) {
+        Some(v)
     } else if at(dsk.win.top_before) {
         Some(dsk.win.top_before)
     } else {

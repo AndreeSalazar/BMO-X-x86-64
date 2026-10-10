@@ -118,41 +118,65 @@ pub(crate) fn caja(dsk: &Desktop, v: Ventana) -> Option<(u32, u32, u32, u32)> {
     }
 }
 
-fn se_pisan((x, y, w, h): (u32, u32, u32, u32), (a, b, c, d): (u32, u32, u32, u32)) -> bool {
-    x < a + c && a < x + w && y < b + d && b < y + h
-}
+/// Todas las que caben en el apilado: las del sistema y las apps.
+const TODAS_Y_APPS: usize = Ventana::TODAS.len() + MAX;
 
-/// **Alguna ventana del sistema DELANTE de `v` la pisa?** Entonces lo que `v`
-/// pinte por su cuenta (un refresco, un medidor) caeria ENCIMA de ella.
-///
-/// Delante = antes en la lista del foco. Si `v` no esta en la lista no se sabe
-/// su sitio, y se contesta lo que no rompe nada: tapada si cualquier otra la
-/// pisa. Pintar de menos se arregla al traerla delante; pintar de mas se come
-/// una ventana ajena.
-pub(crate) fn tapada(dsk: &Desktop, v: Ventana) -> bool {
-    let Some(mia) = caja(dsk, v) else { return false };
-    // ** LAS APPS VAN SIEMPRE ENCIMA de las ventanas del sistema (01-10), se
-    // diga lo que se diga en la lista del foco: el compositor las pega al
-    // final. Sin esto, Sonido con el foco mas reciente que DOOM pintaba su
-    // medidor ENCIMA de DOOM, y entre fotograma y fotograma de DOOM las dos
-    // capas se mezclaban. Ejecutar delante (Ctrl+Alt) es la excepcion: ahi
-    // las apps no la pisan.
-    let ejecutar_delante = v == Ventana::Run && crate::desktop::paint::run_delante(dsk);
-    if !matches!(v, Ventana::App(_)) && !ejecutar_delante {
-        let (fichas, n) = dsk.table.fichas();
-        if fichas[..n].iter().any(|&i| caja(dsk, Ventana::App(i as u8)).is_some_and(|otra| se_pisan(mia, otra))) {
-            return true;
+/// ** EL APILADO (10-10): TODAS las ventanas, de DELANTE hacia atras, con su
+/// caja (`None`: cerrada o minimizada). El orden es el de la lista del foco;
+/// detras, las que no estan en ella -- una app que no estuviera, delante de
+/// las del sistema, que es como se componian --. Es lo que manda en quien
+/// se pega encima, quien se lleva el clic y quien esta tapada
+/// (`bmo_foco::encima`). El propietario, 10-10: *"choca, se mezclan o uno
+/// predomina"*: las apps se pegaban en el orden de su hueco y siempre encima.
+pub(crate) fn apilado(dsk: &Desktop) -> ([Ventana; TODAS_Y_APPS], [Option<(u32, u32, u32, u32)>; TODAS_Y_APPS], usize) {
+    let mut orden = [Ventana::Run; TODAS_Y_APPS];
+    let mut cajas = [None; TODAS_Y_APPS];
+    let mut n = 0;
+    let mut pon = |v: Ventana, orden: &mut [Ventana; TODAS_Y_APPS], cajas: &mut [Option<(u32, u32, u32, u32)>; TODAS_Y_APPS]| {
+        if n < TODAS_Y_APPS && !orden[..n].contains(&v) {
+            orden[n] = v;
+            cajas[n] = caja(dsk, v);
+            n += 1;
+        }
+    };
+    for &id in dsk.win.focus.lista() {
+        if let Some(v) = Ventana::de_id(id) {
+            pon(v, &mut orden, &mut cajas);
         }
     }
-    let lista = dsk.win.focus.lista();
-    let hasta = lista.iter().position(|&id| Ventana::de_id(id) == Some(v));
-    let delante = &lista[..hasta.unwrap_or(lista.len())];
-    delante
-        .iter()
-        .filter_map(|&id| Ventana::de_id(id))
-        .filter(|&o| o != v)
-        .filter_map(|o| caja(dsk, o))
-        .any(|otra| se_pisan(mia, otra))
+    for i in 0..MAX {
+        if dsk.table.get(i).is_some() {
+            pon(Ventana::App(i as u8), &mut orden, &mut cajas);
+        }
+    }
+    for v in Ventana::TODAS {
+        pon(v, &mut orden, &mut cajas);
+    }
+    (orden, cajas, n)
+}
+
+/// **La de delante en el punto** (la que se ve, y la que se lleva el clic).
+pub(crate) fn delante_en(dsk: &Desktop, x: u32, y: u32) -> Option<Ventana> {
+    let (orden, cajas, n) = apilado(dsk);
+    bmo_foco::encima::delante(&cajas[..n], x, y).map(|k| orden[k])
+}
+
+/// **Lo que tapa a `v`**: las cajas de delante que la pisan, en `fuera`.
+/// Cuantas.
+pub(crate) fn tapas_de(dsk: &Desktop, v: Ventana, fuera: &mut [(u32, u32, u32, u32); bmo_foco::encima::MAX_CAJAS]) -> usize {
+    let (orden, cajas, n) = apilado(dsk);
+    match orden[..n].iter().position(|&o| o == v) {
+        Some(k) => bmo_foco::encima::tapan(&cajas[..n], k, fuera),
+        None => 0,
+    }
+}
+
+/// **Tapada**: una ventana de DELANTE la pisa -- una app o una del sistema,
+/// por el mismo apilado --. Quien pinta solo (las vitales, CABINA, ESTRATOS
+/// vivo) no pinta tapado: lo haria encima de la de delante.
+pub(crate) fn tapada(dsk: &Desktop, v: Ventana) -> bool {
+    let mut t = [(0, 0, 0, 0); bmo_foco::encima::MAX_CAJAS];
+    tapas_de(dsk, v, &mut t) > 0
 }
 
 /// Las ventanas del sistema **de atras hacia delante**: el orden en que hay que

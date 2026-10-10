@@ -329,7 +329,7 @@ impl Surface {
     /// Se recorta contra el marco Y contra la pantalla: una ventana arrastrada
     /// medio fuera del panel no puede escribir mas alla del lienzo, y el marco
     /// puede ser mas chico que la superficie si el usuario lo encogio.
-    pub(crate) fn compose(&mut self, p: &bmo::Pantalla, tapa: Option<(u32, u32, u32, u32)>) -> bool {
+    pub(crate) fn compose(&mut self, p: &bmo::Pantalla, tapas: &[(u32, u32, u32, u32)]) -> bool {
         if self.por_3060 {
             return false;
         }
@@ -352,10 +352,11 @@ impl Surface {
             return false;
         }
 
-        // ** LO QUE TAPA UNA VENTANA DE DELANTE (01-10): Ejecutar llamada con
-        // Ctrl+Alt queda ENCIMA de las apps, y una app animada la repintaria
-        // detras en el fotograma siguiente. Sus columnas no se pegan.
-        let (tx0, ty0, tx1, ty1) = tapa.map_or((0, 0, 0, 0), |(x, y, w, h)| (x, y, x + w, y + h));
+        // ** LO QUE TAPAN LAS VENTANAS DE DELANTE (01-10 Ejecutar; desde el
+        // 10-10 TODAS, por el apilado): una app animada las repintaria detras
+        // en el fotograma siguiente. Sus trozos no se pegan
+        // (`bmo_foco::encima::tramos`).
+        let mut vistos = [(0u32, 0u32); bmo_foco::encima::MAX_CAJAS + 1];
         // *** SOLO LO QUE CAMBIO (03-10): cada fila se compara con lo que ya
         // hay en el lienzo y se copia solo su tramo distinto
         // (`Pantalla::pegar_fila`); se marca UNA caja, la que cubre lo que
@@ -365,14 +366,10 @@ impl Surface {
         for row in 0..height {
             let src = self.base + HEADER_TAG + (row as u64 * cab.stride as u64) * 4;
             let yy = y0 + row;
-            // Los tramos de la fila que se pegan: toda, o lo que queda a los
-            // lados de lo que la tapa.
-            let tramos = if yy >= ty0 && yy < ty1 {
-                [(0, tx0.saturating_sub(x0).min(width)), (tx1.saturating_sub(x0).min(width), width)]
-            } else {
-                [(0, width), (width, width)]
-            };
-            for (c0, c1) in tramos {
+            // Los tramos de la fila que se pegan: toda, o lo que queda entre
+            // lo que la tapa.
+            let k = bmo_foco::encima::tramos(yy, x0, width, tapas, &mut vistos);
+            for &(c0, c1) in &vistos[..k] {
                 if c1 <= c0 {
                     continue;
                 }
@@ -396,8 +393,8 @@ impl Surface {
         self.stuck = cab.sequence;
         self.ritmo.presento();
         // Sin marco, los botones van ENCIMA del contenido: lo recien pegado
-        // los habra tapado. Con Ejecutar delante no: la pisarian.
-        if tapa.is_none() {
+        // los habra tapado. Con algo delante no: lo pisarian.
+        if tapas.is_empty() {
             self.chrome.paint_pastilla(p);
         }
         true
@@ -1001,6 +998,13 @@ impl Table {
     // entero: 2c.1 se entrego SOLA para que su fallo no se confundiera con el
     // del transporte, y el transporte llego cuatro dias despues sin que hubiera
     // que tocar una linea de esta funcion.
+    pub(crate) fn golpe_de(&self, i: usize, p: &bmo::Pantalla, px: u32, py: u32) -> Option<(usize, u32, u32)> {
+        let (lx, ly) = self.get(i)?.golpe(p, px, py)?;
+        Some((i, lx, ly))
+    }
+
+    /// La primera de la mesa con el punto (sin apilado: lo que la elige es
+    /// `paint::app_en`, y `golpe_de` traduce).
     pub(crate) fn golpe(&self, p: &bmo::Pantalla, px: u32, py: u32) -> Option<(usize, u32, u32)> {
         for (i, s) in self.sup.iter().enumerate() {
             let Some(s) = s.as_ref() else { continue };
@@ -1215,31 +1219,26 @@ impl Table {
         n
     }
 
-    /// **Compone.** `true` si pinto algo. `tapa`: lo que una ventana del
-    /// sistema tiene DELANTE de las apps (Ejecutar, 01-10), que no se pisa.
-    /// `encima`: lo que esta delante de TODO (el conmutador de Alt+Tab,
-    /// 10-10), que no lo pisa ni una app a pantalla completa
-    /// (`bmo_foco::encima`).
-    pub(crate) fn compose(&mut self, p: &bmo::Pantalla, tapa: Option<(u32, u32, u32, u32)>, encima: Option<(u32, u32, u32, u32)>) -> bool {
-        let mut painted = false;
-        let todo = bmo_foco::encima::juntar(tapa, encima);
-        for s in self.iter_mut() {
-            if s.chrome.minimized {
-                continue;
-            }
-            // A pantalla completa no hay cromo que repintar: solo pixeles.
-            if s.chrome.is_fullscreen() {
-                painted |= s.compose(p, encima);
-                continue;
-            }
-            if s.moved() {
-                s.paint_chrome(p);
-                s.mark_dirty();
-                painted = true;
-            }
-            painted |= s.compose(p, todo);
+    /// **Compone la app `i`** sin lo que le tapan las de delante (`tapas`:
+    /// las del apilado que la pisan, y lo de encima de todo). `(pinto, cromo)`:
+    /// si pinto algo, y si pinto su CROMO entero -- borde, titulo y fondo,
+    /// tambien bajo lo de delante: quien llama lo devuelve
+    /// (`paint::componer_apilado`) --.
+    pub(crate) fn componer_una(&mut self, i: usize, p: &bmo::Pantalla, tapas: &[(u32, u32, u32, u32)]) -> (bool, bool) {
+        let Some(s) = self.get_mut(i) else { return (false, false) };
+        if s.chrome.minimized {
+            return (false, false);
         }
-        painted
+        // A pantalla completa no hay cromo que repintar: solo pixeles.
+        if s.chrome.is_fullscreen() {
+            return (s.compose(p, tapas), false);
+        }
+        let cromo = s.moved();
+        if cromo {
+            s.paint_chrome(p);
+            s.mark_dirty();
+        }
+        (s.compose(p, tapas) || cromo, cromo)
     }
 
     /// **Todas, enteras otra vez** (con su cromo): se quito algo de encima
@@ -1269,13 +1268,6 @@ impl Table {
         let run_box = (s.chrome.x, s.chrome.y, s.chrome.width, s.chrome.height);
         s.soltar();
         Some(run_box)
-    }
-
-    /// Sobre que ventana esta el puntero, de arriba a abajo.
-    pub(crate) fn at(&self, px: u32, py: u32) -> Option<usize> {
-        self.sup
-            .iter()
-            .position(|s| s.as_ref().is_some_and(|s| s.chrome.contains(px, py)))
     }
 
     pub(crate) fn get_mut(&mut self, i: usize) -> Option<&mut Surface> {

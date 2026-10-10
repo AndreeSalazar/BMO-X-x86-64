@@ -93,9 +93,128 @@ impl Pausa {
     }
 }
 
+// ===================================================================
+//  EL APILADO (10-10): quien esta delante de quien, para TODAS
+// ===================================================================
+//
+// El propietario: *"al estar con una ventana con cualquier app choca, se
+// mezclan o uno predomina"*. El compositor pegaba las apps en el orden de su
+// hueco -- la que cambiaba despues tapaba a la otra, estuviera delante o no
+// -- y siempre ENCIMA de las ventanas del sistema; el clic iba a la primera
+// del hueco. Ahora el orden es UNO, el de la lista del foco (la de delante
+// primero), y de el salen las tres cosas:
+//
+//    pegar     cada ventana se pega SIN los trozos que le tapan las de
+//              delante ([`tapan`] y [`tramos`])
+//    el clic   va a la de delante en ese punto ([`delante`])
+//    tapada    una ventana esta tapada si una de DELANTE la pisa
+
+/// Las que caben en un apilado: las ventanas del sistema, las apps y lo de
+/// encima de todo.
+pub const MAX_CAJAS: usize = 16;
+
+/// Si dos cajas se pisan.
+pub fn se_pisan((x, y, w, h): Caja, (a, b, c, d): Caja) -> bool {
+    x < a.saturating_add(c) && a < x.saturating_add(w) && y < b.saturating_add(d) && b < y.saturating_add(h)
+}
+
+/// Si la caja tiene el punto.
+pub fn tiene((x, y, w, h): Caja, px: u32, py: u32) -> bool {
+    px >= x && py >= y && px - x < w && py - y < h
+}
+
+/// **La de delante en el punto**: `cajas` va de delante hacia atras (`None`:
+/// cerrada o minimizada). Su indice.
+pub fn delante(cajas: &[Option<Caja>], px: u32, py: u32) -> Option<usize> {
+    cajas.iter().position(|c| c.is_some_and(|c| tiene(c, px, py)))
+}
+
+/// **Lo que tapa a la `k`**: las cajas de DELANTE de ella que la pisan, en
+/// `fuera`. Cuantas.
+pub fn tapan(cajas: &[Option<Caja>], k: usize, fuera: &mut [Caja; MAX_CAJAS]) -> usize {
+    let Some(mia) = cajas.get(k).copied().flatten() else { return 0 };
+    let mut n = 0;
+    for c in cajas[..k].iter().flatten() {
+        if se_pisan(mia, *c) && n < MAX_CAJAS {
+            fuera[n] = *c;
+            n += 1;
+        }
+    }
+    n
+}
+
+/// **Los tramos que se VEN de una fila**: la fila `y`, de `x0` a `x0 +
+/// ancho`, menos lo que le tapan las `tapas`. En `fuera`, como `(desde,
+/// hasta)` relativos a `x0`, de izquierda a derecha y sin solaparse. Cuantos.
+pub fn tramos(y: u32, x0: u32, ancho: u32, tapas: &[Caja], fuera: &mut [(u32, u32); MAX_CAJAS + 1]) -> usize {
+    let fin = x0.saturating_add(ancho);
+    let mut n = 0;
+    let mut x = x0;
+    while x < fin {
+        // La tapa que cubre `x` y llega mas lejos: se salta.
+        let cubre = tapas.iter().filter(|t| t.1 <= y && y - t.1 < t.3 && t.0 <= x && x - t.0 < t.2).map(|t| t.0.saturating_add(t.2)).max();
+        if let Some(hasta) = cubre {
+            x = hasta.min(fin);
+            continue;
+        }
+        // Se ve hasta la tapa siguiente de esta fila.
+        let corta = tapas.iter().filter(|t| t.1 <= y && y - t.1 < t.3 && t.0 > x && t.0 < fin).map(|t| t.0).min().unwrap_or(fin);
+        if n < fuera.len() {
+            fuera[n] = (x - x0, corta - x0);
+            n += 1;
+        }
+        x = corta;
+    }
+    n
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn el_clic_va_a_la_de_delante() {
+        // Delante una chica, detras una grande que la contiene.
+        let cajas = [Some((100, 100, 50, 50)), None, Some((0, 0, 400, 300))];
+        assert_eq!(delante(&cajas, 120, 120), Some(0));
+        assert_eq!(delante(&cajas, 10, 10), Some(2));
+        assert_eq!(delante(&cajas, 150, 120), Some(2), "el borde derecho no es suyo");
+        assert_eq!(delante(&cajas, 500, 10), None);
+    }
+
+    #[test]
+    fn solo_tapan_las_de_delante_que_la_pisan() {
+        let cajas = [Some((0, 0, 10, 10)), Some((100, 100, 50, 50)), Some((90, 90, 300, 300)), Some((500, 500, 5, 5))];
+        let mut t = [(0, 0, 0, 0); MAX_CAJAS];
+        // A la tercera la tapa la segunda (la pisa); la primera no la toca.
+        assert_eq!(tapan(&cajas, 2, &mut t), 1);
+        assert_eq!(t[0], (100, 100, 50, 50));
+        // A la de delante no la tapa nadie; a la ultima tampoco (no la pisan).
+        assert_eq!(tapan(&cajas, 0, &mut t), 0);
+        assert_eq!(tapan(&cajas, 3, &mut t), 0);
+        // Cerrada: nada.
+        assert_eq!(tapan(&[Some((0, 0, 9, 9)), None], 1, &mut t), 0);
+    }
+
+    #[test]
+    fn los_tramos_que_se_ven_de_una_fila() {
+        let mut f = [(0, 0); MAX_CAJAS + 1];
+        // Sin tapas: entera.
+        assert_eq!(tramos(5, 10, 100, &[], &mut f), 1);
+        assert_eq!(f[0], (0, 100));
+        // Una en medio: dos tramos.
+        let tapa = [(40, 0, 20, 10)];
+        assert_eq!(tramos(5, 10, 100, &tapa, &mut f), 2);
+        assert_eq!(&f[..2], &[(0, 30), (50, 100)]);
+        // Fuera de su alto no tapa.
+        assert_eq!(tramos(10, 10, 100, &tapa, &mut f), 1);
+        // Dos que se solapan, y una que tapa el principio y otra el final.
+        let tapas = [(0, 0, 30, 10), (20, 0, 20, 10), (100, 0, 50, 10)];
+        assert_eq!(tramos(0, 10, 100, &tapas, &mut f), 1);
+        assert_eq!(f[0], (30, 90));
+        // Tapada entera.
+        assert_eq!(tramos(0, 10, 100, &[(0, 0, 500, 1)], &mut f), 0);
+    }
 
     #[test]
     fn juntar_cubre_las_dos() {

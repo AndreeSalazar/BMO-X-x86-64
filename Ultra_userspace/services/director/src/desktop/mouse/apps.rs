@@ -54,7 +54,7 @@ pub(crate) fn on_pointer(dsk: &mut Desktop, p: &bmo::Pantalla, g: &Golpe) -> boo
 
         // Con Ejecutar delante (Ctrl+Alt), su caja no es de la app de debajo.
         if button && !dsk.tick.button_before && crate::desktop::paint::app_encima(dsk, pos.x, pos.y) {
-            if let Some(i) = dsk.table.at(pos.x, pos.y) {
+            if let Some(i) = crate::desktop::paint::app_en(dsk, pos.x, pos.y) {
                 // El realce se pone aunque no se pulse: si no, los tres
                 // botones de una app serian los unicos del escritorio
                 // que no se encienden al pasar por encima.
