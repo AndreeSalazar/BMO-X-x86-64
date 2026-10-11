@@ -93,7 +93,8 @@ pub const TASK_OP_EJECUTAR: u64 = 0x0C;
 pub const TASK_OP_CONSOLA_CREAR: u64 = 0x0D;
 
 /// Abre un directorio del volumen de datos. La ruta se acumula antes con
-/// [`TASK_OP_RUTA`] -- el mismo renglon que usa `EJECUTAR`.
+/// [`TASK_OP_RUTA`] -- el mismo renglon que usa `EJECUTAR`. Con `arg0 = 1`
+/// la CREA antes si falta, con las de por medio (`mkdir`, 12-10).
 pub const TASK_OP_DIR_ABRIR: u64 = 0x0E;
 
 /// Abre un archivo del volumen de datos para LEER. La ruta viene del renglon.

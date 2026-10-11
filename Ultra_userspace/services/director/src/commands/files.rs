@@ -19,6 +19,29 @@ use crate::scene::{paint_status, INK_BAD, INK_DIM, INK_OK};
 use crate::text::{decimal, is_dot_entry};
 use crate::{dump_output, DEFAULT_DUMP};
 
+/// **`mkdir <ruta>`** (12-10): crea la carpeta (y las de por medio) en el
+/// disco de datos. `datos/...` va a `informe/...`, como todo lo que se
+/// escribe; `efi:` no se toca.
+pub(crate) fn make_dir(dsk: &mut Desktop, p: &bmo::Pantalla, ruta: &[u8]) -> After {
+    match bmo::Directorio::crear(ruta) {
+        Ok(_) => {
+            dsk.out.grid.with_ink(INK_GOOD);
+            dsk.out.grid.text(b"  carpeta lista: ");
+            dsk.out.grid.text(ruta);
+            dsk.out.grid.text(b"  (`ls ");
+            dsk.out.grid.text(ruta);
+            dsk.out.grid.text(b"` la ensena)\n");
+        }
+        Err(_) => {
+            dsk.out.grid.with_ink(INK_ERR);
+            dsk.out.grid.text(b"  no se pudo crear esa carpeta (un fichero con ese nombre, un nombre que FAT no guarda, o el disco de datos sin montar)\n");
+        }
+    }
+    dsk.out.grid.with_ink(INK_PLAIN);
+    paint_status(p, &dsk.run_box, "mkdir", INK_DIM);
+    After::Settle
+}
+
 pub(crate) fn list(dsk: &mut Desktop, p: &bmo::Pantalla, dir_path: &[u8]) -> After {
     match bmo::Directorio::open(dir_path) {
         Ok(d) => {
@@ -26,12 +49,12 @@ pub(crate) fn list(dsk: &mut Desktop, p: &bmo::Pantalla, dir_path: &[u8]) -> Aft
             // Tope por si un directorio enorme se
             // comiera el fotograma entero.
             while count < 256 {
-                let e = match d.next() {
-                    Some(e) => e,
-                    None => break,
-                };
-                let mut nom = [0u8; 12];
-                let length = e.legible(&mut nom);
+                // ** Con NOMBRE LARGO (12-10): `next` solo daba los 8.3 y
+                // `datos-componentes` no salia en su propia raiz.
+                let mut nom = [0u8; 64];
+                let Some((length, es_dir, bytes)) = d.siguiente_todo(&mut nom) else { break };
+                struct E { es_dir: bool, bytes: u64 }
+                let e = E { es_dir, bytes };
                 // `.` y `..` no se muestran: aqui
                 // no hay carpeta actual a la que
                 // volver, asi que son ruido.
@@ -52,12 +75,13 @@ pub(crate) fn list(dsk: &mut Desktop, p: &bmo::Pantalla, dir_path: &[u8]) -> Aft
                 dsk.out.grid.text(&nom[..length]);
                 // Alinear la columna del medida.
                 let mut k = length;
-                while k < 14 { dsk.out.grid.byte(b' '); k += 1; }
+                while k < 22 { dsk.out.grid.byte(b' '); k += 1; }
+                dsk.out.grid.byte(b' ');
                 if e.es_dir {
                     dsk.out.grid.text(b"<DIR>");
                 } else {
                     let mut d10 = [0u8; 10];
-                    let n10 = decimal(e.bytes as u64, &mut d10);
+                    let n10 = decimal(e.bytes.min(9_999_999_999), &mut d10);
                     dsk.out.grid.text(&d10[..n10]);
                 }
                 dsk.out.grid.byte(b'\n');

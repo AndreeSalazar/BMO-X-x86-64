@@ -176,12 +176,12 @@ if ($Data) {
         if ($conf -ne $esperado) { Write-Host '  Abortado.'; $script:salida = 0; exit 0 }
     }
 
-    # * Ya no es una sola carpeta: van a sys\ cobol\ c\ ada\ datos\. El bucle de
+    # * Ya no es una sola carpeta: van a sys\ cobol\ c\ ada\ datos-componentes\ informe\. El bucle de
     # abajo copia recursivo y crea los directorios que falten, asi que no hay
     # nada que cambiar aqui salvo el mensaje -- pero **la vieja `apps\` del disco
     # NO se borra**: este deploy no borra nada que no haya puesto el. Hay que
     # quitarla a mano una vez, o quedan dos copias de cada programa.
-    Step ('Copiando programas de Ring 3 a ' + $dataLetter + ':\  (sys, cobol, c, ada, datos)')
+    Step ('Copiando programas de Ring 3 a ' + $dataLetter + ':\  (sys, cobol, c, ada, datos-componentes, informe)')
     $dataSrc = Join-Path $root 'staging\BMO-DATA'
     if (-not (Test-Path $dataSrc)) { Fail 'no hay staging\BMO-DATA (ejecuta el build primero)' }
 

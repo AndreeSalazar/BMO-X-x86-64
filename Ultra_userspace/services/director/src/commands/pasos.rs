@@ -146,7 +146,7 @@ pub(crate) const PASOS: &[Paso] = &[
         hecho: super::vbios::lista,
         dar: super::vbios::paso,
         pide: None,
-        consejo: b"`gpu`: filas `vbios`, `fwsec`, `fusible`, `vram` y `wpr2`; la ROM queda en datos/vbios.rom -- FWSEC-FRTS corre mas tarde, justo antes de `despertar` (29-09, EL MOMENTO)",
+        consejo: b"`gpu`: filas `vbios`, `fwsec`, `fusible`, `vram` y `wpr2`; la ROM queda en informe/gpu/vbios.rom -- FWSEC-FRTS corre mas tarde, justo antes de `despertar` (29-09, EL MOMENTO)",
         repinta: false,
     },
     Paso {
@@ -205,7 +205,7 @@ pub(crate) const PASOS: &[Paso] = &[
         hecho: super::gsp::despierto,
         dar: super::gsp::despertar,
         pide: Some(b"sistema"),
-        consejo: b"`gpu`: la fila `despierto` dice el RISC-V ACTIVO y `gsplog` que el GSP ESCRIBIO; sus logs en datos/gsplog.bin -- lo siguiente es `cola`, leer lo que dijo",
+        consejo: b"`gpu`: la fila `despierto` dice el RISC-V ACTIVO y `gsplog` que el GSP ESCRIBIO; sus logs en informe/gpu/gsplog.bin -- lo siguiente es `cola`, leer lo que dijo",
         repinta: false,
     },
     Paso {
@@ -214,7 +214,7 @@ pub(crate) const PASOS: &[Paso] = &[
         hecho: super::gspcola::leida,
         dar: super::gspcola::leer,
         pide: Some(b"despertar"),
-        consejo: b"`gpu`: la fila `cola` dice cuantos mensajes, todos con firma y suma; `dijo` que tipos; la cola cruda en datos/gspcola.bin -- lo siguiente es `vaciar`",
+        consejo: b"`gpu`: la fila `cola` dice cuantos mensajes, todos con firma y suma; `dijo` que tipos; la cola cruda en informe/gpu/gspcola.bin -- lo siguiente es `vaciar`",
         repinta: false,
     },
     Paso {
@@ -223,7 +223,7 @@ pub(crate) const PASOS: &[Paso] = &[
         hecho: super::gspvaciar::vaciada,
         dar: super::gspvaciar::vaciar,
         pide: Some(b"cola"),
-        consejo: b"`gpu`: la fila `vacia` dice cuantos consumidos, `nocat` lo que traian en claro y `pide` el primero que espera respuesta; crudos en datos/gspnocat.bin -- lo siguiente es `secuenciador`, leer lo que pide",
+        consejo: b"`gpu`: la fila `vacia` dice cuantos consumidos, `nocat` lo que traian en claro y `pide` el primero que espera respuesta; crudos en informe/gpu/gspnocat.bin -- lo siguiente es `secuenciador`, leer lo que pide",
         repinta: false,
     },
     Paso {
@@ -232,7 +232,7 @@ pub(crate) const PASOS: &[Paso] = &[
         hecho: super::gspsecuencia::leido,
         dar: super::gspsecuencia::leer,
         pide: Some(b"vaciar"),
-        consejo: b"`gpu`: la fila `secuen` dice cuantas ordenes y de que tipo, y cada `orden` que registro toca y con que; crudo en datos/gspsec.bin -- lo siguiente es `init`",
+        consejo: b"`gpu`: la fila `secuen` dice cuantas ordenes y de que tipo, y cada `orden` que registro toca y con que; crudo en informe/gpu/gspsec.bin -- lo siguiente es `init`",
         repinta: false,
     },
     // ** `init` VUELVE a save mode (24-09): salio el 09:54 porque tras

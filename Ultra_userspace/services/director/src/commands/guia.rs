@@ -58,8 +58,8 @@ pub(crate) fn guia(dsk: &mut Desktop, p: &bmo::Pantalla) -> After {
     s.with_ink(INK_ECHO);
     s.text(b"  3  ABRIR LO QUE HAY\n");
     s.with_ink(INK_PLAIN);
-    s.text(b"       ls              que archivos hay        ls datos\n");
-    s.text(b"       cat             que hay dentro          cat datos/movim.txt\n");
+    s.text(b"       ls              que archivos hay        ls informe\n");
+    s.text(b"       cat             que hay dentro          cat datos-componentes/movim.txt\n");
     s.with_ink(INK_ECHO);
     s.text(b"  4  CORRER UN PROGRAMA\n");
     s.with_ink(INK_PLAIN);
@@ -69,7 +69,8 @@ pub(crate) fn guia(dsk: &mut Desktop, p: &bmo::Pantalla) -> After {
     s.with_ink(INK_ECHO);
     s.text(b"  5  DEJAR CONSTANCIA\n");
     s.with_ink(INK_PLAIN);
-    s.text(b"       write datos/nota.txt hola     crea un archivo\n");
+    s.text(b"       write informe/nota.txt hola     crea un archivo\n");
+    s.text(b"       mkdir informe/pruebas     crea una carpeta (y las de por medio)\n");
     s.text(b"       save                          vuelca esta salida a un .txt\n");
     s.with_ink(INK_ECHO);
     s.text(b"  6  LAS DOS VENTANAS\n");
@@ -86,7 +87,7 @@ pub(crate) fn guia(dsk: &mut Desktop, p: &bmo::Pantalla) -> After {
     s.with_ink(INK_PLAIN);
     s.text(b"    `estratos escribe` guarda hasta 96 bytes: lo mas grande entra\n");
     s.text(b"    copiandolo desde la FAT32. Las carpetas no tienen tope.\n");
-    s.text(b"    Y los de ls, cat y write son de la FAT32 (datos/, cobol/, c/),\n");
+    s.text(b"    Y los de ls, cat y write son de la FAT32 (informe/, datos-componentes/, cobol/, c/),\n");
     s.text(b"    que es la particion que Windows tambien sabe leer.\n");
     s.with_ink(INK_ECHO);
     s.text(b"    `ayuda` tiene la lista entera de ordenes.\n");

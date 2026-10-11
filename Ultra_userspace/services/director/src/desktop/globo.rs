@@ -42,7 +42,7 @@ const SABIAS: &[(&[u8], &[u8])] = &[
     (b"atajo", b"TAB completa la palabra; las flechas eligen la sugerencia"),
     (b"atajo", b"clic escribe la sugerencia; Ctrl+clic ademas la corre"),
     (b"sabias", b"el GSP es un RISC-V dentro de la 3060: corre el firmware 570.144"),
-    (b"atajo", b"`save` escribe el INFORME MAESTRO en datos/salida.txt"),
+    (b"atajo", b"`save` escribe el INFORME MAESTRO en informe/salida.txt"),
     (b"sabias", b"`reboot` apaga el GSP en orden: el arranque siguiente, limpio"),
     (b"atajo", b"Ctrl+Alt: el consejero dice el siguiente paso"),
     (b"sabias", b"la IOMMU: la 3060 solo ve la RAM que BMO-X le presta"),

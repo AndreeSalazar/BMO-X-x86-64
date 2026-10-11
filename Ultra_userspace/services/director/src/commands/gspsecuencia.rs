@@ -10,7 +10,7 @@
 //!
 //! Correr ninguna orden ni mover un puntero: el mensaje se queda en la cola.
 //! Correrlas es L0c4b2c, y en el kernel. Aqui se mira primero, como en cada
-//! escalon: el mensaje entero, crudo, queda en `datos/gspsec.bin`.
+//! escalon: el mensaje entero, crudo, queda en `informe/gpu/gspsec.bin`.
 
 use bmo_gpu_ga10x::rpc::{self, Mensaje};
 use bmo_gpu_ga10x::secuenciador::{self as sq, NoSe, Orden};
@@ -31,7 +31,7 @@ const MAX_ORDENES: usize = 1024;
 const PUNTAS: usize = 12;
 /// Las unidades que se cuentan, en el orden de `sq::unidad`.
 const UNIDADES: [&[u8]; 6] = [b"PMC", b"PFB", b"falcon GSP", b"PGC6/BSI", b"falcon SEC2", b"?"];
-const RUTA: &[u8] = b"datos/gspsec.bin";
+const RUTA: &[u8] = b"informe/gpu/gspsec.bin";
 
 #[derive(Clone, Copy)]
 struct Resumen {
@@ -137,7 +137,7 @@ pub(crate) fn total() -> u32 {
     resumen().map_or(0, |r| r.total)
 }
 
-/// El mensaje, crudo, a `datos/gspsec.bin` en UNA llamada (`escribir_de`,
+/// El mensaje, crudo, a `informe/gpu/gspsec.bin` en UNA llamada (`escribir_de`,
 /// como la cola y los logs).
 ///
 /// ** Metal 24-09 08:48 y 08:59: con `Archivo::write` --7 bytes por syscall,
@@ -170,7 +170,7 @@ pub(crate) fn orden(dsk: &mut Desktop, p: &bmo::Pantalla) -> After {
             g.with_ink(INK_GOOD);
             g.text(b"  EL SECUENCIADOR: ");
             g.dec(n);
-            g.text(b" ordenes leidas, ninguna corrida; crudo en datos/gspsec.bin\n");
+            g.text(b" ordenes leidas, ninguna corrida; crudo en informe/gpu/gspsec.bin\n");
         }
         Err(m) => {
             g.with_ink(INK_ERR);
@@ -285,7 +285,7 @@ pub(crate) fn fila(s: &mut Output) {
         }
     }
     s.with_ink(INK_ECHO);
-    s.text(if r.guardada { b"   -> datos/gspsec.bin" as &[u8] } else { b"   (NO se pudo guardar)" });
+    s.text(if r.guardada { b"   -> informe/gpu/gspsec.bin" as &[u8] } else { b"   (NO se pudo guardar)" });
     s.with_ink(INK_PLAIN);
     s.byte(b'\n');
 
@@ -345,7 +345,7 @@ pub(crate) fn fila(s: &mut Output) {
         s.with_ink(INK_ECHO);
         s.text(b"   ... ");
         s.dec((ordenes.len() - 2 * PUNTAS) as u64);
-        s.text(b" en medio: todas en datos/gspsec.bin\n");
+        s.text(b" en medio: todas en informe/gpu/gspsec.bin\n");
         s.with_ink(INK_PLAIN);
         let desde = ordenes.len() - PUNTAS;
         for (i, o) in ordenes[desde..].iter().enumerate() {
@@ -357,7 +357,7 @@ pub(crate) fn fila(s: &mut Output) {
         s.with_ink(INK_ECHO);
         s.text(b"y ");
         s.dec((r.total as usize - r.n) as u64);
-        s.text(b" mas que no caben aqui: todas en datos/gspsec.bin\n");
+        s.text(b" mas que no caben aqui: todas en informe/gpu/gspsec.bin\n");
         s.with_ink(INK_PLAIN);
     }
     if let Some(e) = r.roto {

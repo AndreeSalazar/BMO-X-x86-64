@@ -269,7 +269,7 @@ const CAJA: u32 = 0x000B_0D12;
 fn uso(dsk: &mut Desktop) -> After {
     let g = &mut dsk.out.grid;
     g.with_ink(INK_ERR);
-    g.text(b"  gpu video <fichero> <ancho>x<alto> [fps]   (p. ej. `gpu video datos/clip.nv12 640x360 30`)\n");
+    g.text(b"  gpu video <fichero> <ancho>x<alto> [fps]   (p. ej. `gpu video datos-componentes/clip.nv12 640x360 30`)\n");
     g.with_ink(INK_ECHO);
     g.text(b"  el fichero es NV12 crudo, de cualquier .mp4: ffmpeg -i video.mp4 -vf scale=640:360 -pix_fmt nv12 -f rawvideo clip.nv12\n");
     g.with_ink(INK_PLAIN);

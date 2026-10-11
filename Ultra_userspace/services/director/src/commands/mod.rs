@@ -109,7 +109,7 @@ pub(crate) mod save_cabina;
 /// ficha BEF2 de cada programa (2026-09-20).
 pub(crate) mod save_maestro;
 /// `save siempre` (03-10): CABINA guarda sola al arrancar, mientras corre un
-/// programa (datos/vivo.txt) y al acabar.
+/// programa (informe/vivo.txt) y al acabar.
 pub(crate) mod save_siempre;
 /// **`smp siempre`** (11-10): despertar a todos los nucleos al arrancar.
 pub(crate) mod smp_siempre;
@@ -165,6 +165,9 @@ pub(crate) enum Command<'a> {
     /// habia capability de directorio, asi que habia que saberse los nombres
     /// de memoria y teclearlos enteros.
     List(&'a [u8]),
+    /// `mkdir <ruta>` (12-10) -- crea la carpeta y las de por medio. Organizar
+    /// el disco ya no es cosa del build en Windows.
+    MakeDir(&'a [u8]),
     /// `lee <path>` -- muestra lo que hay DENTRO de un archivo. Es el hermano
     /// de `ls`: aquel dice que archivos hay, este los abre.
     Read(&'a [u8]),
@@ -377,7 +380,7 @@ pub(crate) fn looks_like_program(t: &[u8]) -> bool {
 /// **La RUTA de una linea de lanzar**: sin el verbo delante y sin los
 /// argumentos detras (2026-09-13).
 ///
-/// `run inti/musica.ibx datos/tema.mus` -> `inti/musica.ibx`. Lo que viaja al
+/// `run inti/musica.ibx informe/tema.mus` -> `inti/musica.ibx`. Lo que viaja al
 /// kernel es la linea ENTERA --el kernel parte en el primer espacio y el resto
 /// es del programa--, pero lo que el DIRECTOR abre para leer la cabecera o para
 /// nombrar el volcado es SOLO el fichero. Abrir la linea entera buscaba un
@@ -535,6 +538,9 @@ pub(crate) fn parse(line: &[u8]) -> Command<'_> {
         }
         b"clear" | b"cls" | b"limpia" => Command::Clear,
         b"ls" | b"dir" | b"lista" => Command::List(rest),
+        b"mkdir" | b"md" | b"carpeta" => {
+            if rest.is_empty() { Command::Help } else { Command::MakeDir(rest) }
+        }
         // `personal ls [ruta]` / `personal lee <fichero>`: el disco D:, SOLO
         // para mirar (N1b). No hay `personal escribe`, y no es un olvido.
         b"personal" | b"d:" => {
@@ -674,7 +680,7 @@ pub(crate) fn parse(line: &[u8]) -> Command<'_> {
         // teclea sin pensar cuando uno no sabe que teclear.
         b"guia" | b"empezar" | b"start" => Command::Guia,
         b"buscar" | b"busca" | b"find" => Command::Buscar(rest),
-        // El VERBO y no la linea: `inti/musica.ibx datos/tema.mus` es un
+        // El VERBO y no la linea: `inti/musica.ibx informe/tema.mus` es un
         // programa con argumentos, y la linea entera no acaba en `.ibx`.
         _ if looks_like_program(verb) => Command::Launch(line),
         // Parece un archivo pero no es un programa. Antes esto caia en

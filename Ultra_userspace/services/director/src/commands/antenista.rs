@@ -19,7 +19,7 @@
 //!    NAVEGAR          -> TOMAR / prestado base / prestado bytes / pinta
 //! ```
 //!
-//! ** El disco sigue: `datos/pagina.lam` se escribe igual que en N3a, y es lo
+//! ** El disco sigue: `informe/pagina.lam` se escribe igual que en N3a, y es lo
 //! que NAVEGAR pinta si arranca sin oferta (desde el shell de Ring 0, o si
 //! este bloque no se pudo pedir). No es un cache: es la MISMA lamina, y la
 //! app dice de donde la saco.

@@ -26,12 +26,17 @@
 use super::*;
 
 pub(super) fn dir_abrir(arg0: u64, _arg1: u64) -> BmoStatus {
-        let _ = arg0;
         let pid = scheduler::current_pid();
         let ruta = match ruta_tomar(pid) {
             Ok(r) => r,
             Err(n) => return op_raiz::fuera(pid, n),
         };
+        // ** `arg0 = 1`: CREARLA si falta (12-10, `mkdir`), con todas las de
+        // por medio. Las mismas reglas que crear un fichero: solo el volumen
+        // de datos, `datos/` va a `informe/`.
+        if arg0 & 1 != 0 && crate::ring0::fsys::fs::carpeta_para_escribir(ruta).is_err() {
+            return BmoStatus::err(crate::ring0::obj::file::ERROR_ARCH_CARPETA as u32);
+        }
         match crate::ring0::obj::directory::open(pid, ruta) {
             Ok(handle) => BmoStatus::ok_value(handle),
             Err(code) => BmoStatus::err(code),

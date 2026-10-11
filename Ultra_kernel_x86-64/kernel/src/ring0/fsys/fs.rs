@@ -221,11 +221,14 @@ pub fn dir_de(ruta: &str) -> Option<(bool, u32)> {
         };
         if !arranque {
             if let Some(r) = de_la_vieja(resto) {
-                // `ls datos` ensena los componentes (si ya estan desplegados).
+                // `ls datos` ensena los componentes (si ya estan desplegados),
+                // y si no, lo que se escribio alli (`informe/`).
                 let raiz = v.root_cluster();
-                if let Some((c, _)) = buscar(v, raiz, COMPONENTES, true) {
-                    if let Some(d) = bajar_desde(v, c, r) {
-                        return Some((false, d));
+                for base in [COMPONENTES, INFORME] {
+                    if let Some((c, _)) = buscar(v, raiz, base, true) {
+                        if let Some(d) = bajar_desde(v, c, r) {
+                            return Some((false, d));
+                        }
                     }
                 }
             }

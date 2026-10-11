@@ -48,7 +48,7 @@
 //! facilitar las lecturas nada mas"*. El mismo `save` escribe ahora DOS cosas:
 //!
 //! ```text
-//!    datos/salida.txt      el informe ENTERO, como hasta hoy (lo lee
+//!    informe/salida.txt      el informe ENTERO, como hasta hoy (lo lee
 //!                          `c/leer.bex`, y es lo que se compara de un
 //!                          arranque a otro)
 //!    informe/INDICE.TXT    la cabecera y que hoja es que
@@ -60,10 +60,10 @@
 //! ```
 //!
 //! Cada fila se pinta UNA vez y se escribe en las dos: el camino de salida
-//! sigue siendo uno. Los nombres son 8.3 porque el volumen es FAT32 y el
-//! kernel no inventa nombres largos. La carpeta `informe/` la pone el build en
-//! el disco de datos (`ejemplos.ps1`): FAT32 sabe crear ficheros, no carpetas,
-//! y ensenarle seria codigo de Ring 0 para ahorrarse una linea de PowerShell.
+//! sigue siendo uno. Desde el 12-10 TODO va a `informe/` (`informe/salida.txt`
+//! incluido) y la copia con fecha a `informe/historial/`: el kernel crea las
+//! carpetas que falten y escribe nombres largos, asi que ya no dependen de que
+//! el build las ponga en el disco.
 //!
 //! -- EL SEMAFORO (L6g) y las dos preguntas de antes (L6e, L6f) --------
 //!
@@ -251,8 +251,8 @@ pub(crate) fn maestro(dsk: &mut Desktop, dest: &[u8], rayo: bmo::CuentasRayo) ->
             let q = super::verificar::por_que_no();
             if q & 0xFF != 0 {
                 g.text(match q & 0xFF {
-                    1 => b" (POR DEFECTO: datos/modo.txt NO SE PUDO ABRIR, codigo " as &[u8],
-                    2 => b" (POR DEFECTO: datos/modo.txt vacio)",
+                    1 => b" (POR DEFECTO: informe/estado/modo.txt NO SE PUDO ABRIR, codigo " as &[u8],
+                    2 => b" (POR DEFECTO: informe/estado/modo.txt vacio)",
                     _ => b" (POR DEFECTO: no hay uno armado)",
                 });
                 if q & 0xFF == 1 {
@@ -482,10 +482,10 @@ fn report_escrito(g: &mut Output) {
 }
 
 /// **Una copia con fecha** (02-10): el informe recien cerrado en `dest`,
-/// copiado a `datos/DDMMHHMM.TXT` (el dia, el mes, la hora y el minuto de
-/// la placa: 8.3, que el volumen es FAT32). `dest` sigue siendo el ultimo
-/// (lo leen otros); la copia no se pisa con el siguiente `save`. Sin reloj,
-/// no hay copia, y se dice.
+/// copiado a `informe/historial/AAAA-MM-DD_HH-MM.txt` (12-10: con nombre
+/// largo, que el kernel ya sabe escribir, y en su carpeta, que el kernel
+/// crea sola). `dest` sigue siendo el ultimo (lo leen otros); la copia no se
+/// pisa con el siguiente `save`. Sin reloj, no hay copia, y se dice.
 fn copia_con_fecha(g: &mut Output, dest: &[u8]) {
     let mut fecha = [0u8; 24];
     if fecha_en(&mut fecha) < 16 {
@@ -494,11 +494,12 @@ fn copia_con_fecha(g: &mut Output, dest: &[u8]) {
         g.with_ink(INK_PLAIN);
         return;
     }
-    // `AAAA-MM-DD HH:MM` -> `datos/DDMMHHMM.TXT`.
-    let mut ruta = *b"datos/DDMMHHMM.TXT";
-    for (k, o) in [8usize, 9, 5, 6, 11, 12, 14, 15].into_iter().enumerate() {
-        ruta[6 + k] = fecha[o];
-    }
+    // `AAAA-MM-DD HH:MM` -> `informe/historial/AAAA-MM-DD_HH-MM.txt`.
+    let mut ruta = *b"informe/historial/AAAA-MM-DD_HH-MM.txt";
+    const DESDE: usize = 18;
+    ruta[DESDE..DESDE + 10].copy_from_slice(&fecha[..10]);
+    ruta[DESDE + 11..DESDE + 13].copy_from_slice(&fecha[11..13]);
+    ruta[DESDE + 14..DESDE + 16].copy_from_slice(&fecha[14..16]);
     let (Ok(origen), Ok(copia)) = (bmo::Archivo::leer_de(dest), bmo::Archivo::create(&ruta)) else {
         g.with_ink(INK_ERR);
         g.text(b"  la copia con fecha no se pudo crear\n");

@@ -7,7 +7,7 @@
 //! === Que contesta, que la miga de pan no ===
 //!
 //! La miga dice DONDE estas: `/ > datos > notas`. Lo que no dice es **que mas
-//! habia** en cada tramo. Para ir de `/datos/notas` a `/datos/fotos` con solo
+//! habia** en cada tramo. Para ir de `/informe/notas` a `/informe/fotos` con solo
 //! la miga hay que subir y volver a bajar; con el arbol es un clic, porque
 //! `fotos` esta ahi al lado de `notas`.
 //!

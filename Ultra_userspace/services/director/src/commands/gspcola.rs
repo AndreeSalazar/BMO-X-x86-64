@@ -16,7 +16,7 @@
 //!
 //! Porque ya se puede: `INFO_GPU_GSP_MEM` (L0c3b) deja leer GspMem de 8 en 8
 //! bytes, y `bmo_gpu_ga10x::rpc` entiende lo leido, probado en el anfitrion.
-//! La cola entera se guarda cruda en `datos/gspcola.bin`, como la ROM en L0a.
+//! La cola entera se guarda cruda en `informe/gpu/gspcola.bin`, como la ROM en L0a.
 
 use bmo_gpu_ga10x::rpc::{self, Mensaje, Suma, CABECERA};
 use bmo_userland as bmo;
@@ -40,7 +40,7 @@ pub(crate) const PAGINAS: u64 = 63;
 pub(crate) const PAGINA: u64 = 4096;
 /// La cola entera, con su pagina de cabeceras, para el disco.
 const COLA_BYTES: u64 = (1 + PAGINAS) * PAGINA;
-const RUTA: &[u8] = b"datos/gspcola.bin";
+const RUTA: &[u8] = b"informe/gpu/gspcola.bin";
 /// Tipos distintos que se cuentan.
 const MAX_TIPOS: usize = 12;
 
@@ -194,7 +194,7 @@ pub(crate) fn leer() -> Result<u64, u32> {
     Ok(r.mensajes as u64)
 }
 
-/// La cola entera, cruda, a `datos/gspcola.bin`.
+/// La cola entera, cruda, a `informe/gpu/gspcola.bin`.
 fn guardar() -> bool {
     let Some(bloque) = bmo::Memoria::request(COLA_BYTES) else { return false };
     // SAFETY: el bloque mide COLA_BYTES, es de este proceso y se escribe aqui
@@ -228,7 +228,7 @@ pub(crate) fn orden(dsk: &mut Desktop, p: &bmo::Pantalla) -> After {
             g.with_ink(INK_GOOD);
             g.text(b"  LA COLA DEL GSP: ");
             g.dec(n);
-            g.text(b" mensajes leidos, todos con su firma y su suma; cruda en datos/gspcola.bin\n");
+            g.text(b" mensajes leidos, todos con su firma y su suma; cruda en informe/gpu/gspcola.bin\n");
         }
         Err(m) => {
             g.with_ink(INK_ERR);
@@ -283,7 +283,7 @@ pub(crate) fn fila(s: &mut Output) {
         s.text(b" con rpc_result distinto de 0");
     }
     s.with_ink(INK_ECHO);
-    s.text(if r.guardada { b"   -> datos/gspcola.bin" as &[u8] } else { b"   (NO se pudo guardar)" });
+    s.text(if r.guardada { b"   -> informe/gpu/gspcola.bin" as &[u8] } else { b"   (NO se pudo guardar)" });
     s.with_ink(INK_PLAIN);
     s.byte(b'\n');
     // Los tipos, de tres en tres por fila.

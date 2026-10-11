@@ -220,7 +220,7 @@ pub(crate) fn orden(dsk: &mut Desktop, p: &bmo::Pantalla) -> After {
     let g = &mut dsk.out.grid;
     g.with_ink(if guardado { INK_ECHO } else { INK_ERR });
     g.text(if guardado {
-        b"  lo de arriba, tambien en el save (datos/): si la pantalla se queda quieta, esta ahi\n" as &[u8]
+        b"  lo de arriba, tambien en el save (informe/): si la pantalla se queda quieta, esta ahi\n" as &[u8]
     } else {
         b"  el save de despues NO se pudo escribir\n"
     });

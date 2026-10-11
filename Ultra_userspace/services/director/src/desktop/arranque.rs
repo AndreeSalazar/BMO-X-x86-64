@@ -118,7 +118,7 @@ pub(crate) fn empezar(p: &bmo::Pantalla, total: usize) {
     e.luz = LUZ;
     e.despierta = false;
     e.final_ = false;
-    pintar(p, b"save mode", b"el modo esta ARMADO: se repite cada paso de la 3060, con un save antes de cada uno", b"CPU: leyendo datos/modo.txt", CIAN);
+    pintar(p, b"save mode", b"el modo esta ARMADO: se repite cada paso de la 3060, con un save antes de cada uno", b"CPU: leyendo informe/estado/modo.txt", CIAN);
 }
 
 /// **Una etapa del escritorio**, que se prepara DETRAS del panel: la marca

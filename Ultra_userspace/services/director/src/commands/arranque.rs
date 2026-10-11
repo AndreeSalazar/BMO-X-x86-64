@@ -118,7 +118,7 @@ pub(crate) fn report(s: &mut Output) {
     fila(s, b"generacion", bmo::info(bmo::INFO_CAIDA_GENERACION), b"",
          b"arranques que vio la caja negra. Si SUBE, la RAM sobrevive al reinicio");
     fila(s, b"recuperado", bmo::info(bmo::INFO_CAIDA_RECUPERADO), b"bytes",
-         b"de la sesion anterior, ya en datos/CAIDA.TXT. 0 = sin rastro");
+         b"de la sesion anterior, ya en informe/CAIDA.TXT. 0 = sin rastro");
     let fch = bmo::info(bmo::INFO_REINICIO_FCH);
     if fch == u64::MAX {
         fila(s, b"fch", 0, b"", b"esta CPU no guarda el motivo (o no es AMD Zen)");
