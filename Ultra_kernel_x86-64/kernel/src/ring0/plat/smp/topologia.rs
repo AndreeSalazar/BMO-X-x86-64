@@ -165,7 +165,8 @@ pub fn orden(sale: &mut [u32; MAX_OBREROS]) -> usize {
         rehacer();
         ORDEN_DE.store(altas, SeqCst);
     }
-    let n = ORDEN_N.load(SeqCst) as usize;
+    // El CUPO (12-10): `smp 3` con todos en pie no despierta a nadie, usa tres.
+    let n = (ORDEN_N.load(SeqCst) as usize).min(super::cupo() as usize);
     for (k, s) in sale.iter_mut().enumerate().take(n) {
         *s = ORDEN[k].load(SeqCst);
     }

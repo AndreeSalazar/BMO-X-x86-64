@@ -451,11 +451,13 @@ pub(super) fn smp_despertar(arg0: u64, arg1: u64) -> BmoStatus {
                 // lee como "el stop no hizo nada". Ring 3 pinta la mitad que
                 // faltaba; el kernel no opina, solo dice el hecho.
                 let parados = if crew::parados() { 1u64 << 63 } else { 0 };
-                // ** BIT 62 = NO SE DESPERTO OTRA VEZ (11-10): ya habia
-                // obreros en pie. Sin el, un segundo `smp all` pintaba el
-                // `12 de 12` en verde como si hubiera hecho algo.
+                // ** BIT 62 = NO SE DESPERTO: una faena de Ring 3 en marcha
+                // (12-10; antes, "ya habia obreros en pie").
                 let rehusado = if smp::rehusado() { 1u64 << 62 } else { 0 };
-                BmoStatus::ok_value(parados | rehusado | ((alive as u64) << 32) | esperados as u64)
+                // ** BITS 16..32 = EL CUPO (12-10): cuantos obreros reciben
+                // partes; 0xFFFF = todos. `esperados` cabe en 16.
+                let cupo = (smp::cupo().min(0xFFFF) as u64) << 16;
+                BmoStatus::ok_value(parados | rehusado | ((alive as u64) << 32) | cupo | (esperados as u64 & 0xFFFF))
             }
         }
 }

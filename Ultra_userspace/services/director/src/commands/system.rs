@@ -1067,9 +1067,19 @@ pub(crate) fn smp(dsk: &mut Desktop, p: &bmo::Pantalla, arg: &[u8]) -> After {
     dsk.out.grid.with_ink(INK_PLAIN);
     if c.rehusado {
         dsk.out.grid.with_ink(INK_ERR);
-        dsk.out.grid.text(b"  [!] ya estaban en pie: no se desperto a nadie otra vez\n");
+        dsk.out.grid.text(b"  [!] hay una faena de Ring 3 en marcha: repite la orden cuando acabe\n");
         dsk.out.grid.with_ink(INK_PLAIN);
-        dsk.out.grid.text(b"      (despertarlos dos veces daba a dos nucleos la misma ficha; reinicia para cambiar cuantos)\n");
+    }
+    // ** EL CUPO (12-10): con obreros ya en pie, `smp 3` no despierta a
+    // nadie ni manda reiniciar: solo dice cuantos reciben partes.
+    if c.cupo != u32::MAX && c.cupo < c.vivos {
+        dsk.out.grid.with_ink(INK_ECHO);
+        dsk.out.grid.text(b"  trabajan ");
+        dsk.out.grid.dec(c.cupo as u64);
+        dsk.out.grid.text(b" de los ");
+        dsk.out.grid.dec(c.vivos as u64);
+        dsk.out.grid.text(b" obreros en pie (`smp all` los vuelve a poner a todos)\n");
+        dsk.out.grid.with_ink(INK_PLAIN);
     }
     // ** LA MITAD QUE FALTABA DEL CENSO: "en pie" cuenta nucleos que
     // contestaron al SIPI y no baja al pararlos (salir del reset no es
