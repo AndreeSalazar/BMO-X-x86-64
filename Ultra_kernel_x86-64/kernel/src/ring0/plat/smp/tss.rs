@@ -88,6 +88,12 @@ struct Pila(#[allow(dead_code)] [u8; IST_BYTES]);
 static mut TSS: [Tss; MAX_OBREROS] = [TSS_VACIO; MAX_OBREROS];
 static mut GDT: [Gdt; MAX_OBREROS] = [const { Gdt([0; 7]) }; MAX_OBREROS];
 static mut IST1: [Pila; MAX_OBREROS] = [const { Pila([0; IST_BYTES]) }; MAX_OBREROS];
+/// **La pila de la #MC** (11-10, V12): el vector 18 de la IDT del kernel
+/// entra por IST3 (`s1_cpu/descriptors.rs`, como en el BSP). Sin ella, un
+/// obrero no puede encender `CR4.MCE`: una #MC en Ring 0 entraria con
+/// RSP = 0. Con ella, el error de maquina es una excepcion que se para en
+/// ESE nucleo, y no el apagado del PC entero.
+static mut IST3: [Pila; MAX_OBREROS] = [const { Pila([0; IST_BYTES]) }; MAX_OBREROS];
 
 /// Cuantos obreros cargaron su TSS. Si es menor que los que entraron, alguno
 /// llego con un indice fuera de tabla y ESE sigue sin poder fallar.
@@ -140,6 +146,7 @@ pub unsafe fn cargar(indice: u32) -> bool {
     let tss = &mut *core::ptr::addr_of_mut!(TSS[i]);
     let ist = core::ptr::addr_of!(IST1[i]) as u64 + IST_BYTES as u64;
     tss.ist[0] = ist;
+    tss.ist[2] = core::ptr::addr_of!(IST3[i]) as u64 + IST_BYTES as u64;
     // `rsp[0]` a cero a proposito: ver la cabecera.
     tss.iomap_base = core::mem::size_of::<Tss>() as u16;
 

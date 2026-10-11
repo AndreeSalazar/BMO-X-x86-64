@@ -190,6 +190,8 @@ pub fn main(ctx: &mut BootContext) {
     // tablero dice que hacia cada nucleo; esto, si fue un triple fallo, una
     // #MC o el data fabric.
     crate::ring0::plat::porque::decir();
+    // Y con los bancos ya leidos, la #MC del BSP encendida (V12).
+    crate::ring0::plat::porque::armar_mce();
 
     // BEX is the only native executable contract admitted by this kernel.
     // The parser is allocation-free so it is safe before the process allocator.

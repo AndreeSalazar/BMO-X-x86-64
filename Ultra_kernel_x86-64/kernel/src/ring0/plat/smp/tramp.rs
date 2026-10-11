@@ -48,6 +48,53 @@ use core::sync::atomic::{AtomicU32, AtomicU64, Ordering};
 /// bits con OR y no quita ninguno: lo que traiga el AP del INIT, sigue.
 pub static CR0_AP: [AtomicU64; super::ficha::MAX_OBREROS] = [const { AtomicU64::new(0) }; super::ficha::MAX_OBREROS];
 pub static CR4_AP: [AtomicU64; super::ficha::MAX_OBREROS] = [const { AtomicU64::new(0) }; super::ficha::MAX_OBREROS];
+/// Cuantos obreros LLEGARON con la cache apagada (CR0.CD o NW) y se les
+/// encendio en `normalizar_cpu`.
+pub static LLEGARON_SIN_CACHE: AtomicU32 = AtomicU32::new(0);
+
+/// **El CR0 y el CR4 de un obrero, como los del BSP** (11-10, V12; la
+/// auditoria de `smp all`). El trampolin solo pone bits con OR desde lo que
+/// trae el AP del INIT, y lo que trae no es lo del BSP:
+///
+/// ```text
+///    CR0.CD/NW (30, 29)  la cache APAGADA, si el AP la trae asi: fuera
+///    CR0.EM (2)          "emula la FPU": fuera (ya lo quita el trampolin)
+///    CR0.NE (5)          el error de x87 como excepcion (#MF), como el BSP
+///    CR0.MP (1)          como el BSP
+///    CR4.MCE (6)         *** un error de maquina es una EXCEPCION (#MC, IST3)
+///                        y no un APAGADO: con MCE a cero, una #MC en un
+///                        obrero reinicia el PC entero sin decir nada
+/// ```
+///
+/// Encender la cache (quitar CD y NW) no pide `wbinvd`: con ella apagada no
+/// hay nada sucio que escribir. PGE, SMEP y SMAP NO se tocan aqui: cambian
+/// lo que el obrero ve de las paginas, y eso es otra decision.
+///
+/// # Safety
+/// Solo en `smp_ap_entrada`, con el TSS del obrero ya cargado (IST3).
+unsafe fn normalizar_cpu() {
+    let (cr0, cr4): (u64, u64);
+    // SAFETY: CR0 y CR4 de este nucleo; los bits que se cambian estan arriba.
+    unsafe {
+        core::arch::asm!("mov {}, cr0", out(reg) cr0, options(nomem, nostack));
+        core::arch::asm!("mov {}, cr4", out(reg) cr4, options(nomem, nostack));
+    }
+    if cr0 & (3 << 29) != 0 {
+        LLEGARON_SIN_CACHE.fetch_add(1, Ordering::SeqCst);
+    }
+    let cr0_bueno = (cr0 & !(1 << 30 | 1 << 29 | 1 << 2)) | 1 << 5 | 1 << 1;
+    // MCE solo si la CPU lo tiene (CPUID.1:EDX bit 7).
+    let mce = core::arch::x86_64::__cpuid(1).edx & (1 << 7) != 0;
+    let cr4_bueno = if mce { cr4 | 1 << 6 } else { cr4 };
+    unsafe {
+        if cr0_bueno != cr0 {
+            core::arch::asm!("mov cr0, {}", in(reg) cr0_bueno, options(nostack));
+        }
+        if cr4_bueno != cr4 {
+            core::arch::asm!("mov cr4, {}", in(reg) cr4_bueno, options(nostack));
+        }
+    }
+}
 
 core::arch::global_asm!(
     r#"
@@ -232,7 +279,7 @@ pub extern "C" fn smp_ap_entrada() -> ! {
     // OSXSAVE con el XCR0 que el BSP ya midio. Hasta aqui una excepcion era
     // el PC reiniciando; desde aqui es una ficha que dice FALLO.
     unsafe {
-        super::tss::cargar(indice);
+        let con_tss = super::tss::cargar(indice);
         let inf = crate::ring0::cpu_vendor::xsave::informe();
         if inf.osxsave && inf.xcr0 != 0 {
             let cr4: u64;
@@ -240,6 +287,11 @@ pub extern "C" fn smp_ap_entrada() -> ! {
             core::arch::asm!("mov cr4, {}", in(reg) cr4 | (1 << 18), options(nomem, nostack));
             core::arch::asm!("xsetbv", in("ecx") 0u32, in("eax") inf.xcr0 as u32,
                              in("edx") (inf.xcr0 >> 32) as u32, options(nomem, nostack));
+        }
+        // ** EL CPU DEL OBRERO COMO EL DEL BSP (11-10, V12). Solo con su TSS
+        // puesto: la #MC necesita su IST3 (`tss.rs`).
+        if con_tss {
+            normalizar_cpu();
         }
     }
     // Y de aqui al bucle de trabajo. Antes esto era `cli; hlt` para siempre: un

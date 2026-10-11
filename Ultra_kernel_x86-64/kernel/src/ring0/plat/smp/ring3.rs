@@ -443,6 +443,9 @@ static FALLO_CR2: AtomicU64 = AtomicU64::new(0);
 static FALLOS_DICHOS: AtomicU32 = AtomicU32::new(0);
 static APUROS_DICHOS: AtomicU64 = AtomicU64::new(0);
 static PARTES_MAL: AtomicU64 = AtomicU64::new(0);
+/// Obreros apartados por una #MC en su parte (V12).
+static MC_EN_RING3: AtomicU64 = AtomicU64::new(0);
+static MC_DICHAS: AtomicU64 = AtomicU64::new(0);
 
 /// Si hay una faena de Ring 3 en marcha (`crew::repartir` no reparte encima).
 pub fn activa() -> bool {
@@ -610,6 +613,10 @@ fn decir_migas() {
         crate::ring0::cabina::warn("smp", "  ...rip", FALLO_RIP.load(SeqCst));
         crate::ring0::cabina::warn("smp", "  ...cr2", FALLO_CR2.load(SeqCst));
     }
+    let mc = MC_EN_RING3.load(SeqCst);
+    if mc != MC_DICHAS.swap(mc, SeqCst) {
+        crate::ring0::cabina::warn("smp", "un obrero tomo un ERROR DE MAQUINA (#MC) en su parte: apartado; van", mc);
+    }
     let a = apuros();
     if a != APUROS_DICHOS.swap(a, SeqCst) {
         crate::ring0::cabina::warn("smp", "sub-director: un obrero se PARO en la ventana de Ring 0 (no la maquina); van", a);
@@ -633,6 +640,13 @@ pub fn atender(indice: u32) -> bool {
     let t0 = super::ficha::ciclos();
     let r = correr(i, k);
     super::ficha::apuntar(indice, super::ficha::ciclos().wrapping_sub(t0));
+    // ** UN ERROR DE MAQUINA (#MC, vector 18) en su parte (11-10, V12): con
+    // `CR4.MCE` ya no reinicia el PC, pero ese nucleo acaba de tener un fallo
+    // del silicio. No se le da ninguna parte mas en este arranque.
+    if r != BIEN && r & 0xFF == 18 {
+        PERDIDO[i].store(true, SeqCst);
+        MC_EN_RING3.fetch_add(1, SeqCst);
+    }
     // Solo si sigue siendo la misma faena: una que volvio tarde, calla.
     if FAENA.load(SeqCst) == id && ACTIVA.load(SeqCst) {
         RESULTADO[k as usize].store(r, SeqCst);

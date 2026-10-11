@@ -426,6 +426,10 @@ fn decir_estado_cpu(vivos: u32) {
     if sin_mce > 0 {
         warn("smp", "obreros sin CR4.MCE: una #MC alli REINICIA el PC", sin_mce as u64);
     }
+    let encendidos = tramp::LLEGARON_SIN_CACHE.load(Ordering::SeqCst);
+    if encendidos > 0 {
+        warn("smp", "obreros que LLEGARON con la cache apagada (encendida al llegar)", encendidos as u64);
+    }
 }
 
 /// `(alive, mascara)` sin volver a despertar nada.

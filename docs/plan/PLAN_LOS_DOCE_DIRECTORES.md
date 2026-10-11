@@ -215,6 +215,21 @@ kernel. `cpu_vendor/ryzen_5_5600x/` es la fila de HOY, no la unica.
 
 ## 4T. EL TURNO, mientras hay UN nucleo (sin Ring 0)
 
+- [~] **V12 -- el error de maquina es una EXCEPCION, no el apagado del PC.**
+      El sospechoso numero 1 del reinicio de `smp all` (11-10): los obreros
+      salian del trampolin con `CR4 = 0x620` (sin MCE) y el CR0 sin
+      normalizar, y el BSP heredaba el MCE del firmware -- nadie lo ponia,
+      aunque la IDT ya mandaba la #MC (vector 18) a una IST3 de 8 KiB en el
+      BSP. Ahora: una IST3 por obrero (`tss.rs`); al llegar, cada obrero con
+      su TSS deja el CR0 como el BSP (cache encendida: fuera CD y NW; NE y
+      MP; fuera EM) y enciende MCE (`tramp::normalizar_cpu`); el BSP enciende
+      MCE DESPUES de leer los bancos (`porque::armar_mce`); y un obrero que
+      toma una #MC en su parte queda apartado (la app la rehace, el PC
+      sigue). Medido de paso: la pila de 4 KiB de un obrero NO se desborda
+      (su camino entero usa menos de 512 bytes, leido del binario).
+      **Falta:** el metal: `smp all` dice `sin CR4.MCE` = 0, y ESTUDIO con
+      `smp all`; si era una #MC, la maquina sigue viva y CABINA dice "ERROR
+      DE MAQUINA ... apartado".
 - [~] **V11 -- el reparto por NUCLEOS, no por orden de llegada; hilos no son
       nucleos; y lo VISTO en pantalla, a la caja negra.** La auditoria del
       11-10 (el propietario: *"es 6 core y 12 threads... algo huele"*):

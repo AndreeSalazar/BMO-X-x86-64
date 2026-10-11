@@ -144,3 +144,23 @@ pub fn decir() {
         info("reinicio", "MCA: ningun error de maquina guardado; bancos", bancos as u64);
     }
 }
+
+/// **`CR4.MCE` en el BSP** (11-10, V12), DESPUES de leer los bancos: un error
+/// de maquina pasa a ser la #MC (vector 18, IST3 de `s1_cpu`, que ya estaba
+/// puesta para eso) en vez de un apagado del PC. El BSP heredaba lo que
+/// dejara el firmware; nadie lo ponia. Se dice si ya estaba.
+pub fn armar_mce() {
+    let (_, _, _, d) = cpuid(1);
+    if d & (1 << 7) == 0 {
+        return;
+    }
+    let cr4: u64;
+    // SAFETY: CR4 del BSP; solo se pone el bit 6 (MCE), con su IST3 puesta.
+    unsafe { core::arch::asm!("mov {}, cr4", out(reg) cr4, options(nomem, nostack)) };
+    if cr4 & (1 << 6) != 0 {
+        crate::ring0::cabina::info("reinicio", "CR4.MCE del BSP: ya estaba (el firmware)", 1);
+        return;
+    }
+    unsafe { core::arch::asm!("mov cr4, {}", in(reg) cr4 | 1 << 6, options(nostack)) };
+    crate::ring0::cabina::info("reinicio", "CR4.MCE del BSP: puesto (una #MC ya no apaga el PC)", 1);
+}
