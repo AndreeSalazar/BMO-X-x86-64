@@ -55,6 +55,9 @@ pub mod cpu;
 pub mod dibujo;
 /// La lamina: el bloque que otro proceso (INTI) escribe y VERRANO lee, sin cerrojo.
 pub mod lamina;
+// VE5: una pasada de COMPLETAR (el filtro de ESTUDIO VIVO), la cuenta de
+// la CPU y del juez del programa de la 3060.
+pub mod completa;
 
 
 pub use dibujo::{Address, Blend, BlendOp, Buffer, Compute, ComputeBackend, Dispatch, Draw, DrawBackend, Factor, Filter, Pipeline, ReadBuffer, Resources, RwBuffer, Sampler, Shader, Texture};

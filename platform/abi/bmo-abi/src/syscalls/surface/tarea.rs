@@ -1105,6 +1105,18 @@ pub const IOMMU_OP_GSP_REINTENTO: u64 = 0x4D;
 /// (`bmo_gpu_ga10x::eterno::empaquetar`). Deja el canal de GR MUERTO hasta
 /// reiniciar: es la ultima prueba de una sesion.
 pub const IOMMU_OP_GPU_ETERNO: u64 = 0x4E;
+/// VE5: el formato de una tanda de COMPLETAR (el filtro de ESTUDIO VIVO por
+/// la 3060). `arg1` = `ancho | alto << 16 | ficha de S3 << 32`. `Ok(bytes)`:
+/// lo que mide el bloque (64 por pixel, el de `bmo_verrano::completa`).
+pub const IOMMU_OP_GPU_COMPLETA_FORMATO: u64 = 0x4F;
+/// VE5: una pasada de COMPLETAR sobre un bloque del que llama, prestado
+/// entero a la 3060 (para escribir) solo durante la llamada. `arg1` = la VA
+/// del bloque (alineada a pagina) | el paso (bits 0..2, los vecinos a
+/// `2^paso`) | `1 << 3` si se lee la luz B | `1 << 4` para cargar el
+/// programa | la tolerancia (los 16 bits de arriba de su f32) en 48..63.
+/// `Ok(v)`: `bmo_gpu_ga10x::completa::empaquetar` sin muestras: lo que salio
+/// lo juzga el que llama.
+pub const IOMMU_OP_GPU_COMPLETA: u64 = 0x50;
 /// P1: EL PASE de la GPU, neutro (`bmo_pase_gpu::orden`): ABRIR con la VA del
 /// lienzo (el lienzo prestado para quedarse, `Ok` = la VA del buzon), CERRAR
 /// o ESTADO en los bits 63..60 de `arg1`.
@@ -1321,6 +1333,10 @@ pub const IOMMU_NO_BODRIO: u32 = 87;
 /// sin el canal de GR, sin la pantalla en modo fisico, un formato que no cabe,
 /// un fotograma que no es un bloque del que llama, o uno ya en marcha.
 pub const IOMMU_NO_IMAGEN: u32 = 88;
+/// VE5: completar no se puede: sin el canal de GR, sin la pantalla en modo
+/// fisico, un formato que no cabe en el mapa (8 MiB), un bloque que no es del
+/// que llama, un paso de mas, o uno ya en marcha.
+pub const IOMMU_NO_COMPLETA: u32 = 92;
 /// P3b4c: el canal de GR tomo una excepcion (un Xid; el GSP-RM lo mato): todo
 /// trabajo del GR dice NO al instante hasta reiniciar.
 pub const IOMMU_NO_CANAL_MUERTO: u32 = 90;

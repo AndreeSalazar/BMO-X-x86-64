@@ -569,9 +569,42 @@ propia, al lado de la trama de tiempo real
       el trabajo de la 3060. `--example estudio_vivo` saca la tira: sin
       memoria, con ella y COMPLETADA, en los fotogramas 1, 4, 16 y 64 tras
       mover la camara; la completada se ve limpia desde el primero.
-      **Falta, la 3060:** el mismo `alisa` como computo de VERRANO (un hilo
-      por pixel, la guia y la luz en buferes), juzgado contra este; y el
-      metal de la app (fila VE2 de EL_FOCO).
+      **11-10, LA 3060, HECHA en el anfitrion:** la cuenta paso a VERRANO
+      (`bmo_verrano::completa::alisa_pixel`, sin monton: una sola para la
+      CPU de VIVO y para el juez de la 3060, y los mismos bits que antes) con
+      el BLOQUE de COMPLETAR (64 B por pixel: la luz A, la guia y la luz B;
+      `del_bloque` es el juez). El programa (`bmo_gpu_ga10x::completa`, 159
+      instrucciones, 40 registros) sale de un PTX escrito para quedarse en lo
+      que el juez del SASS conoce: cada operacion `.rn` (ninguna FFMA), los
+      contadores de los bucles con un cero que ptxas no puede probar (nada
+      del camino uniforme: ni R2UR, ni UIMAD, ni PLOP3), el nucleo por SEL
+      sobre sus bits, los bordes en UNA comparacion sin signo, y las dos
+      divisiones por MUFU.RCP (por eso la 3060 no da los mismos bits: el
+      juez perdona 2e-5 relativo). El juez del SASS lo da por bueno y cae
+      saboteado (con 38 registros, R5; sin la espera de un LDG, R1). El
+      kernel (`gpu_trabajo/completa.rs`, `IOMMU_OP_GPU_COMPLETA_FORMATO`
+      0x4F y `IOMMU_OP_GPU_COMPLETA` 0x50, detras de las dos llaves) presta
+      el bloque ENTERO para escribir en el mapa de `video` solo durante la
+      pasada; lo que salio lo juzga el DIRECTOR (`gpu completa`): una escena
+      de mentira de 320x240 con su guia, tres pasadas en la 3060 (A -> B ->
+      A -> B), CADA pixel de cada pasada contra la cuenta de VERRANO, y la
+      luz con grano y la completada en la pantalla.
+      **Falta:** el metal (fila VE5 de EL_FOCO); y que la APP `estudio` la
+      use cada fotograma: hoy las dos llaves (la autoridad MAQUINA y la
+      pantalla) solo dejan al escritorio. Una app necesita la puerta de
+      COMPUTO de las apps (LB8 de `PLAN_LAS_LIBRERIAS`), que es de Ring 0 y
+      la decide el propietario.
+
+      **Lo que se encontro por el camino (11-10), para decidir:** las apps de
+      Ring 3 se compilan para `x86_64-unknown-none`, que hace la coma
+      flotante POR SOFTWARE (`__mulsf3`, `__addsf3`: 47 llamadas en
+      `estudio`, ni una `mulss`). ESTUDIO VIVO en el metal va a ir varias
+      veces mas lento que en el anfitrion. El kernel ya guarda el estado
+      entero de cada tarea (`xsaveopt64`), asi que Ring 3 PODRIA usar SSE;
+      pero activarlo en este objetivo es lo que Rust esta quitando ("will
+      become a hard error"). El camino limpio es un objetivo propio de Ring
+      3 (un `.json` con la coma flotante por hardware, `build-std` como el
+      kernel). Cambia el ABI de TODAS las apps: lo decide el propietario.
 - [ ] **VE6 -- TITAN++ lo pide.** `director.estudio(...)`: una escena de
       TITAN++ renderizada por ESTUDIO.
 

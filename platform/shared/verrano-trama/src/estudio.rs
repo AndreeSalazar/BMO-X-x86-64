@@ -29,9 +29,11 @@
 //! ```
 //!
 //! [carril]  VERDE     cuentas puras; ni un `unsafe`, ni un aparato
-//! [cuesta]  CPU       rayos * rebotes; un pixel no mira a otro: se reparte
-//!                     entre todos los nucleos por filas (`pixel`)
-//! [riesgo]  NINGUNO   determinista: la misma semilla, la misma imagen
+//! [cuesta]  NADA      una cuenta mal da una foto mal, nada mas
+//!
+//! Lo que cuesta en la CPU: rayos * rebotes; un pixel no mira a otro, y se
+//! reparte entre todos los nucleos por filas (`pixel`). Determinista: la
+//! misma semilla, la misma imagen.
 //!
 //! Lo que es de la casa: la raiz es la de PROMETEO (`programa::raiz`, la
 //! exacta); el log2, el de `mates`; el azar, un xorshift con semilla por

@@ -17,9 +17,11 @@
 //! ```
 //!
 //! [carril]  VERDE     cuentas puras; ni un `unsafe`
-//! [cuesta]  CPU       al hacerla, n log n; cada rayo, ~log n cajas
-//! [riesgo]  NINGUNO   la prueba compara el arbol con mirar TODOS los
-//!                     triangulos: los mismos golpes
+//! [cuesta]  NADA      un arbol mal pierde golpes en la foto, nada mas
+//!
+//! Lo que cuesta en la CPU: al hacerla, n log n; cada rayo, ~log n cajas.
+//! La prueba compara el arbol con mirar TODOS los triangulos: los mismos
+//! golpes.
 
 use alloc::vec;
 use alloc::vec::Vec;

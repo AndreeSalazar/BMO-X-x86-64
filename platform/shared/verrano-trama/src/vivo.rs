@@ -34,8 +34,9 @@
 //!
 //! [carril]  VERDE     cuentas; la memoria se LEE en paralelo y se ESCRIBE
 //!                     al final de cada fotograma (`junta`), sin cerrojos
-//! [riesgo]  SESGO     la memoria promedia un trocito (`lado`): un poco de
-//!                     luz se corre en las esquinas. Dicho y medido
+//!
+//! El sesgo, dicho y medido: la memoria promedia un trocito (`lado`), y un
+//! poco de luz se corre en las esquinas.
 
 use alloc::vec;
 use alloc::vec::Vec;
@@ -174,41 +175,10 @@ pub struct Trozo {
     pub caminos: u64,
 }
 
-/// **La guia de un pixel** (VE5): lo que ve primero su centro -- la normal,
-/// la distancia y el color de su material --. Con ella, COMPLETAR sabe que
-/// pixeles son de la misma superficie.
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
-pub struct Guia {
-    pub n: V3,
-    pub z: f32,
-    pub albedo: V3,
-}
-
-/// Cuanto ruido se perdona al completar, con UNA muestra por pixel (la luz
-/// relativa: 2 es el doble de la media de los dos); con n, entre raiz(n).
-pub const FRENO: f32 = 2.0;
-
-/// El nucleo de 5 de la B3-spline (el de "a trous": 1 4 6 4 1, / 16).
-const NUCLEO: [f32; 5] = [1.0 / 16.0, 1.0 / 4.0, 3.0 / 8.0, 1.0 / 4.0, 1.0 / 16.0];
-
-/// **El peso entre dos pixeles** al completar, como (arriba, abajo) -- la
-/// division se deja para el final, UNA por vecino --: alto si son la MISMA
-/// superficie (casi la misma normal, casi la misma distancia, el mismo
-/// material), cero si no -- asi el ruido de la luz se alisa y los bordes se
-/// quedan --. `lejos`: 24 entre lo lejos que estan (a trous: 1, 2, 4...).
-#[inline(always)]
-fn peso(p: &Guia, q: &Guia, lejos: f32) -> (f32, f32) {
-    // lo mas barato primero: otro material, otra superficie
-    if (p.albedo[0] - q.albedo[0]).abs() >= 0.05 || (p.albedo[1] - q.albedo[1]).abs() >= 0.05 || (p.albedo[2] - q.albedo[2]).abs() >= 0.05 {
-        return (0.0, 1.0);
-    }
-    let mut wn = (p.n[0] * q.n[0] + p.n[1] * q.n[1] + p.n[2] * q.n[2]).max(0.0);
-    for _ in 0..5 {
-        wn *= wn; // coseno^32: un borde de 15 grados ya casi no pasa
-    }
-    let dz = (p.z - q.z).abs() * lejos;
-    (wn, 1.0 + dz * dz)
-}
+/// La guia de un pixel, cuanto ruido se perdona y el nucleo: los de la
+/// cuenta de COMPLETAR, que vive en VERRANO (`bmo_verrano::completa`) porque
+/// la usa tambien el juez del programa de la 3060.
+pub use bmo_verrano::completa::{Guia, FRENO, NUCLEO};
 
 /// **La imagen viva**: la luz acumulada de cada pixel y cuantas muestras
 /// lleva, el fotograma, y la memoria (si se usa).
@@ -317,51 +287,9 @@ impl Vivo {
     /// entre pasada y pasada se espera a todos.
     pub fn alisa(&self, paso: u32, tolerancia: f32, c: &[V3], y0: u32, y1: u32, fuera: &mut [V3]) {
         let (w, h) = (self.ancho as i32, self.alto as i32);
-        let s = 1i32 << paso;
-        // ** el freno por la LUZ (el de SVGF): dos pixeles cuya luz difiere
-        // mas de lo que explica el ruido no se mezclan -- la sombra de una
-        // esfera sobre el suelo es la MISMA superficie, pero no la misma luz
-        // --. El ruido de n muestras va con 1/raiz(n), y cada pasada lo baja.
-        let luz = |v: &V3| 0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2];
-        let lejos = 24.0 / s as f32;
         for y in y0 as i32..(y1 as i32).min(h) {
             for x in 0..w {
-                let i = (y * w + x) as usize;
-                let gp = &self.guia[i];
-                let lp = luz(&c[i]);
-                // el del centro, con su peso entero
-                let mut pesos = NUCLEO[2] * NUCLEO[2];
-                let mut suma = por(c[i], pesos);
-                for (j, kj) in NUCLEO.iter().enumerate() {
-                    let qy = y + (j as i32 - 2) * s;
-                    if qy < 0 || qy >= h {
-                        continue;
-                    }
-                    // la fila del vecino, de una vez (sin mirar los limites
-                    // de la imagen en cada uno)
-                    let fila = (qy * w) as usize..((qy + 1) * w) as usize;
-                    let (cf, gf) = (&c[fila.clone()], &self.guia[fila]);
-                    for (k, kk) in NUCLEO.iter().enumerate() {
-                        let qx = x + (k as i32 - 2) * s;
-                        if qx < 0 || qx >= w || (j == 2 && k == 2) {
-                            continue;
-                        }
-                        let (cq, gq) = (&cf[qx as usize], &gf[qx as usize]);
-                        let (arriba, abajo) = peso(gp, gq, lejos);
-                        if arriba == 0.0 {
-                            continue; // otra superficie: ni se mira su luz
-                        }
-                        // 1 / (1 + dl^2), con dl = |lp - lq| / m, es
-                        // m^2 / (m^2 + (lp - lq)^2): sin dividir dos veces
-                        let lq = luz(cq);
-                        let m = tolerancia * (lp + lq) * 0.5 + 1e-3;
-                        let (m2, d) = (m * m, lp - lq);
-                        let wq = kj * kk * arriba * m2 / (abajo * (m2 + d * d));
-                        suma = mas(suma, por(*cq, wq));
-                        pesos += wq;
-                    }
-                }
-                fuera[(y as usize - y0 as usize) * w as usize + x as usize] = por(suma, 1.0 / pesos);
+                fuera[(y as usize - y0 as usize) * w as usize + x as usize] = bmo_verrano::completa::alisa_pixel(x, y, w, h, paso, tolerancia, |i| self.guia[i], |i| c[i]);
             }
         }
     }

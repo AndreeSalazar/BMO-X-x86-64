@@ -508,6 +508,11 @@ pub(crate) const IOMMU_OP_GSP_REINTENTO_SUBIR: u64 = 0x4C;
 pub(crate) const IOMMU_OP_GSP_REINTENTO: u64 = 0x4D;
 /// E7: el trabajo ETERNO, que corta el vigilante. Ver el ABI.
 pub(crate) const IOMMU_OP_GPU_ETERNO: u64 = 0x4E;
+/// VE5: el formato de una tanda de COMPLETAR (ESTUDIO VIVO). Ver
+/// `dev/gpu_trabajo/completa.rs`.
+pub(crate) const IOMMU_OP_GPU_COMPLETA_FORMATO: u64 = 0x4F;
+/// VE5: una pasada de COMPLETAR por la 3060 sobre un bloque de quien la pide.
+pub(crate) const IOMMU_OP_GPU_COMPLETA: u64 = 0x50;
 
 /// **ARMAR Y SONDEAR LA RED desde donde vive el propietario.** `arg0` = `RED_OP_*`.
 ///
@@ -1072,6 +1077,8 @@ pub(crate) fn nombre_iommu(op: u64) -> &'static str {
         IOMMU_OP_GSP_REINTENTO_SUBIR => "GSP_REINTENTO_SUBIR",
         IOMMU_OP_GSP_REINTENTO => "GSP_REINTENTO",
         IOMMU_OP_GPU_ETERNO => "GPU_ETERNO",
+        IOMMU_OP_GPU_COMPLETA_FORMATO => "GPU_COMPLETA_FORMATO",
+        IOMMU_OP_GPU_COMPLETA => "GPU_COMPLETA",
         _ => "?",
     }
 }

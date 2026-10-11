@@ -1065,6 +1065,9 @@ fn iommu_(arg0: u64, arg1: u64) -> BmoStatus {
         // ** D2: la imagen (DOOM); sin FLUSH del disco, como el video.
         IOMMU_OP_GPU_IMAGEN_FORMATO => crate::ring0::dev::gpu_trabajo::imagen_formato(arg1),
         IOMMU_OP_GPU_IMAGEN => crate::ring0::dev::gpu_trabajo::imagen(arg1),
+        // ** VE5: COMPLETAR; sin FLUSH del disco: las pasadas van seguidas.
+        IOMMU_OP_GPU_COMPLETA_FORMATO => crate::ring0::dev::gpu_trabajo::completa_formato(arg1),
+        IOMMU_OP_GPU_COMPLETA => crate::ring0::dev::gpu_trabajo::completa(arg1),
         // ** P3b4c.9 Z1: la pantalla, a una app. Detras de las dos llaves:
         // solo el escritorio la da.
         IOMMU_OP_GPU_PANTALLA_PARA => crate::ring0::dev::gpu_trabajo::pantalla_para(arg1),
