@@ -18,6 +18,9 @@
 //!                             sabe que lengua es: el de la casa es el
 //!                             Programa de PROMETEO (la feature `prometeo`),
 //!                             que ya sale de DXIL, de SM5 y de TITAN++
+//!                 Texture     una textura 2D (RGBA8, un nivel por ahora) y su
+//!                 Sampler     muestreador: el material, el G-buffer de la
+//!                             pasada anterior
 //!    TUBERIA      Pipeline    las dos etapas, la profundidad, el descarte,
 //!                             cuantos render targets y la MEZCLA de cada uno
 //!    COMPUTO      Compute     un programa de computo y su `Dispatch`: grupos
@@ -45,8 +48,11 @@
 //!    2  el triangulo, como un Frame: recorte de cerca, descarte, cobertura
 //!       y profundidad (las reglas de cpu.rs)
 //!    3  el programa de pixeles lee lo que el de vertice dejo, salida k en
-//!       la entrada k, del VERTICE 0 del triangulo (plano, la regla 4 del
-//!       juez: un color por cara). Interpolar llega con las texturas (M3)
+//!       la entrada k, INTERPOLADO CON PERSPECTIVA en el centro de cada
+//!       pixel (la cuenta de la casa, `bmo_proton_x::trama`); lo que vale lo
+//!       mismo en los tres vertices queda EXACTO (las caras del cubo: un
+//!       color por cara, sin un bit de mas). Recortar en el plano de cerca
+//!       recorta tambien lo que el vertice deja
 //!    4  su salida 0 es el color; si tira el pixel, no se pinta ni toca la
 //!       profundidad
 //!    5  si lee su entrada 0, es SV_POSITION y corre en CADA pixel: el
@@ -66,6 +72,53 @@ use crate::{Cull, Error, Image, Stats, Viewport};
 /// Lo mas que entra o sale de una etapa (D3D12: 32; aqui sobra para hoy).
 pub const MAX_IO: usize = 16;
 
+/// **Como se filtra** al muestrear (min, mag y mip, los tres).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Filter {
+    Point,
+    Linear,
+}
+
+/// **Que pasa fuera de 0..1** (`D3D12_TEXTURE_ADDRESS_MODE`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Address {
+    Wrap,
+    Mirror,
+    Clamp,
+    Border,
+}
+
+/// **Un muestreador** (`D3D12_SAMPLER_DESC`, lo de hoy).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Sampler {
+    pub filter: Filter,
+    pub address: Address,
+    /// El color del borde (R, G, B, A), para [`Address::Border`].
+    pub border: [f32; 4],
+}
+
+/// **Una textura 2D** de 8 bits por canal y un nivel: `texels` fila a fila,
+/// en el orden de bytes R, G, B, A (o B, G, R, A con `bgra`).
+#[derive(Clone, Copy, Debug)]
+pub struct Texture<'a> {
+    pub texels: &'a [u32],
+    pub width: u32,
+    pub height: u32,
+    pub bgra: bool,
+}
+
+/// **Lo que un programa puede leer**: sus texturas (`t0`, `t1`...) y sus
+/// muestreadores (`s0`, `s1`...).
+#[derive(Clone, Copy, Debug)]
+pub struct Resources<'a> {
+    pub textures: &'a [Texture<'a>],
+    pub samplers: &'a [Sampler],
+}
+
+impl Resources<'_> {
+    pub const NONE: Resources<'static> = Resources { textures: &[], samplers: &[] };
+}
+
 /// **Una etapa de la tuberia**: un programa de vertice o de pixeles, en la
 /// lengua que sea. Los valores van por su id en la firma, de cuatro en cuatro.
 pub trait Shader {
@@ -76,6 +129,12 @@ pub trait Shader {
     fn reads(&self, k: usize) -> bool;
     /// Una vez: `false` si tira (un pixel con `discard`).
     fn run(&self, inputs: &[[f32; 4]], constants: &[u8], outputs: &mut [[f32; 4]]) -> bool;
+    /// Una vez, pudiendo leer `resources` (las texturas). El que no lee
+    /// ninguna no tiene que escribirlo.
+    fn run_with(&self, inputs: &[[f32; 4]], constants: &[u8], resources: &Resources, outputs: &mut [[f32; 4]]) -> bool {
+        let _ = resources;
+        self.run(inputs, constants, outputs)
+    }
 }
 
 /// Lo mas de render targets a la vez (D3D12: 8).
@@ -223,6 +282,8 @@ pub struct Draw<'a> {
     pub vertices: Buffer<'a>,
     pub indices: Option<&'a [u32]>,
     pub constants: &'a [u8],
+    /// Las texturas y los muestreadores que leen sus programas.
+    pub resources: Resources<'a>,
     pub count: usize,
 }
 
@@ -299,6 +360,33 @@ impl Shader for bmo_prometeo::programa::Programa {
     fn run(&self, inputs: &[[f32; 4]], constants: &[u8], outputs: &mut [[f32; 4]]) -> bool {
         let mut regs = alloc::vec::Vec::new();
         self.correr(inputs, constants, outputs, &mut regs)
+    }
+    fn run_with(&self, inputs: &[[f32; 4]], constants: &[u8], resources: &Resources, outputs: &mut [[f32; 4]]) -> bool {
+        use bmo_prometeo::textura::{Direccion, Filtro, Lod, Muestreador, Recursos, Textura};
+        if resources.textures.is_empty() && resources.samplers.is_empty() {
+            return self.run(inputs, constants, outputs);
+        }
+        let texturas: alloc::vec::Vec<Option<Textura>> = resources.textures.iter().map(|t| Some(Textura::rgba(t.texels, t.width, t.height, t.bgra))).collect();
+        let muestreadores: alloc::vec::Vec<Option<Muestreador>> = resources
+            .samplers
+            .iter()
+            .map(|m| {
+                let filtro = match m.filter {
+                    Filter::Point => Filtro::Punto,
+                    Filter::Linear => Filtro::Lineal,
+                };
+                let d = match m.address {
+                    Address::Wrap => Direccion::Repetir,
+                    Address::Mirror => Direccion::Espejo,
+                    Address::Clamp => Direccion::Sujetar,
+                    Address::Border => Direccion::Borde,
+                };
+                Some(Muestreador { filtro, u: d, v: d, borde: m.border, comparacion: 0, lod: Lod { mip: filtro, ..Lod::DE_SIEMPRE } })
+            })
+            .collect();
+        let rec = Recursos { texturas: &texturas, muestreadores: &muestreadores, buferes: &[], dinamicas: None };
+        let mut regs = alloc::vec::Vec::new();
+        self.correr_con(inputs, constants, &rec, outputs, &mut regs)
     }
 }
 

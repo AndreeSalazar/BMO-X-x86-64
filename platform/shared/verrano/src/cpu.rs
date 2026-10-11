@@ -129,8 +129,9 @@ impl Backend for Cpu {
         let mut n = 0;
         for tri in frame.vertices.chunks_exact(3) {
             let color = self.unorm8.pack(tri[0].color);
-            let (piezas, cuantas) = recorta([tri[0].position, tri[1].position, tri[2].position]);
+            let (piezas, cuantas) = recorta([[tri[0].position], [tri[1].position], [tri[2].position]]);
             for pieza in &piezas[..cuantas] {
+                let pieza = &[pieza[0][0], pieza[1][0], pieza[2][0]];
                 let mut pinta = |i: usize, _: i64, _: i64, _: &[i64; 3]| {
                     pixels[i] = color;
                     true
@@ -175,39 +176,41 @@ impl DrawBackend for Cpu {
             for (j, s) in salidas.iter_mut().enumerate() {
                 let v = d.vertex_at(3 * t + j);
                 *s = [[0.0; 4]; MAX_IO];
-                p.vertex.run(&d.vertices.data[v * stride..(v + 1) * stride], d.constants, &mut s[..p.vertex.outputs()]);
+                p.vertex.run_with(&d.vertices.data[v * stride..(v + 1) * stride], d.constants, &d.resources, &mut s[..p.vertex.outputs()]);
             }
-            let (piezas, cuantas) = recorta([salidas[0][0], salidas[1][0], salidas[2][0]]);
-            let entrada = &salidas[0][..p.pixel.inputs()];
-            if !p.pixel.reads(0) {
-                // regla 3: plano, del vertice 0; una vez por triangulo
-                let mut colores = [[0f32; 4]; MAX_IO];
-                if !p.pixel.run(entrada, d.constants, &mut colores[..p.pixel.outputs()]) {
-                    continue;
-                }
-                for pieza in &piezas[..cuantas] {
+            let (piezas, cuantas) = recorta(salidas);
+            let entradas = p.pixel.inputs();
+            for pieza in &piezas[..cuantas] {
+                let posiciones = [pieza[0][0], pieza[1][0], pieza[2][0]];
+                if !p.pixel.reads(0) && !varia(pieza, entradas) {
+                    // nada cambia dentro: el de pixeles UNA vez (las caras del
+                    // cubo, un color por cara)
+                    let mut colores = [[0f32; 4]; MAX_IO];
+                    if !p.pixel.run_with(&pieza[0][..entradas], d.constants, &d.resources, &mut colores[..p.pixel.outputs()]) {
+                        continue;
+                    }
                     let mut pinta = |i: usize, _: i64, _: i64, _: &[i64; 3]| {
                         poner(i, &colores);
                         true
                     };
-                    n += self.triangulo(p.cull, pieza, &mut pinta, (w, h), (mw, mh), zb.as_deref_mut()) as u32;
+                    n += self.triangulo(p.cull, &posiciones, &mut pinta, (w, h), (mw, mh), zb.as_deref_mut()) as u32;
+                    continue;
                 }
-                continue;
-            }
-            // regla 5: lee SV_Position -- en CADA pixel, lo de la casa (N5.9)
-            for pieza in &piezas[..cuantas] {
+                // reglas 3 y 5: en CADA pixel, lo interpolado y SV_Position
                 let mut pinta = |i: usize, px: i64, py: i64, e: &[i64; 3]| {
                     let mut ent = [[0f32; 4]; MAX_IO];
-                    ent[..entrada.len()].copy_from_slice(entrada);
-                    ent[0] = posicion(pieza, px, py, e);
+                    interpola(pieza, e, &mut ent[..entradas]);
+                    if p.pixel.reads(0) {
+                        ent[0] = posicion(&posiciones, px, py, e);
+                    }
                     let mut colores = [[0f32; 4]; MAX_IO];
-                    if !p.pixel.run(&ent[..entrada.len()], d.constants, &mut colores[..p.pixel.outputs()]) {
+                    if !p.pixel.run_with(&ent[..entradas], d.constants, &d.resources, &mut colores[..p.pixel.outputs()]) {
                         return false;
                     }
                     poner(i, &colores);
                     true
                 };
-                n += self.triangulo(p.cull, pieza, &mut pinta, (w, h), (mw, mh), zb.as_deref_mut()) as u32;
+                n += self.triangulo(p.cull, &posiciones, &mut pinta, (w, h), (mw, mh), zb.as_deref_mut()) as u32;
             }
         }
         Ok(Stats { triangles: n, device_us: 0, prepare_us: 0, warm: false, in_flight: false, wait_us: 0 })
@@ -238,26 +241,30 @@ fn posicion(tri: &[[f32; 4]; 3], px: i64, py: i64, e: &[i64; 3]) -> [f32; 4] {
 }
 
 /// ** V2b: el triangulo recortado contra z >= 0 (el plano de cerca), en
-/// triangulos: uno si no cruza (el MISMO, sin tocar), o dos.
-fn recorta(t: [[f32; 4]; 3]) -> ([[[f32; 4]; 3]; 2], usize) {
-    if t.iter().all(|p| p[2] >= 0.0) {
+/// triangulos: uno si no cruza (el MISMO, sin tocar), o dos. Cada vertice
+/// es lo que dejo su programa (`N` valores, la posicion el 0): en el cruce,
+/// TODOS se interpolan con el mismo `t` (en recorte es lineal).
+fn recorta<const N: usize>(t: [[[f32; 4]; N]; 3]) -> ([[[[f32; 4]; N]; 3]; 2], usize) {
+    if t.iter().all(|v| v[0][2] >= 0.0) {
         return ([t, t], 1);
     }
-    let mut poli = [[0f32; 4]; 4];
+    let mut poli = [[[0f32; 4]; N]; 4];
     let mut m = 0;
     for k in 0..3 {
-        let (a, b) = (t[k], t[(k + 1) % 3]);
-        if a[2] >= 0.0 {
-            poli[m] = a;
+        let (a, b) = (&t[k], &t[(k + 1) % 3]);
+        if a[0][2] >= 0.0 {
+            poli[m] = *a;
             m += 1;
         }
-        if (a[2] >= 0.0) != (b[2] >= 0.0) {
-            let s = a[2] / (a[2] - b[2]);
-            let mut c = [0f32; 4];
-            for i in 0..4 {
-                c[i] = a[i] + s * (b[i] - a[i]);
+        if (a[0][2] >= 0.0) != (b[0][2] >= 0.0) {
+            let s = a[0][2] / (a[0][2] - b[0][2]);
+            let mut c = [[0f32; 4]; N];
+            for (j, cj) in c.iter_mut().enumerate() {
+                for i in 0..4 {
+                    cj[i] = a[j][i] + s * (b[j][i] - a[j][i]);
+                }
             }
-            c[2] = 0.0;
+            c[0][2] = 0.0;
             poli[m] = c;
             m += 1;
         }
@@ -267,6 +274,28 @@ fn recorta(t: [[f32; 4]; 3]) -> ([[[f32; 4]; 3]; 2], usize) {
         4 => ([[poli[0], poli[1], poli[2]], [poli[0], poli[2], poli[3]]], 2),
         _ => ([t, t], 0),
     }
+}
+
+/// ** Regla 3: lo que entra al de pixeles en el centro del pixel: cada valor
+/// INTERPOLADO CON PERSPECTIVA -- los pesos de pantalla sobre w, la cuenta
+/// de la casa (`bmo_proton_x::trama::Tri::entrada`) --, salvo el que vale lo
+/// mismo en los tres, que queda exacto. `e`: los pesos de `tri`.
+fn interpola(tri: &[[[f32; 4]; MAX_IO]; 3], e: &[i64; 3], ent: &mut [[f32; 4]]) {
+    let inv_w = [1.0 / tri[0][0][3], 1.0 / tri[1][0][3], 1.0 / tri[2][0][3]];
+    let b = [e[0] as f32 * inv_w[0], e[1] as f32 * inv_w[1], e[2] as f32 * inv_w[2]];
+    let s = b[0] + b[1] + b[2];
+    let (b1, b2) = (b[1] / s, b[2] / s);
+    for (a, v) in ent.iter_mut().enumerate() {
+        for k in 0..4 {
+            let (a0, a1, a2) = (tri[0][a][k], tri[1][a][k], tri[2][a][k]);
+            v[k] = if a0 == a1 && a1 == a2 { a0 } else { a0 + b1 * (a1 - a0) + b2 * (a2 - a0) };
+        }
+    }
+}
+
+/// Si algun valor de los primeros `n` cambia dentro del triangulo.
+fn varia(tri: &[[[f32; 4]; MAX_IO]; 3], n: usize) -> bool {
+    (0..n).any(|a| (0..4).any(|k| tri[0][a][k] != tri[1][a][k] || tri[1][a][k] != tri[2][a][k]))
 }
 
 impl Cpu {
@@ -559,13 +588,17 @@ mod pruebas {
     /// partir.
     #[test]
     fn what_does_not_cross_is_left_alone() {
-        let t = [[0.1, 0.2, 0.3, 1.0], [0.5, -0.2, 0.0, 1.0], [-0.4, 0.1, 0.9, 2.0]];
+        let t = [[[0.1, 0.2, 0.3, 1.0]], [[0.5, -0.2, 0.0, 1.0]], [[-0.4, 0.1, 0.9, 2.0]]];
         let (piezas, n) = recorta(t);
         assert_eq!((n, piezas[0]), (1, t));
-        // uno detras: un cuadrilatero, dos triangulos, todos con z >= 0
-        let (piezas, n) = recorta([[0.0, 0.0, 0.5, 1.0], [1.0, 0.0, 0.5, 1.0], [0.0, 1.0, -0.5, -0.4]]);
+        // uno detras: un cuadrilatero, dos triangulos, todos con z >= 0; y lo
+        // que deja el vertice (aqui un valor de 0 a 10), recortado con el
+        // MISMO t: en el cruce de 0,5 a -0,5 (la mitad), 5
+        let v = |p: [f32; 4], a: f32| [p, [a, 0.0, 0.0, 0.0]];
+        let (piezas, n) = recorta([v([0.0, 0.0, 0.5, 1.0], 0.0), v([1.0, 0.0, 0.5, 1.0], 0.0), v([0.0, 1.0, -0.5, -0.4], 10.0)]);
         assert_eq!(n, 2);
-        assert!(piezas.iter().flatten().all(|p| p[2] >= 0.0 && p[3] > 0.0));
+        assert!(piezas.iter().flatten().all(|p| p[0][2] >= 0.0 && p[0][3] > 0.0));
+        assert!(piezas.iter().flatten().any(|p| p[1][0] == 5.0), "{piezas:?}");
     }
 
     /// ** V3a / M2 en el anfitrion: EL CUBO DE BMOX-12 CON SUS PROGRAMAS.
@@ -607,6 +640,7 @@ mod pruebas {
                 vertices: Buffer { data: &datos, stride: 3 },
                 indices: Some(indices),
                 constants: cb,
+                resources: crate::dibujo::Resources::NONE,
                 count: indices.len(),
             };
             let mut px = vec![0u32; (ANCHO * ALTO) as usize];
@@ -687,6 +721,7 @@ mod pruebas {
                 vertices: Buffer { data: datos, stride: 1 },
                 indices: Some(indices),
                 constants: &[],
+                resources: crate::dibujo::Resources::NONE,
                 count: indices.len(),
             };
             let mut px = vec![0u32; 64];
@@ -762,7 +797,7 @@ mod pruebas {
         /// `otros`), con `p` como tuberia.
         fn encima(p: Pipeline, clear: Option<[f32; 4]>, px: &mut [u32], otros: &mut [&mut [u32]]) -> Result<Stats, Error> {
             let datos = lleno();
-            let d = Draw { clear, viewport: Viewport { width: 8, height: 8 }, pipeline: p, vertices: Buffer { data: &datos, stride: 1 }, indices: Some(&[0, 1, 2, 2, 1, 3]), constants: &[], count: 6 };
+            let d = Draw { clear, viewport: Viewport { width: 8, height: 8 }, pipeline: p, vertices: Buffer { data: &datos, stride: 1 }, indices: Some(&[0, 1, 2, 2, 1, 3]), constants: &[], resources: crate::dibujo::Resources::NONE, count: 6 };
             let mut juez = Cpu { max_vertices: 64, ..Cpu::D3D10 };
             juez.draw_targets(&d, &mut Image { pixels: px, width: 8, height: 8, depth: None }, otros)
         }
@@ -958,6 +993,71 @@ mod pruebas {
             let mut juez = Cpu::LA_3060;
             for groups in [[0, 1, 1], [65536, 1, 1], [1, 0, 1]] {
                 assert_eq!(juez.dispatch(&Dispatch { program: &cs, groups, constants: &[] }, &[], &mut []).err(), Some(Error::Groups), "{groups:?}");
+            }
+        }
+
+        /// *** LA TEXTURA, EN PERSPECTIVA: `textura.hlsl` de la casa (dxc,
+        /// `imagen.Sample(muestreo, uv)`) en un cuadro de 16x16 cuyos dos
+        /// vertices de arriba estan TRES veces mas lejos (w = 3): la uv va
+        /// con perspectiva (no lineal en la pantalla), la textura de 4x4 se
+        /// filtra y se repite. VERRANO da, pixel a pixel, lo MISMO que la casa
+        /// (`bmo_proton_x::lote::en_cpu`, el camino de D3D12 en la CPU) con
+        /// los mismos datos -- con filtro lineal y repetir, y con punto y
+        /// borde --.
+        #[test]
+        fn a_textured_quad_in_perspective_is_the_house_one() {
+            use crate::dibujo::{Address, Filter, Resources, Sampler, Texture};
+            use bmo_proton_x::lote::{self, ElementoIa, Lote, Topologia};
+            use bmo_proton_x::{textura as tx, trama};
+            let (vs_d, ps_d): (&[u8], &[u8]) = (include_bytes!("../../proton-x/prueba/textura_vs.dxil"), include_bytes!("../../proton-x/prueba/textura_ps.dxil"));
+            let texeles: Vec<u32> = (0..16u32).map(|i| 0xFF00_0000 | (i * 16) | (255 - i * 16) << 8 | (i % 4 * 60) << 16).collect();
+            // abajo w = 1, arriba w = 3; la uv llega a 2 (la textura, dos veces)
+            let esquinas = [(-1.0f32, -1.0f32, 1.0f32, 0.0f32, 2.0f32), (1.0, -1.0, 1.0, 2.0, 2.0), (-1.0, 1.0, 3.0, 0.0, 0.0), (1.0, 1.0, 3.0, 2.0, 0.0)];
+            let datos: Vec<[f32; 4]> = esquinas.iter().flat_map(|&(x, y, w, u, v)| [[x * w, y * w, 0.25 * w, w], [u, v, 0.0, 0.0]]).collect();
+            let bytes: Vec<u8> = datos.iter().flatten().flat_map(|x| x.to_le_bytes()).collect();
+            let ids = [0u32, 2, 1, 1, 2, 3];
+            let (vs, ps) = (programa(vs_d), programa(ps_d));
+            for (filter, address) in [(Filter::Linear, Address::Wrap), (Filter::Point, Address::Border)] {
+                // VERRANO
+                let textura = [Texture { texels: &texeles, width: 4, height: 4, bgra: false }];
+                let muestreo = [Sampler { filter, address, border: [0.25, 0.5, 0.75, 1.0] }];
+                let d = Draw {
+                    clear: Some([0.0; 4]),
+                    viewport: Viewport { width: 16, height: 16 },
+                    pipeline: Pipeline::new(&vs, &ps, false, Cull::None),
+                    vertices: Buffer { data: &datos, stride: 2 },
+                    indices: Some(&ids),
+                    constants: &[],
+                    resources: Resources { textures: &textura, samplers: &muestreo },
+                    count: 6,
+                };
+                let mut px = vec![0u32; 256];
+                let mut juez = Cpu { max_vertices: 64, ..Cpu::D3D10 };
+                juez.draw_with(&d, &mut Image { pixels: &mut px, width: 16, height: 16, depth: None }).unwrap();
+                // la casa
+                let ia = [
+                    ElementoIa { semantica: "POSITION".into(), indice: 0, formato: 2, ranura: 0, desde: 0, por_instancia: None },
+                    ElementoIa { semantica: "TEXCOORD".into(), indice: 0, formato: 2, ranura: 0, desde: 16, por_instancia: None },
+                ];
+                let en = lote::enlazar(&bmo_proton_x::dxil::leer(vs_d).unwrap(), &bmo_proton_x::dxil::leer(ps_d).unwrap(), &ia).unwrap();
+                let filtro = if filter == Filter::Linear { tx::Filtro::Lineal } else { tx::Filtro::Punto };
+                let dir = if address == Address::Wrap { tx::Direccion::Repetir } else { tx::Direccion::Borde };
+                let t = [Some(tx::Textura::rgba(&texeles, 4, 4, false))];
+                let m = [Some(tx::Muestreador { filtro, u: dir, v: dir, borde: muestreo[0].border, comparacion: 0, lod: tx::Lod { mip: filtro, ..tx::Lod::DE_SIEMPRE } })];
+                let reglas = trama::Reglas { viewport: [0.0, 0.0, 16.0, 16.0, 0.0, 1.0], tijera: [0, 0, 16, 16], descarte: 1, antihorario: false, profundidad: None, mezcla: bmo_proton_x::mezcla::Mezclas::NINGUNA, z_del_sombreador: false, stencil: None };
+                let l = Lote { enlace: &en, entradas: &ia, vertices: &bytes, paso: 32, ids: &ids, topologia: Topologia::Lista, cb: &[], reglas, limpiar_z: None, limpiar_rt: None, recursos: tx::Recursos { texturas: &t, muestreadores: &m, buferes: &[], dinamicas: None }, oclusion: false, otros: &[], instancias: 1, primera_instancia: 0, base_vertice: 0, uavs: None };
+                let mut casa = vec![0u32; 256];
+                let mut dst = trama::Destino { pixeles: &mut casa, ancho: 16, alto: 16, bgra: false, z: None, cadena: false, otros: &mut [], flotante: None, stencil: None };
+                lote::en_cpu(&l, &mut dst).unwrap();
+                // la casa guarda R en el byte bajo; VERRANO, B
+                let a_verrano = |p: u32| p & 0xFF00_FF00 | (p & 0xFF) << 16 | (p >> 16) & 0xFF;
+                let distintos = (0..256).filter(|&i| px[i] != a_verrano(casa[i])).count();
+                assert_eq!(distintos, 0, "{filter:?} {address:?}: el primero en {:?}", (0..256).find(|&i| px[i] != a_verrano(casa[i])));
+                // y no es plano: la textura se ve (mas de 8 colores)
+                let mut colores = px.clone();
+                colores.sort();
+                colores.dedup();
+                assert!(colores.len() > 8, "{filter:?}: {} colores", colores.len());
             }
         }
 

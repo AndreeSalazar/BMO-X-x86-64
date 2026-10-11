@@ -201,6 +201,15 @@ y `puerta.rs`; el juez en `platform/drivers/gpu/ga10x/src/sass/juez.rs`):
       (E8g; `niveles.hlsl` de dxc entero: 59 instrucciones, 40 registros).
       Falta lo de esta casilla que es Ring 0 -- el TIC de bloques con mips,
       las capas, la subida -- y el cubo, que es decision (E8g).
+      **11-10, VERRANO ya las lleva (en el anfitrion):** `Texture`,
+      `Sampler` y `Resources` en el `Draw`, y el juez interpola lo que deja
+      el de vertice CON PERSPECTIVA (lo que no cambia queda exacto; el
+      recorte de cerca recorta tambien eso). `textura.hlsl` (dxc) en un
+      cuadro cuyos vertices de arriba estan tres veces mas lejos da, pixel a
+      pixel, LO MISMO que la casa (`lote::en_cpu`) -- lineal y repetir,
+      punto y borde: 0 pixeles distintos --; saboteado (la uv lineal en la
+      pantalla, el lineal como punto): cae. La huella de BMOX-12 no se
+      movio.
 - [ ] **LI2d -- varios render targets y la profundidad** (N5.8; V2/M1 de
       `PLAN_VERRANO.md`). El G-buffer: hasta 8 destinos y el z-buffer en la
       VRAM. **Como se sabe:** la escena 3D dura (A11) pintada por la 3060

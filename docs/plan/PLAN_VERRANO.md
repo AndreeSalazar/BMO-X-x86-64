@@ -333,8 +333,11 @@ la SPH (128 B) y detras las instrucciones.
       hasta 8 destinos, la mezcla de D3D12 en cada uno (la de la casa, bit a
       bit) y el dibujo sin limpiar para las pasadas que se suman. **11-10, y
       el COMPUTO** (LI2f): `Compute`/`Dispatch`, con los SRV y los UAV, por el
-      despacho de PROMETEO. **Falta:** la 3060 como `DrawBackend` y
-      `ComputeBackend` (V3b abajo).
+      despacho de PROMETEO. **11-10, y las TEXTURAS** (LI2c, M3 en el
+      anfitrion): `Texture`/`Sampler`/`Resources`, con lo del vertice
+      interpolado con perspectiva; un cuadro texturado en perspectiva da lo
+      mismo que la casa, pixel a pixel. **Falta:** la 3060 como
+      `DrawBackend` y `ComputeBackend` (V3b abajo).
 - [ ] **V3b -- la 3060 dibuja un `Draw`.** El Aparato del DIRECTOR hoy
       lleva los programas de BMOX-12 YA traducidos (`bmox12_vs.sm86`); con
       un `Draw` cualquiera, sus programas van por el `.bsf` VIVO de
