@@ -348,10 +348,12 @@ impl Machine {
         }
         match op {
             ARCH_OP_LEER if !self.abiertos[i].escribe => {
+                // El tope en `arg0`, como el kernel: 1..=6, y si no 7.
+                let tope = if (1..=6).contains(&arg0) { arg0 as usize } else { 7 };
                 let a = &mut self.abiertos[i];
                 let mut w = [0u8; 8];
                 let mut n = 0usize;
-                while n < 7 && a.cursor < a.datos.len() {
+                while n < tope && a.cursor < a.datos.len() {
                     w[n] = a.datos[a.cursor];
                     a.cursor += 1;
                     n += 1;

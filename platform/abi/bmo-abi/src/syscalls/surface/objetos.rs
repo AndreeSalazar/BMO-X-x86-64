@@ -309,6 +309,11 @@ pub const APARATO_OP_BYTES: u64 = 0x02;
 /// siempre"*.
 pub const LATIDO_OP_CUENTA: u64 = 0x01;
 
+/// Saca hasta 7 bytes: `(n << 56) | bytes_LE`. `n == 0` = se acabo.
+///
+/// `arg0` = el TOPE, cuantos bytes caben en el destino (1..=6); `0` o
+/// cualquier otro valor es 7. El cursor avanza solo lo entregado, asi que un
+/// destino que no mide un multiplo de 7 ya no pierde la sobra.
 pub const ARCH_OP_LEER: u64 = 0x01;
 
 /// Saca hasta 7 bytes **sin pasar del salto de linea**:

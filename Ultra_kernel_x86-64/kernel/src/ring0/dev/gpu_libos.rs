@@ -515,6 +515,19 @@ pub fn pedir_control(que: u64) -> Result<u64, u32> {
     };
     let r = enviar(|h, n| bmo_gpu_ga10x::control::pedir(h, n, c))?;
     crate::ring0::cabina::count("gpu", "L1b: GSP_RM_CONTROL pedido; cmd", c.forma().0 as u64);
+    // ** LOS RELOJES, CON NOMBRE Y CON EL ENLACE (11-10). Antes CABINA solo
+    // decia "control pedido; cmd 0x2080200A", y el propietario probo `gpu
+    // relojes` sin encontrarlo despues. Ahora dice cual fue y como estaba el
+    // PCIe en ese momento (Link Status | Link Capabilities << 32, crudo; el
+    // DIRECTOR lo vuelve a leer despues de medir y dice si subio).
+    if c.relojes() {
+        let que = match c {
+            bmo_gpu_ga10x::control::Control::RelojesArriba => "relojes: PERF_BOOST pedido al GSP-RM (al maximo); el PCIe ahora",
+            bmo_gpu_ga10x::control::Control::RelojesNormales => "relojes: PERF_BOOST quitado; el PCIe ahora",
+            _ => "relojes: reposo pedido al GSP-RM; el PCIe ahora",
+        };
+        crate::ring0::cabina::info("gpu", que, crate::ring0::dev::gpu::info_salud(1 << 8));
+    }
     Ok(r)
 }
 

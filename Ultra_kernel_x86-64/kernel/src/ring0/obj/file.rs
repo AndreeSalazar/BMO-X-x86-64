@@ -161,6 +161,12 @@ pub const ERROR_ARCH_ES_CARPETA: u32 = 33;
 
 /// Saca hasta 7 bytes: `(n << 56) | bytes_LE`. `n == 0` = se acabo.
 ///
+/// `arg0` = el TOPE: cuantos bytes le caben al que pide (1..=6). `0` --o
+/// cualquier otro valor-- es 7, lo de siempre. Existe porque el cursor es del
+/// kernel: un llamante con sitio para 4 que recibia 7 tiraba 3 y nadie podia
+/// devolverlos. Asi se comia la copia con fecha del `save` 3 bytes en cada
+/// frontera de 2048 (Ryzen, 2026-10-11: `-UESTROS`, `EN LAM DEL PC`).
+///
 /// Siete y no ocho porque el octavo lleva la cuenta. Es el mismo trato que la
 /// consola y que `DIR_OP_NOMBRE`: un contador honesto vale mas que un byte
 /// apretado, y aqui ademas hace que **el NUL viaje** -- un archivo no es texto
@@ -826,11 +832,12 @@ pub fn create(pid: u32, ruta: &str) -> Result<u64, u32> {
     }
 }
 
-fn read(i: usize) -> u64 {
+fn read(i: usize, tope: u64) -> u64 {
+    let tope = if (1..=6).contains(&tope) { tope as usize } else { 7 };
     unsafe {
         let mut w = [0u8; 8];
         let mut n = 0usize;
-        while n < 7 {
+        while n < tope {
             let b = match byte_en(i, CURSOR[i]) {
                 Some(b) => b,
                 None => break,
@@ -1015,7 +1022,7 @@ pub fn operation(idx: u64, op: u64, arg0: u64) -> Option<u64> {
         }),
         // El modo manda. Pedirle bytes a un archivo de escritura no es un
         // error de permisos: es una pregunta que ese objeto no responde.
-        ARCH_OP_LEER if !escribe => Some(read(i)),
+        ARCH_OP_LEER if !escribe => Some(read(i, arg0)),
         ARCH_OP_LEER_LINEA if !escribe => Some(read_line(i)),
         ARCH_OP_ESCRIBIR if escribe => Some(write(i, arg0)),
         ARCH_OP_MEDIDA => Some(unsafe {

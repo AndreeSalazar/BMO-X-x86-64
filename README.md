@@ -319,9 +319,12 @@ with hardware SSE in Ring 3 and completed by the 3060 every frame: **83-114 ms
 per frame**, every line of the log saying `completada en la 3060`. The side
 panel says the truth around it too: `cpu 100%` (one core, flat out), the card
 at P0 and 49 degrees, and **`pcie 1/3 x16`** -- the link is running at Gen1
-out of a possible Gen3 (the A320 board's ceiling; the card itself is Gen4). A
-3060 trains at Gen1 from a cold boot and its own firmware (the GSP-RM) raises
-it with the performance level; under BMO-X it has already run at Gen3 (the
+out of a possible Gen3 (the A320 board's ceiling; the card itself is Gen4).
+**Gen3 is there, and it is the card's own firmware that picks**: when the
+GSP-RM does not start, the link stays at the Gen3 the BIOS trained (seen
+again on the afternoon of 2026-10-11: `pcie Gen3 x16 de Gen4`); when it runs,
+it drops the link to Gen1 and raises it with the performance level. Under
+BMO-X the card has already worked at Gen3 with the GSP-RM alive (the
 whole-screen copy measured ~12.8 GB/s, 81 % of Gen3, on 2026-09-25), and `gpu
 relojes` now says the link before and after asking the RM for `PERF_BOOST`.
 
