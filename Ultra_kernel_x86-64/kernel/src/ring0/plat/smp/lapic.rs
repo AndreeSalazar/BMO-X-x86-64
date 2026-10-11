@@ -46,6 +46,17 @@ pub unsafe fn ipi(destino: u32, orden: u32) {
 }
 
 /// INIT: pone al AP en su estado de arranque.
+/// **El ESR del APIC** (Error Status, 0x280): se escribe 0 para que lo
+/// actualice y se lee. Linux lo mira despues de cada SIPI ("APIC delivery
+/// error"): sin el, un hilo que no contesta no dice si la llamada llego.
+pub unsafe fn esr() -> u32 {
+    let b = base();
+    unsafe {
+        core::ptr::write_volatile((b + 0x280) as *mut u32, 0);
+        core::ptr::read_volatile((b + 0x280) as *const u32)
+    }
+}
+
 pub const INIT: u32 = 0x0000_4500;
 /// SIPI con vector `0x08` -> el AP empieza en `0x8000`.
 pub const SIPI: u32 = 0x0000_4608;

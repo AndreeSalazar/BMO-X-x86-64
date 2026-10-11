@@ -32,6 +32,9 @@ pub const OFF_IDTR: u64 = 0x10; // limit u16 + base u64
 pub const OFF_CR3: u64 = 0x20;
 pub const OFF_ENTRADA: u64 = 0x28;
 pub const OFF_PILA: u64 = 0x30;
+/// ** El AP escribe aqui la pila que TOMO (12-10, como el `cpu_callin` de
+/// Linux): el BSP no pisa `OFF_PILA` con la del siguiente hasta verla.
+pub const OFF_TOMADA: u64 = 0x38;
 pub const OFF_GDT: u64 = 0x40; // la tabla en si
 
 /// La GDT que usa el AP para subir de 16 a 64 bits.
