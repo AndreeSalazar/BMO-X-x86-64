@@ -303,12 +303,27 @@ try {
     # sin construirla, F4 no abre nada.
     # ** Y `hermes` (03-10): F3, H5 de PLAN_HERMES. Sin ella, F3 solo avisa.
     # ** Y `jueces` (06-10): los jueces de PROTON-X corridos SOLOS (`run sys/jueces.bex`).
+    # ** Y `estudio` (11-10, VE2 de PLAN_VERRANO): VERRANO ESTUDIO VIVO con
+    # todos los nucleos (`smp all`, y `run sys/estudio.bex` desde Ejecutar).
     $out = cargo +nightly build -p bmo-service-director -p bmo-medida-coste -p bmo-medida-sombra -p bmo-app-proton-x -p bmo-app-taller -p bmo-app-ludoteca -p bmo-app-hermes -p bmo-app-bankcat -p bmo-app-jueces `
         --release --target x86_64-unknown-none 2>&1
     $out | ForEach-Object {
         if ($_ -match 'Compiling|Finished|error') { Write-Host ('    [userspace] ' + $_) -ForegroundColor DarkGray }
     }
     if ($LASTEXITCODE -ne 0) { Fail 'userspace build failed' }
+    # ** Y `estudio` con la coma flotante POR HARDWARE (11-10, la velocidad de
+    # ESTUDIO VIVO). `x86_64-unknown-none` la hace por software (`__mulsf3`):
+    # el trazado de caminos de ESTUDIO iba en llamadas a funcion por cada
+    # suma. `x86_64-bmo-ring3.json` es el mismo objetivo con SSE2 y el ABI de
+    # hardware; el kernel ya guarda ese estado en cada trap (`xsaveopt64`).
+    # Va aparte (`-Z build-std`: core y alloc para el objetivo nuevo), y su
+    # ELF sale en `target\x86_64-bmo-ring3`.
+    $out = cargo +nightly build -Z build-std=core,alloc -Z build-std-features=compiler-builtins-mem -Z json-target-spec -p bmo-app-estudio `
+        --release --target x86_64-bmo-ring3.json 2>&1
+    $out | ForEach-Object {
+        if ($_ -match 'Compiling|Finished|error') { Write-Host ('    [ring3 sse] ' + $_) -ForegroundColor DarkGray }
+    }
+    if ($LASTEXITCODE -ne 0) { Fail 'estudio (x86_64-bmo-ring3) build failed' }
 } finally { Pop-Location }
 
 $compositorElf = Join-Path $usDir 'target\x86_64-unknown-none\release\director'

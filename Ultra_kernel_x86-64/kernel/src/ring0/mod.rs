@@ -254,6 +254,9 @@ pub mod dev {
     /// P1 (2026-09-25): EL PASE de la GPU -- NEUTRO: el lienzo prestado una vez y
     /// el buzon; lo de cada tarjeta lo pone su `Motor`.
     pub mod pase_gpu;
+    /// EL RESPIRO (10-10): la puerta UNICA de la GPU, y su espera con las
+    /// interrupciones abiertas. NEUTRO como el pase: no nombra una tarjeta.
+    pub mod respiro;
     pub mod keyboard;
     pub mod pci;
     /// **EL METICHE** (26-09): los errores que el hardware apunto por su

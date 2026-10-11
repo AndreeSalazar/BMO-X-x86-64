@@ -30,7 +30,7 @@
 use alloc::collections::BTreeMap;
 use alloc::vec::Vec;
 
-use crate::dxil::olas::CARRILES;
+use bmo_prometeo::olas::CARRILES;
 use crate::trama::{Tri, SALIDAS};
 
 /// **Un carril de una ola de pixeles**: lo que entra, si es ayudante, y lo

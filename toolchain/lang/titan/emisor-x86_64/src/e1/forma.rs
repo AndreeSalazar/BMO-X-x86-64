@@ -46,7 +46,9 @@ impl<'m> Forms<'m> {
 
     pub fn size(&self, c: &Class) -> i32 {
         match c {
-            Class::Int | Class::Bool | Class::F32 => 8,
+            // TA1: un byte SUELTO es una palabra de 8, como un int; solo las
+            // celdas de `[byte]` miden 1 (`list_cell`).
+            Class::Int | Class::Byte | Class::Bool | Class::F32 => 8,
             Class::Dec => 16,
             Class::Text => 8 + TEXT_CAP as i32,
             Class::Table(inner, n) => self.size(inner) * *n as i32,
@@ -63,7 +65,7 @@ impl<'m> Forms<'m> {
     pub fn has_heap(&self, c: &Class) -> bool {
         match c {
             Class::List(_) | Class::Map(..) => true,
-            Class::Any | Class::Int | Class::Bool | Class::Dec | Class::Text | Class::F32 => false,
+            Class::Any | Class::Int | Class::Byte | Class::Bool | Class::Dec | Class::Text | Class::F32 => false,
             Class::Table(inner, _) | Class::Opt(inner) => self.has_heap(inner),
             Class::Record(t) => self.m.types[*t].fields.iter().any(|f| self.has_heap(&self.class(&f.ty))),
             Class::Enum(e) => self.m.enums[*e].cases.iter().flat_map(|c| &c.fields).any(|t| self.has_heap(&self.class(t))),
@@ -104,6 +106,7 @@ impl<'m> Forms<'m> {
     pub fn class_of_name(&self, name: &str) -> Class {
         match name {
             "int" => Class::Int,
+            "byte" => Class::Byte,
             "dec" => Class::Dec,
             "text" => Class::Text,
             "bool" => Class::Bool,
@@ -116,6 +119,7 @@ impl<'m> Forms<'m> {
     pub fn type_name(&self, c: &Class) -> Option<String> {
         Some(match c {
             Class::Int => "int".into(),
+            Class::Byte => "byte".into(),
             Class::Dec => "dec".into(),
             Class::Text => "text".into(),
             Class::Bool => "bool".into(),

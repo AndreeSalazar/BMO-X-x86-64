@@ -150,6 +150,10 @@ const BANCO: &[(&str, &str)] = &[
     // Nivel 13 (05-10): listas y mapas -- el primer valor en el monton.
     ("titan", "toolchain/lang/titan/ejemplos/nivel13/agenda.titan"),
     ("titan", "toolchain/lang/titan/ejemplos/nivel13/mundo.titan"),
+    // Nivel 14 (10-10): el byte -- `[byte]`, UN byte por celda (TA1 de
+    // PLAN_LA_TINTA).
+    ("titan", "toolchain/lang/titan/ejemplos/nivel14/pixeles.titan"),
+    ("titan", "toolchain/lang/titan/ejemplos/nivel14/histograma.titan"),
 ];
 
 #[derive(Debug, Clone, PartialEq)]

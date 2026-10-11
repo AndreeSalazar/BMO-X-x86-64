@@ -370,16 +370,16 @@ casa: primero lo que no toca nada, despues lo que pide el metal.
 
 ## 5a. Lo que TITAN++ necesita antes (el lenguaje y sus puertas)
 
-- [ ] TA0 -- las decisiones de la seccion 7, contestadas por el propietario
-- [ ] TA1 -- el BYTE: un tipo de 8 bits sin signo y las tablas grandes en un bloque de memoria pedido (`[u8]` de millones de celdas), con su codigo T y su ejemplo en `toolchain/lang/titan/ejemplos/`; nivel nuevo de la GRAMATICA
+- [x] TA0 -- las decisiones de la seccion 7, contestadas por el propietario. **10-10:** D5 (TB1 con raton) y D6 contestadas; D3 a medias (Wacom basica, el modelo despues); D2 propuesta (TINTA); D1 y D4 esperan a cuando hagan falta (D4, a TC8)
+- [x] TA1 -- el BYTE: un tipo de 8 bits sin signo y las tablas grandes en un bloque de memoria pedido (`[u8]` de millones de celdas), con su codigo T y su ejemplo en `toolchain/lang/titan/ejemplos/`; nivel nuevo de la GRAMATICA. **HECHO el 10-10 (nivel 14):** `byte` (0 a 255), `byte(x)` que comprueba (T0060, al compilar o al correr), y `[byte]` con UN byte por celda en E1 (`e1/coleccion.rs`); leido, un byte cuenta como un int; un int no entra callado donde va un byte (T0071). Sin codigo nuevo: los NO son T0060 y T0071. Pruebas: `emisor-x86_64/tests/bytes.rs` (E0 == E1 en ocho programas, los NO, y la MEDIDA: tres millones de celdas caben en `[byte]` -- 32 MiB del monton -- y no caben en `[int]`; saboteado con celdas de 8: cae); ejemplos `nivel14/pixeles`, `histograma` y dos NO; dentro de una `gpu fn`, `byte()` es T0090
 - [x] TA2 -- la VENTANA: el nodo `screen` de TITAN++ (pedir superficie, escribir una fila de pixeles, presentar), con su permiso en el Titan.toml y su linea en el certificado. **HECHA el 10-10** (F1 de [`EL_FOCO.md`](EL_FOCO.md)): `director.ventana`, `pixel`, `rect`, `fila` y `presenta`
 - [x] TA3 -- la ENTRADA de la ventana: el nodo `input` (raton: x, y, botones; y la presion cuando llegue TC1), con REX. **HECHA el 10-10** (F3 de [`EL_FOCO.md`](EL_FOCO.md)): `director.evento`, `codigo`, `raton_x`, `raton_y`, `botones` y `se_ve`; la presion de la Wacom, cuando llegue TC1
 - [ ] TA4 -- el DISCO: leer y escribir ficheros de ESTRATOS desde TITAN++, con permiso. **A medias el 10-10**: leer un fichero entero (`director.fichero`, F2 de [`EL_FOCO.md`](EL_FOCO.md)) y GUARDAR un texto (`director.guarda`, R1 de EL_FOCO: la app RESOLUCION); y, desde el corte 4e, BYTE A BYTE (`director.crea`, `escribe`, `cierra`: `apps/bico` y `apps/png`); falta que sea sobre ESTRATOS
-- [ ] TA5 -- la MEDIDA: un banco de velocidad de E1 sobre un bucle de pixeles (cuantos millones de celdas por segundo), escrito ANTES de prometer latencia
+- [x] TA5 -- la MEDIDA: un banco de velocidad de E1 sobre un bucle de pixeles (cuantos millones de celdas por segundo), escrito ANTES de prometer latencia. **HECHO el 10-10** (`emisor-x86_64/tests/medida.rs`), en instrucciones de E1 por pixel, por la resta de N y 2N: crear una celda de `[byte]` 47, pintarla 54, leerla 43, y un pixel a la ventana (`director.pixel`) 71 -- cada uno con su TECHO, ~1,5 veces lo de hoy: si E1 se vuelve mas lento, la prueba cae --. Repintar una ventana de 640x360 entera (leer + ventana) son ~26 millones de instrucciones: unos 7-9 ms en el Ryzen si da 3-4 por ns, que es una CUENTA, no una medida. La medida la da el metal: `director.ms()`, el reloj nuevo de TITAN++ (probado contra el del emulador). Por eso TB1 no repinta la ventana entera en cada trazo: solo la caja que el pincel toco
 
 ## 5b. EL PRIMER TEST: un lienzo que funciona (con raton)
 
-- [ ] TB1 -- EL LIENZO MINIMO en TITAN++: una capa, un pincel redondo con antialias, la goma, y exportar PNG. La prueba: el tiempo de un trazo a lo largo de la pantalla, medido
+- [x] TB1 -- EL LIENZO MINIMO en TITAN++: una capa, un pincel redondo con antialias, la goma, y exportar PNG. La prueba: el tiempo de un trazo a lo largo de la pantalla, medido. **HECHO en el anfitrion el 10-10: TINTA** (`Ultra_userspace/apps/tinta/`, `apps/tinta.bex` con su icono): la ventana de la medida de RESOLUCION (o 640 x 400), el lienzo una `[byte]` de tinta sobre papel blanco, el raton izquierdo pinta y el derecho borra, `g` pincel/goma, `+`/`-` el grosor (1 a 40), `b` papel en blanco, `s` guarda `datos/tinta.png` (grises, sin comprimir, con sus CRC: `png.titan`, sin una operacion de bits -- el xor sale de una tabla de 64 KB), Esc cierra. El pincel es una MASCARA hecha una vez por grosor (el borde suave, lineal en la distancia al cuadrado), y un trazo repinta en la ventana SOLO lo que cambio. La medida: un trazo de lado a lado (620 px, pincel de 6) cuesta 6,4 millones de instrucciones de E1 -- era 16,2 con la cobertura contada en cada pixel --, ~2 ms en el Ryzen a 3 por ns; la barra dice los ms de verdad (`director.ms()`). Pruebas: `emisor-x86_64/tests/tinta.rs` (sin escritorio lo dice; el trazo negro con el borde gris y simetrico; la goma, el grosor y `g`; el PNG leido byte a byte -- cada CRC, cada bloque de zlib, el Adler -- con los MISMOS pixeles que la ventana; y el techo del trazo). **Falta el metal** (5b2)
 - [ ] TB2 -- CAPAS Y FUSION: N capas con opacidad y los modos normal, multiplicar y pantalla; la fusion como `gpu fn` con su camino en la CPU, y el oraculo de los tres
 - [ ] TB3 -- TESELAS E HISTORIAL: capas en teselas de 256 (las vacias no existen) y deshacer/rehacer sobre ESTRATOS
 - [ ] TB5 -- LA `.obra` (seccion 4b): el manifiesto `obra.txt`, una carpeta por capa, un fichero por tesela pintada y la `vista.png` compuesta; leerla y escribirla desde TITAN++, con su banco en el anfitrion
@@ -387,6 +387,52 @@ casa: primero lo que no toca nada, despues lo que pide el metal.
 - [ ] TB7 -- RAMAS Y MEZCLA DE LA OBRA: una rama por intento, y la mezcla por capas (cada capa un nodo de R5); la pregunta solo cuando dos ramas tocaron la misma capa, y despues afinarla a la misma tesela
 - [ ] TB8 -- LA TRAYECTORIA DE LA OBRA: F12 (`scene/trayectoria.rs`) pinta la historia de una `.obra`, con la miniatura de cada version sacada de su `vista.png`
 - [ ] TB4 -- SELECCION Y RELLENO: la mascara de seleccion, el cubo con referencia a otra capa y "cerrar huecos"
+
+## 5b2. LA LISTA DEL PROPIETARIO: que esta aprobado, que esta hecho y que se prueba en su BMO-X (10-10)
+
+```text
+   QUE                       APROBADO   HECHO (anfitrion)   EN EL METAL
+   TA0 las decisiones        si         D5, D6; D3 a medias  --
+   TA1 el byte               si         si (nivel 14)        dentro de TINTA
+   TA5 la medida             si         si (E1, por pixel)   la barra de TINTA
+                                                             dice los ms
+   TB1 TINTA                 si         si                   POR PROBAR
+   TC1 la Wacom              si         no: falta su modelo  --
+   D2  el nombre TINTA       propuesto  --                   --
+   D4  la pagina (B4 / ppp)  no         --                   --
+   TB2 capas y fusion        no         --                   --
+   Minecraft en 3D (MUNDO)   en orden   MC1 si               POR PROBAR
+                                        (PLAN_MUNDO.md)
+   ILLAPA                    despues    --                   --
+```
+
+**Lo que se prueba en el metal, en este orden** (y que seria un NO):
+
+```text
+   1  TINTA desde su icono    se abre una ventana blanca     no se abre, o
+                              con la barra abajo             sale negra
+   2  pintar con el raton     una linea negra y seguida,     puntos sueltos,
+      (izquierdo apretado)    con el borde suave             o borde serrado
+   3  la barra                "trazo N ms": lo que tardo     N > 16 en un trazo
+                              el ultimo trazo                corto
+   4  el derecho              borra, vuelve el papel         no borra
+   5  + y -, g, b             grosor, goma, papel en blanco  no cambian
+   6  s                       "datos/tinta.png" en verde     "el disco NO lo
+                                                             guardo"
+   7  el PNG en Windows       se abre, y es lo pintado       no se abre
+   8  Alt+Tab y otra ventana  vuelve a pintarse entera       queda a medias
+      encima, y volver
+```
+
+**La Wacom (TC1), 11-10: es una INTUOS S (CTL-4100).** Lo que se sabe de
+fuera (el driver de Linux, `wacom_wac.c`, la tiene): USB, Wacom es el
+fabricante 056A; un lapiz de 4096 niveles de presion, unos 15.200 x 9.500
+puntos de rejilla en 152 x 95 mm (cien por milimetro: muy por debajo de un
+pixel), ~133 informes por segundo. Lo que NO se escribe de memoria: su
+producto exacto y la forma de sus informes se MIDEN en el Ryzen con la
+tableta enchufada (el censo USB del kernel y su descriptor HID), y el
+driver se escribe para ESO. Entra por el mismo camino que el raton: TINTA
+no cambia, gana la presion (el grosor y la tinta del pincel) y la finura.
 
 ## 5c. Manga
 
@@ -447,18 +493,37 @@ casa: primero lo que no toca nada, despues lo que pide el metal.
 
 Ninguna corre prisa: se contestan el dia que se empiece.
 
+> **10-10, EMPEZADO.** El propietario: *"aprobado empieza en orden mas
+> preciso y mejor eso lo recomendado y tengo wacom ya te mostrare el modelo
+> luego es basico con lapiz digital empieza asi completo [...] y poner en
+> check de lista que estan aprobado y que no para testear en mi bmo-X"*. Lo
+> recomendado era: TB1 primero (el lienzo minimo, con raton), despues
+> Minecraft en 3D (VERRANO), e ILLAPA al final. Las respuestas, abajo; la
+> lista para probar, en la seccion 5h.
+
 ```text
    D1  LA IDENTIDAD     la frase de LOS_TRES_VERTICES ("un sistema que promete
                         Photoshop...") se queda, o se reescribe con --sellar?
                         (el propietario, 07-10: "la ironia no es imposible")
    D2  EL NOMBRE        como se llama la app y en que tecla vive (F1..F12 ya
                         estan todas: una nueva en la rejilla, o dentro de F1)
+                        PROPUESTO (10-10): TINTA, `apps/tinta.bex`, con su
+                        icono en el escritorio como RESOLUCION; sin tecla F.
+                        Se cambia si el propietario dice otro
    D3  LA TABLETA       CONTESTADA EN PARTE (07-10): una WACOM basica. Falta
                         el modelo exacto (en Windows: Administrador de
-                        dispositivos, o la etiqueta de abajo: CTL-xxxx)
+                        dispositivos, o la etiqueta de abajo: CTL-xxxx).
+                        10-10: "basico con lapiz digital"; el modelo, despues
+                        (TC1 espera a eso). 11-10, CONTESTADA: una Wacom
+                        INTUOS S, CTL-4100 (la de cable USB; la CTL-4100WL es
+                        la de Bluetooth), con el Pen 4K: 4096 niveles de
+                        presion, sin goma en el lapiz, dos botones en el lapiz
+                        y cuatro en la tableta
    D4  LA PAGINA        el tamanio objetivo: B4 a 600 ppp en blanco y negro
                         (manga de imprenta), o 350 ppp en color
    D5  EL PRIMER TEST   TB1 con raton, o esperar a la Wacom
+                        CONTESTADA (10-10): TB1 con RATON, ya; la Wacom entra
+                        por el mismo camino (`input`) cuando se sepa su modelo
    D6  LOS FORMATOS     CONTESTADA (07-10): ni .psd ni .clip; lo propio es
                         la `.obra` (seccion 4b, "me encanta"), y sale en PNG,
                         SVG y PDF

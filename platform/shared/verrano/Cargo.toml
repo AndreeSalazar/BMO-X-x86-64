@@ -6,7 +6,8 @@ description = "VERRANO, la API de dibujo de BMO-X (V0): un fotograma de vertices
 license = "Apache-2.0"
 
 # Sin dependencias: la API y el backend CPU son aritmetica sobre buferes que
-# da quien llama. El backend de la 3060 vive donde se toca la tarjeta.
+# da quien llama. El backend de la 3060 vive donde se toca la tarjeta; el
+# juez de los dibujos con programas, con la trama (`bmo-verrano-trama`).
 [dependencies]
 
 [dev-dependencies]

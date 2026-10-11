@@ -106,11 +106,16 @@ impl Turno {
         (!EN_MARCHA.swap(true, Ordering::AcqRel)).then_some(Turno)
     }
 
-    /// El turno, esperando cediendo el nucleo: las estaciones del desmontaje
-    /// NO pueden saltarse la devolucion porque alguien estuviera abriendo.
+    /// El turno, esperando: las estaciones del desmontaje NO pueden saltarse
+    /// la devolucion porque alguien estuviera abriendo.
+    ///
+    /// ** 10-10: esperaba con `yield_current` en bucle, que dentro de un
+    /// syscall (IF=0) no cede nada: si quien tenia el turno era el enterrador
+    /// apartado, la espera no acababa nunca. Ahora quien lo toma pasa antes
+    /// por la puerta unica de la 3060 (`respiro`), y la espera respira.
     fn esperar() -> Self {
         while EN_MARCHA.swap(true, Ordering::AcqRel) {
-            crate::ring0::task::scheduler::yield_current();
+            crate::ring0::dev::respiro::una_vuelta();
         }
         Turno
     }

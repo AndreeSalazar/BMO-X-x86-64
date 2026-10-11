@@ -158,6 +158,28 @@ y `puerta.rs`; el juez en `platform/drivers/gpu/ga10x/src/sass/juez.rs`):
       que toco Cyberpunk y es acotada. **Como se sabe:** `posicion.dxil`
       (de `prueba/`) pasa la puerta y da los mismos bits en el simulador de
       la 3060 que en la CPU; en el metal, la huella de `bmox12` igual.
+      **11-10, la mitad de VERRANO HECHA en el anfitrion:** el juez de
+      VERRANO (`Draw`, V3a) corre el de pixeles en CADA pixel cuando lee su
+      posicion, con la regla de la casa (N5.9: el centro, la z lineal en la
+      pantalla, la w de recorte con perspectiva); `posicion.dxil` da lo
+      mismo que la prueba de `bmo_proton_x`, y la w con perspectiva
+      tambien (saboteada con la media de las w: cae). **Falta la mitad de
+      la 3060**, y se dice lo que se sabe y lo que NO, antes de tocarla:
+      ```text
+         la cabecera     `ImapPositionW` es el bit 191 (raster.rs: nouveau
+                         lo pone siempre); los de X, Y y Z, al lado, por
+                         CONFIRMAR en NAK (`sph.rs`) -- desde aqui no se
+                         llego a su fuente: no se adivina un bit de la SPH
+         la lectura      IPA de a[0x70..0x7c] (la posicion, donde el de
+                         vertice la escribe); x e y ya son el centro
+         la w            la 3060 da 1/w; D3D quiere w: la division EXACTA
+                         de la casa (`cociente.rs`, DL10), no un MUFU.RCP
+         la z            su IPA contra la cuenta de la CPU: si no da los
+                         mismos bits, lo dice el juez de `laminas` en el
+                         metal, y se decide (como la raiz, DL10)
+      ```
+      Instrucciones nuevas para la tarjeta: van al metal con el permiso del
+      propietario, como E6.
 - [ ] **LI2b -- programas largos.** Hoy el cuerpo cabe en un hueco de 128
       instrucciones de la tuberia. Un sombreador de Cyberpunk no. El codigo
       tiene que vivir en su propia region de la VRAM (como hace el driver
@@ -179,16 +201,52 @@ y `puerta.rs`; el juez en `platform/drivers/gpu/ga10x/src/sass/juez.rs`):
       (E8g; `niveles.hlsl` de dxc entero: 59 instrucciones, 40 registros).
       Falta lo de esta casilla que es Ring 0 -- el TIC de bloques con mips,
       las capas, la subida -- y el cubo, que es decision (E8g).
+      **11-10, VERRANO ya las lleva (en el anfitrion):** `Texture`,
+      `Sampler` y `Resources` en el `Draw`, y el juez interpola lo que deja
+      el de vertice CON PERSPECTIVA (lo que no cambia queda exacto; el
+      recorte de cerca recorta tambien eso). `textura.hlsl` (dxc) en un
+      cuadro cuyos vertices de arriba estan tres veces mas lejos da, pixel a
+      pixel, LO MISMO que la casa (`lote::en_cpu`) -- lineal y repetir,
+      punto y borde: 0 pixeles distintos --; saboteado (la uv lineal en la
+      pantalla, el lineal como punto): cae. La huella de BMOX-12 no se
+      movio.
 - [ ] **LI2d -- varios render targets y la profundidad** (N5.8; V2/M1 de
       `PLAN_VERRANO.md`). El G-buffer: hasta 8 destinos y el z-buffer en la
       VRAM. **Como se sabe:** la escena 3D dura (A11) pintada por la 3060
       con la huella de Windows.
+      **11-10, la mitad de VERRANO HECHA en el anfitrion, y con ella la
+      MEZCLA:** el `Draw` de VERRANO (V3a) escribe hasta 8 render targets a
+      la vez (la salida k al k) y mezcla cada uno con las reglas de D3D12 --
+      los 13 factores que usan los juegos, las 5 operaciones, la mascara y
+      el factor de `OMSetBlendFactor` --, en floats sobre lo que ya estaba
+      y a 8 bits otra vez; y un dibujo SIN limpiar deja lo de antes, para
+      la pasada que suma la luz. Probado: la mezcla da los MISMOS bits que
+      la de la casa (`bmo_proton_x::mezcla`) en las 1.690 combinaciones;
+      `gbuffer.hlsl` (dxc) pinta sus tres destinos -- el albedo, el sitio de
+      su SV_Position y la normal -- pixel a pixel; la luz que se suma en dos
+      pasadas, la transparencia y la mascara. Saboteado tres veces (sin
+      mezcla, la salida 0 en todos, la resta al reves): cae cada vez.
+      **Falta la mitad de la 3060:** varios destinos en la tuberia
+      (`pso.rs` aun dice "varios render targets") y su mezcla en el ROP,
+      con la regla 4 del juez (el redondeo de la 3060) en el metal.
 - [ ] **LI2e -- la entrada de vertices de verdad**: formatos de 8 y 16 bits
       (UNORM, SNORM, half) y `SV_VertexID` / `SV_InstanceID`. **Como se
       sabe:** las instancias de N5.19 por la 3060, con su huella.
 - [ ] **LI2f -- el computo del juego en la 3060.** Un PSO de computo al QMD
       (la 3060 ya corre computo fijo: `trabajos/blur.rs`), con UAV. **Como
       se sabe:** `olas` (A10) por la 3060, con su huella.
+      **11-10, la mitad de VERRANO HECHA en el anfitrion:** la categoria
+      COMPUTO (`Compute`, `Dispatch`, `ReadBuffer`/`RwBuffer`: los SRV y los
+      UAV) y el juez que despacha con el de la casa (`Programa::despachar`
+      de PROMETEO: grupos, memoria compartida, barreras, olas). `computo.hlsl`
+      (dxc) en dos grupos: cada hilo, el de su espejo tras la barrera;
+      `compartido.hlsl` -- los `Interlocked*` sobre la memoria compartida y el
+      `mad` de enteros que pidieron dos CS de Cyberpunk en el metal --: lo
+      que quedo, los "antes" distintos, uno solo sin el cambio; y los techos
+      de D3D12 (grupos de 1 a 65535, hilos hasta 1024) se dicen. Saboteado
+      (un grupo menos, el SRV sin su paso): cae. **Falta la mitad de la
+      3060:** el emisor aun rechaza `EscribeUav`, la memoria compartida, los
+      atomicos y las barreras, y el PSO de computo no va al QMD.
 - [ ] **LI2g -- DECISION DEL PROPIETARIO: los bits exactos o la tolerancia
       de D3D.** La regla de la casa es "los mismos bits que la CPU". La 3060
       APROXIMA la division, la raiz y el filtrado; D3D lo permite (unos

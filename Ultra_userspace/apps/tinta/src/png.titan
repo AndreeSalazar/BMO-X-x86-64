@@ -1,0 +1,180 @@
+# EL PNG DE TINTA: el lienzo, en grises, a un fichero PNG valido -- firma,
+# IHDR, IDAT y IEND, cada trozo con su CRC-32 --, sin comprimir: cada fila
+# es un bloque `stored` de zlib (lo admite el formato, y una fila cabe en uno).
+#
+# ** TITAN++ no tiene operaciones de bits, y no le hacen falta: el `xor` de
+# dos bytes sale de una TABLA de 65.536 bytes (`[byte]`, TA1), hecha una vez
+# por guardado; y el CRC-32 se lleva en CUATRO bytes, con su tabla partida en
+# cuatro: por cada byte, unas pocas lecturas de tabla, ni una division.
+mod png "el lienzo de TINTA a un PNG de grises, sin comprimir y con sus CRC"
+use director
+
+fn div(a: int, d: int) -> int
+    return (a - a % d) / d
+
+# El xor de dos bytes, bit a bit, de lo ya hecho: x(a, b) es el doble del de
+# sus mitades, mas 1 si sus ultimos bits difieren.
+fn tabla_xor() -> [byte]
+    let mut x: [byte] = []
+    for a in range(256)
+        for b in range(256)
+            if a == 0 and b == 0
+                push(mut x, byte(0))
+            else
+                let mitad = x[div(a, 2) * 256 + div(b, 2)]
+                let mut bit = 0
+                if a % 2 != b % 2
+                    bit = 1
+                push(mut x, byte(2 * mitad + bit))
+    return x
+
+# La tabla del CRC-32 de PNG (el polinomio 0xEDB88320), byte `k` de cada
+# entrada (k = 0 el bajo). `x` es la tabla del xor.
+fn tabla_crc(x: [byte], k: int) -> [byte]
+    let mut t: [byte] = []
+    for n in range(256)
+        let mut c0 = n
+        let mut c1 = 0
+        let mut c2 = 0
+        let mut c3 = 0
+        for i in range(8)
+            let impar = c0 % 2 == 1
+            c0 = div(c0, 2) + 128 * (c1 % 2)
+            c1 = div(c1, 2) + 128 * (c2 % 2)
+            c2 = div(c2, 2) + 128 * (c3 % 2)
+            c3 = div(c3, 2)
+            if impar
+                c0 = x[c0 * 256 + 32]
+                c1 = x[c1 * 256 + 131]
+                c2 = x[c2 * 256 + 184]
+                c3 = x[c3 * 256 + 237]
+        if k == 0
+            push(mut t, byte(c0))
+        else if k == 1
+            push(mut t, byte(c1))
+        else if k == 2
+            push(mut t, byte(c2))
+        else
+            push(mut t, byte(c3))
+    return t
+
+# Un numero de 32 bits, big-endian (las longitudes y medidas de PNG).
+fn pon32(v: int)
+    director.escribe(div(v, 16777216) % 256)
+    director.escribe(div(v, 65536) % 256)
+    director.escribe(div(v, 256) % 256)
+    director.escribe(v % 256)
+
+# **Guarda** el lienzo `px` (la TINTA de cada pixel: 0 papel, 255 negro) de
+# `w` x `h` en `ruta`, como grises (el papel blanco). `true` si el disco lo
+# guardo entero.
+pub fn guarda(px: [byte], w: int, h: int, ruta: text) -> bool
+    let x = tabla_xor()
+    let t0 = tabla_crc(x, 0)
+    let t1 = tabla_crc(x, 1)
+    let t2 = tabla_crc(x, 2)
+    let t3 = tabla_crc(x, 3)
+    if not director.crea(ruta)
+        return false
+    # la firma
+    let firma: [int; 8] = [137, 80, 78, 71, 13, 10, 26, 10]
+    for b in firma
+        director.escribe(b)
+    # IHDR: la medida, 8 bits, grises (tipo 0), sin entrelazar
+    let mut ihdr: [byte] = []
+    for b in [73, 72, 68, 82]
+        push(mut ihdr, byte(b))
+    for v in [w, h]
+        push(mut ihdr, byte(div(v, 16777216) % 256))
+        push(mut ihdr, byte(div(v, 65536) % 256))
+        push(mut ihdr, byte(div(v, 256) % 256))
+        push(mut ihdr, byte(v % 256))
+    for b in [8, 0, 0, 0, 0]
+        push(mut ihdr, byte(b))
+    pon32(13)
+    let mut c0 = 255
+    let mut c1 = 255
+    let mut c2 = 255
+    let mut c3 = 255
+    for b in ihdr
+        director.escribe(b)
+        let i = x[c0 * 256 + b]
+        c0 = x[t0[i] * 256 + c1]
+        c1 = x[t1[i] * 256 + c2]
+        c2 = x[t2[i] * 256 + c3]
+        c3 = t3[i]
+    director.escribe(255 - c3)
+    director.escribe(255 - c2)
+    director.escribe(255 - c1)
+    director.escribe(255 - c0)
+    # IDAT: zlib (78 01), una fila por bloque stored, y la suma de Adler
+    pon32(2 + h * (5 + 1 + w) + 4)
+    c0 = 255
+    c1 = 255
+    c2 = 255
+    c3 = 255
+    let mut cabeza: [byte] = []
+    for b in [73, 68, 65, 84, 120, 1]
+        push(mut cabeza, byte(b))
+    for b in cabeza
+        director.escribe(b)
+        let i = x[c0 * 256 + b]
+        c0 = x[t0[i] * 256 + c1]
+        c1 = x[t1[i] * 256 + c2]
+        c2 = x[t2[i] * 256 + c3]
+        c3 = t3[i]
+    let largo = 1 + w
+    let mut sa = 1
+    let mut sb = 0
+    for y in range(h)
+        let mut bloque: [byte] = []
+        if y == h - 1
+            push(mut bloque, byte(1))
+        else
+            push(mut bloque, byte(0))
+        push(mut bloque, byte(largo % 256))
+        push(mut bloque, byte(div(largo, 256)))
+        push(mut bloque, byte(255 - largo % 256))
+        push(mut bloque, byte(255 - div(largo, 256)))
+        # el byte de filtro de la fila: 0, ninguno
+        push(mut bloque, byte(0))
+        for b in bloque
+            director.escribe(b)
+            let i = x[c0 * 256 + b]
+            c0 = x[t0[i] * 256 + c1]
+            c1 = x[t1[i] * 256 + c2]
+            c2 = x[t2[i] * 256 + c3]
+            c3 = t3[i]
+        sb = (sb + sa) % 65521
+        let fila = y * w
+        for k in range(w)
+            let b = 255 - px[fila + k]
+            director.escribe(b)
+            let i = x[c0 * 256 + b]
+            c0 = x[t0[i] * 256 + c1]
+            c1 = x[t1[i] * 256 + c2]
+            c2 = x[t2[i] * 256 + c3]
+            c3 = t3[i]
+            sa = (sa + b) % 65521
+            sb = (sb + sa) % 65521
+    let mut cola: [byte] = []
+    push(mut cola, byte(div(sb, 256)))
+    push(mut cola, byte(sb % 256))
+    push(mut cola, byte(div(sa, 256)))
+    push(mut cola, byte(sa % 256))
+    for b in cola
+        director.escribe(b)
+        let i = x[c0 * 256 + b]
+        c0 = x[t0[i] * 256 + c1]
+        c1 = x[t1[i] * 256 + c2]
+        c2 = x[t2[i] * 256 + c3]
+        c3 = t3[i]
+    director.escribe(255 - c3)
+    director.escribe(255 - c2)
+    director.escribe(255 - c1)
+    director.escribe(255 - c0)
+    # IEND: vacio, y su CRC de siempre
+    pon32(0)
+    for b in [73, 69, 78, 68, 174, 66, 96, 130]
+        director.escribe(b)
+    return director.cierra()

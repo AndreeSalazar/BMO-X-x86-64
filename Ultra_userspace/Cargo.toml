@@ -23,6 +23,9 @@ members = [
     "apps/bankcat",
     # Los JUECES de PROTON-X, corridos solos (06-10): `run sys/jueces.bex`.
     "apps/jueces",
+    # ESTUDIO (VE2 de PLAN_VERRANO): VERRANO ESTUDIO VIVO, la luz estilo
+    # RenderMan que se recuerda, con todos los nucleos.
+    "apps/estudio",
 ]
 resolver = "2"
 

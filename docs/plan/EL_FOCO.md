@@ -170,36 +170,51 @@ memoria) y lo que se hizo:
       entera; el PCIe en Gen1 de Gen3               por defecto (649 us), el
                                                     page flip (LA_RAM 8) y el
                                                     enlace en Gen3
-   5  las puertas largas con las interrupciones     A MEDIAS (10-10): la espera
-      cerradas y la 3060 esperada girando dentro    ya no "cede" -- dentro de
-      (`latido tarde 1632 ms`, METAL_2026-10-08)    un syscall, `yield_current`
-                                                    no soltaba el CPU y movia
-                                                    `current` a otra tarea en
-                                                    cada vuelta --, y la puerta
-                                                    larga sale a nombre de
-                                                    QUIEN llamo (se lee al
-                                                    entrar). La de 1632 ms era
-                                                    "op 4": no la 3060 (esa es
-                                                    la 53); lo mas probable,
-                                                    cerrar un fichero (FAT32 y
-                                                    el FLUSH del disco con
-                                                    IF=0). El proximo save lo
-                                                    dira. QUEDA: abrir las
-                                                    interrupciones DENTRO de la
-                                                    espera (sti/hlt/cli,
-                                                    re-publicando la pila del
-                                                    trap; que nadie mas entre
-                                                    a la 3060 mientras; que la
-                                                    tarea no muera con
-                                                    prestamos), en el metal
-   6  el camino frio del cubo, frecuente: la        QUEDA: rehacer solo las
-      huella del caliente lleva el numero de        ordenes en caliente
-      vertices, que cambia al girar
+   5  las puertas largas con las interrupciones     HECHO en el anfitrion
+      cerradas y la 3060 esperada girando dentro    (10-10): EL RESPIRO
+      (`latido tarde 1632 ms`, METAL_2026-10-08)    (`ring0/dev/respiro.rs`,
+                                                    neutro). Esperando a
+      La de 1632 ms era "op 4", no la 3060 (esa     la 3060, las interrup-
+      es la 53): lo mas probable, cerrar un         ciones se abren un
+      fichero (FAT32 y el FLUSH con IF=0). Y el     instante en cada vuelta
+      `yield_current` de la espera no cedia nada:   (sti/pause/cli) si la
+      dentro de un syscall solo movia `current`     tarea TIENE la 3060 y no
+      (quitado el mismo dia; la puerta larga sale   hay cerrojos tomados; la
+      a nombre de quien LLAMO)                      pila del trap se re-
+                                                    publica al volver. La
+                                                    puerta es UNA (las
+                                                    ordenes de la IOMMU y
+                                                    las estaciones de la
+                                                    muerte que devuelven el
+                                                    lienzo); quien esta
+                                                    dentro es intocable y
+                                                    muere al salir. La
+                                                    puerta larga mide solo
+                                                    lo CERRADO. `RESPIRO`
+                                                    es el interruptor.
+                                                    Y op 4, el mismo dia: el
+                                                    FLUSH del cierre de un
+                                                    fichero va EN VUELO (el
+                                                    hilo del disco lo
+                                                    aterriza con su IRQ); la
+                                                    escritura sigue dentro y
+                                                    se MIDE (`guardar` y
+                                                    `vaciar` en `save`).
+                                                    QUEDA: el metal
+   6  el camino frio del cubo, frecuente: la        HECHO en el anfitrion
+      huella del caliente lleva el numero de        (10-10): el caliente
+      vertices, que cambia al girar                 reescribe las ORDENES
+                                                    (cientos de bytes, sin
+                                                    releer) y la cuenta sale
+                                                    de la huella. La prueba:
+                                                    frio con 6 triangulos +
+                                                    caliente con 4 = frio con
+                                                    4, palabra a palabra
+                                                    (saboteado: cae)
 ```
 
-**Falta el metal** para los tres HECHOS: el banco del cubo
-(`gpu verrano banco inti` con `run titan/cubogira.bex`), su linea de
-fotograma y la de `[perf]` de DOOM por la 3060.
+**Falta el metal** para los HECHOS: la lista entera, con sus ordenes, en
+la seccion 6.
 
 # 2. LO QUE YA FUNCIONA EN EL METAL (no se toca: se usa)
 
@@ -446,7 +461,11 @@ y 4b). Lo que la regla 1b pide despues, leido en el DIRECTOR:
       fuera de la puerta. Si algo falla se dice UNA vez por la consola y la
       app se queda con lo que pinte ella. [!] Ventanas de ancho multiplo de
       32 y hasta 1280x720; el huella contra D3D12 solo existe a 1280x720
-      (a otra medida, el juez es la CPU de VERRANO: falta escribirlo).
+      (a otra medida, el juez es la CPU de VERRANO). **10-10, escrito:**
+      `Cpu::juzgar` (el recuento pixel a pixel, `el_juicio_a_otra_medida`)
+      y `laminas` juzga el primer fotograma de cada app y uno de cada 1024;
+      la consola dice `[Q0a3] el juez ... la 3060 da lo MISMO` o cuantos
+      pixeles da DISTINTO.
 - [ ] **Q0a4 -- el cubo de TITAN++ pide su ventana**: `cubo_gira` abre
       `director.ventana` ademas de su lamina (TITAN++ ya sabe las dos).
       **10-10, hecho en el anfitrion:** 640x360 (16:9 como su camara, filas
@@ -464,3 +483,120 @@ y 4b). Lo que la regla 1b pide despues, leido en el DIRECTOR:
       PLAN_LAS_LIBRERIAS (la puerta de computo, Ring 0, con el propietario;
       pide G0).
 
+# 6. QUE FALTA COMPROBAR EN EL METAL (10-10)
+
+Todo esto esta HECHO y probado en el anfitrion; ninguno se ha visto aun en
+el Ryzen con la 3060. Una sesion, en este orden, y un `save` al final: cada
+linea dice que se mira y que seria un NO.
+
+```text
+   QUE                         COMO                            SI SALE MAL
+   R2  Alt+Tab domina          Alt+Tab con una app normal, con  la lista detras
+       la pantalla             DOOM por la 3060 a pantalla      de la app, o
+                               completa y con la CPU            parpadeo
+   R3  las ventanas se         dos apps encima una de otra;     una se mezcla
+       apilan                  clic en la de atras: sube        con la otra
+   R1  la resolucion           `run apps/resolucion.bex`, una   la ventana no
+                               medida, y abrir otra app         toma la medida
+   4e  bico y png en TITAN++   `run titan/bico.bex` y           pixeles mal o
+                               `run titan/png.bex`              el fichero no
+                                                                se escribe
+   Q0a2 la 3060 dibuja EN RAM  `gpu verrano banco inti enram`   huella distinta
+                               con `run titan/cubogira.bex`     del juez
+   Q0a3 el cubo EN SU VENTANA  `run titan/cubogira.bex` desde   la ventana se
+   Q0a4                        Ejecutar: gira, se mueve, se     queda con su
+                               tapa con otra; en la consola,    linea de espera;
+                               `[Q0a3] el juez ... 640x360:     o el juez dice
+                               la 3060 da lo MISMO`             DISTINTO
+   1   el plazo del fotograma  la linea de fotograma del cubo:  ~18 ms otra vez
+                               ~16,7 ms de pared, poco esperar
+   2   el turno al despertar   la misma linea: despertar tarde  ~3,5 ms medio
+                               < 1 ms
+   3   DOOM mira 1 de 32       `gpu doom`, la linea `[perf]`    ~560 us de
+                               de la 3060                       comprobar
+   6   el cubo en caliente     `gpu verrano banco inti` con el  `preparar` de
+                               cubo girando: casi todos los     ~5 ms en los
+                               fotogramas en caliente           que giran
+   M1  DOS CUBOS que se tapan  `run titan/doscubos.bex`: el de  se ven caras de
+       (V2, la profundidad)    atras cruza POR DETRAS del de    dentro, o el de
+                               delante; la consola: el juez     atras encima;
+                               `... la 3060 da lo MISMO`        juez DISTINTO
+   VE2 ESTUDIO, la luz que se  `smp all` y `run sys/estudio.bex` la caja sin luz, o
+       recuerda (estilo          desde Ejecutar: la caja de       la consola con
+       RenderMan, VERRANO)       Cornell se limpia sola; a d w s  1 parte con
+                                 mueven; la consola: los ms y     `smp all`; un
+                                 las PARTES (los nucleos); se     panico; con `c`
+                                 ve LIMPIA (VE5, completada) y    manchas o
+                                 `c` la deja cruda, con grano     bordes borrados
+   VEL ESTUDIO a toda          `gpu lienzo`, `smp all`, `run    un #GP al
+       velocidad (SSE en Ring    sys/estudio.bex`: la consola     abrir (la pila),
+       3 y la 3060 completa)     dice "completada en la 3060" y   "la 3060 no
+                                 los ms por fotograma; `g` lo     completa", o
+                                 pasa a la CPU: la diferencia     los mismos ms
+   VE5 COMPLETAR por la 3060   `gpu completa` (tras `gpu         un pixel
+       (el filtro de ESTUDIO     lienzo`): tres lineas "76800 de  distinto, la
+       VIVO, juzgado pixel a     76800 pixeles iguales al juez"   3060 sin pagar,
+       pixel)                    y, arriba a la derecha, la luz   o un Xid
+                                 con grano y COMPLETADA
+   MC1 MUNDO, los bloques      `run apps/mundo.bex`: el suelo   ver la lista de
+       (V2b, el recorte de     hasta abajo; w s a d q e r f     la seccion 3 de
+       cerca)                  andan; x quita, c pone tablas;   PLAN_MUNDO
+                               el juez de `laminas`
+   TB1 TINTA, el lienzo        desde su icono: pintar, la goma  ver la lista de
+                               (derecho), s guarda el PNG       5b2 de PLAN_LA_
+                                                                TINTA
+   5   EL RESPIRO              `gpu doom` y el cubo, moviendo   pantalla azul,
+                               el raton; en `save`: `respiro`   latido tarde
+                               y `apartadas` SUBEN, `latido     con la 3060,
+                               tarde` sin la 3060 de culpable   el raton a
+                                                                tirones
+   5   la puerta larga, de     cualquier `save` con una puerta  op 4 de otro
+       quien la llamo          larga: el nombre es el de quien  (el disco) =
+                               llamo, y si es op 4 es el disco  el siguiente
+   op4 el cierre, partido      escribir un fichero (`save` ya   `vaciar` en 0
+                               lo hace) y otro `save`: las      con `guardar`
+                               filas `guardar` (DENTRO de la    grande = la
+                               puerta) y `vaciar` (el FLUSH,    escritura era
+                               ya fuera); y la puerta larga     el problema
+                               ya no es op 4 por el FLUSH       (abajo)
+```
+
+**Mirado y NO es parche (10-10):** la purga (`core/purga.rs`) cede con
+`yield_current` en bucle, pero corre en el hilo del bus o en el shell de
+Ring 0, nunca dentro de un syscall: ahi ceder SI cambia de tarea. Y con el
+respiro, la tarea que este dentro de la 3060 no se purga a medias: muere al
+salir de su puerta, y la purga la espera cediendo.
+
+**El respiro y el disco (10-10):** el disco tomado es un cerrojo tambien. Una
+puerta de la 3060 que tuviera el disco y respirara dejaria al hilo del disco
+girando con IF=0 en `tomar_disco` para siempre: el respiro no abre con el
+disco tomado (`disk::tomado`).
+
+**Si el respiro sale mal:** `RESPIRO = false` en `ring0/dev/respiro.rs`
+y la espera vuelve a girar entera con IF=0, como antes del 10-10
+(la puerta unica y la tarea intocable se quedan: no cuestan nada). Con la
+pantalla azul, su foto dice donde: si es en el `cli` o justo despues, la
+pila re-publicada; si es al matar una app, la tarea intocable.
+
+**Las piezas que aun son parche** (se cambian cuando toque, no se olvidan):
+
+```text
+   op 4, la escritura     el FLUSH ya va en vuelo (10-10); los SECTORES del
+                          fichero, la FAT y la entrada se siguen escribiendo
+                          dentro de la puerta, esperados uno a uno. Si
+                          `guardar` sale grande en el metal, la pieza: el
+                          guardado entero por el hilo del disco, por trozos,
+                          y la puerta solo encola
+   el tic de 1 ms         el turno de quien despierta espera a un tic: un
+                          reloj sin tic (2 del cuello)
+   la copia de pantalla   la CPU, 27,6 ms entera: el motor de copia por
+                          defecto, el page flip, el PCIe en Gen3 (4)
+```
+
+**Mirado y se queda asi, a proposito (10-10):** los ~700 B de programas que
+el DIRECTOR copia al paquete en cada fotograma, y la copia de los vertices de
+la lamina al paquete (n x 32 B). Juntas son menos de un microsegundo de CPU
+contra un fotograma de 16,7 ms; un paquete persistente con programas
+"ya escritos" agregaria estado que puede quedar viejo, para ahorrar nada que
+se vea. Lo caro estaba en el kernel (el frio de la 3060, el FLUSH, la espera
+con IF=0), y eso es lo que se cambio.

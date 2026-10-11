@@ -1,0 +1,285 @@
+# espera: BIEN
+# MUNDO (11-10, MC1 de docs/plan/PLAN_MUNDO.md): el PRIMER peldanio del
+# Minecraft propio del propietario, en TITAN++, dibujado por VERRANO en la
+# 3060. Un mundo de bloques (16 x 8 x 16, una `[byte]`), sus caras juntadas
+# en rectangulos (`malla.titan`), una camara que anda y gira, y quitar y
+# poner bloques.
+#
+#    w s               adelante, atras
+#    a d               a un lado y al otro
+#    q e               gira a la izquierda, a la derecha (15 grados)
+#    r f               sube, baja
+#    x                 quita el bloque que miras (a la altura de los ojos)
+#    c                 pone uno de tablas delante de el
+#    Esc               cierra
+#
+# ** LO QUE HACE CADA UNO. La CPU (E1) lleva el mundo, la camara en enteros
+# (diezmilesimas de bloque) y ELIGE las caras que miran a la camara -- una
+# cara +x solo se ve desde x mayor que su plano: es entero, y exacto --. Las
+# cuentas de cada vertice -- girar con la camara y pasar a recorte -- son
+# gpu fn (el f32 vive alli, D2). Las caras de detras, quien tapa a quien y
+# lo que queda detras de los ojos, VERRANO: `director.profundidad(true)` (V2)
+# y el recorte de cerca (V2b) -- el suelo pasa por debajo de la camara y se
+# ve hasta el borde de la pantalla --.
+#
+# ** LO QUE CABE. Una tabla de f32 vive en la pila (8 bytes por celda en E1,
+# 48 KiB para todos los marcos): por eso 80 caras como mucho por fotograma, y
+# las cuentas de 8 en 8 (`trozo`). Lanzado desde el shell nadie compone, y
+# lo dice; la prueba `tests/mundo.rs` del emisor lo lanza el escritorio de
+# mentira, le manda teclas, lee la lamina y la dibuja con el juez de la CPU.
+mod main "MUNDO: bloques en 3D -- el primer peldanio del Minecraft propio, por VERRANO"
+use director
+mod malla
+
+# Las caras por fotograma, y los vertices: 6 por cara.
+fn caras_max() -> int
+    return 80
+
+fn vertices_max() -> int
+    return 480
+
+fn div(a: int, d: int) -> int
+    return (a - a % d) / d
+
+# El seno y el coseno de 0, 15, 30... grados, en milesimas.
+fn seno(k: int) -> int
+    let t: [int; 24] = [0, 259, 500, 707, 866, 966, 1000, 966, 866, 707, 500, 259, 0, -259, -500, -707, -866, -966, -1000, -966, -866, -707, -500, -259]
+    return t[k % 24]
+
+fn coseno(k: int) -> int
+    return seno(k + 6)
+
+# ** LAS CUENTAS DE UN VERTICE, en la 3060. La camara (cx, cy, cz en
+# diezmilesimas, s y c en milesimas) mira hacia (s, 0, c); el giro deja +z
+# delante, +x a la derecha, +y arriba. Luego, a recorte: 16:9, una focal de
+# 1,5, cerca 0,1 y lejos 64 (la z de despues de dividir, de 0 a 1).
+gpu fn vista_x(ex: f32, ez: f32, cx: f32, cz: f32, s: f32, c: f32) -> f32
+    return ((ex - cx * 0.0001) * c - (ez - cz * 0.0001) * s) * 0.001
+
+gpu fn vista_z(ex: f32, ez: f32, cx: f32, cz: f32, s: f32, c: f32) -> f32
+    return ((ex - cx * 0.0001) * s + (ez - cz * 0.0001) * c) * 0.001
+
+gpu fn recorte_x(vx: f32) -> f32
+    return vx * 0.84375
+
+gpu fn recorte_y(ey: f32, cy: f32) -> f32
+    return (ey - cy * 0.0001) * 1.5
+
+gpu fn recorte_z(vz: f32) -> f32
+    return (vz - 0.1) * 1.0015649
+
+gpu fn tono(c: f32, luz: f32) -> f32
+    return c * luz
+
+# Los colores: (tipo, sentido) -> rgb, con la luz de cada sentido (arriba
+# entera, abajo la mitad, los lados entre medias). 7 tipos x 6 sentidos x 3.
+fn colores() -> [f32; 126]
+    let base: [f32; 21] = [0.0, 0.0, 0.0, 0.36, 0.68, 0.24, 0.55, 0.38, 0.22, 0.52, 0.52, 0.55, 0.42, 0.3, 0.16, 0.2, 0.5, 0.18, 0.86, 0.72, 0.45]
+    let luces: [f32; 6] = [0.8, 0.8, 0.5, 1.0, 0.65, 0.65]
+    let mut cs: [f32; 126] = [0.0; 126]
+    let mut ls: [f32; 126] = [0.0; 126]
+    for t in range(7)
+        for cara in range(6)
+            for k in range(3)
+                let n = 18 * t + 3 * cara + k
+                cs[n] = base[3 * t + k]
+                ls[n] = luces[cara]
+    return tono(cs, ls)
+
+# La celda de una posicion (en diezmilesimas), o -1 fuera del mundo.
+fn celda(x: int, y: int, z: int) -> int
+    if x < 0 or y < 0 or z < 0
+        return -1
+    let bx = div(x, 10000)
+    let by = div(y, 10000)
+    let bz = div(z, 10000)
+    if bx >= malla.ancho() or by >= malla.alto() or bz >= malla.fondo()
+        return -1
+    return malla.indice(bx, by, bz)
+
+# ** UN TROZO: los vertices `desde .. desde + 48` -- 8 caras, de la lista
+# `elegidas` --, contados por las gpu fn y escritos en `pos` y `col`.
+fn trozo(mut pos: [f32; 1920], mut col: [f32; 1920], caras: [int], elegidas: [int], desde: int, cuantos: int, cam: [int; 4], tonos: [f32; 126])
+    let cero: f32 = 0.0
+    let uno: f32 = 1.0
+    let mut ex: [f32; 48] = [cero; 48]
+    let mut ey: [f32; 48] = [cero; 48]
+    let mut ez: [f32; 48] = [cero; 48]
+    let orden: [int; 6] = [0, 1, 2, 0, 2, 3]
+    let mut q: [int; 3] = [0, 0, 0]
+    for k in range(cuantos)
+        let n = desde + k
+        let c = 7 * elegidas[(n - n % 6) / 6]
+        let cara = caras[c]
+        let a = (cara - cara % 2) / 2
+        let u = (a + 1) % 3
+        let v = (a + 2) % 3
+        # las esquinas A (i, j), B (i + du, j), C (i + du, j + dv), D (i, j + dv):
+        # A B C, A C D si la cara mira a +a; A D C, A C B si mira a -a
+        let mut e = orden[n % 6]
+        if cara % 2 == 0 and e != 0
+            e = 4 - e
+        q[a] = caras[c + 1]
+        q[u] = caras[c + 2]
+        q[v] = caras[c + 3]
+        if e == 1 or e == 2
+            q[u] = q[u] + caras[c + 4]
+        if e == 2 or e == 3
+            q[v] = q[v] + caras[c + 5]
+        let fx: f32 = q[0]
+        let fy: f32 = q[1]
+        let fz: f32 = q[2]
+        ex[k] = fx
+        ey[k] = fy
+        ez[k] = fz
+        let t = caras[c + 6]
+        for i in range(3)
+            col[4 * n + i] = tonos[18 * t + 3 * cara + i]
+        col[4 * n + 3] = uno
+    let fcx: f32 = cam[0]
+    let fcy: f32 = cam[1]
+    let fcz: f32 = cam[2]
+    let fs: f32 = seno(cam[3])
+    let fc: f32 = coseno(cam[3])
+    let cxs: [f32; 48] = [fcx; 48]
+    let cys: [f32; 48] = [fcy; 48]
+    let czs: [f32; 48] = [fcz; 48]
+    let ss: [f32; 48] = [fs; 48]
+    let cs: [f32; 48] = [fc; 48]
+    let vx = vista_x(ex, ez, cxs, czs, ss, cs)
+    let vz = vista_z(ex, ez, cxs, czs, ss, cs)
+    let x = recorte_x(vx)
+    let y = recorte_y(ey, cys)
+    let z = recorte_z(vz)
+    for k in range(cuantos)
+        let n = desde + k
+        pos[4 * n] = x[k]
+        pos[4 * n + 1] = y[k]
+        pos[4 * n + 2] = z[k]
+        pos[4 * n + 3] = vz[k]
+
+# Las caras que miran a la camara (una +a, desde mas alla de su plano), como
+# mucho `caras_max()`.
+fn elige(caras: [int], cam: [int; 4]) -> [int]
+    let mut out: [int] = []
+    let n = div(len(caras), 7)
+    for k in range(n)
+        let cara = caras[7 * k]
+        let a = (cara - cara % 2) / 2
+        let plano = 10000 * caras[7 * k + 1]
+        let mira = (cara % 2 == 1 and cam[a] > plano) or (cara % 2 == 0 and cam[a] < plano)
+        if mira and len(out) < caras_max()
+            push(mut out, k)
+    return out
+
+fn main()
+    if not director.ventana(640, 360)
+        print("MUNDO es una ventana: abrelo desde el escritorio")
+        return
+    director.rect(0, 0, 640, 360, 1052696)
+    director.texto(16, 16, "MUNDO: bloques en 3D, los dibuja la 3060", 1, 13421772)
+    director.presenta()
+    if not director.lamina(vertices_max())
+        print("nadie compone: la lamina no se ofrece a nadie")
+        return
+    director.profundidad(true)
+    let tonos = colores()
+    let mut mundo = malla.nuevo()
+    let mut caras = malla.caras(mundo)
+    # la camara: x, y, z en diezmilesimas de bloque, y su giro (de 15 en 15)
+    let mut cam: [int; 4] = [80000, 36000, 15000, 0]
+    let cero: f32 = 0.0
+    let mut pos: [f32; 1920] = [cero; 1920]
+    let mut col: [f32; 1920] = [cero; 1920]
+    let mut f = 0
+    let mut cambio = true
+    while true
+        for n in range(64)
+            let que = director.evento()
+            if que == 0
+                break
+            if que == 3
+                let c = director.codigo()
+                if c == 27
+                    return
+                let s = seno(cam[3])
+                let co = coseno(cam[3])
+                let mut nx = cam[0]
+                let mut ny = cam[1]
+                let mut nz = cam[2]
+                if c == 119
+                    nx = nx + 2 * s
+                    nz = nz + 2 * co
+                if c == 115
+                    nx = nx - 2 * s
+                    nz = nz - 2 * co
+                if c == 100
+                    nx = nx + 2 * co
+                    nz = nz - 2 * s
+                if c == 97
+                    nx = nx - 2 * co
+                    nz = nz + 2 * s
+                if c == 114
+                    ny = ny + 2000
+                if c == 102
+                    ny = ny - 2000
+                if c == 113
+                    cam[3] = (cam[3] + 23) % 24
+                    cambio = true
+                if c == 101
+                    cam[3] = (cam[3] + 1) % 24
+                    cambio = true
+                # se anda por el aire y dentro del mundo
+                let donde = celda(nx, ny, nz)
+                if donde >= 0 and (nx != cam[0] or ny != cam[1] or nz != cam[2])
+                    if mundo[donde] == 0
+                        cam[0] = nx
+                        cam[1] = ny
+                        cam[2] = nz
+                        cambio = true
+                if c == 120 or c == 99
+                    let pico = pica(mut mundo, cam, c == 99)
+                    if pico
+                        caras = malla.caras(mundo)
+                        cambio = true
+        if cambio
+            let elegidas = elige(caras, cam)
+            let nv = 6 * len(elegidas)
+            let mut desde = 0
+            while desde < nv
+                let mut cuantos = nv - desde
+                if cuantos > 48
+                    cuantos = 48
+                trozo(mut pos, mut col, caras, elegidas, desde, cuantos, cam, tonos)
+                desde = desde + cuantos
+            director.publica(f, nv, pos, col)
+            f = f + 1
+            cambio = false
+        director.espera(16)
+
+# ** QUITAR Y PONER: un rayo desde los ojos, hacia donde se mira, de decima
+# en decima de bloque y hasta 6 bloques. `poner`: un bloque de tablas en el
+# ultimo aire antes del bloque tocado (si no es donde esta la camara).
+fn pica(mut mundo: [byte], cam: [int; 4], poner: bool) -> bool
+    let s = seno(cam[3])
+    let c = coseno(cam[3])
+    let yo = celda(cam[0], cam[1], cam[2])
+    let mut x = cam[0]
+    let mut z = cam[2]
+    let mut antes = yo
+    for paso in range(60)
+        x = x + s
+        z = z + c
+        let k = celda(x, cam[1], z)
+        if k < 0
+            return false
+        if mundo[k] != 0
+            if poner
+                if antes == yo
+                    return false
+                mundo[antes] = byte(malla.tablas())
+            else
+                mundo[k] = byte(0)
+            return true
+        antes = k
+    return false

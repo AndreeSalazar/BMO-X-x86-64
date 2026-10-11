@@ -492,9 +492,14 @@ impl<'m> E1<'m> {
     fn plan(&mut self, f: &Function) -> Result<Vec<i32>, String> {
         let mut sizes = vec![8; f.locals.len()];
         self.f.known = vec![None; f.locals.len()];
-        for (l, t) in &f.params {
+        for (i, (l, t)) in f.params.iter().enumerate() {
             let c = self.forms.class(t);
-            sizes[*l] = sizes[*l].max(self.forms.size(&c));
+            // un `mut` prestado es un PUNTERO al del que llama (`indirect`):
+            // 8 bytes, no la tabla entera (MC1 de PLAN_MUNDO: dos tablas de
+            // 1920 prestadas gastaban 30 KiB de pila por nada)
+            if f.modes.get(i) != Some(&Mode::Mut) {
+                sizes[*l] = sizes[*l].max(self.forms.size(&c));
+            }
             self.f.known[*l] = Some(c);
         }
         let enters = enters(f);
@@ -763,6 +768,14 @@ impl<'m> E1<'m> {
         Ok(out)
     }
 
+    /// Si `[item; n]` ya es lo que su `let` declara (o no declara nada): la
+    /// clase de la celda, sin calcular nada.
+    fn repeat_in_place(&self, item: &Value, n: usize, ty: Option<&Ty>) -> Result<bool, String> {
+        let ic = self.class_of(item)?;
+        let c = Class::Table(Box::new(ic), n);
+        Ok(ty.is_none_or(|t| self.forms.class(t) == c))
+    }
+
     fn op(&mut self, op: &Op) -> Result<(), String> {
         match op {
             // lo tecleado va derecho a su local: sin pasar por un temporal
@@ -777,8 +790,24 @@ impl<'m> E1<'m> {
             }
             // ... y sobre una PARTE: `push(mut nave.carga, x)`
             Op::SetAt { local, path, value: Value::Lib(lib @ (Lib::Push | Lib::DropLast | Lib::Put | Lib::Remove), args, at), .. } => {
-                let (h, c, ty) = self.path(*local, path, *at)?;
+                let (h, c, ty, _) = self.path(*local, path, *at)?;
                 self.mutate_at(h, &c, ty, *lib, args, *at)?;
+            }
+            // `let t: [f32; 1920] = [cero; 1920]`: cada celda, DERECHO a su
+            // local -- por un temporal, la tabla viviria dos veces en el marco
+            // (MC1 de PLAN_MUNDO: dos de 1920 no cabian en la pila) --. Solo
+            // si no hay nada que convertir; si lo hay, por el camino de siempre.
+            Op::Let { local, value: Value::Repeat(item, n, _), ty, .. } if self.repeat_in_place(item, *n, ty.as_ref())? => {
+                let (p, ic) = self.eval(item)?;
+                let sz = self.forms.size(&ic);
+                let dst = self.local(*local);
+                let one = ic.clone();
+                self.each_cell(*n, &[(dst, sz)], &mut |e, cells| {
+                    e.clone_at(cells[0], p, &one);
+                    Ok(())
+                })?;
+                self.f.known[*local] = Some(Class::Table(Box::new(ic), *n));
+                self.f.decl[*local] = ty.clone();
             }
             Op::Let { local, value, ty, at, .. } => {
                 let (p, c) = self.eval(value)?;
@@ -808,11 +837,16 @@ impl<'m> E1<'m> {
                 }
             }
             Op::SetAt { local, path, value, at } => {
-                let (dst, cell, ty) = self.path(*local, path, *at)?;
+                let (dst, cell, ty, byte_cell) = self.path(*local, path, *at)?;
                 let (p, c) = self.eval(value)?;
-                let p = self.ensure_owned(p, &c);
-                self.drop_at(dst, &cell);
-                self.convert(dst, p, &c, &cell, ty.as_ref(), *at)?;
+                if byte_cell {
+                    // TA1: `l[i] = v` en una `[byte]`: UN byte de la lista
+                    self.byte_cell_write(dst, p);
+                } else {
+                    let p = self.ensure_owned(p, &c);
+                    self.drop_at(dst, &cell);
+                    self.convert(dst, p, &c, &cell, ty.as_ref(), *at)?;
+                }
             }
             // LB7b: el director, en su propia linea (`director.rs`).
             Op::Director { what, args, at } => {
@@ -1091,7 +1125,7 @@ fn calls_in(v: &Value, out: &mut Vec<usize>) {
             calls_in(a, out);
             calls_in(b, out);
         }
-        Value::Neg(a, _) | Value::Not(a, _) | Value::Repeat(a, _, _) | Value::Field(a, _, _) | Value::Len(a, _) | Value::Round(a, _, _) | Value::Is(a, _, _, _) | Value::Payload(a, _, _, _, _) | Value::Number(a, _, _) => calls_in(a, out),
+        Value::Neg(a, _) | Value::Not(a, _) | Value::Repeat(a, _, _) | Value::Field(a, _, _) | Value::Len(a, _) | Value::Round(a, _, _) | Value::Is(a, _, _, _) | Value::Payload(a, _, _, _, _) | Value::Number(a, _, _) | Value::Byte(a, _) => calls_in(a, out),
         Value::Table(items, _) | Value::Record(_, items, _) | Value::Variant(_, _, items, _) | Value::Lib(_, items, _) | Value::Director(_, items, _) => items.iter().for_each(|a| calls_in(a, out)),
         Value::Map(items, _) => items.iter().for_each(|(k, v)| {
             calls_in(k, out);

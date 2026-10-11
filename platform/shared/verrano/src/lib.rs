@@ -31,9 +31,17 @@
 //!
 //! # Lo que V0 NO tiene todavia (dicho antes)
 //!
-//! - Ni profundidad ni culling: dibuja lo que le dan, en orden (el cubo es
-//!   convexo y la app le da solo las caras de delante).
-//! - Un solo tipo de vertice y un solo par de programas: los del cubo.
+//! - ~~Ni profundidad ni culling~~ -- **V2 (11-10)**: `Frame::depth` (un
+//!   z-buffer de D3D: MENOR que, se escribe, limpio a 1.0) y `Frame::cull`
+//!   (las caras de DETRAS fuera; delante es horario en la pantalla, lo de
+//!   D3D por defecto). Sin ellos, como V0: lo que le dan, en orden.
+//! - ~~Un solo tipo de vertice y un solo par de programas~~ -- **V3a
+//!   (11-10)**: [`Draw`], por CATEGORIAS (recursos, programas, tuberia,
+//!   dibujo; ver `dibujo.rs`): vertices sin transformar, indices, el
+//!   cbuffer y DOS programas cualesquiera (el Programa de la casa entra por
+//!   `bmo_verrano_trama::juez::Casa`). El juez de la CPU lo dibuja con LA
+//!   trama de la casa (`bmo-verrano-trama`, VC2); la 3060, todavia solo con
+//!   los programas de BMOX-12 (`gpu verrano bmox12`).
 //! - Sin buferes propios. Vallas, desde V1b solo por dentro: un backend
 //!   puede dejar el fotograma EN VUELO (`Stats::in_flight`) y
 //!   `Backend::finish` espera lo que quede.
@@ -42,8 +50,17 @@
 #![forbid(unsafe_code)]
 
 pub mod cpu;
+/// V3a: el dibujo con PROGRAMAS, por categorias (recursos, programas,
+/// tuberia, dibujo).
+pub mod dibujo;
 /// La lamina: el bloque que otro proceso (INTI) escribe y VERRANO lee, sin cerrojo.
 pub mod lamina;
+// VE5: una pasada de COMPLETAR (el filtro de ESTUDIO VIVO), la cuenta de
+// la CPU y del juez del programa de la 3060.
+pub mod completa;
+
+
+pub use dibujo::{Address, Blend, BlendOp, Buffer, Compute, ComputeBackend, Dispatch, Draw, DrawBackend, Factor, Filter, Pipeline, ReadBuffer, Resources, RwBuffer, Sampler, Shader, Texture};
 
 /// **Un vertice**, como lo lee `cubo.vert`: la posicion ya en coordenadas
 /// de RECORTE (x, y, z, w) y el color (r, g, b, a). 32 bytes.
@@ -109,6 +126,24 @@ pub struct Frame<'a> {
     pub clear: [f32; 4],
     pub vertices: &'a [Vertex],
     pub viewport: Viewport,
+    /// V2 (11-10): la PROFUNDIDAD de D3D -- `z / w` de cada vertice,
+    /// interpolada; un pixel se pinta si es MENOR que lo que ya hay, y se
+    /// apunta; el z-buffer empieza en 1.0 cada fotograma; lo que cae fuera
+    /// de [0, 1] no se pinta (el recorte de profundidad). `false`: V0, en orden.
+    pub depth: bool,
+    /// V2: que caras se descartan.
+    pub cull: Cull,
+}
+
+/// **Que caras se descartan** (V2). Delante es HORARIO en la pantalla (y
+/// hacia abajo): lo de D3D por defecto (`FrontCounterClockwise = FALSE`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum Cull {
+    /// Ninguna: un triangulo al reves se da la vuelta y se dibuja (V0).
+    #[default]
+    None,
+    /// Las de DETRAS (antihorarias en la pantalla) no se dibujan.
+    Back,
 }
 
 /// **Un rectangulo de pixeles**: `x0..x1` por `y0..y1` (el maximo fuera).
@@ -172,6 +207,10 @@ pub struct Image<'a> {
     pub pixels: &'a mut [u32],
     pub width: u32,
     pub height: u32,
+    /// V2: el z-buffer (`width * height` f32), para un backend que lo lleva
+    /// en la RAM -- la CPU --. La 3060 tiene el suyo en la VRAM y no lo mira.
+    /// Un fotograma con `depth` sin el, en la CPU: `Error::Image`.
+    pub depth: Option<&'a mut [f32]>,
 }
 
 /// Lo que cuenta un backend de su fotograma.
@@ -206,6 +245,11 @@ pub enum Error {
     Image,
     /// El aparato lo nego o no contesto (con su motivo).
     Device(u32),
+    /// V3a: los programas no encajan (lo que uno deja y el otro lee), o
+    /// piden lo que el backend aun no hace.
+    Shader,
+    /// Un despacho fuera de los techos de D3D12 (grupos o hilos).
+    Groups,
 }
 
 /// **Un backend de VERRANO**: dibuja un fotograma en una imagen.

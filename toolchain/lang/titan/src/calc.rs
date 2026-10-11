@@ -157,6 +157,9 @@ fn short(name: &str) -> &str {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Class {
     Int,
+    /// `byte` (TA1): 0 to 255. As a value it is an `int` that says it fits in
+    /// a byte (it counts and compares as one); in a list it is ONE byte.
+    Byte,
     Text,
     Bool,
     Dec,
@@ -186,6 +189,7 @@ impl Class {
     fn name(&self, types: Defs) -> String {
         match self {
             Class::Int => "un numero (int)".into(),
+            Class::Byte => "un byte (de 0 a 255)".into(),
             Class::Text => "un texto".into(),
             Class::Bool => "un si-o-no (true / false)".into(),
             Class::Dec => "un decimal (dec)".into(),
@@ -204,6 +208,7 @@ impl Class {
     fn short(&self, types: Defs) -> String {
         match self {
             Class::Int => "int".into(),
+            Class::Byte => "byte".into(),
             Class::Text => "text".into(),
             Class::Bool => "bool".into(),
             Class::Dec => "dec".into(),
@@ -228,6 +233,7 @@ impl Class {
 pub fn of_ty(t: &Ty, types: Defs) -> Class {
     match t {
         Ty::Int => Class::Int,
+        Ty::Byte => Class::Byte,
         Ty::Text => Class::Text,
         Ty::Bool => Class::Bool,
         Ty::Dec | Ty::DecP(..) => Class::Dec,
@@ -247,10 +253,21 @@ pub fn of_ty(t: &Ty, types: Defs) -> Class {
 }
 
 /// May a value of class `got` go where `want` is said? The same class, or an
-/// `int` where a `dec` goes (13 is 13.00: nothing is lost). Never the other
-/// way, and never anything else.
+/// `int` where a `dec` goes (13 is 13.00: nothing is lost), or a `byte` where
+/// an `int` or a `dec` goes (TA1: 200 is 200). Never the other way -- an
+/// `int` becomes a `byte` only through `byte(x)` --, and never anything else.
 fn fits(want: &Class, got: &Class) -> bool {
-    want == got || (*want == Class::Dec && *got == Class::Int) || fits_collection(want, got)
+    want == got || (*want == Class::Dec && *got == Class::Int) || (*got == Class::Byte && matches!(want, Class::Int | Class::Dec)) || fits_collection(want, got)
+}
+
+/// TA1: as a VALUE a byte counts as an int -- in `+ - * / %`, a comparison, a
+/// `-` or a `range` it is the int it holds.
+pub(crate) fn counted(c: Class) -> Class {
+    if c == Class::Byte {
+        Class::Int
+    } else {
+        c
+    }
 }
 
 /// T0071: a value of the wrong class where something says one.
@@ -689,6 +706,12 @@ impl Run<'_, '_> {
                     None => Const::Variant(*e, 1, Vec::new()),
                 },
                 _ => unreachable!("classes: numero reads a text"),
+            },
+            // `byte(x)` (TA1): the int it is, if it fits in a byte; if not, a NO.
+            Value::Byte(inner, at) => match self.ev(inner, known)? {
+                Const::Int(n) if (0..=255).contains(&n) => Const::Int(n),
+                Const::Int(n) => return Err(numero::byte_no_cabe(*at, n)),
+                _ => unreachable!("classes: byte reads an int"),
             },
             Value::Read(_) => unreachable!("calc: a module that reads is emitted, never run when compiling (fold_with)"),
             Value::Director(..) => unreachable!("calc: a module that talks to the director is emitted, never run when compiling (fold_with)"),

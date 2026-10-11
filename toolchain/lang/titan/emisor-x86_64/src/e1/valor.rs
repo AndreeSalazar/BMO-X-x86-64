@@ -15,7 +15,17 @@ use bmo_titan_front::tree::Ty;
 impl E1<'_> {
     /// Un valor, calculado: donde queda y de que clase es. Un local, un campo
     /// o una celda no se copian: se devuelve SU sitio.
+    ///
+    /// ** TA1: un `byte` suelto ES una palabra de 8 con su numero, asi que lo
+    /// que se calcula sale como `int`: la aritmetica, las comparaciones y
+    /// `print` no tienen que saber que existe. Lo unico de un byte es la
+    /// CELDA de `[byte]`, de UN byte, y esa se lee aqui (`Value::Index`).
     pub fn eval(&mut self, v: &Value) -> Result<(Place, Class), String> {
+        let (p, c) = self.eval_raw(v)?;
+        Ok((p, if c == Class::Byte { Class::Int } else { c }))
+    }
+
+    fn eval_raw(&mut self, v: &Value) -> Result<(Place, Class), String> {
         Ok(match v {
             Value::Int(n, _) => {
                 let t = self.temp(8);
@@ -52,6 +62,17 @@ impl E1<'_> {
                 (t, Class::Text)
             }
             Value::Number(inner, e, _) => self.number(inner, *e)?,
+            // `byte(x)` (TA1): el int, si cabe en un byte; si no, T0060.
+            Value::Byte(inner, at) => {
+                let (p, _) = self.eval(inner)?;
+                self.load(p, RAX);
+                x86::cmp_r64_imm8(&mut self.code, RAX, 0);
+                self.trap(0x8C, "T0060", "byte(x) no cabe en un byte: va de 0 a 255", *at);
+                self.imm(RCX, 255);
+                x86::cmp_r64_r64(&mut self.code, RAX, RCX);
+                self.trap(0x8F, "T0060", "byte(x) no cabe en un byte: va de 0 a 255", *at);
+                (p, Class::Int)
+            }
             Value::Bin(op, a, b, at) => self.bin(op, a, b, *at)?,
             Value::Neg(a, at) => self.neg(a, *at)?,
             Value::Not(a, _) => {
@@ -108,6 +129,9 @@ impl E1<'_> {
                 let (pb, cb) = self.eval(b)?;
                 if let Class::List(inner) = &cb {
                     let p = self.list_index(pb, inner, i, *at)?;
+                    if **inner == Class::Byte {
+                        return Ok((self.byte_cell_read(p), Class::Int));
+                    }
                     return Ok((p, (**inner).clone()));
                 }
                 let Class::Table(inner, n) = cb else { return Err(format!("linea {}: una celda de algo que no es tabla", at.0)) };
@@ -250,12 +274,15 @@ impl E1<'_> {
     }
 
     /// El sitio de `local` mas su camino (`t[i].x = v`), su clase y el tipo
-    /// que se le DECLARO, si se le declaro.
-    pub fn path(&mut self, local: usize, path: &[PathStep], at: (usize, usize)) -> Result<(Place, Class, Option<Ty>), String> {
+    /// que se le DECLARO, si se le declaro. Y si el sitio es una celda de
+    /// `[byte]` (TA1): UN byte, que se escribe con `byte_cell_write`.
+    pub fn path(&mut self, local: usize, path: &[PathStep], at: (usize, usize)) -> Result<(Place, Class, Option<Ty>, bool), String> {
         let mut p = self.local(local);
         let mut c = self.f.known[local].clone().ok_or("un local sin valor")?;
         let mut ty = self.f.decl[local].clone();
+        let mut byte_cell = false;
         for st in path {
+            byte_cell = false;
             match (st, c.clone()) {
                 (PathStep::Field(name, _), Class::Record(t)) => {
                     let (off, fc, fty) = self.forms.field(t, name);
@@ -265,6 +292,7 @@ impl E1<'_> {
                 }
                 (PathStep::Index(i), Class::List(inner)) => {
                     p = self.list_index(p, &inner, i, at)?;
+                    byte_cell = *inner == Class::Byte;
                     c = *inner;
                     ty = match ty {
                         Some(Ty::List(it)) => Some(*it),
@@ -282,7 +310,7 @@ impl E1<'_> {
                 _ => return Err(format!("linea {}: un camino que no lleva a ningun sitio", at.0)),
             }
         }
-        Ok((p, c, ty))
+        Ok((p, c, ty, byte_cell))
     }
 
     /// Un valor de clase `from` a un sitio de clase `to`, y el PIC de su tipo
@@ -330,7 +358,9 @@ impl E1<'_> {
                 self.conv(dst.at(8), src.at(8), &fi, &ti, moving, at)?;
                 self.here(none);
             }
-            (Class::Int, Class::Dec) => {
+            // TA1: un byte suelto y un int son la misma palabra de 8
+            (Class::Int, Class::Byte) | (Class::Byte, Class::Int) => self.copy(dst, src, 8),
+            (Class::Int | Class::Byte, Class::Dec) => {
                 self.load(src, RAX);
                 self.store(dst, RAX);
                 self.store_imm(dst.at(8), 0);
@@ -473,6 +503,9 @@ impl E1<'_> {
     }
 
     pub fn eq_into(&mut self, pa: Place, ca: &Class, pb: Place, cb: &Class, fails: &mut Vec<usize>, at: (usize, usize)) -> Result<(), String> {
+        // TA1: un byte suelto se compara como el int que es
+        let int = |c: &Class| if *c == Class::Byte { Class::Int } else { c.clone() };
+        let (ca, cb) = (&int(ca), &int(cb));
         match (ca, cb) {
             (Class::Int, Class::Int) | (Class::Bool, Class::Bool) => {
                 self.load(pa, RAX);

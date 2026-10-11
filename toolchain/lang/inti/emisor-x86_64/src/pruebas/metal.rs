@@ -306,6 +306,12 @@ funcion f(a es entero64, b es entero64) devuelve entero64
 ///
 /// ** Ordenada y comparada ENTERA. Si el dia de luego una que hoy corre deja de
 /// correr, o una nueva se cuela, el test no dice "algo cambio": dice cual.
+///
+/// ** 10-10: `lee_reloj` SALIO de la lista. El emulador tiene reloj (1 GHz
+/// virtual: los pasos mas lo dormido, `bmo-lower` `emu`), asi que `rdtsc` ya
+/// contesta un numero que no se inventa: el que el propio emulador lleva.
+/// `lee_reloj_serio` (`rdtscp`) sigue aqui: su segundo resultado es el
+/// procesador, y eso el emulador no lo tiene.
 const SOLO_EN_METAL: &[&str] = &[
     "azar", "azar_de_verdad", "cambia_gs", "carga_gdt", "carga_idt",
     "carga_ldt", "carga_tr", "duerme_hasta", "entrada_puerto",
@@ -313,7 +319,7 @@ const SOLO_EN_METAL: &[&str] = &[
     "escribe_cr0", "escribe_cr3", "escribe_cr4", "escribe_msr",
     "escribe_puerto", "escribe_puerto16", "escribe_puerto32",
     "escribe_xcr", "lee_banderas", "lee_cr0", "lee_cr2", "lee_cr3",
-    "lee_cr4", "lee_gdt", "lee_idt", "lee_msr", "lee_reloj",
+    "lee_cr4", "lee_gdt", "lee_idt", "lee_msr",
     "lee_reloj_serio", "lee_xcr", "olvida_pagina", "que_cpu_eres",
     "tira_cache_sin_escribir", "tira_la_cache", "vigila",
 ];

@@ -1342,7 +1342,7 @@ mod pruebas {
         }
 
         let registros = |q: &[u32; QMD_PALABRAS]| leer_campo(q, 656, 648) as u32;
-        let computo: [(&str, [u32; QMD_PALABRAS], &[(u64, u64)]); 9] = [
+        let computo: [(&str, [u32; QMD_PALABRAS], &[(u64, u64)]); 10] = [
             ("sombreador", sombreador::qmd(), &sombreador::CODIGO),
             ("lienzo", lienzo::qmd(), &lienzo::CODIGO),
             ("blur", blur::qmd(), &blur::CODIGO),
@@ -1352,6 +1352,7 @@ mod pruebas {
             ("giro", giro::qmd(), &giro::CODIGO),
             ("pantalla", pantalla::qmd(&gop), &pantalla::CODIGO),
             ("video", video::qmd(&video::Formato { ancho: 640, alto: 360 }), &video::CODIGO),
+            ("completa", crate::completa::qmd(&crate::completa::Formato::ESTUDIO), &crate::completa::CODIGO),
         ];
         for (nombre, q, codigo) in computo {
             let r = registros(&q);

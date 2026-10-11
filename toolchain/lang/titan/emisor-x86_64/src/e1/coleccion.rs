@@ -24,6 +24,35 @@ use bmo_titan_front::ir::{Lib, Value};
 use bmo_titan_front::tree::Ty;
 
 impl E1<'_> {
+    /// Lo que mide una CELDA de una lista de `t`. TA1 (`docs/plan/
+    /// PLAN_LA_TINTA.md`): la de `[byte]` es UN byte -- los pixeles de una
+    /// pagina --; un byte suelto (un local, un campo, el de un mapa o un
+    /// `Opcion`) es una palabra de 8, como un int.
+    pub fn list_cell(&self, t: &Class) -> i32 {
+        if *t == Class::Byte {
+            1
+        } else {
+            self.forms.size(t)
+        }
+    }
+
+    /// Una celda de `[byte]`, leida a una palabra de 8 (sin signo).
+    pub fn byte_cell_read(&mut self, cell: Place) -> Place {
+        self.addr(cell, RCX);
+        x86::movzx_r32_byte_at_reg(&mut self.code, RAX, RCX);
+        let t = self.temp(8);
+        self.store(t, RAX);
+        t
+    }
+
+    /// Una celda de `[byte]`, escrita con el byte bajo de la palabra `src`
+    /// (un byte: `calc` y `byte(x)` ya dijeron que cabe).
+    pub fn byte_cell_write(&mut self, cell: Place, src: Place) {
+        self.addr(cell, RCX);
+        self.load(src, RAX);
+        x86::mov_byte_at_reg_from_low(&mut self.code, RCX, RAX);
+    }
+
     /// `len(l)` de una lista o un mapa: lo que dice su asa.
     pub fn len_of(&mut self, h: Place) -> Place {
         let t = self.temp(8);
@@ -51,7 +80,7 @@ impl E1<'_> {
         self.load(h.at(8), RCX);
         x86::cmp_r64_r64(&mut self.code, RAX, RCX);
         self.trap(0x8D, "T0072", "una celda fuera de la lista", at);
-        let cell = self.forms.size(t);
+        let cell = self.list_cell(t);
         Ok(self.cell_at(h, cell, pi))
     }
 
@@ -68,9 +97,14 @@ impl E1<'_> {
                 let none = self.jcc(0x84);
                 x86::dec_r64(&mut self.code, RAX);
                 self.store(n, RAX);
-                let cell = self.forms.size(&t);
+                let cell = self.list_cell(&t);
                 let src = self.cell_at(h, cell, n);
-                self.clone_at(out.at(8), src, &t);
+                if t == Class::Byte {
+                    let w = self.byte_cell_read(src);
+                    self.copy(out.at(8), w, 8);
+                } else {
+                    self.clone_at(out.at(8), src, &t);
+                }
                 self.store_imm(out, 0);
                 let done = self.jmp();
                 self.here(none);
@@ -117,8 +151,13 @@ impl E1<'_> {
             }
             (Lib::Turn, Class::List(t)) => {
                 let (pi, _) = self.eval(&args[1])?;
-                let cell = self.forms.size(t);
-                (self.cell_at(h, cell, pi), (**t).clone())
+                let cell = self.list_cell(t);
+                let p = self.cell_at(h, cell, pi);
+                if **t == Class::Byte {
+                    (self.byte_cell_read(p), Class::Byte)
+                } else {
+                    (p, (**t).clone())
+                }
             }
             (Lib::Turn, Class::Map(k, _)) => {
                 let (pi, _) = self.eval(&args[1])?;
@@ -225,7 +264,11 @@ impl E1<'_> {
                 let n = h.at(8);
                 let dst = self.cell_at(h, cell, n);
                 let (px, cx) = vals[0].clone();
-                self.conv(dst, px, &cx, &t, true, at)?;
+                if t == Class::Byte {
+                    self.byte_cell_write(dst, px);
+                } else {
+                    self.conv(dst, px, &cx, &t, true, at)?;
+                }
                 if let Some(Ty::List(it)) = &decl {
                     if self.forms.has_decp(it) {
                         self.fit(dst, it, at)?;
@@ -379,7 +422,7 @@ impl E1<'_> {
     /// `[1, 2]` (una tabla) a una lista: un bloque con sus celdas.
     #[allow(clippy::too_many_arguments)]
     pub fn list_from_table(&mut self, dst: Place, src: Place, from: &Class, n: usize, to: &Class, moving: bool, at: (usize, usize)) -> Result<(), String> {
-        let (fs, ts) = (self.forms.size(from), self.forms.size(to));
+        let (fs, ts) = (self.forms.size(from), self.list_cell(to));
         self.store_imm(dst.at(8), n as i64);
         self.store_imm(dst.at(16), n as i64);
         if n == 0 {
@@ -393,6 +436,13 @@ impl E1<'_> {
         // que camina la tabla
         let first = self.pointer_from(RAX);
         let (from, to) = (from.clone(), to.clone());
+        if to == Class::Byte {
+            // TA1: cada celda de la tabla (una palabra) a UN byte de la lista
+            return self.each_cell(n, &[(first, ts), (src, fs)], &mut |e, cells| {
+                e.byte_cell_write(cells[0], cells[1]);
+                Ok(())
+            });
+        }
         self.each_cell(n, &[(first, ts), (src, fs)], &mut |e, cells| e.conv(cells[0], cells[1], &from, &to, moving, at))
     }
 
@@ -447,7 +497,12 @@ impl E1<'_> {
                         console::write_const(&mut e.code, b", ");
                         e.here(skip);
                         e.store_imm(first, 0);
-                        e.show(cells[0], &parts[0].1, true)?;
+                        if matches!(c, Class::List(t) if **t == Class::Byte) {
+                            let w = e.byte_cell_read(cells[0]);
+                            e.show(w, &Class::Int, true)?;
+                        } else {
+                            e.show(cells[0], &parts[0].1, true)?;
+                        }
                         if let Some((off, vc)) = parts.get(1) {
                             console::write_const(&mut e.code, b": ");
                             e.show(cells[0].at(*off), vc, true)?;
@@ -510,7 +565,9 @@ impl E1<'_> {
             (Class::Any, _) | (_, Class::Any) => {}
             (Class::List(ta), Class::List(tb) | Class::Table(tb, _)) => {
                 let (ta, tb) = ((**ta).clone(), (**tb).clone());
-                let (sa, sb) = (self.forms.size(&ta), self.forms.size(&tb));
+                let sa = self.list_cell(&ta);
+                // la de b: celda de lista, o de tabla (una palabra)
+                let sb = if table_n.is_some() { self.forms.size(&tb) } else { self.list_cell(&tb) };
                 let hb = match table_n {
                     Some(_) => {
                         let t = self.temp(8);
@@ -521,7 +578,13 @@ impl E1<'_> {
                     None => pb,
                 };
                 let mut inner = Vec::new();
-                self.each_heap(pa.at(8), &[(pa, sa), (hb, sb)], &mut |e, cells| e.eq_into(cells[0], &ta, cells[1], &tb, &mut inner, at))?;
+                let (byte_a, byte_b) = (ta == Class::Byte, tb == Class::Byte && table_n.is_none());
+                self.each_heap(pa.at(8), &[(pa, sa), (hb, sb)], &mut |e, cells| {
+                    // TA1: una celda de `[byte]` se compara como el int que es
+                    let a = if byte_a { e.byte_cell_read(cells[0]) } else { cells[0] };
+                    let b = if byte_b { e.byte_cell_read(cells[1]) } else { cells[1] };
+                    e.eq_into(a, &ta, b, &tb, &mut inner, at)
+                })?;
                 fails.extend(inner);
             }
             (Class::Map(ka, va), Class::Map(kb, vb)) => {

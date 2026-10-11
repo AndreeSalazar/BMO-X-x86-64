@@ -282,11 +282,28 @@ fn puerta(s: &mut Output, nombre: &[u8], v: u64, que: &[u8]) {
     fila(s, nombre, us / 1000, b"ms", &nota[..n]);
 }
 
+/// ** EL RESPIRO (10-10): la espera de la 3060 abre las interrupciones un
+/// instante en cada vuelta. Si los instantes suben y el latido no llega
+/// tarde, el kernel se aparta mientras la 3060 trabaja. Va antes del latido,
+/// y fuera de su vuelta temprana: un bus que nunca llego tarde es justo lo
+/// que se quiere ver junto a esto.
+fn report_respiro(s: &mut Output) {
+    let r = bmo::info(bmo::INFO_RESPIRO);
+    fila(s, b"respiro", r & 0xFFFF_FFFF, b"", b"instantes que la espera de la 3060 abrio las interrupciones");
+    fila(s, b"  apartadas", r >> 32, b"", b"de esos, los que trajeron una interrupcion (el reloj, el bus)");
+    // ** EL CIERRE DE UN FICHERO, partido (10-10): la "op 4" de la puerta
+    // larga del 08-10. Escribir sigue dentro del syscall; vaciar ya no.
+    let g = bmo::info(bmo::INFO_DISCO_GUARDAR);
+    fila(s, b"guardar", (g & 0xFFFF_FFFF) / 1000, b"ms", b"la escritura de un fichero mas larga, DENTRO de la puerta");
+    fila(s, b"  vaciar", (g >> 32) / 1000, b"ms", b"el FLUSH del disco mas largo, ya FUERA de la puerta (en vuelo)");
+}
+
 /// **El peor retraso del latido del bus, y QUIEN** (2026-09-21).
 ///
 /// `[!] usb el latido del bus llego TARDE 1266 ms` salio en dos saves seguidos
 /// y era solo un numero. Esto es lo que lo explica, en el mismo informe.
 fn report_latido(s: &mut Output) {
+    report_respiro(s);
     let v = bmo::info(bmo::INFO_USB_LATIDO);
     let cuando = bmo::info(bmo::INFO_USB_LATIDO_CUANDO);
     let ms = v & 0xFFFF;

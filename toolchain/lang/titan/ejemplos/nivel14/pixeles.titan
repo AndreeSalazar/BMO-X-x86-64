@@ -1,0 +1,44 @@
+# espera: BIEN
+# sale:   . ::==
+# sale:  .. :==#
+# sale: ..: ==##
+# sale: .:: =###
+# sale: 32 pixeles, 32 bytes; tinta: 3550
+# una imagen de grises en una lista de BYTES: un pixel, UN byte -- como
+# guarda su pagina un programa de dibujo. `byte(x)` dice que cabe (de 0 a
+# 255) y si no, NO; leido, un byte cuenta como el int que es
+mod main "un degradado de grises en una [byte]"
+
+fn gris(x: int, y: int) -> byte
+    return byte((x + y) * 25)
+
+fn letra(v: int) -> text
+    if v < 50
+        return " "
+    if v < 100
+        return "."
+    if v < 150
+        return ":"
+    if v < 200
+        return "="
+    return "#"
+
+fn main()
+    let ancho = 8
+    let alto = 4
+    let mut px: [byte] = []
+    for y in range(alto)
+        for x in range(ancho)
+            push(mut px, gris(x, y))
+    # la goma: una franja vuelve a blanco (0)
+    for y in range(alto)
+        px[y * ancho + 3] = byte(0)
+    let mut suma = 0
+    for y in range(alto)
+        let mut fila = ""
+        for x in range(ancho)
+            let v = px[y * ancho + x]
+            suma = suma + v
+            fila = fila + letra(v)
+        print(fila)
+    print(len(px), " pixeles, ", len(px), " bytes; tinta: ", suma)

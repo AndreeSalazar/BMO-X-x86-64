@@ -839,9 +839,31 @@ pub fn guardar_en(dir_cluster: u32, name_8_3: &[u8; 11], data: &[u8]) -> Result<
             None => return Err(WriteError::ReadOnly),
         }
     };
+    let t0 = crate::ring0::task::scheduler::rdtsc();
     let r = v.save_file_in_dir(dir_cluster, name_8_3, data);
+    apuntar_guardado(t0);
+    // ** El FLUSH ya no se espera aqui (10-10, op 4 de EL_FOCO): se deja en el
+    // aparato y el hilo del disco lo aterriza. Los sectores ya estan escritos;
+    // girar lo que el disco tarde en bajar su cache era reloj callado.
     if r.is_ok() {
-        disk::flush();
+        disk::vaciar_sin_esperar();
     }
     r
+}
+
+/// La fase de ESCRIBIR mas larga de `guardar_en` (us): los sectores del
+/// fichero, la FAT y la entrada, todo dentro del syscall. Con el vaciado del
+/// disco (`disk::vaciado_peor_us`) dice de que mitad era la puerta larga.
+static GUARDAR_PEOR_US: core::sync::atomic::AtomicU32 = core::sync::atomic::AtomicU32::new(0);
+
+fn apuntar_guardado(t0: u64) {
+    let hz = crate::ring0::task::scheduler::tsc_freq().max(1);
+    let ciclos = crate::ring0::task::scheduler::rdtsc().wrapping_sub(t0);
+    let us = (ciclos as u128 * 1_000_000 / hz as u128).min(u32::MAX as u128) as u32;
+    GUARDAR_PEOR_US.fetch_max(us, core::sync::atomic::Ordering::Relaxed);
+}
+
+/// `INFO_DISCO_GUARDAR`, la mitad de escribir.
+pub fn guardar_peor_us() -> u32 {
+    GUARDAR_PEOR_US.load(core::sync::atomic::Ordering::Relaxed)
 }

@@ -318,7 +318,7 @@ impl E1<'_> {
     /// (donde empieza cada una y su clase) -- un mapa, su clave y su valor.
     pub fn cells_of(&self, c: &Class) -> (i32, Vec<(i32, Class)>) {
         match c {
-            Class::List(t) => (self.forms.size(t), vec![(0, (**t).clone())]),
+            Class::List(t) => (self.list_cell(t), vec![(0, (**t).clone())]),
             Class::Map(k, v) => {
                 let ks = self.forms.size(k);
                 (ks + self.forms.size(v), vec![(0, (**k).clone()), (ks, (**v).clone())])

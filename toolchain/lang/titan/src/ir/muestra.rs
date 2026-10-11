@@ -87,6 +87,7 @@ fn show(v: &Value) -> String {
         Value::Len(v, _) => format!("len({})", show(v)),
         Value::Read(_) => "lee()".to_string(),
         Value::Number(v, _, _) => format!("numero({})", show(v)),
+        Value::Byte(v, _) => format!("byte({})", show(v)),
         Value::Lend(m, l, _) => format!("{} %{}", m.word(), l),
         Value::Round(v, n, _) => format!("round({}, {})", show(v), n),
         Value::F32(b, _) => format!("{}f32", f32::from_bits(*b)),

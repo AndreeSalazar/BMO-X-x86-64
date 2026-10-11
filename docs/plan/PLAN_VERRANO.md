@@ -280,6 +280,72 @@ la SPH (128 B) y detras las instrucciones.
 - [ ] **V2 -- la profundidad y el culling** (X5b de
       [`PLAN_EL_CUBO.md`](PLAN_EL_CUBO.md)): dos cubos que se tapan.
       **Como se sabe:** contra el juez con z-buffer.
+      **11-10, HECHO en el anfitrion:** la API -- `Frame::depth` (el
+      z-buffer de D3D: `z / w` interpolada, MENOR que, se escribe, limpio a
+      1.0, fuera de [0, 1] no se pinta) y `Frame::cull` (`Cull::Back`:
+      delante es horario en la pantalla, lo de D3D por defecto); `Image::depth`
+      para el backend que lo lleva en RAM --; el JUEZ de la CPU con los dos
+      (`cpu.rs`: lo de delante tapa en cualquier orden, el descarte, el
+      recorte de profundidad, dos cubos en perspectiva; saboteado sin
+      z-buffer: caen tres); la LAMINA lo lleva en su cabecera (`CAMPO_ESTADO`,
+      la palabra 11: las de antes dicen 0 y nada cambia); el Aparato de la
+      3060 lo pasa a `Dibujo::z` y `Descarte::Traseras` EN RAM (lo de
+      BMOX-12 con `-z`), con el tope de VRN1 y no el de 24; `laminas` lo lee
+      y su juez lleva su z-buffer; TITAN++ lo pide con
+      `director.profundidad(descarta)`. El ejemplo `nivel11/dos_cubos` da
+      los dos cubos ENTEROS (24 triangulos); `tests/dos_cubos.rs` lee su
+      lamina y la dibuja con el juez: 4 de 24 triangulos (las caras de
+      enfrente), el de delante entero (11.664 px rojos contra 7.644 sin
+      profundidad); saboteado con las caras al reves: cae. **Falta el
+      metal:** `run titan/doscubos.bex` -- la 3060 con Z EN RAM, la sombra y
+      el motor de copia (el camino de BMOX-12 `-z enram`) --, y el juez de
+      `laminas` dice si da lo mismo.
+- [ ] **V2b -- el recorte de cerca** (MC1 de [`PLAN_MUNDO.md`](PLAN_MUNDO.md)).
+      Un triangulo con un vertice detras de los ojos (z < 0 en recorte) se
+      recorta contra z = 0, como D3D: un suelo que pasa por debajo de la
+      camara se ve hasta el borde de la pantalla. **11-10, HECHO en el
+      anfitrion:** el juez de la CPU (`cpu.rs`, `recorta`: Sutherland-Hodgman,
+      uno o dos triangulos, el mismo sentido); lo que no cruza ni se toca (las
+      huellas de D3D12 y las 16 pruebas de antes, iguales); probado con un
+      suelo bajo la camara y saboteado (sin recorte, caen dos). **Falta el
+      metal:** la 3060 de hoy recorta en w = 0 y SUJETA la z por pixel
+      (`RECORTE_Z`); el juez de `laminas` dice cuantos pixeles difieren con
+      `run apps/mundo.bex`. Si son muchos, se pone la 3060 como D3D
+      (`FRUSTUM_XYZ_CLIP`), no se cambia el juez.
+- [ ] **V3a -- VERRANO POR CATEGORIAS: el dibujo con PROGRAMAS** (11-10,
+      lo pidio el propietario: *"que VERRANO se aislen de elementos para
+      poder aplicar todo eso y asi crecer por categoria"*). `Draw` en
+      `dibujo.rs`: RECURSOS (`Buffer` de vertices sin transformar, indices,
+      el cbuffer), PROGRAMAS (`Shader`: una etapa en la lengua que sea; el
+      Programa de PROMETEO lo es con la feature `prometeo`, que el driver no
+      enciende), TUBERIA (`Pipeline`: las dos etapas, profundidad,
+      descarte) y DIBUJO. **11-10, HECHO en el anfitrion:** el juez de la CPU
+      lo dibuja (`DrawBackend`) corriendo los programas con el interprete de
+      la casa; el cubo de BMOX-12 con SUS dos programas de dxc (24 vertices
+      sin transformar, 36 indices, la matriz en el cbuffer) da la HUELLA de
+      D3D12 en los fotogramas 0, 30 y 60 -- la CPU ya no cuenta ni un
+      vertice --; sin descarte o con la matriz de otro fotograma, no;
+      saboteado (el de pixeles sin su cbuffer): cae. **11-10, y
+      SV_Position** (LI2a de [`PLAN_EL_LIBRETO.md`](PLAN_EL_LIBRETO.md), lo
+      primero que la 3060 le nego a Cyberpunk): el de pixeles que lee su
+      posicion corre en cada pixel con la regla de la casa (N5.9); la de la
+      3060, en LI2a. **11-10, y varios render targets y la MEZCLA** (LI2d):
+      hasta 8 destinos, la mezcla de D3D12 en cada uno (la de la casa, bit a
+      bit) y el dibujo sin limpiar para las pasadas que se suman. **11-10, y
+      el COMPUTO** (LI2f): `Compute`/`Dispatch`, con los SRV y los UAV, por el
+      despacho de PROMETEO. **11-10, y las TEXTURAS** (LI2c, M3 en el
+      anfitrion): `Texture`/`Sampler`/`Resources`, con lo del vertice
+      interpolado con perspectiva; un cuadro texturado en perspectiva da lo
+      mismo que la casa, pixel a pixel. **Falta:** la 3060 como
+      `DrawBackend` y `ComputeBackend` (V3b abajo).
+- [ ] **V3b -- la 3060 dibuja un `Draw`.** El Aparato del DIRECTOR hoy
+      lleva los programas de BMOX-12 YA traducidos (`bmox12_vs.sm86`); con
+      un `Draw` cualquiera, sus programas van por el `.bsf` VIVO de
+      `proton-x-sm86` (el mapa, el emisor, el juez y el simulador bit a bit
+      contra la casa, y guardado para la proxima), la libreta, y la PUERTA
+      del kernel (el juez supremo) antes de la tarjeta. **Como se sabe:** en
+      el metal, `gpu verrano bmox12` por `Draw` da lo mismo que hoy, y el
+      juez de `laminas` dice IGUAL.
 - [ ] **V3 -- las constantes.** La matriz en un buffer y el programa de
       vertice multiplicando (lo que hace D3D): la pregunta del FMA, medida.
       **Como se sabe:** la huella de D3D12 sale con las cuentas en la 3060.
@@ -320,6 +386,311 @@ la SPH (128 B) y detras las instrucciones.
 > corrio en el metal con los programas de BMOX-12 que traduce PROTON-X (E5,
 > 28-09 11:37). Lo que V4 y M4 piden sigue abierto: que `cubo.bsf` deje el
 > SASS a mano (el "Queda" de E5). V3b es J0-J2 de ese plan, hechos.
+
+> **11-10, el propietario:** *"recuerda reemplazamos el SPIR-V [...] pero
+> si es VULKAN simplemente es esto que es VERRANO que toma su lugar que come
+> VULKAN y DX12 (y en general claro)"*. Dicho para que no se lea al reves:
+> **VERRANO no va DEBAJO de Vulkan ni de D3D12: ocupa su sitio.** Lo de la
+> casa (TITAN++, MUNDO, el escritorio) habla VERRANO directo, sin SPIR-V ni
+> HLSL por medio; lo de FUERA (un juego de Vulkan, uno de D3D12 por
+> PROTON-X) se TRADUCE a VERRANO y se lo come. V4 queda como lo dice la
+> nota del 08-10: el emisor existe y su entrada es el Programa de la casa;
+> SPIR-V solo es algo que se lee de un juego ajeno (V5), nunca la lengua
+> de BMO-X.
+
+### VE -- VERRANO ESTUDIO: el render de calidad, al estilo RenderMan (11-10)
+
+El propietario, el 11-10: *"mi verrano puede renderizar como el estilo
+renderman? en vez que mi GPU las tipicas rtx haga Ray tracing de Nvidia haga
+el renderman exclusivo en verrano los mejores render profesionales pero que la
+CPU calcule magistral"*. RenderMan no usa los nucleos RT: sus peliculas salen
+sobre todo de la CPU, por trazado de caminos. VERRANO lo tiene como categoria
+propia, al lado de la trama de tiempo real
+(`platform/shared/verrano-trama/src/estudio.rs`).
+
+- [x] **VE1 -- el trazado de caminos en la CPU.** HECHO el 11-10 en el
+      anfitrion: luz de AREA consultada en cada rebote mate (sombras
+      suaves), la luz INDIRECTA (el rojo de una pared tine el suelo), metal
+      con aspereza, vidrio con Fresnel, la ruleta rusa sin sesgo, el techo de
+      las causticas (el `clampIndirect` de RenderMan) y la curva ACES del
+      cine; la raiz exacta de PROMETEO y el log2 de la casa, sin `std`;
+      determinista (la semilla, por pixel). La caja de Cornell con arcilla,
+      oro y vidrio a 640x480 y 1024 muestras por pixel: 6 minutos en 4
+      nucleos (`cargo run --release -p bmo-verrano-trama --example estudio
+      -- SALIDA.ppm 640 480 1024`). **Como se sabe:** sus pruebas -- la misma
+      semilla da la misma luz; el suelo junto a la pared roja sale rojizo y
+      junto a la verde verdoso; con la luz apagada, negro; la curva no baja
+      ni pasa de blanco --, y la foto.
+- [x] **VE1b -- ESTUDIO VIVO: la luz que se RECUERDA, en tiempo real.**
+      Lo pidio el propietario el 11-10 (*"no siempre expone a la pantalla
+      [...] los calculo se quede la CPU en tiempo real [...] planos
+      imaginacion que la CPU lo deja la ram que se acuerda y lo rellena en
+      tiempo real, con la GPU que solo completa"*). HECHO en el anfitrion
+      (`verrano-trama/src/vivo.rs`): cada fotograma calcula UN CUARTO de los
+      pixeles (uno de cada 2x2, rotando) y el resto lo rellena su cuadro; lo
+      calculado se ACUMULA (con la camara quieta, la imagen va hacia la de
+      ESTUDIO entero); y la MEMORIA DE LA LUZ -- una tabla hash de la luz que
+      sale de cada trocito mate del MUNDO, la idea de la irradiance cache de
+      RenderMan -- sobrevive a la camara que se mueve: los caminos terminan
+      en ella y cada camino nuevo la educa. Se lee en paralelo y se escribe
+      al final del fotograma, sin cerrojos. Medido (`--example
+      estudio_vivo`, 320x240, un cuarto por fotograma, 4 nucleos): sin
+      memoria 21,8 ms por fotograma, CON ella 12,0 ms (~83 por segundo) y
+      menos ruido. **Como se sabe:** sus pruebas contra ESTUDIO entero (el
+      juez) -- la imagen quieta converge, cada 2x2 tiene uno calculado y lo
+      demas lo muestra, la memoria educada ayuda despues de mover la camara
+      --; saboteada (la memoria que nunca contesta): cae.
+- [ ] **VE2 -- en BMO-X, con todos los nucleos.** Una app de Ring 3 que
+      reparte las filas entre los nucleos (`smp all`) y pinta la foto en su
+      ventana, fila a fila, mientras se calcula.
+      **11-10, HECHA y enlazada en el anfitrion:** `Ultra_userspace/apps/
+      estudio` (`sys/estudio.bex`, 42 KB): ESTUDIO VIVO a 320x240 en una
+      ventana de 640x480, un cuarto de los pixeles por fotograma, la memoria
+      de la luz (`m` la quita y la pone); la camara con a d w s r f (moverla
+      olvida la imagen, no la memoria). Las filas de cada fotograma se
+      reparten entre los SUB-DIRECTORES (H4.3: los otros nucleos, en Ring 3,
+      tras `smp all`; sin ellos, este nucleo): como un obrero no tiene
+      syscalls ni debe pedir memoria, ESTUDIO VIVO gano un camino SIN monton
+      (`Vivo::calcula_en` en buferes que ya existen, lo aprendido en un
+      `Cuaderno` de hojas fijas, y `pon_filas` + `cierra` en este nucleo):
+      repartido en trozos da la MISMA imagen y la misma memoria que de una
+      vez (su prueba). Lo que un obrero no acabe lo rehace este nucleo. La
+      consola dice cada 32 fotogramas los ms de uno y en cuantas partes va.
+      **Falta el metal** (fila VE2 de EL_FOCO).
+- [ ] **VE3 -- mallas de triangulos y su BVH.** Para escenas de verdad (un
+      personaje, un coche): los triangulos de un modelo y el arbol que deja
+      a cada rayo mirar solo los que puede tocar.
+      **11-10, HECHA en el anfitrion (`verrano-trama/src/malla.rs`):** la
+      `Malla` (sus triangulos y su arbol) y `Forma::Malla` en la escena
+      (`Escena::mallas`). El arbol es un BVH de cajas hecho con la
+      heuristica de AREA (la SAH de pbrt y Cycles, 12 cortes por eje,
+      hojas de 4); el rayo baja del hijo mas cercano primero y no mira lo
+      que queda detras del golpe ya hallado; cada triangulo, por
+      Moller-Trumbore; la normal, la de la faceta o SUAVE (la de los
+      vertices por su area, mezclada por el sitio del golpe). Las formas de
+      la casa sin seno ni coseno de fuera (`icosfera`, `dona`: el circulo
+      gira por su serie) y el lector de `.obj` (`desde_obj`: `v`, `f` con
+      `a/t/n`, negativos, abanicos). Sus pruebas: el arbol da los MISMOS
+      golpes que mirar todos los triangulos en 3000 rayos -- saboteado (sin
+      el hijo lejano), cae --; la icosfera es una esfera (los mismos rayos
+      le dan, la normal suave a menos de 0,999); el `.obj`; y la SALA DE
+      MALLAS (`sala_de_mallas`: una esfera de oro de 5120 triangulos, una
+      dona de pintura de coche de 36 864 y un icosaedro de plastico con sus
+      facetas, unos 42 000 en total) da el oro donde va. La foto:
+      `--example estudio -- mallas.ppm 640 480 256 mallas`, 94 s en 4
+      nucleos (la sala de esferas de verdad, 70).
+- [ ] **VE4 -- materiales de pelicula.** Texturas, el metal y el plastico de
+      verdad (microfacetas, GGX), el subsuelo de la piel, la niebla.
+      El propietario, el 11-10: *"tengo mi propio RENDERMAN pero puedes
+      combinar ARNOLDs y otros RENDER profesionales combo?"*. Si: de cada
+      uno se toma la IDEA publicada (sus articulos, sus especificaciones
+      abiertas), nunca su codigo, y se escribe en la casa con su prueba:
+
+      ```text
+         DE QUIEN            LA IDEA                         EN ESTUDIO
+         RenderMan (Pixar)   trazado de caminos en la CPU,   VE1, HECHO
+                             la luz de area, clampIndirect
+         V-Ray (Chaos)       el "light cache": la luz del    la MEMORIA de
+                             mundo guardada en celdas        VIVO, HECHO
+         Arnold (Autodesk)   standard_surface: el material   VE4a, HECHO
+         y OpenPBR (ASWF)    por CAPAS (base, brillo GGX,
+                             metal, barniz)
+         Veach / Arnold /    MIS: la luz por las dos         VE4a, HECHO
+         Cycles              maneras, con su peso
+         SVGF / OIDN         completar: quitar el ruido      VE5, el juez
+                             guiado por la superficie        de la CPU
+         Cycles / pbrt       el BVH de los triangulos        VE3
+         Arnold y Cycles     el subsuelo por PASEO (la       VE4b, HECHO
+                             piel) y la niebla por volumen
+         Manuka (Weta)       la luz ESPECTRAL (longitudes    VE4c, despues
+                             de onda, no RGB): el vidrio
+                             que separa los colores
+      ```
+
+      **VE4a, 11-10, HECHA en el anfitrion -- LA SUPERFICIE:**
+      `Material::Superficie` (`estudio.rs`): la base mate (lo que el brillo
+      deja pasar, al entrar y al salir), el brillo de microfacetas GGX
+      (Trowbridge-Reitz, sombra de Smith, Fresnel de Schlick; blanco en lo
+      dielectrico con su `ior`, del color de la base en el metal), `metal`
+      de 0 a 1, y el BARNIZ encima (`capa`, otro GGX de ior 1,5 con su
+      aspereza: la pintura de un coche). Se muestrea por capas (cada una
+      por lo que refleja vista desde ahi) y la luz directa va con **MIS**
+      (la luz preguntada y la luz encontrada al rebotar, cada una con el
+      peso de la potencia). Sus pruebas: (1) lo que refleja en total, con
+      sus muestras, es lo mismo que CONTADO sin azar (por el disco
+      proyectado, sin seno ni coseno) -- saboteada la probabilidad (un 3
+      donde va un 4), cae --, y nunca devuelve mas luz de la que llega; (2)
+      MIS no tiene sesgo: solo la luz, solo rebotar y las dos con MIS dan
+      lo mismo -- saboteado el peso (siempre 1: la luz contada dos veces,
+      el doble), cae --; (3) la SALA DE MATERIALES (`sala_de_materiales`:
+      plastico rojo, oro cepillado, pintura de coche, cobre pulido y
+      ceramica, y el vidrio delante) da el oro amarillo y el rojo rojo;
+      (4) lo PULIDO no da NaN. La primera foto salio con puntos negros por
+      todas partes: una microfaceta justo en la normal (nh de 1,0000001 por
+      el redondeo) dejaba la GGX en infinito, y por una capa que pesa 0,
+      NaN; ahora la GGX tiene su suelo (a^2) y la capa que no pesa no se
+      cuenta -- saboteado, cae --. La foto: `--example estudio -- sala.ppm
+      640 480 256 materiales`, 70 s en 4 nucleos.
+      Lo mate de siempre sigue igual (la memoria de VIVO aprende de el).
+
+      **VE4b, 11-10, HECHA en el anfitrion -- LA PIEL Y LA NIEBLA:**
+      `Material::Piel { color, radio, ior }`: su piel de fuera refleja lo
+      que dice Fresnel; lo demas ENTRA con el coseno y PASEA por dentro
+      (`paseo`, el "random walk" de Arnold y Cycles): cada choque a una
+      distancia de Beer con un color HEROE al azar (y los tres pesados por lo
+      que les tocaba: sin sesgo), se desvia a cualquier lado y se apaga un
+      poco, hasta que sale por otro sitio, donde sigue como algo mate. El
+      `color` es lo que se ve de lejos: el albedo de cada choque sale de la
+      inversion de van de Hulst (`albedo_de_paseo`). `Escena::niebla`
+      (`Niebla { densidad, albedo, g, caja }`): el rayo puede chocar en el
+      aire antes de su golpe (la distancia de Beer, solo dentro de la caja);
+      ahi se desvia por Henyey-Greenstein (`g`: hacia delante, la bruma) con
+      su luz directa, y las sombras de toda la escena cruzan la niebla
+      (`e^(-densidad d)`). Sus pruebas: el paseo devuelve el color que se
+      pide en una losa sin fondo (a 0,05; saboteada la inversion, 0,34 en
+      vez de 0,8); la niebla que solo apaga apaga lo de Beer (a 0,02;
+      saboteada la distancia, 0,55 en vez de 0,30); la que desvia trae luz
+      a un rayo que mira a la noche (sin ella, 0 exacto); la piel a la
+      sombra sale mas clara que la misma esfera mate, y rojiza; y la sala no
+      da NaN. La SALA DE PIEL Y NIEBLA (`sala_de_piel`: piel, jade y marmol
+      en bruma): `--example estudio -- piel.ppm 640 480 256 piel`.
+- [ ] **VE5 -- la 3060 como ayudante.** El mismo trazado en su computo, un
+      rayo por hilo, juzgado contra el de la CPU (que sigue siendo el juez).
+      Con VIVO: la 3060 lee la imagen acumulada y la memoria de la luz (el
+      quirofano de RAM) y COMPLETA -- rellena, suaviza (un filtro que quita
+      el ruido, guiado por la memoria) y pinta -- mientras la CPU sigue
+      calculando y educando.
+      **11-10, el JUEZ de la CPU HECHO (`Vivo::completa`):** la idea de
+      SVGF, la de los motores con path tracing en tiempo real. (1) La GUIA de
+      cada pixel: un rayo por su centro, sin luz -- la normal, la distancia y
+      el color del material -- (`prepara_guia`, solo cuando la camara se
+      mueve). (2) Lo que se ve se PARTE por el color del material: queda la
+      luz sola, que es lo que tiene grano. (3) El filtro "a trous" (5x5,
+      B3-spline) tres pasadas, cada una el doble de lejos, que solo mezcla
+      pixeles de la MISMA superficie (coseno^32 de las normales, la
+      distancia, el material) y de luz parecida (el freno de SVGF: lo que el
+      ruido de n muestras no explica, 2/raiz(n), no se mezcla; asi la sombra
+      de una esfera en el suelo se queda). (4) Se vuelve a multiplicar por
+      el color. Medido contra el juez de 256 muestras a 160x120
+      (`--example completa_prueba`), el error medio:
+
+      ```text
+         muestras   cruda    completada (3 pasadas)
+          1         0.0595   0.0174   -- 1 muestra completada vale como 16 crudas
+          4         0.0312   0.0112
+         16         0.0171   0.0080
+      ```
+
+      Va por FILAS y sin monton (`guia_en`, `separa`, `alisa` por pasada,
+      `vuelve`), como lo demas de VIVO: repartido da los MISMOS bits que de
+      una vez (su prueba), y la app `estudio` lo reparte entre los
+      sub-directores, con una espera entre pasada y pasada (`c` lo quita y
+      lo pone). En el anfitrion (4 nucleos, 320x240), el fotograma de un
+      cuarto de los pixeles con memoria 13 ms y completar 26 ms: el filtro
+      cuesta MAS que la luz -- 25 vecinos por pixel y pasada --, y por eso es
+      el trabajo de la 3060. `--example estudio_vivo` saca la tira: sin
+      memoria, con ella y COMPLETADA, en los fotogramas 1, 4, 16 y 64 tras
+      mover la camara; la completada se ve limpia desde el primero.
+      **11-10, LA 3060, HECHA en el anfitrion:** la cuenta paso a VERRANO
+      (`bmo_verrano::completa::alisa_pixel`, sin monton: una sola para la
+      CPU de VIVO y para el juez de la 3060, y los mismos bits que antes) con
+      el BLOQUE de COMPLETAR (64 B por pixel: la luz A, la guia y la luz B;
+      `del_bloque` es el juez). El programa (`bmo_gpu_ga10x::completa`, 159
+      instrucciones, 40 registros) sale de un PTX escrito para quedarse en lo
+      que el juez del SASS conoce: cada operacion `.rn` (ninguna FFMA), los
+      contadores de los bucles con un cero que ptxas no puede probar (nada
+      del camino uniforme: ni R2UR, ni UIMAD, ni PLOP3), el nucleo por SEL
+      sobre sus bits, los bordes en UNA comparacion sin signo, y las dos
+      divisiones por MUFU.RCP (por eso la 3060 no da los mismos bits: el
+      juez perdona 2e-5 relativo). El juez del SASS lo da por bueno y cae
+      saboteado (con 38 registros, R5; sin la espera de un LDG, R1). El
+      kernel (`gpu_trabajo/completa.rs`, `IOMMU_OP_GPU_COMPLETA_FORMATO`
+      0x4F y `IOMMU_OP_GPU_COMPLETA` 0x50, detras de las dos llaves) presta
+      el bloque ENTERO para escribir en el mapa de `video` solo durante la
+      pasada; lo que salio lo juzga el DIRECTOR (`gpu completa`): una escena
+      de mentira de 320x240 con su guia, tres pasadas en la 3060 (A -> B ->
+      A -> B), CADA pixel de cada pasada contra la cuenta de VERRANO, y la
+      luz con grano y la completada en la pantalla.
+      **Falta:** el metal (fila VE5 de EL_FOCO).
+
+      **Lo que se encontro por el camino (11-10), para decidir:** las apps de
+      Ring 3 se compilan para `x86_64-unknown-none`, que hace la coma
+      flotante POR SOFTWARE (`__mulsf3`, `__addsf3`: 47 llamadas en
+      `estudio`, ni una `mulss`). ESTUDIO VIVO en el metal va a ir varias
+      veces mas lento que en el anfitrion. El kernel ya guarda el estado
+      entero de cada tarea (`xsaveopt64`), asi que Ring 3 PODRIA usar SSE;
+      pero activarlo en este objetivo es lo que Rust esta quitando ("will
+      become a hard error"). El camino limpio es un objetivo propio de Ring
+      3 (un `.json` con la coma flotante por hardware, `build-std` como el
+      kernel). Cambia el ABI de TODAS las apps: lo decide el propietario.
+
+      **LA VELOCIDAD, 11-10 (el propietario: *"dale con la velocidad de
+      fotograma primero"*):**
+      - **VEL1, la coma flotante por hardware, para `estudio`:**
+        `Ultra_userspace/x86_64-bmo-ring3.json` es `x86_64-unknown-none` con
+        SSE2 y el ABI de hardware (sin `rustc-abi: softfloat`); se construye
+        con `-Z build-std=core,alloc` (un paso propio en `build.ps1`, y
+        `Enlazar-App 'estudio' 'x86_64-bmo-ring3'`). El ELF pasa de 0 a 1674
+        instrucciones de coma flotante de verdad (y 0 llamadas a
+        `__mulsf3`). El kernel ya estaba listo: cada tarea arranca con su
+        FCW y su MXCSR de serie y cada trap guarda TODO (`xsaveopt64`). Lo
+        que SI hizo falta: el `_start` DESNUDO (`and rsp, -16` y `call`).
+        El kernel entra con la pila alineada a 16 (`USER_STACK_TOP`, lo del
+        ABI de SysV para un proceso) y Rust la espera como despues de un
+        `call`: con la coma flotante por software daba igual, con SSE es un
+        #GP en el primer `movaps` (el ELF tiene 1344). Las demas apps
+        siguen en `x86_64-unknown-none` hasta medir esta en el metal.
+      - **VEL2, la puerta de COMPLETAR para las apps:**
+        `IOMMU_OP_GPU_COMPLETAR` (0x51), la SEGUNDA puerta estrecha (como la
+        de las recetas): el programa es el del kernel, el bloque es de quien
+        pide (una pagina de cabecera -- "VE5C", medidas, pasadas, tolerancia
+        -- y el de VERRANO), el GR con su cerrojo, y TODAS las pasadas en una
+        llamada (el bloque se presta una vez). La app `estudio` la usa cada
+        fotograma (`g` la quita y la pone): juzga 32 pixeles de la ultima
+        pasada con la cuenta de VERRANO y, si la puerta dice que no o un
+        pixel no es el del juez, lo dice y completa la CPU. El guardian
+        `la-3060` (P2) exige las dos puertas y lo que hace segura a esta
+        (`fisica_de` con su pid, `co::cabecera`, `gr_ocupado`, el programa
+        por `co::preparar` y el `devolver_gpu`). **Y se encontro que P2
+        pasaba en VACIO desde el 10-10**: la puerta de las recetas se movio a
+        `iommu_puerta` (el respiro) y el guardian leia solo `fn iommu`; ahora
+        lee las dos y falla si no ve la puerta (saboteado: sin el cerrojo en
+        la nueva, cae; sin el juez en la de las recetas, cae).
+      **Falta, el metal** (fila VEL de EL_FOCO): los ms por fotograma de la
+      consola, antes y despues.
+- [ ] **VE6 -- TITAN++ lo pide.** `director.estudio(...)`: una escena de
+      TITAN++ renderizada por ESTUDIO.
+
+### VERRANO DEVORA: quien hace que (11-10)
+
+El propietario, el 11-10: *"PROTON-X [...] solo le emula a la ABI MUY
+PRECISAS para que ayude para algunas cosas (cyberpunk 2077) pero VERRANO
+DEVORA DirectX para poder tener FPS NATIVOS y eso tener control"*; y *"con
+OpenGL y VULKAN + DX12 (los DX en general llegaran)"*.
+
+```text
+   LO DE FUERA                      SE TRADUCE A               LO EJECUTA
+   D3D12, D3D11... (los DX)    -->  un Draw: recursos,    -->  VERRANO:
+   Vulkan                           programas, tuberia         el juez de
+   OpenGL                                                      la CPU, y
+   sus sombreadores: DXIL (dxc),    el Programa de la casa     la 3060 por
+   SM5 (FXC), SPIR-V, GLSL          (PROMETEO)                 su emisor,
+                                                               su juez, su
+   LO DE DENTRO                                                .bsf, su
+   TITAN++ (gpu fn), MUNDO     -->  lo mismo, directo           libreta y la
+                                                               PUERTA
+```
+
+- **PROTON-X** emula el ABI de Windows con precision -- carga el `.exe`,
+  sus DLL, sus llamadas -- y nada mas: su `d3d12.dll` es una capa FINA que
+  traduce a un `Draw` (VC2). Quien dibuja, y quien da los fotogramas
+  NATIVOS, es VERRANO.
+- **Cada lengua de sombreador es un diente**: DXIL y SM5 ya traducen al
+  Programa (PROTON-X); SPIR-V tiene lector, validador e interprete
+  (`bmo-spirv-front`) y le falta su traductor al Programa; GLSL, despues.
+- **Cada API es una capa delgada sobre las categorias**: si una necesita
+  algo que VERRANO no tiene (texturas, mezcla, varios destinos), crece la
+  CATEGORIA, para todas a la vez.
 
 - [ ] **V5 -- Vulkan a VERRANO.** Las 67 funciones de vkQuake 0.50
       (Ludoteca 16) traducidas a VERRANO: el primer juego por la 3060.
@@ -500,6 +871,7 @@ la fisica, las matrices, la logica. Entra en E6 y en M6.
 
 - [ ] **M1 = V2 -- la profundidad.** Un z-buffer en la VRAM y dos cubos que
       se tapan. **Como se sabe:** contra el juez de la CPU con z-buffer.
+      **11-10:** hecho en el anfitrion, ver V2 arriba; falta el metal.
 - [ ] **M2 = V3 -- la matriz en la 3060.** Los 8 vertices del cubo FIJOS en
       la VRAM, la matriz por `LOAD_CONSTANT_BUFFER` (0x238c, `clc797.h`)
       dentro de las ordenes -- 16 numeros por fotograma --, y el programa
@@ -961,6 +1333,30 @@ puertas de la 3060 que faltan y el orden): [`PLAN_EL_LIBRETO.md`](PLAN_EL_LIBRET
   trama a mano; la trama queda como el backend CPU (el juez). **Como se
   sabe:** todos los jueces de `prueba/` (hdr, stencil, olas...) dicen lo
   mismo por la nueva puerta.
+  **11-10, PASO 1 HECHO (lo decidio el propietario: "Mudar la trama a
+  VERRANO"):** la trama de la casa -- `trama`, `cuadros`, `mezcla`,
+  `stencil`, la de D3D12 entera en la CPU -- es de VERRANO:
+  `platform/shared/verrano-trama/` (`bmo-verrano-trama`, aparte de
+  `bmo-verrano` porque pide `alloc` y el driver y el DIRECTOR no tienen
+  asignador: dos crates con un nombre, como PROMETEO). Se movio con
+  `git mv`, sin tocar una cuenta; PROTON-X la reexporta con sus nombres de
+  siempre, asi que sus 25 ficheros no cambiaron. En verde: sus pruebas, las
+  de PROTON-X, el kernel, el Ring 3 entero y los guardianes.
+  **11-10, PASO 2 HECHO: UNA SOLA TRAMA.** El juez de los `Draw` y los
+  `Dispatch` de VERRANO es `bmo_verrano_trama::juez::Juez`, y dibuja con
+  LA trama de la casa; el rasterizador que VERRANO tenia aparte para ellos
+  (y su mezcla, su interpolacion y su SV_Position, la misma cuenta escrita
+  dos veces) se borro de `verrano/src/cpu.rs`, que se queda con el juez de
+  `Frame` (el modelo de la 3060 de V0, con su redondeo `Truncate12`). El
+  Programa de la casa entra como etapa por `Casa`, y `bmo-verrano` ya no
+  tiene la feature `prometeo`: no depende de nadie. Las pruebas de V3a,
+  LI2a, LI2c, LI2d y LI2f vinieron con el juez y pasan IGUAL con la trama
+  de la casa -- la huella de BMOX-12 de D3D12, SV_Position, el G-buffer, la
+  textura en perspectiva, la luz que se suma, el computo --; saboteado (el
+  descarte al reves, los destinos al reves): cae. **Paso 3:** `tuberia.rs`
+  de la casa entrega `Draw` y `Dispatch` en vez de un `Lote` (lo que la
+  trama hace y el `Draw` aun no dice: stencil, instancias, olas, formatos
+  float... crece el `Draw`, no otra trama).
 - [ ] **VC3 -- la cara de Vulkan** (`platform/drivers/gpu/rdna4/PLAN_VULKAN.md`):
   un `vulkan-1.dll` en la casa que dice lo suyo en el MISMO VERRANO; el
   SPIR-V ya entra por `toolchain/lang/spirv`. Despues de VC2: Vulkan no se

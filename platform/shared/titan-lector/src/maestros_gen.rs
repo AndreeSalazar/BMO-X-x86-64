@@ -9,7 +9,7 @@ use crate::maestros::Master;
 use bmo_titan_contrato::{Permission, Permissions};
 
 /// El nombre de cada familia: el titulo de su nivel en GRAMATICA.md.
-pub static FAMILIES: [&str; 14] = [
+pub static FAMILIES: [&str; 15] = [
     "un programa que saluda",
     "calcular",
     "contar",
@@ -24,10 +24,11 @@ pub static FAMILIES: [&str; 14] = [
     "la 3060",
     "lo que viene de fuera",
     "lo que crece",
+    "el byte",
 ];
 
 /// Cuantos hay: la TAB mide sus tablas con esto.
-pub const COUNT: usize = 40;
+pub const COUNT: usize = 44;
 
 /// `static`, no `const`: UNA copia en `.rodata`, que Ring 3 lee por indice
 /// sin traerla a una pila de 64 KiB.
@@ -253,6 +254,17 @@ pub static MASTERS: [Master; COUNT] = [
         source: "# sale: ana tiene 1250.00\n# sale: tras el interes: 1278.13\n# sale: tras pagar 99.99: 1178.14\n# sale: el interes redondeado a la vista: 28.1250 -> 28.13\n# precision de COBOL: cada saldo declara sus cifras (dec(9, 2)) y el redondeo se ESCRIBE\nmod main \"un banco que no pierde un centimo\"\n\ntype Cuenta\n    titular: text\n    saldo: dec(9, 2)\n\nfn interes(saldo: dec(9, 2), tasa: dec(5, 4)) -> dec(9, 2)\n    # 1250.00 * 0.0225 = 28.125: tres decimales, y el saldo guarda dos\n    return round(saldo * tasa, 2)\n\nfn abona(mut c: Cuenta, tasa: dec(5, 4))\n    c.saldo = c.saldo + interes(c.saldo, tasa)\n\nfn paga(mut c: Cuenta, importe: dec(9, 2))\n    c.saldo = c.saldo - importe\n\nfn main()\n    let mut ana = Cuenta { titular: \"ana\", saldo: 1250 }\n    print(ana.titular, \" tiene \", ana.saldo)\n    abona(mut ana, 0.0225)\n    print(\"tras el interes: \", ana.saldo)\n    paga(mut ana, 99.99)\n    print(\"tras pagar 99.99: \", ana.saldo)\n    print(\"el interes redondeado a la vista: \", 1250.00 * 0.0225, \" -> \", interes(1250.00, 0.0225))\n",
     },
     Master {
+        name: "cambia_en_un_camino",
+        level: 7,
+        why: "PLAN_MUNDO, 11-10: el juez lo miraba en cada `return` por separado)",
+        says: "un mut que cambia en un camino y vuelve pronto por otro",
+        words: &["fn", "let", "mut", "if", "return"],
+        asks: Permissions::NONE,
+        typed: &[],
+        out: &["true [0, 9, 0]", "false [0, 9, 0]"],
+        source: "# sale: true [0, 9, 0]\n# sale: false [0, 9, 0]\n# Un `mut` prestado que cambia en UN camino cuenta como cambiado: `marca` se\n# va pronto por el otro, sin tocarlo, y eso no es romper la promesa (MC1 de\n# PLAN_MUNDO, 11-10: el juez lo miraba en cada `return` por separado)\nmod main \"un mut que cambia en un camino y vuelve pronto por otro\"\n\nfn marca(mut t: [int; 3], i: int) -> bool\n    if t[i] != 0\n        return false\n    t[i] = 9\n    return true\n\nfn main()\n    let mut t = [0, 0, 0]\n    let a = marca(mut t, 1)\n    print(a, \" \", t)\n    let b = marca(mut t, 1)\n    print(b, \" \", t)\n",
+    },
+    Master {
         name: "hundir",
         level: 7,
         why: "`take` entrega la nave: quien la recibe se la queda, y el que llama ya no la tiene",
@@ -374,6 +386,17 @@ pub static MASTERS: [Master; COUNT] = [
         source: "# sale: el cubo de V0, escrito en TITAN++: cubo_vertice y cubo_pixel\n# dos gpu fn que DIBUJAN (LB6), dichas por su firma: la de vertice recibe un registro y deja otro con su `posicion`; la de pixel recibe ese y deja su color. No se llaman: las pone a dibujar VERRANO (LB7). `titan sm86` las pega a la tuberia de la RTX 3060 12G y las mete en su sobre, cubo.bsf\nmod main \"el cubo de V0, en TITAN++\"\n\n# Cuatro f32: un punto en coordenadas de recorte (x, y, z, w), o un color (r, g, b, a).\ntype Cuatro\n    x: f32\n    y: f32\n    z: f32\n    w: f32\n\n# Un vertice del cubo como lo escribe la app (`Vertex` de VERRANO, 32 bytes): su posicion, ya en coordenadas de recorte, y el color de su cara.\ntype Vertice\n    posicion: Cuatro\n    color: Cuatro\n\n# La de VERTICE: deja lo que le dan -- la posicion, a la tarjeta; el color, a la de pixel.\ngpu fn cubo_vertice(v: Vertice) -> Vertice\n    return v\n\n# La de PIXEL: el color de su cara. Los tres vertices de una cara dan el mismo, y la tarjeta lo interpola exacto.\ngpu fn cubo_pixel(v: Vertice) -> Cuatro\n    return v.color\n\nfn main()\n    print(\"el cubo de V0, escrito en TITAN++: cubo_vertice y cubo_pixel\")\n",
     },
     Master {
+        name: "dos_cubos",
+        level: 11,
+        why: "lamina y la dibuja con el juez de la CPU.",
+        says: "dos cubos que se tapan: la profundidad y el descarte de VERRANO",
+        words: &["fn", "let", "mut", "if", "else", "not", "for", "return", "use", "gpu", "f32"],
+        asks: Permissions::NONE.with(Permission::Gpu).with(Permission::Screen),
+        typed: &[],
+        out: &["nadie compone: la lamina no se ofrece a nadie"],
+        source: "# sale: nadie compone: la lamina no se ofrece a nadie\n# DOS CUBOS QUE SE TAPAN (M1 = V2 de docs/plan/PLAN_VERRANO.md, 11-10): la\n# app da los dos cubos ENTEROS -- sus 12 triangulos cada uno, sin mirar cual\n# se ve -- y pide `director.profundidad(true)`: VERRANO descarta las caras de\n# detras y el z-buffer decide quien tapa a quien. El cubo de atras cruza de\n# un lado a otro por DETRAS del de delante. Las cuentas, en gpu fn (el f32\n# vive alli); lanzado desde el shell nadie compone, y lo dice. La prueba\n# `tests/dos_cubos.rs` del emisor lo lanza el escritorio de mentira, lee la\n# lamina y la dibuja con el juez de la CPU.\nmod main \"dos cubos que se tapan: la profundidad y el descarte de VERRANO\"\nuse director\n\n# Cada esquina a recorte: la camara mira +z (cerca 1, lejos 10), 16:9 y una\n# focal de 1,5. La z de despues de dividir va de 0 (cerca) a 1 (lejos).\ngpu fn rx(e: f32, c: f32) -> f32\n    return (e + c) * 0.84375\n\ngpu fn ry(e: f32, c: f32) -> f32\n    return (e + c) * 1.5\n\ngpu fn rz(e: f32, c: f32) -> f32\n    return (e + c - 1.0) * 1.1111112\n\ngpu fn rw(e: f32, c: f32) -> f32\n    return e + c\n\n# El centro x de cada vertice: el cubo de delante (b = 0) quieto en -0,45; el\n# de detras (b = 1) cruza de -1,6 a 1,6, una centesima por fotograma.\ngpu fn centro_x(f: f32, b: f32) -> f32\n    return 0.0 - 0.45 + b * (0.45 - 1.6 + f * 0.01)\n\n# La esquina `k` (0..5: dos triangulos) de la cara `cara`. Las esquinas: bit\n# 0 la x, bit 1 la y, bit 2 la z. Cada cara, HORARIA vista desde fuera -- lo\n# que D3D llama delante --: su normal, (b - a) x (c - a), sale del cubo.\nfn esquina_de(cara: int, k: int) -> int\n    let caras: [int; 24] = [0, 2, 3, 1, 4, 5, 7, 6, 0, 4, 6, 2, 1, 3, 7, 5, 0, 1, 5, 4, 2, 6, 7, 3]\n    let orden: [int; 6] = [0, 1, 2, 0, 2, 3]\n    return caras[4 * cara + orden[k]]\n\nfn main()\n    if director.ventana(640, 360)\n        director.rect(0, 0, 640, 360, 1052696)\n        director.texto(16, 16, \"dos cubos de TITAN++: los dibuja la 3060 con profundidad\", 1, 13421772)\n        director.presenta()\n    if not director.lamina(72)\n        print(\"nadie compone: la lamina no se ofrece a nadie\")\n        return\n    director.profundidad(true)\n    print(\"publicando dos cubos que se tapan: el de atras cruza, una y otra vez\")\n    for vuelta in range(50)\n        for f in range(320)\n            fotograma(f)\n            director.espera(16)\n\nfn fotograma(f: int)\n    let a: f32 = f\n    let fs: [f32; 72] = [a; 72]\n    let lado: [f32; 2] = [-0.5, 0.5]\n    let centros_y: [f32; 2] = [-0.1, 0.25]\n    let centros_z: [f32; 2] = [3.0, 4.5]\n    let uno: f32 = 1.0\n    let mut ex: [f32; 72] = [0.0; 72]\n    let mut ey: [f32; 72] = [0.0; 72]\n    let mut ez: [f32; 72] = [0.0; 72]\n    let mut b: [f32; 72] = [0.0; 72]\n    let mut cy: [f32; 72] = [0.0; 72]\n    let mut cz: [f32; 72] = [0.0; 72]\n    for cubo in range(2)\n        for cara in range(6)\n            for k in range(6)\n                let v = 36 * cubo + 6 * cara + k\n                let e = esquina_de(cara, k)\n                ex[v] = lado[e % 2]\n                ey[v] = lado[(e - e % 2) / 2 % 2]\n                ez[v] = lado[(e - e % 4) / 4]\n                if cubo == 1\n                    b[v] = uno\n                cy[v] = centros_y[cubo]\n                cz[v] = centros_z[cubo]\n    let cx = centro_x(fs, b)\n    let x = rx(ex, cx)\n    let y = ry(ey, cy)\n    let z = rz(ez, cz)\n    let w = rw(ez, cz)\n    # Un tono por cara: rojos el de delante, azules el de detras.\n    let rojos: [f32; 6] = [0.95, 0.75, 0.85, 0.65, 0.55, 0.9]\n    let azules: [f32; 6] = [0.95, 0.75, 0.85, 0.65, 0.55, 0.9]\n    let poco: f32 = 0.2\n    let mut pos: [f32; 288] = [0.0; 288]\n    let mut col: [f32; 288] = [0.0; 288]\n    for v in range(72)\n        pos[4 * v] = x[v]\n        pos[4 * v + 1] = y[v]\n        pos[4 * v + 2] = z[v]\n        pos[4 * v + 3] = w[v]\n        let cara = (v % 36 - v % 6) / 6\n        if v < 36\n            col[4 * v] = rojos[cara]\n            col[4 * v + 1] = poco\n            col[4 * v + 2] = poco\n        else\n            col[4 * v] = poco\n            col[4 * v + 1] = poco\n            col[4 * v + 2] = azules[cara]\n        col[4 * v + 3] = uno\n    director.publica(f, 72, pos, col)\n",
+    },
+    Master {
         name: "en_linea",
         level: 11,
         why: "una gpu fn llama a otra (LB5): no hay pila en un hilo, asi que la llamada se escribe EN LINEA, con sus bucles y sus `return`",
@@ -471,5 +494,27 @@ pub static MASTERS: [Master; COUNT] = [
         typed: &[],
         out: &["..~~.", ".#~~.", "##...", "el mundo tiene 7 bloques; agua: 4"],
         source: "# sale: ..~~.\n# sale: .#~~.\n# sale: ##...\n# sale: el mundo tiene 7 bloques; agua: 4\n# un mundo de cubos en chico: cada bloque, por su SITIO -- un mapa cuya clave es un registro\nmod main \"un mundo de bloques\"\n\ntype Sitio\n    x: int\n    y: int\n\nfn pinta(mundo: {Sitio: text}, alto: int, ancho: int)\n    for y in range(alto)\n        let mut fila = \"\"\n        for x in range(ancho)\n            match get(mundo, Sitio { x: x, y: y })\n                Hay(b)\n                    fila = fila + b\n                NoHay\n                    fila = fila + \".\"\n        print(fila)\n\nfn main()\n    let mut mundo: {Sitio: text} = {}\n    for x in range(2)\n        put(mut mundo, Sitio { x: x, y: 2 }, \"#\")\n    put(mut mundo, Sitio { x: 1, y: 1 }, \"#\")\n    for y in range(2)\n        for x in range(2, 4)\n            put(mut mundo, Sitio { x: x, y: y }, \"~\")\n    pinta(mundo, 3, 5)\n    let mut agua = 0\n    for s in mundo\n        match get(mundo, s)\n            Hay(b)\n                if b == \"~\"\n                    agua = agua + 1\n            NoHay\n                print(\"?\")\n    print(\"el mundo tiene \", len(mundo), \" bloques; agua: \", agua)\n",
+    },
+    Master {
+        name: "histograma",
+        level: 14,
+        why: "con una capa, celda a celda",
+        says: "el histograma de una imagen de bytes",
+        words: &["fn", "let", "mut", "if", "else", "for", "return"],
+        asks: Permissions::NONE,
+        typed: &[],
+        out: &["claros 7, medios 4, oscuros 5", "invertida: [255, 235, 155, 55, 0, 255]", "16 pixeles; la primera fila se repite: true"],
+        source: "# sale: claros 7, medios 4, oscuros 5\n# sale: invertida: [255, 235, 155, 55, 0, 255]\n# sale: 16 pixeles; la primera fila se repite: true\n# el histograma de una imagen guardada en bytes: cuantos pixeles hay de cada\n# tono, y la imagen INVERTIDA (255 - v) -- lo que hace un programa de dibujo\n# con una capa, celda a celda\nmod main \"el histograma de una imagen de bytes\"\n\nfn invierte(px: [byte]) -> [byte]\n    let mut out: [byte] = []\n    for v in px\n        push(mut out, byte(255 - v))\n    return out\n\nfn main()\n    let fila: [byte] = [byte(0), byte(20), byte(100), byte(200), byte(255), byte(0)]\n    let mut img: [byte] = []\n    for k in range(2)\n        for v in fila\n            push(mut img, v)\n    push(mut img, byte(128))\n    push(mut img, byte(90))\n    push(mut img, byte(30))\n    push(mut img, byte(240))\n    let mut cuenta: [int; 3] = [0, 0, 0]\n    for v in img\n        if v < 64\n            cuenta[0] = cuenta[0] + 1\n        else\n            if v < 192\n                cuenta[1] = cuenta[1] + 1\n            else\n                cuenta[2] = cuenta[2] + 1\n    print(\"claros \", cuenta[0], \", medios \", cuenta[1], \", oscuros \", cuenta[2])\n    print(\"invertida: \", invierte(fila))\n    let mut primera: [byte] = []\n    for i in range(6)\n        push(mut primera, img[6 + i])\n    print(len(img), \" pixeles; la primera fila se repite: \", primera == fila)\n",
+    },
+    Master {
+        name: "pixeles",
+        level: 14,
+        why: "255) y si no, NO; leido, un byte cuenta como el int que es",
+        says: "un degradado de grises en una [byte]",
+        words: &["fn", "let", "mut", "if", "for", "return"],
+        asks: Permissions::NONE,
+        typed: &[],
+        out: &["  . ::==", " .. :==#", "..: ==##", ".:: =###", "32 pixeles, 32 bytes; tinta: 3550"],
+        source: "# sale:   . ::==\n# sale:  .. :==#\n# sale: ..: ==##\n# sale: .:: =###\n# sale: 32 pixeles, 32 bytes; tinta: 3550\n# una imagen de grises en una lista de BYTES: un pixel, UN byte -- como\n# guarda su pagina un programa de dibujo. `byte(x)` dice que cabe (de 0 a\n# 255) y si no, NO; leido, un byte cuenta como el int que es\nmod main \"un degradado de grises en una [byte]\"\n\nfn gris(x: int, y: int) -> byte\n    return byte((x + y) * 25)\n\nfn letra(v: int) -> text\n    if v < 50\n        return \" \"\n    if v < 100\n        return \".\"\n    if v < 150\n        return \":\"\n    if v < 200\n        return \"=\"\n    return \"#\"\n\nfn main()\n    let ancho = 8\n    let alto = 4\n    let mut px: [byte] = []\n    for y in range(alto)\n        for x in range(ancho)\n            push(mut px, gris(x, y))\n    # la goma: una franja vuelve a blanco (0)\n    for y in range(alto)\n        px[y * ancho + 3] = byte(0)\n    let mut suma = 0\n    for y in range(alto)\n        let mut fila = \"\"\n        for x in range(ancho)\n            let v = px[y * ancho + x]\n            suma = suma + v\n            fila = fila + letra(v)\n        print(fila)\n    print(len(px), \" pixeles, \", len(px), \" bytes; tinta: \", suma)\n",
     },
 ];

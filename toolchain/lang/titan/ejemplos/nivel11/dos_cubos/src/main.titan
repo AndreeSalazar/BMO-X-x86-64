@@ -1,0 +1,107 @@
+# espera: BIEN
+# sale: nadie compone: la lamina no se ofrece a nadie
+# DOS CUBOS QUE SE TAPAN (M1 = V2 de docs/plan/PLAN_VERRANO.md, 11-10): la
+# app da los dos cubos ENTEROS -- sus 12 triangulos cada uno, sin mirar cual
+# se ve -- y pide `director.profundidad(true)`: VERRANO descarta las caras de
+# detras y el z-buffer decide quien tapa a quien. El cubo de atras cruza de
+# un lado a otro por DETRAS del de delante. Las cuentas, en gpu fn (el f32
+# vive alli); lanzado desde el shell nadie compone, y lo dice. La prueba
+# `tests/dos_cubos.rs` del emisor lo lanza el escritorio de mentira, lee la
+# lamina y la dibuja con el juez de la CPU.
+mod main "dos cubos que se tapan: la profundidad y el descarte de VERRANO"
+use director
+
+# Cada esquina a recorte: la camara mira +z (cerca 1, lejos 10), 16:9 y una
+# focal de 1,5. La z de despues de dividir va de 0 (cerca) a 1 (lejos).
+gpu fn rx(e: f32, c: f32) -> f32
+    return (e + c) * 0.84375
+
+gpu fn ry(e: f32, c: f32) -> f32
+    return (e + c) * 1.5
+
+gpu fn rz(e: f32, c: f32) -> f32
+    return (e + c - 1.0) * 1.1111112
+
+gpu fn rw(e: f32, c: f32) -> f32
+    return e + c
+
+# El centro x de cada vertice: el cubo de delante (b = 0) quieto en -0,45; el
+# de detras (b = 1) cruza de -1,6 a 1,6, una centesima por fotograma.
+gpu fn centro_x(f: f32, b: f32) -> f32
+    return 0.0 - 0.45 + b * (0.45 - 1.6 + f * 0.01)
+
+# La esquina `k` (0..5: dos triangulos) de la cara `cara`. Las esquinas: bit
+# 0 la x, bit 1 la y, bit 2 la z. Cada cara, HORARIA vista desde fuera -- lo
+# que D3D llama delante --: su normal, (b - a) x (c - a), sale del cubo.
+fn esquina_de(cara: int, k: int) -> int
+    let caras: [int; 24] = [0, 2, 3, 1, 4, 5, 7, 6, 0, 4, 6, 2, 1, 3, 7, 5, 0, 1, 5, 4, 2, 6, 7, 3]
+    let orden: [int; 6] = [0, 1, 2, 0, 2, 3]
+    return caras[4 * cara + orden[k]]
+
+fn main()
+    if director.ventana(640, 360)
+        director.rect(0, 0, 640, 360, 1052696)
+        director.texto(16, 16, "dos cubos de TITAN++: los dibuja la 3060 con profundidad", 1, 13421772)
+        director.presenta()
+    if not director.lamina(72)
+        print("nadie compone: la lamina no se ofrece a nadie")
+        return
+    director.profundidad(true)
+    print("publicando dos cubos que se tapan: el de atras cruza, una y otra vez")
+    for vuelta in range(50)
+        for f in range(320)
+            fotograma(f)
+            director.espera(16)
+
+fn fotograma(f: int)
+    let a: f32 = f
+    let fs: [f32; 72] = [a; 72]
+    let lado: [f32; 2] = [-0.5, 0.5]
+    let centros_y: [f32; 2] = [-0.1, 0.25]
+    let centros_z: [f32; 2] = [3.0, 4.5]
+    let uno: f32 = 1.0
+    let mut ex: [f32; 72] = [0.0; 72]
+    let mut ey: [f32; 72] = [0.0; 72]
+    let mut ez: [f32; 72] = [0.0; 72]
+    let mut b: [f32; 72] = [0.0; 72]
+    let mut cy: [f32; 72] = [0.0; 72]
+    let mut cz: [f32; 72] = [0.0; 72]
+    for cubo in range(2)
+        for cara in range(6)
+            for k in range(6)
+                let v = 36 * cubo + 6 * cara + k
+                let e = esquina_de(cara, k)
+                ex[v] = lado[e % 2]
+                ey[v] = lado[(e - e % 2) / 2 % 2]
+                ez[v] = lado[(e - e % 4) / 4]
+                if cubo == 1
+                    b[v] = uno
+                cy[v] = centros_y[cubo]
+                cz[v] = centros_z[cubo]
+    let cx = centro_x(fs, b)
+    let x = rx(ex, cx)
+    let y = ry(ey, cy)
+    let z = rz(ez, cz)
+    let w = rw(ez, cz)
+    # Un tono por cara: rojos el de delante, azules el de detras.
+    let rojos: [f32; 6] = [0.95, 0.75, 0.85, 0.65, 0.55, 0.9]
+    let azules: [f32; 6] = [0.95, 0.75, 0.85, 0.65, 0.55, 0.9]
+    let poco: f32 = 0.2
+    let mut pos: [f32; 288] = [0.0; 288]
+    let mut col: [f32; 288] = [0.0; 288]
+    for v in range(72)
+        pos[4 * v] = x[v]
+        pos[4 * v + 1] = y[v]
+        pos[4 * v + 2] = z[v]
+        pos[4 * v + 3] = w[v]
+        let cara = (v % 36 - v % 6) / 6
+        if v < 36
+            col[4 * v] = rojos[cara]
+            col[4 * v + 1] = poco
+            col[4 * v + 2] = poco
+        else
+            col[4 * v] = poco
+            col[4 * v + 1] = poco
+            col[4 * v + 2] = azules[cara]
+        col[4 * v + 3] = uno
+    director.publica(f, 72, pos, col)

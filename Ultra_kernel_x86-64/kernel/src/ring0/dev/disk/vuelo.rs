@@ -25,17 +25,39 @@
 //! mortal: el que llega es casi siempre un syscall, con `IF=0`, y con las
 //! interrupciones cerradas el hilo no vuelve a correr nunca.
 //!
-//! [!] UN SOLO CLIENTE: el hilo del disco. Si un dia hay dos, la cosecha tiene
-//! que llevar de quien era.
+//! [!] UN SOLO CLIENTE para las LECTURAS: el hilo del disco. La cosecha no
+//! lleva de quien era, porque solo puede ser suya.
+//!
+//! # ** Y EL VACIADO (10-10, op 4 de `docs/plan/EL_FOCO.md`)
+//!
+//! Cerrar un fichero escrito acababa en FLUSH CACHE, esperado girando dentro
+//! del syscall: en un disco con cache, la orden mas larga de todas, y con el
+//! reloj callado (la puerta larga de 1638 ms del 08-10, casi seguro). Ahora el
+//! FLUSH tambien se deja en el aparato ([`emitir_vaciado`]): el syscall vuelve
+//! y el hilo lo aterriza al despertar con su aviso. Es OTRA clase de vuelo
+//! (`Que::Vaciar`): no tiene bufer, no es del hilo, y su resultado NO va a la
+//! cosecha -- el hilo nunca lo confunde con su lectura.
 
 use super::*;
+
+/// Que clase de orden esta en vuelo.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Que {
+    /// Una lectura del hilo, con bufer de destino.
+    Lectura,
+    /// Un FLUSH CACHE del cierre de un fichero: sin bufer, de nadie.
+    Vaciar,
+}
 
 /// La orden que esta en el aparato sin que nadie tenga el disco.
 #[derive(Clone, Copy)]
 struct Vuelo {
+    que: Que,
     lba: u64,
     sectores: u16,
     fisica: u64,
+    /// El TSC al emitirla: lo que tardo, al aterrizar.
+    desde: u64,
 }
 
 // ** Los dos se tocan SOLO con el disco tomado o desde el hilo con las
@@ -49,6 +71,11 @@ pub(super) static VUELOS: AtomicU32 = AtomicU32::new(0);
 /// De esas, las que termino otro que tomo el disco antes de que el hilo
 /// despertara. Si sube mucho, el hilo llega tarde a sus propias ordenes.
 pub(super) static AJENAS: AtomicU32 = AtomicU32::new(0);
+/// Vaciados (FLUSH) dejados en vuelo desde el arranque.
+pub(super) static VACIADOS: AtomicU32 = AtomicU32::new(0);
+/// El vaciado mas largo, en microsegundos: de emitirlo a verlo acabado. Lo
+/// que antes era reloj callado DENTRO de cerrar un fichero.
+pub(super) static VACIADO_PEOR_US: AtomicU32 = AtomicU32::new(0);
 
 /// En que va la orden del hilo.
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -83,7 +110,7 @@ pub fn emitir_lectura(lba: u64, sectores: u16, fisica: u64, prestando: bool) -> 
     };
     match r {
         Ok(()) => {
-            unsafe { VUELO = Some(Vuelo { lba, sectores, fisica }) };
+            unsafe { VUELO = Some(Vuelo { que: Que::Lectura, lba, sectores, fisica, desde: ahora }) };
             VUELOS.fetch_add(1, Ordering::Relaxed);
             true
         }
@@ -95,11 +122,79 @@ pub fn emitir_lectura(lba: u64, sectores: u16, fisica: u64, prestando: bool) -> 
     }
 }
 
+/// **Deja un FLUSH CACHE en el aparato y NO espera.** Lo pide el cierre de un
+/// fichero escrito (`fsys::fs::guardar_en`): los sectores ya estan en el
+/// disco, y lo que falta es que el disco los baje de su cache. `false` si no
+/// se pudo emitir (entonces quien llama vacia como antes, esperando).
+///
+/// Toma el disco, y tomarlo cosecha la lectura del hilo si la habia: la
+/// ranura 0 queda libre para el vaciado.
+pub fn emitir_vaciado() -> bool {
+    if !is_ready() || !write_armed() {
+        return false;
+    }
+    let _testigo = tomar_disco();
+    // CERROJO 2 (N1a): nunca al puerto del disco ajeno.
+    if !ajeno::escribible(unsafe { PORT }) {
+        return false;
+    }
+    let ahora = crate::ring0::task::scheduler::rdtsc();
+    match unsafe { bmo_ahci::emitir_vaciado(PORT) } {
+        Ok(()) => {
+            unsafe { VUELO = Some(Vuelo { que: Que::Vaciar, lba: 0, sectores: 0, fisica: 0, desde: ahora }) };
+            VACIADOS.fetch_add(1, Ordering::Relaxed);
+            true
+        }
+        Err(e) => {
+            crate::ring0::cabina::fault("disk", e.name(), 0);
+            false
+        }
+    }
+}
+
+/// Pregunta al aparato por la orden en vuelo, segun su clase: un FLUSH no
+/// mueve bytes y no tiene `PRDBC` que leer.
+fn sondear(v: Vuelo) -> bmo_ahci::Estado {
+    unsafe { bmo_ahci::sondear(PORT, v.que == Que::Lectura, false) }
+}
+
+/// **El vaciado, si lo hay: lo aterriza si acabo.** `true` si sigue en el
+/// aparato. Lo mira el hilo ANTES de su paso: con un vaciado en vuelo, el hilo
+/// no emite nada suyo (tomar el disco le haria girar hasta que acabe, con las
+/// interrupciones cerradas) y duerme hasta el aviso.
+pub fn vaciado_en_vuelo() -> bool {
+    let Some(v) = (unsafe { VUELO }) else { return false };
+    if v.que != Que::Vaciar {
+        return false;
+    }
+    match sondear(v) {
+        bmo_ahci::Estado::EnCurso => true,
+        e => {
+            aterrizar(v, e);
+            false
+        }
+    }
+}
+
 /// Cierra el vuelo: quita las marcas y dice en que quedo.
 fn aterrizar(v: Vuelo, e: bmo_ahci::Estado) -> Option<u16> {
-    let bytes = v.sectores as u64 * SECTOR as u64;
-    transfer::marcar_el_tramo(v.fisica, bytes, false, crate::ring0::task::scheduler::rdtsc());
+    let ahora = crate::ring0::task::scheduler::rdtsc();
     unsafe { VUELO = None };
+    if v.que == Que::Vaciar {
+        let hz = crate::ring0::task::scheduler::tsc_freq().max(1);
+        let us = (ahora.wrapping_sub(v.desde) as u128 * 1_000_000 / hz as u128).min(u32::MAX as u128) as u32;
+        VACIADO_PEOR_US.fetch_max(us, Ordering::Relaxed);
+        return match e {
+            bmo_ahci::Estado::Fallo(err) => {
+                crate::ring0::cabina::fault("disk", "el vaciado (FLUSH) en vuelo fallo", 0);
+                crate::ring0::cabina::fault("disk", err.name(), 0);
+                None
+            }
+            _ => Some(0),
+        };
+    }
+    let bytes = v.sectores as u64 * SECTOR as u64;
+    transfer::marcar_el_tramo(v.fisica, bytes, false, ahora);
     match e {
         bmo_ahci::Estado::Hecho(n) => Some(if n == u16::MAX { v.sectores } else { n }),
         bmo_ahci::Estado::Fallo(err) => {
@@ -118,7 +213,13 @@ pub fn mirar() -> Estado {
             return Estado::Termino(r);
         }
         let Some(v) = VUELO else { return Estado::Libre };
-        match bmo_ahci::sondear(PORT, true, false) {
+        // Un vaciado no es del hilo: se aterriza si acabo, y para el hilo no
+        // hay orden suya.
+        if v.que == Que::Vaciar {
+            vaciado_en_vuelo();
+            return Estado::Libre;
+        }
+        match sondear(v) {
             bmo_ahci::Estado::EnCurso => Estado::EnCurso,
             e => Estado::Termino(aterrizar(v, e)),
         }
@@ -129,7 +230,9 @@ pub fn mirar() -> Estado {
 /// el fichero cuyo bufer es el destino, o traer ese mismo trozo por el camino
 /// sincrono. Toma el disco, y tomarlo ya la cosecha.
 pub fn esperar() -> Estado {
-    if unsafe { VUELO.is_none() && COSECHA.is_none() } {
+    // Un vaciado no es el bufer de nadie: no hay por que esperarlo aqui.
+    let lectura = unsafe { matches!(VUELO, Some(v) if v.que == Que::Lectura) };
+    if !lectura && unsafe { COSECHA.is_none() } {
         return Estado::Libre;
     }
     drop(tomar_disco());
@@ -149,11 +252,14 @@ pub(super) fn cosechar() {
         crate::ring0::task::scheduler::tsc_freq() / 1000 * COSECHA_MAX_MS,
     );
     loop {
-        let e = unsafe { bmo_ahci::sondear(PORT, true, false) };
+        let e = sondear(v);
         if e != bmo_ahci::Estado::EnCurso {
             let r = aterrizar(v, e);
-            unsafe { COSECHA = Some(r) };
-            AJENAS.fetch_add(1, Ordering::Relaxed);
+            // El vaciado no es del hilo: su resultado no es una cosecha.
+            if v.que == Que::Lectura {
+                unsafe { COSECHA = Some(r) };
+                AJENAS.fetch_add(1, Ordering::Relaxed);
+            }
             return;
         }
         if rdtsc() >= plazo {
@@ -163,7 +269,9 @@ pub(super) fn cosechar() {
             crate::ring0::cabina::fault("disk", "orden en vuelo sin contestar", v.lba);
             unsafe {
                 VUELO = None;
-                COSECHA = Some(None);
+                if v.que == Que::Lectura {
+                    COSECHA = Some(None);
+                }
             }
             return;
         }

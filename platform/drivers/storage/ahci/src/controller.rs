@@ -450,6 +450,15 @@ pub unsafe fn flush_cache(port_idx: u8) -> Result<(), DiskError> {
     run_command(port_idx, ATA_CMD_FLUSH_EXT, 0, 0, 0, None, false).map(|_| ())
 }
 
+/// **FLUSH CACHE, sin esperar** (10-10): lo emite y vuelve; [`sondear`] con
+/// `con_datos = false` dice cuando acabo. Para quien no quiere tener el CPU
+/// girando lo que el disco tarde en bajar su cache (el cierre de un fichero).
+/// La ranura 0 queda ocupada como con [`emitir`]: quien la reparte es la capa
+/// de arriba.
+pub unsafe fn emitir_vaciado(port_idx: u8) -> Result<(), DiskError> {
+    emitir(port_idx, ATA_CMD_FLUSH_EXT, 0, 0, None, false)
+}
+
 /// IDENTIFY DEVICE: 512 bytes con el modelo, el numero de serie y los sectores
 /// del disco.
 ///

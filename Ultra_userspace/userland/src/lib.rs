@@ -344,6 +344,15 @@ pub const IOMMU_OP_GSP_REINTENTO_SUBIR: u64 = 0x4C;
 pub const IOMMU_OP_GSP_REINTENTO: u64 = 0x4D;
 /// E7: el trabajo ETERNO, que corta el vigilante del kernel. Ver el ABI.
 pub const IOMMU_OP_GPU_ETERNO: u64 = 0x4E;
+/// VE5: el formato de una tanda de COMPLETAR (`ancho | alto << 16 | ficha
+/// << 32`) y una pasada (`arg1` = la VA del bloque | el paso | los bits de
+/// abajo | la tolerancia en los bits 48..63). Ver el ABI.
+pub const IOMMU_OP_GPU_COMPLETA_FORMATO: u64 = 0x4F;
+pub const IOMMU_OP_GPU_COMPLETA: u64 = 0x50;
+/// VEL2: la puerta estrecha de COMPLETAR, para una app (ver el ABI).
+pub const IOMMU_OP_GPU_COMPLETAR: u64 = 0x51;
+pub const COMPLETA_DE_B: u64 = 1 << 3;
+pub const COMPLETA_CARGAR: u64 = 1 << 4;
 pub const CUBO_LEER: u64 = 1 << 63;
 pub const CUBO_VERRANO: u64 = 1 << 62;
 pub const CUBO_LIGERO: u64 = 1 << 61;
@@ -438,6 +447,8 @@ pub const IOMMU_NO_VIDEO: u32 = 85;
 pub const IOMMU_NO_PASE: u32 = 86;
 pub const IOMMU_NO_BODRIO: u32 = 87;
 pub const IOMMU_NO_IMAGEN: u32 = 88;
+/// VE5: completar no se puede (ver el ABI).
+pub const IOMMU_NO_COMPLETA: u32 = 92;
 /// P3b4c: el canal de GR tomo una excepcion (Xid): MUERTO hasta reiniciar.
 pub const IOMMU_NO_CANAL_MUERTO: u32 = 90;
 pub const IOMMU_NO_REINTENTO: u32 = 91;
@@ -696,6 +707,10 @@ pub const INFO_AUDIO_LADOS: u64 = 0xCB;
 /// La puerta (syscall) mas larga, y la que corria en el peor latido tarde.
 pub const INFO_PUERTA_LARGA: u64 = 0xCC;
 pub const INFO_PUERTA_DEL_LATIDO: u64 = 0xCD;
+/// El respiro de la 3060: instantes abiertos `[0..32)` y apartadas `[32..64)`.
+pub const INFO_RESPIRO: u64 = 0xCE;
+/// El cierre de un fichero: escribir `[0..32)` y vaciar `[32..64)`, en us.
+pub const INFO_DISCO_GUARDAR: u64 = 0xCF;
 /// El formato `i` (`INFO_AUDIO_FORMATO | (i << 8)`): alt, canales, bits,
 /// subframe, `wMaxPacketSize`, cuantas frecuencias, si CABE en 1 ms, si es el
 /// elegido y su sincronia. Ver `uaudio::info_formato` en el kernel.

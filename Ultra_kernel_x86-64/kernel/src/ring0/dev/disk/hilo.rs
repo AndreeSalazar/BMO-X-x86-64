@@ -143,7 +143,12 @@ extern "C" fn hilo(_arg: u64) -> ! {
         let avisos = bmo_ahci::AVISOS.load(Ordering::Acquire);
         let paso = {
             let _g = CERROJO.lock();
-            trabajo()
+            // ** Un VACIADO en el aparato (10-10, `vuelo::emitir_vaciado`): se
+            // aterriza si acabo; si no, el paso espera. Emitir algo suyo ahora
+            // seria tomar el disco, y tomarlo gira hasta que el FLUSH acabe --
+            // con las interrupciones cerradas, que es lo que se quito al
+            // cerrar ficheros.
+            if vuelo::vaciado_en_vuelo() { Paso::Esperando } else { trabajo() }
         };
         let plazo = match paso {
             Paso::Otra => continue,

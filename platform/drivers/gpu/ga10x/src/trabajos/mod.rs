@@ -17,6 +17,9 @@ pub mod giro;
 pub mod pantalla;
 pub mod video;
 pub mod imagen;
+// VE5: COMPLETAR (el filtro de ESTUDIO VIVO) por la 3060, juzgado contra
+// la cuenta de VERRANO.
+pub mod completa;
 /// El volcado por la 3060: el motor de copia lleva el lienzo del escritorio
 /// a la pantalla (compositor por GPU, paso 1; 2026-09-25).
 pub mod volcado;

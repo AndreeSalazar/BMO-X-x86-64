@@ -28,6 +28,7 @@ use super::verde::{
 use crate::ring0::mm::{self, phys};
 
 use crate::ring0::task::percpu;
+use core::sync::atomic::Ordering;
 
 use crate::ring0::plat::spin::SpinLock;
 
@@ -1194,6 +1195,14 @@ pub fn terminar(tid: u32) -> bool {
         if s.tasks[i].state == TaskState::Empty || s.tasks[i].state == TaskState::Exited {
             return false;
         }
+        // ** DENTRO DE LA 3060 (10-10): con el respiro puede estar apartada a
+        // mitad de una puerta, con la 3060 leyendo o escribiendo su memoria.
+        // Muere al SALIR de la puerta, no ahora (`tocable`).
+        if INTOCABLE.load(Ordering::Acquire) == tid {
+            MATAR_AL_SALIR.store(tid, Ordering::Release);
+            crate::ring0::cabina::info("sched", "cerrado por quien lo lanzo: dentro de la 3060, muere al salir (tid)", tid as u64);
+            return true;
+        }
         s.tasks[i].state = TaskState::Exited;
         crate::ring0::cabina::info("sched", "cerrado por quien lo lanzo (tid)", tid as u64);
         return true;
@@ -1276,6 +1285,12 @@ pub fn limpieza_de_ring3() -> (u32, u64) {
             if s.tasks[i].state == TaskState::Empty || s.tasks[i].state == TaskState::Exited {
                 continue;
             }
+            // La que esta DENTRO de la 3060 (10-10): ni se le revoca ni se
+            // marca; muere al salir de su puerta, con su propia revocacion.
+            if INTOCABLE.load(Ordering::Acquire) == s.tasks[i].tid {
+                MATAR_AL_SALIR.store(s.tasks[i].tid, Ordering::Release);
+                continue;
+            }
             pids[n] = s.tasks[i].pid;
             n += 1;
         }
@@ -1309,6 +1324,32 @@ pub fn limpieza_de_ring3() -> (u32, u64) {
     (muertas, libres_antes)
 }
 
+
+// == ** LA TAREA DENTRO DE LA 3060 (10-10, el respiro) ======================
+//
+// Con el respiro (`dev::respiro`) una puerta de la 3060 abre las
+// interrupciones mientras la ESPERA, y la tarea puede quedar apartada a mitad
+// de la puerta: con la 3060 leyendo o escribiendo SU memoria (prestada por la
+// IOMMU) y con la 3060 tomada. Matarla ahi seria devolver esa memoria con la
+// 3060 dentro. Asi que mientras esta dentro es INTOCABLE: quien la cierra la
+// apunta, y muere al salir de la puerta (`tocable`), por el camino de EXIT.
+
+/// El tid que esta dentro de una puerta de la 3060 (0 = ninguno).
+static INTOCABLE: core::sync::atomic::AtomicU32 = core::sync::atomic::AtomicU32::new(0);
+/// El tid al que se pidio cerrar mientras era intocable.
+static MATAR_AL_SALIR: core::sync::atomic::AtomicU32 = core::sync::atomic::AtomicU32::new(0);
+
+/// La tarea `tid` entra en una puerta de la 3060: no se mata hasta salir.
+pub fn intocable(tid: u32) {
+    INTOCABLE.store(tid, Ordering::Release);
+}
+
+/// Sale de la puerta. `true` si la cerraron mientras estaba dentro: quien
+/// llama la termina YA (revocar y `exit_current`, como EXIT).
+pub fn tocable() -> bool {
+    let tid = INTOCABLE.swap(0, Ordering::AcqRel);
+    tid != 0 && MATAR_AL_SALIR.compare_exchange(tid, 0, Ordering::AcqRel, Ordering::Acquire).is_ok()
+}
 
 pub fn wait_current(key: u64, deadline_tsc: u64) {
     let _g = SCHED_LOCK.lock();

@@ -64,6 +64,7 @@ pub use owner::{cuentas_propietario, Testigo};
 mod centinela;
 pub use centinela::cuentas as cuentas_centinela;
 use owner::tomar_disco;
+pub use owner::tomado;
 /// MOVING THE BYTES: read, DMA, and the bounce buffer -- both paths counted.
 mod transfer;
 // ** N1a (29-09): el OTRO disco SATA del controlador, SOLO LECTURA (el
@@ -728,6 +729,29 @@ pub fn flush() -> bool {
             false
         }
     }
+}
+
+/// **Vaciar la cache del disco SIN esperar** (10-10, op 4 de
+/// `docs/plan/EL_FOCO.md`): el FLUSH se deja en el aparato y el hilo del disco
+/// lo aterriza con su aviso. Para el cierre de un fichero: los sectores ya se
+/// escribieron, y lo que quedaba era girar con el reloj callado lo que el disco
+/// tardara en bajarlos. Sin el hilo vivo (o si no se pudo emitir), se vacia
+/// esperando, como antes.
+///
+/// [!] Las BARRERAS (antes de tocar la maquina: `op_maquina`) siguen siendo
+/// [`flush`]: esas SI tienen que ver el disco vaciado antes de seguir. Una
+/// barrera detras de un vaciado en vuelo lo cosecha primero (`tomar_disco`).
+pub fn vaciar_sin_esperar() -> bool {
+    if hilo::vivo() && vuelo::emitir_vaciado() {
+        hilo::avisar();
+        return true;
+    }
+    flush()
+}
+
+/// `INFO_DISCO_GUARDAR`, la mitad de vaciar: el FLUSH en vuelo mas largo (us).
+pub fn vaciado_peor_us() -> u32 {
+    vuelo::VACIADO_PEOR_US.load(Ordering::Relaxed)
 }
 
 // -- GPT: la tabla de particiones --------------------------------------------

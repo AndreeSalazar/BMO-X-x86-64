@@ -122,6 +122,7 @@ members = [
     # de 4 ms. Lo juzga el kernel y lo usa Ring 3; ver PLAN_RED_TX, E3.
     "platform/shared/bmo-cubo",
     "platform/shared/verrano",
+    "platform/shared/verrano-trama",
     "platform/shared/proton-x",
     "platform/shared/proton-x-casa",
     # LA LENGUA DE LA 3060, pura: el codificador de SASS (E2) fuera del driver,

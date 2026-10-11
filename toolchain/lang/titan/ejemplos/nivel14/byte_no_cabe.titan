@@ -1,0 +1,7 @@
+# espera: T0060
+# un byte va de 0 a 255: `byte(256)` no se corta a 0 en silencio, es un NO
+mod main "un byte que no cabe"
+
+fn main()
+    let b = byte(256)
+    print(b)

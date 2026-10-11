@@ -1,0 +1,22 @@
+[package]
+name = "bmo-app-estudio"
+version = "0.1.0"
+edition = "2021"
+description = "ESTUDIO (VE2 de PLAN_VERRANO): VERRANO ESTUDIO VIVO en BMO-X -- la luz estilo RenderMan que se recuerda, con todos los nucleos (los sub-directores), en su ventana."
+
+[[bin]]
+name = "estudio"
+path = "src/main.rs"
+
+[dependencies]
+# El monton de la casa (el de PROTON-X, como la LUDOTECA).
+bmo-monton = { path = "../../../platform/shared/bmo-monton" }
+bmo-userland = { path = "../../userland" }
+# ESTUDIO y ESTUDIO VIVO: el trazado de caminos y la memoria de la luz.
+bmo-verrano-trama = { path = "../../../platform/shared/verrano-trama" }
+# El pedido de los sub-directores (H4.3): sus bloques, su pila y su FIN.
+bmo-orquesta = { path = "../../../platform/shared/bmo-orquesta" }
+# VEL2: la puerta de COMPLETAR por la 3060 -- la cabecera de su bloque (puro,
+# sin dependencias) y el bloque y el juez de VERRANO.
+bmo-gpu-ga10x = { path = "../../../platform/drivers/gpu/ga10x" }
+bmo-verrano = { path = "../../../platform/shared/verrano" }

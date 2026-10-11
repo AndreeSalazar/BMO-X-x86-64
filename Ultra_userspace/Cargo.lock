@@ -23,6 +23,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "bmo-app-estudio"
+version = "0.1.0"
+dependencies = [
+ "bmo-gpu-ga10x",
+ "bmo-monton",
+ "bmo-orquesta",
+ "bmo-userland",
+ "bmo-verrano",
+ "bmo-verrano-trama",
+]
+
+[[package]]
 name = "bmo-app-hermes"
 version = "0.1.0"
 dependencies = [
@@ -220,6 +232,7 @@ name = "bmo-proton-x"
 version = "0.1.0"
 dependencies = [
  "bmo-prometeo",
+ "bmo-verrano-trama",
 ]
 
 [[package]]
@@ -334,3 +347,11 @@ dependencies = [
 [[package]]
 name = "bmo-verrano"
 version = "0.1.0"
+
+[[package]]
+name = "bmo-verrano-trama"
+version = "0.1.0"
+dependencies = [
+ "bmo-prometeo",
+ "bmo-verrano",
+]

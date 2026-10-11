@@ -708,6 +708,26 @@ pub(super) fn red(arg0: u64, _arg1: u64) -> BmoStatus {
 /// cache. Si encender tumba la maquina, lo guardado tiene que estar en el
 /// disco de verdad. La maquina trabaja para quien la usa.
 pub(super) fn iommu(arg0: u64, arg1: u64) -> BmoStatus {
+    use crate::ring0::dev::respiro;
+    // ** LA PUERTA ES UNA (10-10, el respiro): con las interrupciones abiertas
+    // mientras se espera a la 3060, la tarea puede quedar apartada a mitad de
+    // la puerta; nadie mas entra hasta que salga (y si no sale en 2 s, "uno
+    // en marcha"). Mientras esta dentro es intocable: cerrarla la apunta.
+    let e = respiro::entrar();
+    if e == respiro::Entrada::NoSePudo {
+        return BmoStatus::negado(crate::ring0::dev::gpu_trabajo::IOMMU_NO_BLUR, 0);
+    }
+    let r = iommu_puerta(arg0, arg1);
+    // La cerraron mientras estaba dentro: muere AHORA, por el camino de EXIT
+    // (revocar antes del cambio final).
+    if e == respiro::Entrada::Nueva && respiro::salir() {
+        crate::ring0::obj::cap::revoke_all(scheduler::current_pid());
+        scheduler::exit_current();
+    }
+    r
+}
+
+fn iommu_puerta(arg0: u64, arg1: u64) -> BmoStatus {
     use crate::ring0::plat::iommu::en_curso;
     en_curso(Some((arg0, arg1, super::ops::nombre_iommu(arg0))));
     // *** LA PUERTA ESTRECHA (P3b4c, 28-09) -- la UNICA orden que no pasa por
@@ -718,6 +738,15 @@ pub(super) fn iommu(arg0: u64, arg1: u64) -> BmoStatus {
     // guardian `la-3060` (regla P2) exige que sea esta orden y solo esta.
     let r = if arg0 == IOMMU_OP_GPU_DIBUJAR {
         match crate::ring0::dev::gpu_trabajo::receta(arg1) {
+            Ok(v) => BmoStatus::ok_value(v),
+            Err(m) => BmoStatus::negado(m, 0),
+        }
+    } else if arg0 == IOMMU_OP_GPU_COMPLETAR {
+        // ** VEL2 (11-10): la SEGUNDA puerta estrecha -- una app completa SU
+        // imagen con el programa del KERNEL (no manda codigo), en SU bloque,
+        // con el cerrojo del GR de siempre. El guardian `la-3060` (P2) exige
+        // las tres cosas en `completar_de_app`.
+        match crate::ring0::dev::gpu_trabajo::completar_de_app(arg1) {
             Ok(v) => BmoStatus::ok_value(v),
             Err(m) => BmoStatus::negado(m, 0),
         }
@@ -1045,6 +1074,9 @@ fn iommu_(arg0: u64, arg1: u64) -> BmoStatus {
         // ** D2: la imagen (DOOM); sin FLUSH del disco, como el video.
         IOMMU_OP_GPU_IMAGEN_FORMATO => crate::ring0::dev::gpu_trabajo::imagen_formato(arg1),
         IOMMU_OP_GPU_IMAGEN => crate::ring0::dev::gpu_trabajo::imagen(arg1),
+        // ** VE5: COMPLETAR; sin FLUSH del disco: las pasadas van seguidas.
+        IOMMU_OP_GPU_COMPLETA_FORMATO => crate::ring0::dev::gpu_trabajo::completa_formato(arg1),
+        IOMMU_OP_GPU_COMPLETA => crate::ring0::dev::gpu_trabajo::completa(arg1),
         // ** P3b4c.9 Z1: la pantalla, a una app. Detras de las dos llaves:
         // solo el escritorio la da.
         IOMMU_OP_GPU_PANTALLA_PARA => crate::ring0::dev::gpu_trabajo::pantalla_para(arg1),

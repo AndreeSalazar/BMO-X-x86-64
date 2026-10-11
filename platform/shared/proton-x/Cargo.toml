@@ -12,6 +12,10 @@ license = "Apache-2.0"
 # libreria general de la GPU. PROTON-X los re-exporta en sus rutas de siempre
 # (`dxil::programa`, `mates`, `bufer`, `textura`...) y no cambia una linea.
 bmo-prometeo = { path = "../prometeo" }
+# VC2 (11-10): la trama -- triangulos a pixeles, la mezcla, el stencil, los
+# cuadros -- es de VERRANO (su crate de trama); PROTON-X la usa y la
+# reexporta con su nombre.
+bmo-verrano-trama = { path = "../verrano-trama" }
 
 # Solo para el banco: el cubo de X1 (sus cuentas y las huellas de la 3060) es
 # la verdad contra la que se mide el interprete de DXIL y el rasterizador.

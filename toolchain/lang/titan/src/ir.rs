@@ -210,6 +210,9 @@ pub enum Value {
     /// `numero(t)`: the case of `enum Numero` (the prelude, `prelude.rs`) --
     /// `Es(n)` if the text is a whole number, `NoEs` if not. The enum's index.
     Number(Box<Value>, usize, At),
+    /// `byte(x)` (TA1, `docs/plan/PLAN_LA_TINTA.md`): the int as a byte, 0 to
+    /// 255 -- or a NO (T0060) when it does not fit. Never a silent cut.
+    Byte(Box<Value>, At),
     /// `lee()`: the line typed on the program's own console, as a text (E1,
     /// `docs/plan/PLAN_LA_ENTRADA.md`). Known only WHEN IT RUNS: a module
     /// that reads is not run when compiling (`calc.rs`), it is emitted.
@@ -342,10 +345,19 @@ pub enum Director {
     /// `director.texto(x, y, t, escala, color)`: every byte of a text, one
     /// after the other. Gives the x after it.
     Texto,
+    /// `director.ms()` (TA5 de `docs/plan/PLAN_LA_TINTA.md`): los
+    /// milisegundos del reloj del procesador, para MEDIR -- un trazo, un
+    /// fotograma --. Solo restas: el cero es el de la maquina, no el del
+    /// programa.
+    Ms,
+    /// `director.profundidad(descarta)` (V2 de `docs/plan/PLAN_VERRANO.md`,
+    /// 11-10): la lamina se dibuja con z-buffer, y con `true` sin las caras
+    /// de detras. Sin valor de vuelta: lo dice la cabecera de la lamina.
+    Profundidad,
 }
 
 impl Director {
-    pub const ALL: [Director; 24] = [
+    pub const ALL: [Director; 26] = [
         Director::Lamina,
         Director::Publica,
         Director::Espera,
@@ -370,6 +382,8 @@ impl Director {
         Director::SeVe,
         Director::Letra,
         Director::Texto,
+        Director::Ms,
+        Director::Profundidad,
     ];
 
     /// Its whole name, as a program writes it.
@@ -399,6 +413,8 @@ impl Director {
             Director::SeVe => "director.se_ve",
             Director::Letra => "director.letra",
             Director::Texto => "director.texto",
+            Director::Ms => "director.ms",
+            Director::Profundidad => "director.profundidad",
         }
     }
 
@@ -410,8 +426,8 @@ impl Director {
     /// How many values it takes.
     pub fn takes(self) -> usize {
         match self {
-            Director::Presenta | Director::Toma | Director::Cierra | Director::Medida | Director::Evento | Director::Codigo | Director::RatonX | Director::RatonY | Director::Botones | Director::SeVe => 0,
-            Director::Lamina | Director::Espera | Director::Fichero | Director::Crea | Director::Escribe | Director::Byte => 1,
+            Director::Presenta | Director::Toma | Director::Cierra | Director::Medida | Director::Evento | Director::Codigo | Director::RatonX | Director::RatonY | Director::Botones | Director::SeVe | Director::Ms => 0,
+            Director::Lamina | Director::Espera | Director::Fichero | Director::Crea | Director::Escribe | Director::Byte | Director::Profundidad => 1,
             Director::Ventana | Director::Fila | Director::Guarda => 2,
             Director::Pixel => 3,
             Director::Publica => 4,
@@ -421,7 +437,7 @@ impl Director {
 
     /// Whether it gives a value back: a yes/no, or an int.
     pub fn gives(self) -> bool {
-        !matches!(self, Director::Espera | Director::Pixel | Director::Rect | Director::Fila | Director::Presenta | Director::Escribe)
+        !matches!(self, Director::Espera | Director::Pixel | Director::Rect | Director::Fila | Director::Presenta | Director::Escribe | Director::Profundidad)
     }
 }
 
@@ -465,6 +481,7 @@ impl Value {
             | Value::Is(_, _, _, a)
             | Value::Payload(_, _, _, _, a)
             | Value::Number(_, _, a)
+            | Value::Byte(_, a)
             | Value::Lib(_, _, a)
             | Value::Map(_, a)
             | Value::Director(_, _, a)
@@ -482,7 +499,7 @@ impl Value {
                     i.reads(out);
                 }
             }
-            Value::Repeat(v, _, _) | Value::Field(v, _, _) | Value::Len(v, _) | Value::Round(v, _, _) | Value::Is(v, _, _, _) | Value::Payload(v, _, _, _, _) | Value::Number(v, _, _) => v.reads(out),
+            Value::Repeat(v, _, _) | Value::Field(v, _, _) | Value::Len(v, _) | Value::Round(v, _, _) | Value::Is(v, _, _, _) | Value::Payload(v, _, _, _, _) | Value::Number(v, _, _) | Value::Byte(v, _) => v.reads(out),
             Value::Lend(_, l, a) => out.push((*l, *a)),
             Value::Index(b, i, _) => {
                 b.reads(out);
@@ -528,7 +545,7 @@ impl Value {
             Value::Read(_) | Value::Director(..) => true,
             Value::Int(..) | Value::Text(..) | Value::Bool(..) | Value::Dec(..) | Value::F32(..) | Value::Local(..) | Value::Lend(..) => false,
             Value::Bin(_, a, b, _) | Value::Index(a, b, _) => a.from_outside() || b.from_outside(),
-            Value::Neg(a, _) | Value::Not(a, _) | Value::Repeat(a, _, _) | Value::Field(a, _, _) | Value::Len(a, _) | Value::Round(a, _, _) | Value::Is(a, _, _, _) | Value::Payload(a, _, _, _, _) | Value::Number(a, _, _) => a.from_outside(),
+            Value::Neg(a, _) | Value::Not(a, _) | Value::Repeat(a, _, _) | Value::Field(a, _, _) | Value::Len(a, _) | Value::Round(a, _, _) | Value::Is(a, _, _, _) | Value::Payload(a, _, _, _, _) | Value::Number(a, _, _) | Value::Byte(a, _) => a.from_outside(),
             Value::Call(_, items, _) | Value::Table(items, _) | Value::Record(_, items, _) | Value::Variant(_, _, items, _) | Value::Lib(_, items, _) => items.iter().any(Value::from_outside),
             Value::Map(items, _) => items.iter().any(|(k, v)| k.from_outside() || v.from_outside()),
         }
@@ -635,6 +652,7 @@ fn value(e: &Expr, locals: &mut Vec<Local>, p: &Program) -> Value {
             Value::Number(Box::new(value(&args[0], locals)), e, (*line, *col))
         }
         Expr::Call { callee, args, line, col } if callee == "len" => Value::Len(Box::new(value(&args[0], locals)), (*line, *col)),
+        Expr::Call { callee, args, line, col } if callee == "byte" => Value::Byte(Box::new(value(&args[0], locals)), (*line, *col)),
         // `get(m, k)` / `has(m, k)` (level 13): they read, and change nothing.
         Expr::Call { callee, args, line, col } if (callee == "get" || callee == "has") && !p.functions.iter().any(|f| &f.name == callee) => {
             let lib = if callee == "get" { Lib::Get } else { Lib::Has };

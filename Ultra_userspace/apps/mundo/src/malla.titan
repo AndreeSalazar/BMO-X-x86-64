@@ -1,0 +1,133 @@
+# EL MUNDO DE MUNDO y sus caras. El mundo es una `[byte]` (TA1): un byte por
+# bloque, 0 el aire. Sus caras se JUNTAN (el "greedy meshing" de los juegos
+# de bloques): por cada sentido y cada capa, la mascara de las caras que dan
+# al aire, y de ella rectangulos tan grandes como se pueda del mismo tipo. Un
+# suelo de 16 x 16 es UNA cara, no 256: eso es lo que deja caber un mundo en
+# los pocos vertices de una lamina.
+#
+# Cada cara son 7 enteros: su sentido (0 -x, 1 +x, 2 -y, 3 +y, 4 -z, 5 +z),
+# su plano (la coordenada del eje), su esquina (i, j) en los otros dos ejes,
+# su largo (du, dv) y su tipo. Los ejes van en rueda: el de la cara es `a`,
+# u = (a + 1) % 3 y v = (a + 2) % 3 -- asi u x v sale hacia +a --.
+mod malla "el mundo de MUNDO en una [byte], y sus caras juntadas en rectangulos"
+
+pub fn ancho() -> int
+    return 16
+
+pub fn alto() -> int
+    return 8
+
+pub fn fondo() -> int
+    return 16
+
+# Los tipos: 1 hierba, 2 tierra, 3 piedra, 4 tronco, 5 hojas, 6 tablas.
+pub fn tablas() -> int
+    return 6
+
+pub fn indice(x: int, y: int, z: int) -> int
+    return (y * fondo() + z) * ancho() + x
+
+fn caja(mut m: [byte], x0: int, y0: int, z0: int, x1: int, y1: int, z1: int, t: int)
+    for y in range(y0, y1)
+        for z in range(z0, z1)
+            for x in range(x0, x1)
+                m[indice(x, y, z)] = byte(t)
+
+# El mundo de MC1: piedra y hierba, una torre, un arbol y una loma.
+pub fn nuevo() -> [byte]
+    let mut m: [byte] = []
+    for k in range(ancho() * alto() * fondo())
+        push(mut m, byte(0))
+    caja(mut m, 0, 0, 0, 16, 1, 16, 3)
+    caja(mut m, 0, 1, 0, 16, 2, 16, 1)
+    # la torre de piedra
+    caja(mut m, 2, 2, 9, 4, 6, 11, 3)
+    # el arbol: su tronco y su copa
+    caja(mut m, 10, 4, 8, 13, 6, 11, 5)
+    caja(mut m, 11, 2, 9, 12, 5, 10, 4)
+    # la loma: tierra con hierba encima
+    caja(mut m, 5, 2, 12, 10, 3, 15, 2)
+    caja(mut m, 6, 3, 13, 9, 4, 15, 1)
+    caja(mut m, 5, 3, 12, 10, 4, 13, 1)
+    return m
+
+# Las caras del mundo, juntadas: 7 enteros cada una.
+pub fn caras(mundo: [byte]) -> [int]
+    let dims: [int; 3] = [ancho(), alto(), fondo()]
+    let pasos: [int; 3] = [1, ancho() * fondo(), ancho()]
+    let mut out: [int] = []
+    let mut mascara: [int] = []
+    for k in range(256)
+        push(mut mascara, 0)
+    for cara in range(6)
+        let a = (cara - cara % 2) / 2
+        let positiva = cara % 2 == 1
+        let u = (a + 1) % 3
+        let v = (a + 2) % 3
+        let nu = dims[u]
+        let nv = dims[v]
+        for s in range(dims[a])
+            # la mascara de esta capa: el tipo de cada cara que da al aire
+            for j in range(nv)
+                for i in range(nu)
+                    let c = s * pasos[a] + i * pasos[u] + j * pasos[v]
+                    let b = mundo[c]
+                    let mut t = 0
+                    if b != 0
+                        # fuera del mundo es aire, salvo por debajo del suelo
+                        let mut vecino = 0
+                        if positiva
+                            if s + 1 < dims[a]
+                                vecino = mundo[c + pasos[a]]
+                        else
+                            if s > 0
+                                vecino = mundo[c - pasos[a]]
+                            else
+                                if a == 1
+                                    vecino = 1
+                        if vecino == 0
+                            t = b
+                    mascara[j * nu + i] = t
+            # y de la mascara, rectangulos
+            for j in range(nv)
+                let mut i = 0
+                while i < nu
+                    let t = mascara[j * nu + i]
+                    if t == 0
+                        i = i + 1
+                        continue
+                    let mut du = 1
+                    let mut crece = true
+                    while crece
+                        crece = false
+                        if i + du < nu
+                            if mascara[j * nu + i + du] == t
+                                du = du + 1
+                                crece = true
+                    let mut dv = 1
+                    crece = true
+                    while crece
+                        crece = false
+                        if j + dv < nv
+                            let mut fila = true
+                            for k in range(du)
+                                if mascara[(j + dv) * nu + i + k] != t
+                                    fila = false
+                            if fila
+                                dv = dv + 1
+                                crece = true
+                    for jj in range(dv)
+                        for k in range(du)
+                            mascara[(j + jj) * nu + i + k] = 0
+                    let mut p = s
+                    if positiva
+                        p = s + 1
+                    push(mut out, cara)
+                    push(mut out, p)
+                    push(mut out, i)
+                    push(mut out, j)
+                    push(mut out, du)
+                    push(mut out, dv)
+                    push(mut out, t)
+                    i = i + du
+    return out

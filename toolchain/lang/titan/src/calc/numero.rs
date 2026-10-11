@@ -220,6 +220,18 @@ pub(super) fn unclassed(at: At, a: &Const) -> Message {
     Message::new(Code::Mixed, at.0, at.1, &format!("aqui no cabe {}", a.show(NONE)), "el calculo encontro una clase que la primera pasada no vio", "esto es un fallo del compilador: avisa con este programa")
 }
 
+/// T0060 for `byte(x)` (TA1): the int does not fit in a byte.
+pub(crate) fn byte_no_cabe(at: At, n: i64) -> Message {
+    Message::new(
+        Code::Overflow,
+        at.0,
+        at.1,
+        &format!("byte({}) no cabe en un byte", n),
+        "un byte va de 0 a 255, y salirse es un error, no una vuelta a empezar",
+        "comprueba antes: if x >= 0 and x <= 255  ->  byte(x)",
+    )
+}
+
 pub(super) fn overflow(at: At, what: &str) -> Message {
     Message::new(
         Code::Overflow,

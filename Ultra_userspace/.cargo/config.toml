@@ -13,3 +13,21 @@ rustflags = [
   "-C", "target-feature=+crt-static",
   "-C", "linker=rust-lld",
 ]
+
+# ** LA COMA FLOTANTE POR HARDWARE EN RING 3 (11-10, la velocidad de ESTUDIO).
+#
+# `x86_64-unknown-none` hace la coma flotante POR SOFTWARE (`__mulsf3`...):
+# es un objetivo para kernels, que no guardan el estado de la FPU. El de BMO-X
+# SI lo guarda (cada trap hace `xsaveopt64` de TODO: `plat/trap.rs`), y cada
+# tarea arranca con su FCW y su MXCSR de serie. `x86_64-bmo-ring3.json` es el
+# mismo objetivo con SSE2 (lo que tiene todo x86_64) y el ABI de hardware; se
+# construye con `-Z build-std=core,alloc` (lo hace `build.ps1`). Las mismas
+# reglas de enlazado: el `.bex` cae donde siempre.
+[target.x86_64-bmo-ring3]
+rustflags = [
+  "-C", "link-arg=-T",
+  "-C", "link-arg=userland/link.ld",
+  "-C", "relocation-model=static",
+  "-C", "target-feature=+crt-static",
+  "-C", "linker=rust-lld",
+]
