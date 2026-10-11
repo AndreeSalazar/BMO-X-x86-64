@@ -1056,7 +1056,16 @@ if director.se_ve()                           # no minimizada ni tapada (R-APP8)
     x = director.texto(8, 8, "hola", 1, 16777215)   # la x de detras
     x = director.letra(x, 8, 241, 2, 16777215)      # un glifo (aqui la n con tilde)
 let t0 = director.ms()                        # el reloj, en ms (TA5): para MEDIR
+director.profundidad(true)                    # la lamina con z-buffer (V2)
 ```
+
+- **La profundidad** (V2 de `docs/plan/PLAN_VERRANO.md`, 11-10):
+  `profundidad(descarta)`, despues de `lamina(c)`, dice en la cabecera de la
+  lamina como se dibuja: con z-buffer (lo de delante tapa, se dibuje en el
+  orden que se dibuje) y, con `true`, sin las caras de DETRAS -- las que no
+  son horarias en la pantalla: cada cara, horaria vista desde fuera, como en
+  D3D --. La app da los triangulos enteros; quien se ve lo decide VERRANO.
+  El ejemplo: `nivel11/dos_cubos`.
 
 - **El reloj** (TA5 de `docs/plan/PLAN_LA_TINTA.md`, 10-10): `ms()` son los
   milisegundos del reloj del procesador (`rdtsc` y los ciclos por segundo

@@ -517,6 +517,10 @@ linea dice que se mira y que seria un NO.
    6   el cubo en caliente     `gpu verrano banco inti` con el  `preparar` de
                                cubo girando: casi todos los     ~5 ms en los
                                fotogramas en caliente           que giran
+   M1  DOS CUBOS que se tapan  `run titan/doscubos.bex`: el de  se ven caras de
+       (V2, la profundidad)    atras cruza POR DETRAS del de    dentro, o el de
+                               delante; la consola: el juez     atras encima;
+                               `... la 3060 da lo MISMO`        juez DISTINTO
    TB1 TINTA, el lienzo        desde su icono: pintar, la goma  ver la lista de
                                (derecho), s guarda el PNG       5b2 de PLAN_LA_
                                                                 TINTA

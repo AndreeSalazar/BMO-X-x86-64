@@ -26,7 +26,10 @@
 //!    5, 6     vertices de la ranura 0 y de la 1
 //!    7, 8     fotograma de la ranura 0 y de la 1
 //!    9, 10    SELLO de la ranura 0 y de la 1: impar mientras se escribe
-//!    11..16   ceros
+//!    11       COMO SE DIBUJA (V2, 11-10): bit 0 con profundidad, bit 1 sin
+//!             las caras de detras. La app, al crearla; 0 = como V0 (las
+//!             laminas de antes dicen 0: nada cambia para ellas)
+//!    12..16   ceros
 //!    +64      ranura 0: `capacidad` x `Vertex` (32 bytes cada uno)
 //!    +64+C    ranura 1: lo mismo
 //! ```
@@ -78,7 +81,7 @@
 
 use core::sync::atomic::{AtomicU32, Ordering};
 
-use crate::{Vertex, VERTEX_BYTES};
+use crate::{Cull, Vertex, VERTEX_BYTES};
 
 /// `"BVER"` en little-endian, en la primera palabra.
 pub const MAGIA: u32 = 0x5245_5642;
@@ -98,6 +101,12 @@ pub const CAMPO_VERTICES: usize = 5;
 pub const CAMPO_FOTOGRAMA: usize = 7;
 /// Sello de la ranura `k`: `CAMPO_SELLO + k`. Impar = se esta escribiendo.
 pub const CAMPO_SELLO: usize = 9;
+/// Como se dibuja (V2): [`ESTADO_PROFUNDIDAD`] y [`ESTADO_DESCARTE`].
+pub const CAMPO_ESTADO: usize = 11;
+/// Bit 0 de [`CAMPO_ESTADO`]: con z-buffer (`Frame::depth`).
+pub const ESTADO_PROFUNDIDAD: u32 = 1;
+/// Bit 1 de [`CAMPO_ESTADO`]: sin las caras de detras (`Cull::Back`).
+pub const ESTADO_DESCARTE: u32 = 2;
 
 const PALABRAS_VERTICE: usize = VERTEX_BYTES / 4;
 const _: () = assert!(CAMPO_SELLO + 2 <= CABECERA / 4);
@@ -176,6 +185,19 @@ impl<'a> Lamina<'a> {
 
     pub fn capacidad(&self) -> usize {
         self.capacidad
+    }
+
+    /// **Como se dibuja** (la app, V2): con profundidad, y que caras fuera.
+    pub fn poner_estado(&self, depth: bool, cull: Cull) {
+        let e = if depth { ESTADO_PROFUNDIDAD } else { 0 } | if cull == Cull::Back { ESTADO_DESCARTE } else { 0 };
+        self.w[CAMPO_ESTADO].store(e, Ordering::Release);
+    }
+
+    /// **Como pide que se dibuje** (VERRANO): `(depth, cull)` para el
+    /// `Frame`. Los bits que no se conocen no cuentan.
+    pub fn estado(&self) -> (bool, Cull) {
+        let e = self.w[CAMPO_ESTADO].load(Ordering::Acquire);
+        (e & ESTADO_PROFUNDIDAD != 0, if e & ESTADO_DESCARTE != 0 { Cull::Back } else { Cull::None })
     }
 
     /// Donde empieza la ranura `k`, en palabras.
@@ -281,6 +303,24 @@ mod pruebas {
 
     fn bloque(capacidad: usize) -> Vec<AtomicU32> {
         (0..bytes_para(capacidad) / 4).map(|_| AtomicU32::new(0)).collect()
+    }
+
+    /// ** V2: como se dibuja viaja en la cabecera. Una lamina nueva dice V0
+    /// (las de antes escribian 0 ahi: para ellas nada cambia), y lo que la app
+    /// pone es lo que VERRANO lee.
+    #[test]
+    fn how_it_draws_travels_in_the_header() {
+        let b = bloque(6);
+        let l = Lamina::crear(&b, 6).unwrap();
+        assert_eq!(Lamina::abrir(&b).unwrap().estado(), (false, Cull::None));
+        l.poner_estado(true, Cull::Back);
+        assert_eq!(Lamina::abrir(&b).unwrap().estado(), (true, Cull::Back));
+        assert_eq!(b[CAMPO_ESTADO].load(Ordering::Relaxed), 3);
+        l.poner_estado(true, Cull::None);
+        assert_eq!(Lamina::abrir(&b).unwrap().estado(), (true, Cull::None));
+        // un bit que no se conoce no cuenta
+        b[CAMPO_ESTADO].store(0x80 | ESTADO_DESCARTE, Ordering::Relaxed);
+        assert_eq!(Lamina::abrir(&b).unwrap().estado(), (false, Cull::Back));
     }
 
     fn marca(f: u32, n: usize) -> Vec<Vertex> {

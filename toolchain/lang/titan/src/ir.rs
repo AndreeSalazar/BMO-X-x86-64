@@ -350,10 +350,14 @@ pub enum Director {
     /// fotograma --. Solo restas: el cero es el de la maquina, no el del
     /// programa.
     Ms,
+    /// `director.profundidad(descarta)` (V2 de `docs/plan/PLAN_VERRANO.md`,
+    /// 11-10): la lamina se dibuja con z-buffer, y con `true` sin las caras
+    /// de detras. Sin valor de vuelta: lo dice la cabecera de la lamina.
+    Profundidad,
 }
 
 impl Director {
-    pub const ALL: [Director; 25] = [
+    pub const ALL: [Director; 26] = [
         Director::Lamina,
         Director::Publica,
         Director::Espera,
@@ -379,6 +383,7 @@ impl Director {
         Director::Letra,
         Director::Texto,
         Director::Ms,
+        Director::Profundidad,
     ];
 
     /// Its whole name, as a program writes it.
@@ -409,6 +414,7 @@ impl Director {
             Director::Letra => "director.letra",
             Director::Texto => "director.texto",
             Director::Ms => "director.ms",
+            Director::Profundidad => "director.profundidad",
         }
     }
 
@@ -421,7 +427,7 @@ impl Director {
     pub fn takes(self) -> usize {
         match self {
             Director::Presenta | Director::Toma | Director::Cierra | Director::Medida | Director::Evento | Director::Codigo | Director::RatonX | Director::RatonY | Director::Botones | Director::SeVe | Director::Ms => 0,
-            Director::Lamina | Director::Espera | Director::Fichero | Director::Crea | Director::Escribe | Director::Byte => 1,
+            Director::Lamina | Director::Espera | Director::Fichero | Director::Crea | Director::Escribe | Director::Byte | Director::Profundidad => 1,
             Director::Ventana | Director::Fila | Director::Guarda => 2,
             Director::Pixel => 3,
             Director::Publica => 4,
@@ -431,7 +437,7 @@ impl Director {
 
     /// Whether it gives a value back: a yes/no, or an int.
     pub fn gives(self) -> bool {
-        !matches!(self, Director::Espera | Director::Pixel | Director::Rect | Director::Fila | Director::Presenta | Director::Escribe)
+        !matches!(self, Director::Espera | Director::Pixel | Director::Rect | Director::Fila | Director::Presenta | Director::Escribe | Director::Profundidad)
     }
 }
 

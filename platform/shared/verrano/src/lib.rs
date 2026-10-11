@@ -31,8 +31,10 @@
 //!
 //! # Lo que V0 NO tiene todavia (dicho antes)
 //!
-//! - Ni profundidad ni culling: dibuja lo que le dan, en orden (el cubo es
-//!   convexo y la app le da solo las caras de delante).
+//! - ~~Ni profundidad ni culling~~ -- **V2 (11-10)**: `Frame::depth` (un
+//!   z-buffer de D3D: MENOR que, se escribe, limpio a 1.0) y `Frame::cull`
+//!   (las caras de DETRAS fuera; delante es horario en la pantalla, lo de
+//!   D3D por defecto). Sin ellos, como V0: lo que le dan, en orden.
 //! - Un solo tipo de vertice y un solo par de programas: los del cubo.
 //! - Sin buferes propios. Vallas, desde V1b solo por dentro: un backend
 //!   puede dejar el fotograma EN VUELO (`Stats::in_flight`) y
@@ -109,6 +111,24 @@ pub struct Frame<'a> {
     pub clear: [f32; 4],
     pub vertices: &'a [Vertex],
     pub viewport: Viewport,
+    /// V2 (11-10): la PROFUNDIDAD de D3D -- `z / w` de cada vertice,
+    /// interpolada; un pixel se pinta si es MENOR que lo que ya hay, y se
+    /// apunta; el z-buffer empieza en 1.0 cada fotograma; lo que cae fuera
+    /// de [0, 1] no se pinta (el recorte de profundidad). `false`: V0, en orden.
+    pub depth: bool,
+    /// V2: que caras se descartan.
+    pub cull: Cull,
+}
+
+/// **Que caras se descartan** (V2). Delante es HORARIO en la pantalla (y
+/// hacia abajo): lo de D3D por defecto (`FrontCounterClockwise = FALSE`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum Cull {
+    /// Ninguna: un triangulo al reves se da la vuelta y se dibuja (V0).
+    #[default]
+    None,
+    /// Las de DETRAS (antihorarias en la pantalla) no se dibujan.
+    Back,
 }
 
 /// **Un rectangulo de pixeles**: `x0..x1` por `y0..y1` (el maximo fuera).
@@ -172,6 +192,10 @@ pub struct Image<'a> {
     pub pixels: &'a mut [u32],
     pub width: u32,
     pub height: u32,
+    /// V2: el z-buffer (`width * height` f32), para un backend que lo lleva
+    /// en la RAM -- la CPU --. La 3060 tiene el suyo en la VRAM y no lo mira.
+    /// Un fotograma con `depth` sin el, en la CPU: `Error::Image`.
+    pub depth: Option<&'a mut [f32]>,
 }
 
 /// Lo que cuenta un backend de su fotograma.

@@ -34,7 +34,9 @@ use bmo_verrano::{Backend, Frame, Image, Vertex, Viewport};
 use super::sm86 as destino;
 use crate::desktop::Desktop;
 
-const MAX_VERTICES: usize = 3 * bmo_cubo::tanda::CABEN;
+/// V2 (11-10): 256 triangulos por fotograma -- dos cubos enteros caben de
+/// sobra (24), y el descarte y la profundidad los hace VERRANO, no la app --.
+const MAX_VERTICES: usize = 3 * 256;
 /// El bloque, para la ventana mas grande que se dibuja aqui: 1280x720.
 const PIXELES_MAX: usize = 1280 * 720;
 /// Cada cuantos fotogramas se juzga uno (el primero de cada app, siempre). El
@@ -55,6 +57,8 @@ struct Estado {
     /// La hoja del juez (pedida al primer juicio), los fotogramas de esta
     /// app y si ya se dijo uno distinto.
     hoja: Option<bmo::Memoria>,
+    /// V2: el z-buffer del juez, si la lamina pide profundidad.
+    hoja_z: Option<bmo::Memoria>,
     dibujados: u32,
     dicho_distinto: bool,
 }
@@ -67,6 +71,7 @@ static mut ESTADO: Estado = Estado {
     secuencia: 0,
     v: [Vertex { position: [0.0; 4], color: [0.0; 4] }; MAX_VERTICES],
     hoja: None,
+    hoja_z: None,
     dibujados: 0,
     dicho_distinto: false,
 };
@@ -153,11 +158,13 @@ pub(crate) fn vuelta(dsk: &mut Desktop, p: &bmo::Pantalla) -> bool {
     // (comprobado arriba); solo lo escriben la 3060 (dentro de `draw`) y nadie
     // mas, y la ventana lo lee al componer, en este mismo hilo.
     let pixeles = unsafe { core::slice::from_raw_parts_mut(va as *mut u32, (w * h) as usize) };
-    let frame = Frame { clear: bmo_cubo::FONDO_F, vertices: &e.v[..n], viewport: Viewport { width: w, height: h } };
-    match a.draw(&frame, &mut Image { pixels: pixeles, width: w, height: h }) {
+    // V2 (11-10): como pide la app que se dibuje (la cabecera de su lamina).
+    let (depth, cull) = l.estado();
+    let frame = Frame { clear: bmo_cubo::FONDO_F, vertices: &e.v[..n], viewport: Viewport { width: w, height: h }, depth, cull };
+    match a.draw(&frame, &mut Image { pixels: pixeles, width: w, height: h , depth: None }) {
         Ok(_) => {
             if e.dibujados % JUZGAR_CADA == 0 {
-                juzgar(&mut e.hoja, &mut e.dicho_distinto, e.dibujados == 0, &frame, pixeles);
+                juzgar(&mut e.hoja, &mut e.hoja_z, &mut e.dicho_distinto, e.dibujados == 0, &frame, pixeles);
             }
             e.dibujados = e.dibujados.wrapping_add(1);
             dsk.table.poner_fuente(i, va, s);
@@ -172,7 +179,7 @@ pub(crate) fn vuelta(dsk: &mut Desktop, p: &bmo::Pantalla) -> bool {
 
 /// **El juez**: el fotograma, otra vez por la CPU de VERRANO, contra lo que
 /// dejo la 3060. Se dice el primero de cada app y el primero distinto.
-fn juzgar(hoja: &mut Option<bmo::Memoria>, dicho_distinto: &mut bool, primero: bool, frame: &Frame, visto: &[u32]) {
+fn juzgar(hoja: &mut Option<bmo::Memoria>, hoja_z: &mut Option<bmo::Memoria>, dicho_distinto: &mut bool, primero: bool, frame: &Frame, visto: &[u32]) {
     if hoja.is_none() {
         *hoja = bmo::Memoria::residente(4 * PIXELES_MAX as u64);
     }
@@ -186,7 +193,18 @@ fn juzgar(hoja: &mut Option<bmo::Memoria>, dicho_distinto: &mut bool, primero: b
     // el juez, en este hilo.
     let hoja = unsafe { core::slice::from_raw_parts_mut(m.base() as *mut u32, PIXELES_MAX) };
     let juez = bmo_verrano::cpu::Cpu { max_vertices: MAX_VERTICES, ..bmo_verrano::cpu::Cpu::LA_3060 };
-    let Ok(j) = juez.juzgar(frame, visto, hoja) else { return };
+    // V2: con profundidad, el juez lleva su z-buffer (otro bloque, una vez).
+    if frame.depth && hoja_z.is_none() {
+        *hoja_z = bmo::Memoria::residente(4 * PIXELES_MAX as u64);
+    }
+    let z = match (frame.depth, hoja_z.as_ref()) {
+        // SAFETY: residente, `PIXELES_MAX` f32 de este proceso, y solo la usa
+        // el juez, en este hilo.
+        (true, Some(m)) => Some(unsafe { core::slice::from_raw_parts_mut(m.base() as *mut f32, PIXELES_MAX) }),
+        (true, None) => return,
+        _ => None,
+    };
+    let Ok(j) = juez.juzgar(frame, visto, hoja, z) else { return };
     let distinto = j.distintos != 0;
     if !(primero || distinto && !*dicho_distinto) {
         return;

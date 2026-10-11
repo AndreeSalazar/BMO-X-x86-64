@@ -280,6 +280,26 @@ la SPH (128 B) y detras las instrucciones.
 - [ ] **V2 -- la profundidad y el culling** (X5b de
       [`PLAN_EL_CUBO.md`](PLAN_EL_CUBO.md)): dos cubos que se tapan.
       **Como se sabe:** contra el juez con z-buffer.
+      **11-10, HECHO en el anfitrion:** la API -- `Frame::depth` (el
+      z-buffer de D3D: `z / w` interpolada, MENOR que, se escribe, limpio a
+      1.0, fuera de [0, 1] no se pinta) y `Frame::cull` (`Cull::Back`:
+      delante es horario en la pantalla, lo de D3D por defecto); `Image::depth`
+      para el backend que lo lleva en RAM --; el JUEZ de la CPU con los dos
+      (`cpu.rs`: lo de delante tapa en cualquier orden, el descarte, el
+      recorte de profundidad, dos cubos en perspectiva; saboteado sin
+      z-buffer: caen tres); la LAMINA lo lleva en su cabecera (`CAMPO_ESTADO`,
+      la palabra 11: las de antes dicen 0 y nada cambia); el Aparato de la
+      3060 lo pasa a `Dibujo::z` y `Descarte::Traseras` EN RAM (lo de
+      BMOX-12 con `-z`), con el tope de VRN1 y no el de 24; `laminas` lo lee
+      y su juez lleva su z-buffer; TITAN++ lo pide con
+      `director.profundidad(descarta)`. El ejemplo `nivel11/dos_cubos` da
+      los dos cubos ENTEROS (24 triangulos); `tests/dos_cubos.rs` lee su
+      lamina y la dibuja con el juez: 4 de 24 triangulos (las caras de
+      enfrente), el de delante entero (11.664 px rojos contra 7.644 sin
+      profundidad); saboteado con las caras al reves: cae. **Falta el
+      metal:** `run titan/doscubos.bex` -- la 3060 con Z EN RAM, la sombra y
+      el motor de copia (el camino de BMOX-12 `-z enram`) --, y el juez de
+      `laminas` dice si da lo mismo.
 - [ ] **V3 -- las constantes.** La matriz en un buffer y el programa de
       vertice multiplicando (lo que hace D3D): la pregunta del FMA, medida.
       **Como se sabe:** la huella de D3D12 sale con las cuentas en la 3060.
@@ -500,6 +520,7 @@ la fisica, las matrices, la logica. Entra en E6 y en M6.
 
 - [ ] **M1 = V2 -- la profundidad.** Un z-buffer en la VRAM y dos cubos que
       se tapan. **Como se sabe:** contra el juez de la CPU con z-buffer.
+      **11-10:** hecho en el anfitrion, ver V2 arriba; falta el metal.
 - [ ] **M2 = V3 -- la matriz en la 3060.** Los 8 vertices del cubo FIJOS en
       la VRAM, la matriz por `LOAD_CONSTANT_BUFFER` (0x238c, `clc797.h`)
       dentro de las ordenes -- 16 numeros por fotograma --, y el programa

@@ -423,10 +423,15 @@ casa: primero lo que no toca nada, despues lo que pide el metal.
       encima, y volver
 ```
 
-**La Wacom (TC1):** cuando el propietario diga su modelo (la etiqueta de
-abajo, CTL-xxxx, o el Administrador de dispositivos de Windows), se mide su
-descriptor y entra por el mismo camino que el raton: TINTA no cambia, gana
-la presion.
+**La Wacom (TC1), 11-10: es una INTUOS S (CTL-4100).** Lo que se sabe de
+fuera (el driver de Linux, `wacom_wac.c`, la tiene): USB, Wacom es el
+fabricante 056A; un lapiz de 4096 niveles de presion, unos 15.200 x 9.500
+puntos de rejilla en 152 x 95 mm (cien por milimetro: muy por debajo de un
+pixel), ~133 informes por segundo. Lo que NO se escribe de memoria: su
+producto exacto y la forma de sus informes se MIDEN en el Ryzen con la
+tableta enchufada (el censo USB del kernel y su descriptor HID), y el
+driver se escribe para ESO. Entra por el mismo camino que el raton: TINTA
+no cambia, gana la presion (el grosor y la tinta del pincel) y la finura.
 
 ## 5c. Manga
 
@@ -508,7 +513,11 @@ Ninguna corre prisa: se contestan el dia que se empiece.
                         el modelo exacto (en Windows: Administrador de
                         dispositivos, o la etiqueta de abajo: CTL-xxxx).
                         10-10: "basico con lapiz digital"; el modelo, despues
-                        (TC1 espera a eso)
+                        (TC1 espera a eso). 11-10, CONTESTADA: una Wacom
+                        INTUOS S, CTL-4100 (la de cable USB; la CTL-4100WL es
+                        la de Bluetooth), con el Pen 4K: 4096 niveles de
+                        presion, sin goma en el lapiz, dos botones en el lapiz
+                        y cuatro en la tableta
    D4  LA PAGINA        el tamanio objetivo: B4 a 600 ppp en blanco y negro
                         (manga de imprenta), o 350 ppp en color
    D5  EL PRIMER TEST   TB1 con raton, o esperar a la Wacom

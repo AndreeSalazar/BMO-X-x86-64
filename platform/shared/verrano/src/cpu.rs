@@ -14,8 +14,20 @@
 //!
 //! Sin profundidad ni culling (V0): un triangulo al reves se da la vuelta y
 //! se dibuja; con area 0 no cubre nada.
+//!
+//! ** V2 (11-10): con `Frame::cull` las caras de detras (antihorarias en la
+//! pantalla) no se dibujan; con `Frame::depth`, el z-buffer de D3D:
+//!
+//! ```text
+//!    5  z = z / w de cada vertice, interpolada en el centro del pixel con
+//!       los mismos pesos de la cobertura (las aristas): la z de despues de
+//!       dividir es lineal en la pantalla
+//!    6  fuera de [0, 1], no se pinta (el recorte de profundidad)
+//!    7  se pinta si z < la del z-buffer (LESS), y se apunta; el z-buffer
+//!       empieza en 1.0
+//! ```
 
-use crate::{check, Backend, Error, Frame, Image, Stats, Unorm8};
+use crate::{check, Backend, Cull, Error, Frame, Image, Stats, Unorm8};
 
 /// Subpixeles por pixel (D3D10+).
 const SUBPIXEL: i64 = 256;
@@ -61,23 +73,42 @@ impl Backend for Cpu {
         check(frame, out, self.max_vertices)?;
         let (w, h) = (out.width as i64, out.height as i64);
         let fondo = self.unorm8.pack(frame.clear);
-        out.pixels[..(w * h) as usize].fill(fondo);
+        let Image { pixels, depth, .. } = out;
+        pixels[..(w * h) as usize].fill(fondo);
+        // V2: el z-buffer, a 1.0; sin el, un fotograma con profundidad no se dibuja.
+        let mut zb: Option<&mut [f32]> = None;
+        if frame.depth {
+            match depth.as_deref_mut() {
+                Some(z) if z.len() >= (w * h) as usize => {
+                    z[..(w * h) as usize].fill(1.0);
+                    zb = Some(z);
+                }
+                _ => return Err(Error::Image),
+            }
+        }
         let (mw, mh) = (frame.viewport.width as f32 * 0.5, frame.viewport.height as f32 * 0.5);
         let mut n = 0;
         for tri in frame.vertices.chunks_exact(3) {
             let mut x = [0i64; 3];
             let mut y = [0i64; 3];
+            let mut zn = [0f64; 3];
             for k in 0..3 {
                 let p = tri[k].position;
                 let inv_w = 1.0 / p[3];
                 let (nx, ny) = (p[0] * inv_w, p[1] * inv_w);
                 x[k] = redondear_par((nx * mw + mw) * SUBPIXEL as f32);
                 y[k] = redondear_par((-ny * mh + mh) * SUBPIXEL as f32);
+                zn[k] = (p[2] * inv_w) as f64;
             }
             let mut area = arista(x[0], y[0], x[1], y[1], x[2], y[2]);
+            // V2: delante es horario en la pantalla (area > 0, con y hacia abajo)
+            if frame.cull == Cull::Back && area < 0 {
+                continue;
+            }
             if area < 0 {
                 x.swap(1, 2);
                 y.swap(1, 2);
+                zn.swap(1, 2);
                 area = -area;
             }
             if area == 0 {
@@ -102,7 +133,16 @@ impl Backend for Cpu {
                         arista(x[0], y[0], x[1], y[1], cx, cy),
                     ];
                     if (0..3).all(|k| e[k] > 0 || (e[k] == 0 && incluye[k])) {
-                        out.pixels[(py * w + px) as usize] = color;
+                        let i = (py * w + px) as usize;
+                        if let Some(z) = zb.as_deref_mut() {
+                            // e[k] es el peso del vertice k (por el area)
+                            let zp = ((e[0] as f64 * zn[0] + e[1] as f64 * zn[1] + e[2] as f64 * zn[2]) / area as f64) as f32;
+                            if !(0.0..=1.0).contains(&zp) || zp >= z[i] {
+                                continue;
+                            }
+                            z[i] = zp;
+                        }
+                        pixels[i] = color;
                     }
                 }
             }
@@ -133,13 +173,15 @@ impl Cpu {
     /// [!] Un recuento, no un si o un no: la 3060 tiene pixeles que el juez
     /// aun no explica (`bmo_cubo::referencia::SIN_EXPLICAR`, unos pocos en
     /// algunos fotogramas). Quien juzga dice cuantos.
-    pub fn juzgar(mut self, frame: &Frame, visto: &[u32], hoja: &mut [u32]) -> Result<Juicio, Error> {
+    ///
+    /// V2: con `frame.depth`, el juez lleva su z-buffer en `profundidad`.
+    pub fn juzgar(mut self, frame: &Frame, visto: &[u32], hoja: &mut [u32], profundidad: Option<&mut [f32]>) -> Result<Juicio, Error> {
         let (w, h) = (frame.viewport.width, frame.viewport.height);
         let n = (w as usize) * (h as usize);
         if visto.len() < n || hoja.len() < n {
             return Err(Error::Image);
         }
-        self.draw(frame, &mut Image { pixels: &mut hoja[..n], width: w, height: h })?;
+        self.draw(frame, &mut Image { pixels: &mut hoja[..n], width: w, height: h, depth: profundidad })?;
         let mut j = Juicio { pixeles: n, distintos: 0, primero: None };
         for (i, (&v, &c)) in visto[..n].iter().zip(&hoja[..n]).enumerate() {
             if v != c {
@@ -173,9 +215,9 @@ mod pruebas {
 
     fn dibujar(cpu: Cpu, f: u32) -> Vec<u32> {
         let v = vertices(f);
-        let frame = Frame { clear: FONDO_F, vertices: &v, viewport: Viewport { width: ANCHO, height: ALTO } };
+        let frame = Frame { clear: FONDO_F, vertices: &v, viewport: Viewport { width: ANCHO, height: ALTO } , depth: false, cull: Cull::None };
         let mut px = vec![0u32; (ANCHO * ALTO) as usize];
-        let mut img = Image { pixels: &mut px, width: ANCHO, height: ALTO };
+        let mut img = Image { pixels: &mut px, width: ANCHO, height: ALTO , depth: None };
         let mut b = cpu;
         b.draw(&frame, &mut img).unwrap();
         px
@@ -197,23 +239,146 @@ mod pruebas {
     fn el_juicio_a_otra_medida() {
         let (w, h) = (640u32, 360u32);
         let v = vertices(30);
-        let frame = Frame { clear: FONDO_F, vertices: &v, viewport: Viewport { width: w, height: h } };
+        let frame = Frame { clear: FONDO_F, vertices: &v, viewport: Viewport { width: w, height: h } , depth: false, cull: Cull::None };
         let n = (w * h) as usize;
         let mut visto = vec![0u32; n];
         let mut b = Cpu::LA_3060;
         b.max_vertices = v.len();
-        b.draw(&frame, &mut Image { pixels: &mut visto, width: w, height: h }).unwrap();
+        b.draw(&frame, &mut Image { pixels: &mut visto, width: w, height: h , depth: None }).unwrap();
         let fondo = Unorm8::Truncate12.pack(FONDO_F);
         assert!(visto.iter().any(|&p| p != fondo), "el cubo tiene que verse a esta medida");
         let mut hoja = vec![0u32; n];
-        let j = b.juzgar(&frame, &visto, &mut hoja).unwrap();
+        let j = b.juzgar(&frame, &visto, &mut hoja, None).unwrap();
         assert_eq!(j, Juicio { pixeles: n, distintos: 0, primero: None });
         let i = 200 * w as usize + 321;
         let bueno = visto[i];
         visto[i] ^= 0x00FF_FFFF;
-        let j = b.juzgar(&frame, &visto, &mut hoja).unwrap();
+        let j = b.juzgar(&frame, &visto, &mut hoja, None).unwrap();
         assert_eq!((j.distintos, j.primero), (1, Some((321, 200, bueno ^ 0x00FF_FFFF, bueno))));
-        assert_eq!(b.juzgar(&frame, &visto[..n - 1], &mut hoja), Err(Error::Image));
+        assert_eq!(b.juzgar(&frame, &visto[..n - 1], &mut hoja, None), Err(Error::Image));
+    }
+
+    // -- V2: la profundidad y el descarte -----------------------------------
+
+    /// Un cuadrado de `x0..x1` por `y0..y1` (coordenadas de recorte, w = 1) a
+    /// la profundidad `z`: dos triangulos, de DELANTE (horarios en la pantalla).
+    fn cuadrado(x0: f32, y0: f32, x1: f32, y1: f32, z: f32, color: [f32; 4]) -> Vec<Vertex> {
+        let v = |x: f32, y: f32| Vertex { position: [x, y, z, 1.0], color };
+        // abajo-izquierda, arriba-izquierda, arriba-derecha: horario en la pantalla
+        vec![v(x0, y0), v(x0, y1), v(x1, y1), v(x0, y0), v(x1, y1), v(x1, y0)]
+    }
+
+    const ROJO: [f32; 4] = [1.0, 0.0, 0.0, 1.0];
+    const VERDE: [f32; 4] = [0.0, 1.0, 0.0, 1.0];
+
+    fn pinta(v: &[Vertex], depth: bool, cull: Cull) -> Vec<u32> {
+        let (w, h) = (64u32, 48u32);
+        let frame = Frame { clear: FONDO_F, vertices: v, viewport: Viewport { width: w, height: h }, depth, cull };
+        let mut px = vec![0u32; (w * h) as usize];
+        let mut z = vec![0f32; (w * h) as usize];
+        let mut b = Cpu { max_vertices: 4096, ..Cpu::LA_3060 };
+        b.draw(&frame, &mut Image { pixels: &mut px, width: w, height: h, depth: Some(&mut z) }).unwrap();
+        px
+    }
+
+    fn en(px: &[u32], x: usize, y: usize) -> u32 {
+        px[y * 64 + x] & 0x00FF_FFFF
+    }
+
+    /// ** V2: lo de DELANTE tapa lo de detras, se dibuje en el orden que se
+    /// dibuje; sin profundidad, como V0, gana el ultimo.
+    #[test]
+    fn depth_hides_what_is_behind_in_any_order() {
+        let cerca = cuadrado(-0.5, -0.5, 0.25, 0.5, 0.25, ROJO);
+        let lejos = cuadrado(-0.25, -0.25, 0.75, 0.75, 0.75, VERDE);
+        let a: Vec<Vertex> = cerca.iter().chain(&lejos).copied().collect();
+        let b: Vec<Vertex> = lejos.iter().chain(&cerca).copied().collect();
+        let (pa, pb) = (pinta(&a, true, Cull::None), pinta(&b, true, Cull::None));
+        assert_eq!(pa, pb, "con profundidad, el orden no importa");
+        // el cruce (x = 0 en recorte = pixel 32; y = 0 = pixel 24): rojo
+        assert_eq!(en(&pa, 30, 22), 0xFF_0000, "delante, el rojo");
+        assert_eq!(en(&pa, 44, 14), 0x00_FF00, "solo el verde");
+        // sin profundidad, el ultimo gana
+        assert_eq!(en(&pinta(&a, false, Cull::None), 30, 22), 0x00_FF00);
+        assert_eq!(en(&pinta(&b, false, Cull::None), 30, 22), 0xFF_0000);
+    }
+
+    /// ** V2: las caras de detras (antihorarias en la pantalla) fuera con
+    /// `Cull::Back`; sin el, al reves se dibuja igual (V0).
+    #[test]
+    fn back_faces_are_culled() {
+        let delante = cuadrado(-0.5, -0.5, 0.5, 0.5, 0.5, ROJO);
+        let mut detras = delante.clone();
+        for t in detras.chunks_exact_mut(3) {
+            t.swap(1, 2);
+        }
+        assert_eq!(en(&pinta(&delante, false, Cull::Back), 32, 24), 0xFF_0000, "la de delante");
+        let vacio = pinta(&detras, false, Cull::Back);
+        assert!(vacio.iter().all(|&p| p == vacio[0]), "la de detras no se dibuja");
+        assert_eq!(en(&pinta(&detras, false, Cull::None), 32, 24), 0xFF_0000, "sin descarte, si");
+    }
+
+    /// ** V2: el recorte de profundidad -- fuera de [0, 1] no se pinta -- y el
+    /// MENOR que: a 1.0 (lo que vale el z-buffer limpio) tampoco.
+    #[test]
+    fn depth_clips_outside_zero_one() {
+        for z in [1.5, -0.25, 1.0] {
+            let p = pinta(&cuadrado(-0.5, -0.5, 0.5, 0.5, z, ROJO), true, Cull::None);
+            assert!(p.iter().all(|&x| x == p[0]) && en(&p, 32, 24) != 0xFF_0000, "z = {z}");
+        }
+        assert_eq!(en(&pinta(&cuadrado(-0.5, -0.5, 0.5, 0.5, 0.0, ROJO), true, Cull::None), 32, 24), 0xFF_0000, "z = 0 si");
+    }
+
+    /// Profundidad sin z-buffer, en la CPU: no se dibuja (Error::Image).
+    #[test]
+    fn depth_without_a_buffer_is_refused() {
+        let v = cuadrado(-0.5, -0.5, 0.5, 0.5, 0.5, ROJO);
+        let frame = Frame { clear: FONDO_F, vertices: &v, viewport: Viewport { width: 8, height: 8 }, depth: true, cull: Cull::None };
+        let mut px = vec![0u32; 64];
+        let mut b = Cpu::LA_3060;
+        assert_eq!(b.draw(&frame, &mut Image { pixels: &mut px, width: 8, height: 8, depth: None }), Err(Error::Image));
+    }
+
+    /// Un cubo de lado `l` en (cx, cy, cz) (la camara mira +z), girado `a`
+    /// radianes en y, en perspectiva (cerca 1, lejos 10): sus 12 triangulos,
+    /// cada cara de un color.
+    fn cubo(cx: f32, cy: f32, cz: f32, l: f32, a: f32, tono: f32) -> Vec<Vertex> {
+        let (s, c) = (a.sin(), a.cos());
+        let esquina = |i: usize| {
+            let (x, y, z) = (if i & 1 == 0 { -l } else { l } / 2.0, if i & 2 == 0 { -l } else { l } / 2.0, if i & 4 == 0 { -l } else { l } / 2.0);
+            let (xr, zr) = (x * c + z * s, -x * s + z * c);
+            let (xc, yc, zc) = (xr + cx, y + cy, zr + cz);
+            [xc, yc, (zc - 1.0) * 10.0 / 9.0, zc]
+        };
+        let caras = [[0, 1, 3, 2], [4, 6, 7, 5], [0, 4, 5, 1], [2, 3, 7, 6], [0, 2, 6, 4], [1, 5, 7, 3]];
+        let mut v = Vec::new();
+        for (k, q) in caras.iter().enumerate() {
+            let color = [tono, k as f32 / 6.0, 1.0 - k as f32 / 6.0, 1.0];
+            for i in [0, 1, 2, 0, 2, 3] {
+                v.push(Vertex { position: esquina(q[i]), color });
+            }
+        }
+        v
+    }
+
+    /// ** M1 de PLAN_VERRANO: DOS CUBOS QUE SE TAPAN, en perspectiva y con
+    /// todas sus caras. Con profundidad, da igual cual se dibuje primero (y
+    /// cual cara): se ve lo de delante. Sin ella, se ve el orden.
+    #[test]
+    fn two_cubes_hide_each_other() {
+        let a = cubo(-0.4, 0.0, 4.0, 1.4, 0.5, 0.2);
+        let b = cubo(0.3, 0.2, 6.0, 1.6, -0.3, 0.9);
+        let ab: Vec<Vertex> = a.iter().chain(&b).copied().collect();
+        let mut ba: Vec<Vertex> = b.iter().chain(&a).copied().collect();
+        let con = pinta(&ab, true, Cull::None);
+        assert_eq!(con, pinta(&ba, true, Cull::None), "con profundidad, el orden de los cubos no importa");
+        ba.reverse();
+        assert_eq!(con, pinta(&ba, true, Cull::None), "ni el de los vertices al reves");
+        assert_ne!(pinta(&ab, false, Cull::None), pinta(&b.iter().chain(&a).copied().collect::<Vec<_>>(), false, Cull::None), "sin ella, si");
+        // los dos se ven: cada uno por el rojo de sus caras
+        let rojo = |tono: f32| Unorm8::Truncate12.convert(tono);
+        let de = |tono: f32| con.iter().filter(|&&p| p >> 16 & 0xFF == rojo(tono)).count();
+        assert!(de(0.2) > 100 && de(0.9) > 20, "a (delante) {} y b (detras, casi tapado) {} pixeles", de(0.2), de(0.9));
     }
 
     /// Y con la regla 4, el modelo de la 3060 (salvo lo que el juez no
@@ -244,7 +409,7 @@ mod pruebas {
         let mut antes: Option<crate::Rect> = None;
         for f in (0..360).step_by(7).chain([30]) {
             let v = vertices(f);
-            let frame = Frame { clear: FONDO_F, vertices: &v, viewport: Viewport { width: ANCHO, height: ALTO } };
+            let frame = Frame { clear: FONDO_F, vertices: &v, viewport: Viewport { width: ANCHO, height: ALTO } , depth: false, cull: Cull::None };
             let px = dibujar(Cpu::LA_3060, f);
             let fondo = Unorm8::Truncate12.pack(FONDO_F);
             let c = frame.cover().unwrap();
@@ -266,20 +431,20 @@ mod pruebas {
         }
         // Sin vertices, o uno que no se proyecta: la imagen entera.
         let vp = Viewport { width: ANCHO, height: ALTO };
-        assert_eq!(Frame { clear: FONDO_F, vertices: &[], viewport: vp }.cover(), None);
+        assert_eq!(Frame { clear: FONDO_F, vertices: &[], viewport: vp , depth: false, cull: Cull::None }.cover(), None);
         let detras = [Vertex { position: [0.0, 0.0, 0.5, -1.0], color: [1.0; 4] }; 3];
-        assert_eq!(Frame { clear: FONDO_F, vertices: &detras, viewport: vp }.cover(), None);
+        assert_eq!(Frame { clear: FONDO_F, vertices: &detras, viewport: vp , depth: false, cull: Cull::None }.cover(), None);
     }
 
     #[test]
     fn comprueba_lo_que_le_dan() {
         let v = vertices(0);
         let mut px = vec![0u32; 16];
-        let mut img = Image { pixels: &mut px, width: 4, height: 4 };
+        let mut img = Image { pixels: &mut px, width: 4, height: 4 , depth: None };
         let mut cpu = Cpu::D3D10;
-        let malo = Frame { clear: FONDO_F, vertices: &v[..4], viewport: Viewport { width: 4, height: 4 } };
+        let malo = Frame { clear: FONDO_F, vertices: &v[..4], viewport: Viewport { width: 4, height: 4 } , depth: false, cull: Cull::None };
         assert_eq!(cpu.draw(&malo, &mut img), Err(Error::Vertices));
-        let otro = Frame { clear: FONDO_F, vertices: &v[..3], viewport: Viewport { width: 8, height: 4 } };
+        let otro = Frame { clear: FONDO_F, vertices: &v[..3], viewport: Viewport { width: 8, height: 4 } , depth: false, cull: Cull::None };
         assert_eq!(cpu.draw(&otro, &mut img), Err(Error::Image));
     }
 

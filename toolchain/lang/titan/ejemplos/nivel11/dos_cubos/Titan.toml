@@ -1,0 +1,6 @@
+[package]
+name = "dos_cubos"
+
+[permissions]
+gpu = "compute"
+screen = true

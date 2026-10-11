@@ -832,6 +832,10 @@ try {
         # `run titan/cubogira.bex` y `gpu verrano banco inti`, que dibuja con
         # la 3060 lo que haya en la lamina (LB7 de PLAN_LAS_LIBRERIAS).
         @{ src = 'toolchain\lang\titan\ejemplos\nivel11\cubo_gira\src\main.titan'; out = 'cubogira.bex'; dir = 'titan' },
+        # ** DOS CUBOS QUE SE TAPAN (M1 = V2 de PLAN_VERRANO, 2026-10-11): la
+        # lamina con `director.profundidad(true)`, en su ventana. En el metal:
+        # `run titan/doscubos.bex` desde Ejecutar.
+        @{ src = 'toolchain\lang\titan\ejemplos\nivel11\dos_cubos\src\main.titan'; out = 'doscubos.bex'; dir = 'titan' },
         # ** F1 de EL_FOCO (2026-10-10): la VENTANA de TITAN++ -- una
         # superficie de BMO-X como la de INTI, un degradado y una barra que la
         # cruza diez segundos. En el metal: `run titan/ventana.bex` desde

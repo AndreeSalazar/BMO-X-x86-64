@@ -756,6 +756,7 @@ fn target(p: &Program, callee: &str, n: usize, line: usize, col: usize, as_value
             Director::Botones => "let b = director.botones()",
             Director::SeVe => "if director.se_ve()",
             Director::Ms => "let t0 = director.ms()",
+            Director::Profundidad => "director.profundidad(true)",
             Director::Letra => "x = director.letra(x, y, 65, 1, 16777215)",
             Director::Texto => "x = director.texto(8, 8, \"hola\", 1, 16777215)",
         };
@@ -763,7 +764,7 @@ fn target(p: &Program, callee: &str, n: usize, line: usize, col: usize, as_value
             return Err(Message::new(Code::Args, line, col, &format!("`{}` pide {} valor{}, y aqui se le {} {}", callee, d.takes(), if d.takes() == 1 { "" } else { "es" }, if n == 1 { "da" } else { "dan" }, n), "es del DIRECTOR: la lamina de VERRANO (LB7b) y la ventana (F1)", example));
         }
         if as_value && !d.gives() {
-            return Err(Message::new(Code::Result, line, col, &format!("`{}` no devuelve nada, y aqui se usa como un valor", callee), if d == Director::Espera { "duerme hasta el siguiente fotograma y ya: no hay nada que guardar" } else if d == Director::Escribe { "escribe un byte y ya: si todo entro lo dice `director.cierra()`" } else { "pinta en la ventana y ya: no hay nada que guardar" }, example));
+            return Err(Message::new(Code::Result, line, col, &format!("`{}` no devuelve nada, y aqui se usa como un valor", callee), if d == Director::Espera { "duerme hasta el siguiente fotograma y ya: no hay nada que guardar" } else if d == Director::Profundidad { "dice como se dibuja la lamina y ya: lo lee el escritorio" } else if d == Director::Escribe { "escribe un byte y ya: si todo entro lo dice `director.cierra()`" } else { "pinta en la ventana y ya: no hay nada que guardar" }, example));
         }
         return Ok(());
     }

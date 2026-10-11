@@ -411,6 +411,14 @@ pub(super) fn director(what: Director, args: &[Value], at: At, known: &[Option<C
             int(0, "`director.espera` pide los milisegundos que duerme el programa", "director.espera(16)")?;
             Ok(None)
         }
+        // V2 (11-10): la lamina con z-buffer; el si-o-no dice si fuera las
+        // caras de detras.
+        Director::Profundidad => {
+            if got[0] != Class::Bool {
+                return Err(wrong(args[0].at(), &Class::Bool, &got[0], m.defs(), "`director.profundidad` pide si se descartan las caras de detras", "director.profundidad(true)"));
+            }
+            Ok(None)
+        }
         // ** F1 (EL_FOCO, 10-10): la ventana. Medidas, sitios y colores son
         // int; un color es `r * 65536 + g * 256 + b`.
         Director::Ventana => {

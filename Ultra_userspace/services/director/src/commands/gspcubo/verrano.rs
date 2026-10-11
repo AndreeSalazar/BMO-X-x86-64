@@ -111,7 +111,7 @@ pub(crate) fn orden(dsk: &mut Desktop, p: &bmo::Pantalla, resto: &[u8]) -> After
     // El fotograma: la tanda del juez en vertices de VERRANO.
     let mut v = [Vertex::default(); MAX_VERTICES];
     let Some(k) = vertices(f, w, h, &mut v) else { return linea(dsk, b"  NO  la tanda no cabe", INK_ERR) };
-    let frame = Frame { clear: bmo_cubo::FONDO_F, vertices: &v[..k], viewport: Viewport { width: w, height: h } };
+    let frame = Frame { clear: bmo_cubo::FONDO_F, vertices: &v[..k], viewport: Viewport { width: w, height: h } , depth: false, cull: bmo_verrano::Cull::None };
 
     // La puerta: el sobre con el codigo de ESTE aparato, su juez, la tarjeta.
     let (mut aparato, abierto) = match destino::abrir(dsk, p, caja, op) {
@@ -135,11 +135,11 @@ pub(crate) fn orden(dsk: &mut Desktop, p: &bmo::Pantalla, resto: &[u8]) -> After
         let inti = r.split(|&c| c == b' ').any(|w| w == b"inti");
         return banco(dsk, p, aparato, op, gpu, n, y0 + h, inti);
     }
-    let s_aparato = aparato.draw(&frame, &mut Image { pixels: gpu, width: w, height: h });
+    let s_aparato = aparato.draw(&frame, &mut Image { pixels: gpu, width: w, height: h , depth: None });
     let hz = bmo::info(bmo::INFO_TSC_HZ).max(1000);
     let desde = bmo::ciclos();
     let mut juez = Cpu::LA_3060;
-    let scpu = juez.draw(&frame, &mut Image { pixels: cpu, width: w, height: h });
+    let scpu = juez.draw(&frame, &mut Image { pixels: cpu, width: w, height: h , depth: None });
     let cpu_us = (bmo::ciclos() - desde) * 1_000_000 / hz;
     let st = match (s_aparato, scpu) {
         (Ok(a), Ok(_)) => a,
@@ -373,9 +373,9 @@ fn banco(dsk: &mut Desktop, p: &bmo::Pantalla, mut aparato: destino::Aparato, op
             }
         };
         let vertices = de_la_app.unwrap_or(&tandas[f * MAX_VERTICES..][..k]);
-        let frame = Frame { clear: bmo_cubo::FONDO_F, vertices, viewport: Viewport { width: w, height: h } };
+        let frame = Frame { clear: bmo_cubo::FONDO_F, vertices, viewport: Viewport { width: w, height: h } , depth: false, cull: bmo_verrano::Cull::None };
         let desde = bmo::ciclos();
-        match aparato.draw(&frame, &mut Image { pixels: gpu, width: w, height: h }) {
+        match aparato.draw(&frame, &mut Image { pixels: gpu, width: w, height: h , depth: None }) {
             Ok(st) => {
                 let ciclos = bmo::ciclos() - desde;
                 dentro += ciclos;
@@ -410,8 +410,8 @@ fn banco(dsk: &mut Desktop, p: &bmo::Pantalla, mut aparato: destino::Aparato, op
     // reuse y en el mismo modo), leido y comparado con D3D12.
     aparato.leer = true;
     let k = vertices(30, w, h, &mut v).unwrap_or(0);
-    let frame = Frame { clear: bmo_cubo::FONDO_F, vertices: &v[..k], viewport: Viewport { width: w, height: h } };
-    let igual = aparato.draw(&frame, &mut Image { pixels: gpu, width: w, height: h }).is_ok() && rf::de_la_3060(30) == Some(rf::huella(gpu));
+    let frame = Frame { clear: bmo_cubo::FONDO_F, vertices: &v[..k], viewport: Viewport { width: w, height: h } , depth: false, cull: bmo_verrano::Cull::None };
+    let igual = aparato.draw(&frame, &mut Image { pixels: gpu, width: w, height: h , depth: None }).is_ok() && rf::de_la_3060(30) == Some(rf::huella(gpu));
     let veredicto: &[u8] = if igual {
         b"el fotograma 30, leido al final: IGUAL a D3D12 en la 3060 bajo Windows"
     } else {

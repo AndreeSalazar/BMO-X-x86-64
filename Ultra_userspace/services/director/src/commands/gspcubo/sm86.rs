@@ -425,7 +425,10 @@ impl Aparato<'_> {
 impl Backend for Aparato<'_> {
     fn draw(&mut self, frame: &Frame, out: &mut Image) -> Result<Stats, Error> {
         let t0 = bmo::ciclos();
-        check(frame, out, V0_MAX)?;
+        // V2 (11-10): EN RAM va por VRN1 (`tuberia`), que toma miles de
+        // vertices; el anillo del cubo de V0, sus 24.
+        let tope = if self.en_la_imagen || self.enram.is_some() { tu::MAX_VERTICES } else { V0_MAX };
+        check(frame, out, tope)?;
         // Lo que se le da al programa, contra lo que el programa dice leer.
         let dado = Given { set: 0, binding: 0, addr: frame.vertices.as_ptr() as u64, bytes: (frame.vertices.len() * VERTEX_BYTES) as u64, writable: false };
         self.vertice.check(&[dado]).map_err(|_| Error::Vertices)?;
@@ -469,8 +472,16 @@ impl Backend for Aparato<'_> {
             // fondo limpiado por la 3060. Los triangulos ya vienen escogidos
             // (la tanda): sin descarte ni Z.
             let v = frame.vertices.iter().map(|s| tu::Vertice { posicion: s.position.map(f32::to_bits), color: s.color.map(f32::to_bits) });
-            let dibujo = tu::Dibujo { vertices: frame.vertices.len() as u32, destino: Some(destino), color: Some(pixel_de(frame.clear)), ..tu::Dibujo::default() };
+            // ** V2 (11-10): la profundidad y el descarte que pide el Frame,
+            // los de BMOX-12 (`-z`): MENOR que, se escribe, limpia a 1.0; y
+            // delante horario, lo de D3D por defecto.
+            let z = frame.depth.then_some(bmo_gpu_ga10x::profundidad::Z { funcion: 2, escribir: true, limpiar: Some(bmo_gpu_ga10x::profundidad::UNO) });
+            let descarte = if frame.cull == bmo_verrano::Cull::Back { tu::Descarte::Traseras } else { tu::Descarte::Ninguna };
+            let dibujo = tu::Dibujo { vertices: frame.vertices.len() as u32, destino: Some(destino), color: Some(pixel_de(frame.clear)), z, descarte, antihorario: false, ..tu::Dibujo::default() };
             tu::escribir_paquete_dibujo_de(self.paquete, self.ficha as u32, vs, self.ps, v, dibujo).ok_or(Error::Vertices)?;
+        } else if frame.depth || frame.cull != bmo_verrano::Cull::None {
+            // V2: a la pantalla (V0) no hay z-buffer ni descarte: EN RAM si.
+            return Err(Error::Image);
         } else {
             let v = frame.vertices.iter().map(|s| tu::Vertice { posicion: s.position.map(f32::to_bits), color: s.color.map(f32::to_bits) });
             tu::escribir_paquete_de(self.paquete, self.ficha as u32, vs, self.ps, v, limpiar.map(|r| (r.x0 | r.x1 << 16, r.y0 | r.y1 << 16))).ok_or(Error::Vertices)?;
