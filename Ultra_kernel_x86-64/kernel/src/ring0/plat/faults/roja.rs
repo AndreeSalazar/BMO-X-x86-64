@@ -328,6 +328,19 @@ extern "C" fn fault_dispatch(
             }
         }
     }
+    // ** UN OBRERO, ANTES QUE NADA (11-10, la auditoria de `smp all`). La
+    // rama de Ring 3 de abajo mata la tarea ACTUAL del planificador -- que es
+    // la del BSP: desde un obrero mataria a quien no fallo y planificaria en
+    // un nucleo sin GS por-CPU. Un obrero en Ring 3 entra por SU IDT
+    // (`smp/ring3.rs`) y no deberia llegar aqui nunca; si llega, se para
+    // solo, como cualquier fallo de obrero.
+    if cs & 3 == 3 && crate::ring0::plat::smp::tramp::soy_ap() {
+        let apic = crate::ring0::plat::smp::tramp::apic_id();
+        if let Some(i) = crate::ring0::plat::smp::ficha::indice_de(apic) {
+            crate::ring0::plat::smp::ficha::fallo(i, vector as u32, rip);
+        }
+        return 0;
+    }
     if cs & 3 == 3 {
         let pid = crate::ring0::task::scheduler::current_pid();
         let tid = crate::ring0::task::scheduler::current_tid();
