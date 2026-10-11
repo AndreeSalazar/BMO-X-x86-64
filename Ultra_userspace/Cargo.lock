@@ -341,4 +341,5 @@ name = "bmo-verrano-trama"
 version = "0.1.0"
 dependencies = [
  "bmo-prometeo",
+ "bmo-verrano",
 ]

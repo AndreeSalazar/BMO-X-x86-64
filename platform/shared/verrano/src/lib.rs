@@ -38,18 +38,16 @@
 //! - ~~Un solo tipo de vertice y un solo par de programas~~ -- **V3a
 //!   (11-10)**: [`Draw`], por CATEGORIAS (recursos, programas, tuberia,
 //!   dibujo; ver `dibujo.rs`): vertices sin transformar, indices, el
-//!   cbuffer y DOS programas cualesquiera (el Programa de la casa, con la
-//!   feature `prometeo`). El juez de la CPU ya lo dibuja; la 3060, todavia
-//!   solo con los programas de BMOX-12 (`gpu verrano bmox12`).
+//!   cbuffer y DOS programas cualesquiera (el Programa de la casa entra por
+//!   `bmo_verrano_trama::juez::Casa`). El juez de la CPU lo dibuja con LA
+//!   trama de la casa (`bmo-verrano-trama`, VC2); la 3060, todavia solo con
+//!   los programas de BMOX-12 (`gpu verrano bmox12`).
 //! - Sin buferes propios. Vallas, desde V1b solo por dentro: un backend
 //!   puede dejar el fotograma EN VUELO (`Stats::in_flight`) y
 //!   `Backend::finish` espera lo que quede.
 
 #![no_std]
 #![forbid(unsafe_code)]
-
-#[cfg(feature = "prometeo")]
-extern crate alloc;
 
 pub mod cpu;
 /// V3a: el dibujo con PROGRAMAS, por categorias (recursos, programas,

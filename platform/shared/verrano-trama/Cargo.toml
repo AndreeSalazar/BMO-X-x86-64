@@ -11,6 +11,14 @@ license = "Apache-2.0"
 # PROMETEO.
 [dependencies]
 bmo-prometeo = { path = "../prometeo" }
+# VC2 paso 2: la API de VERRANO (Draw, Dispatch...), que esta trama dibuja.
+bmo-verrano = { path = "../verrano" }
+
+[dev-dependencies]
+# las pruebas del juez: los DXIL de dxc de la casa (leidos por PROTON-X, que
+# tambien es el ORACULO: su `lote::en_cpu`) y las huellas de D3D12
+bmo-proton-x = { path = "../proton-x" }
+bmo-cubo = { path = "../bmo-cubo" }
 
 [lib]
 name = "bmo_verrano_trama"

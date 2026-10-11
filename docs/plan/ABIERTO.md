@@ -7,8 +7,8 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   756 casillas ABIERTAS en 70 planes
-   603 hechas
+   761 casillas ABIERTAS en 70 planes
+   604 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -54,14 +54,14 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] S1b -- la Biblioteca muestra lo de ESTRATOS. Hoy
 - ... y 43 mas
 
-## [`PLAN_VERRANO.md`](PLAN_VERRANO.md) -- 40 abiertas, 10 hechas
+## [`PLAN_VERRANO.md`](PLAN_VERRANO.md) -- 45 abiertas, 11 hechas
 
 *PLAN VERRANO -- la API de dibujo de BMO-X, con el BSF debajo*
 
 - [ ] V2 -- la profundidad y el culling (X5b de
 - [ ] V2b -- el recorte de cerca (MC1 de PLAN_MUNDO.md).
 - [ ] V3a -- VERRANO POR CATEGORIAS: el dibujo con PROGRAMAS (11-10,
-- ... y 37 mas
+- ... y 42 mas
 
 ## [`PLAN_LA_LUDOTECA.md`](PLAN_LA_LUDOTECA.md) -- 32 abiertas, 14 hechas
 

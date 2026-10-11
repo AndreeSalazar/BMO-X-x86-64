@@ -47,7 +47,7 @@ bmo-tarjeta-cpu = { path = "../../../forge/tarjeta-cpu" }
 # ** LB7b (09-10): la LAMINA de VERRANO -- su forma y su trato, UNA vez
 # (`lamina.rs`) --, que E1 escribe cuando un programa habla con el director.
 # Los numeros de E1 salen de aqui; el lector de la prueba, tambien.
-bmo-verrano = { path = "../../../../platform/shared/verrano", features = ["prometeo"] }
+bmo-verrano = { path = "../../../../platform/shared/verrano" }
 
 [lib]
 name = "bmo_titan_x86_64"

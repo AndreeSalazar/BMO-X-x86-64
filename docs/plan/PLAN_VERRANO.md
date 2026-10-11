@@ -398,6 +398,42 @@ la SPH (128 B) y detras las instrucciones.
 > SPIR-V solo es algo que se lee de un juego ajeno (V5), nunca la lengua
 > de BMO-X.
 
+### VE -- VERRANO ESTUDIO: el render de calidad, al estilo RenderMan (11-10)
+
+El propietario, el 11-10: *"mi verrano puede renderizar como el estilo
+renderman? en vez que mi GPU las tipicas rtx haga Ray tracing de Nvidia haga
+el renderman exclusivo en verrano los mejores render profesionales pero que la
+CPU calcule magistral"*. RenderMan no usa los nucleos RT: sus peliculas salen
+sobre todo de la CPU, por trazado de caminos. VERRANO lo tiene como categoria
+propia, al lado de la trama de tiempo real
+(`platform/shared/verrano-trama/src/estudio.rs`).
+
+- [x] **VE1 -- el trazado de caminos en la CPU.** HECHO el 11-10 en el
+      anfitrion: luz de AREA consultada en cada rebote mate (sombras
+      suaves), la luz INDIRECTA (el rojo de una pared tine el suelo), metal
+      con aspereza, vidrio con Fresnel, la ruleta rusa sin sesgo, el techo de
+      las causticas (el `clampIndirect` de RenderMan) y la curva ACES del
+      cine; la raiz exacta de PROMETEO y el log2 de la casa, sin `std`;
+      determinista (la semilla, por pixel). La caja de Cornell con arcilla,
+      oro y vidrio a 640x480 y 1024 muestras por pixel: 6 minutos en 4
+      nucleos (`cargo run --release -p bmo-verrano-trama --example estudio
+      -- SALIDA.ppm 640 480 1024`). **Como se sabe:** sus pruebas -- la misma
+      semilla da la misma luz; el suelo junto a la pared roja sale rojizo y
+      junto a la verde verdoso; con la luz apagada, negro; la curva no baja
+      ni pasa de blanco --, y la foto.
+- [ ] **VE2 -- en BMO-X, con todos los nucleos.** Una app de Ring 3 que
+      reparte las filas entre los nucleos (`smp all`) y pinta la foto en su
+      ventana, fila a fila, mientras se calcula.
+- [ ] **VE3 -- mallas de triangulos y su BVH.** Para escenas de verdad (un
+      personaje, un coche): los triangulos de un modelo y el arbol que deja
+      a cada rayo mirar solo los que puede tocar.
+- [ ] **VE4 -- materiales de pelicula.** Texturas, el metal y el plastico de
+      verdad (microfacetas, GGX), el subsuelo de la piel, la niebla.
+- [ ] **VE5 -- la 3060 como ayudante.** El mismo trazado en su computo, un
+      rayo por hilo, juzgado contra el de la CPU (que sigue siendo el juez).
+- [ ] **VE6 -- TITAN++ lo pide.** `director.estudio(...)`: una escena de
+      TITAN++ renderizada por ESTUDIO.
+
 ### VERRANO DEVORA: quien hace que (11-10)
 
 El propietario, el 11-10: *"PROTON-X [...] solo le emula a la ABI MUY
@@ -1078,10 +1114,22 @@ puertas de la 3060 que faltan y el orden): [`PLAN_EL_LIBRETO.md`](PLAN_EL_LIBRET
   asignador: dos crates con un nombre, como PROMETEO). Se movio con
   `git mv`, sin tocar una cuenta; PROTON-X la reexporta con sus nombres de
   siempre, asi que sus 25 ficheros no cambiaron. En verde: sus pruebas, las
-  de PROTON-X, el kernel, el Ring 3 entero y los guardianes. **Paso 2:** el
-  juez de `Draw` (`verrano/src/cpu.rs`) deja su rasterizador y dibuja con
-  ESTA trama -- una sola --; **paso 3:** `tuberia.rs` de la casa entrega
-  `Draw` y `Dispatch` en vez de un `Lote`.
+  de PROTON-X, el kernel, el Ring 3 entero y los guardianes.
+  **11-10, PASO 2 HECHO: UNA SOLA TRAMA.** El juez de los `Draw` y los
+  `Dispatch` de VERRANO es `bmo_verrano_trama::juez::Juez`, y dibuja con
+  LA trama de la casa; el rasterizador que VERRANO tenia aparte para ellos
+  (y su mezcla, su interpolacion y su SV_Position, la misma cuenta escrita
+  dos veces) se borro de `verrano/src/cpu.rs`, que se queda con el juez de
+  `Frame` (el modelo de la 3060 de V0, con su redondeo `Truncate12`). El
+  Programa de la casa entra como etapa por `Casa`, y `bmo-verrano` ya no
+  tiene la feature `prometeo`: no depende de nadie. Las pruebas de V3a,
+  LI2a, LI2c, LI2d y LI2f vinieron con el juez y pasan IGUAL con la trama
+  de la casa -- la huella de BMOX-12 de D3D12, SV_Position, el G-buffer, la
+  textura en perspectiva, la luz que se suma, el computo --; saboteado (el
+  descarte al reves, los destinos al reves): cae. **Paso 3:** `tuberia.rs`
+  de la casa entrega `Draw` y `Dispatch` en vez de un `Lote` (lo que la
+  trama hace y el `Draw` aun no dice: stencil, instancias, olas, formatos
+  float... crece el `Draw`, no otra trama).
 - [ ] **VC3 -- la cara de Vulkan** (`platform/drivers/gpu/rdna4/PLAN_VULKAN.md`):
   un `vulkan-1.dll` en la casa que dice lo suyo en el MISMO VERRANO; el
   SPIR-V ya entra por `toolchain/lang/spirv`. Despues de VC2: Vulkan no se

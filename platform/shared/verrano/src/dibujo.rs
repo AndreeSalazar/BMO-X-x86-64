@@ -16,8 +16,9 @@
 //!                 constants   los bytes del cbuffer (la matriz, la luz)
 //!    PROGRAMAS    Shader      una etapa: de vertice o de pixeles. VERRANO no
 //!                             sabe que lengua es: el de la casa es el
-//!                             Programa de PROMETEO (la feature `prometeo`),
-//!                             que ya sale de DXIL, de SM5 y de TITAN++
+//!                             Programa de PROMETEO (`bmo_verrano_trama::
+//!                             juez::Casa`), que ya sale de DXIL, de SM5 y
+//!                             de TITAN++
 //!                 Texture     una textura 2D (RGBA8, un nivel por ahora) y su
 //!                 Sampler     muestreador: el material, el G-buffer de la
 //!                             pasada anterior
@@ -37,8 +38,9 @@
 //! Lo de FUERA se traduce a estas piezas y nada mas -- las llamadas de
 //! D3D12 o de Vulkan a un `Draw`, sus sombreadores al Programa -- y lo de
 //! DENTRO (TITAN++, MUNDO) las usa directo. Cada backend las ejecuta: el
-//! juez de la CPU aqui (`cpu.rs`), la 3060 donde se toca la tarjeta (su
-//! emisor, su juez y su `.bsf`, en `proton-x-sm86`).
+//! juez de la CPU con LA trama de la casa (`bmo-verrano-trama`, `juez.rs`:
+//! VC2), la 3060 donde se toca la tarjeta (su emisor, su juez y su `.bsf`,
+//! en `proton-x-sm86`).
 //!
 //! # Las reglas del juez con programas
 //!
@@ -197,47 +199,6 @@ impl Blend {
     pub fn trivial(&self) -> bool {
         !self.enable && self.write_mask == 0xF
     }
-
-    /// **El color que queda**: el nuevo `o` sobre el que estaba `d`, con el
-    /// factor `k` (la cuenta de la casa: `bmo_proton_x::mezcla`, N5.11).
-    pub fn apply(&self, o: [f32; 4], d: [f32; 4], k: [f32; 4]) -> [f32; 4] {
-        let mezclado = if self.enable {
-            core::array::from_fn(|c| {
-                let (fo, fd, op) = if c < 3 { (self.src, self.dst, self.op) } else { (self.src_alpha, self.dst_alpha, self.op_alpha) };
-                let (a, b) = (o[c] * factor(fo, c, o, d, k), d[c] * factor(fd, c, o, d, k));
-                match op {
-                    BlendOp::Add => a + b,
-                    BlendOp::Subtract => a - b,
-                    BlendOp::RevSubtract => b - a,
-                    BlendOp::Min => o[c].min(d[c]),
-                    BlendOp::Max => o[c].max(d[c]),
-                }
-            })
-        } else {
-            o
-        };
-        core::array::from_fn(|c| if self.write_mask & (1 << c) != 0 { mezclado[c] } else { d[c] })
-    }
-}
-
-/// El factor `f` para el canal `c` (3 es el alfa).
-fn factor(f: Factor, c: usize, o: [f32; 4], d: [f32; 4], k: [f32; 4]) -> f32 {
-    match f {
-        Factor::Zero => 0.0,
-        Factor::One => 1.0,
-        Factor::SrcColor => o[c],
-        Factor::InvSrcColor => 1.0 - o[c],
-        Factor::SrcAlpha => o[3],
-        Factor::InvSrcAlpha => 1.0 - o[3],
-        Factor::DestAlpha => d[3],
-        Factor::InvDestAlpha => 1.0 - d[3],
-        Factor::DestColor => d[c],
-        Factor::InvDestColor => 1.0 - d[c],
-        Factor::SrcAlphaSat if c < 3 => o[3].min(1.0 - d[3]),
-        Factor::SrcAlphaSat => 1.0,
-        Factor::BlendFactor => k[c],
-        Factor::InvBlendFactor => 1.0 - k[c],
-    }
 }
 
 /// **La tuberia**: las dos etapas y como se dibuja.
@@ -343,52 +304,6 @@ pub fn check_draw(d: &Draw, out: &Image, others: &[&mut [u32]], max_vertices: us
     Ok(())
 }
 
-/// **El Programa de la casa es una etapa** (la feature `prometeo`): el que
-/// sale de DXIL, de SM5 y de TITAN++, corrido por su interprete -- el juez
-/// de lo que hagan las tarjetas --.
-#[cfg(feature = "prometeo")]
-impl Shader for bmo_prometeo::programa::Programa {
-    fn inputs(&self) -> usize {
-        self.entradas
-    }
-    fn outputs(&self) -> usize {
-        self.salidas
-    }
-    fn reads(&self, k: usize) -> bool {
-        k < 32 && self.lee & 1 << k != 0
-    }
-    fn run(&self, inputs: &[[f32; 4]], constants: &[u8], outputs: &mut [[f32; 4]]) -> bool {
-        let mut regs = alloc::vec::Vec::new();
-        self.correr(inputs, constants, outputs, &mut regs)
-    }
-    fn run_with(&self, inputs: &[[f32; 4]], constants: &[u8], resources: &Resources, outputs: &mut [[f32; 4]]) -> bool {
-        use bmo_prometeo::textura::{Direccion, Filtro, Lod, Muestreador, Recursos, Textura};
-        if resources.textures.is_empty() && resources.samplers.is_empty() {
-            return self.run(inputs, constants, outputs);
-        }
-        let texturas: alloc::vec::Vec<Option<Textura>> = resources.textures.iter().map(|t| Some(Textura::rgba(t.texels, t.width, t.height, t.bgra))).collect();
-        let muestreadores: alloc::vec::Vec<Option<Muestreador>> = resources
-            .samplers
-            .iter()
-            .map(|m| {
-                let filtro = match m.filter {
-                    Filter::Point => Filtro::Punto,
-                    Filter::Linear => Filtro::Lineal,
-                };
-                let d = match m.address {
-                    Address::Wrap => Direccion::Repetir,
-                    Address::Mirror => Direccion::Espejo,
-                    Address::Clamp => Direccion::Sujetar,
-                    Address::Border => Direccion::Borde,
-                };
-                Some(Muestreador { filtro, u: d, v: d, borde: m.border, comparacion: 0, lod: Lod { mip: filtro, ..Lod::DE_SIEMPRE } })
-            })
-            .collect();
-        let rec = Recursos { texturas: &texturas, muestreadores: &muestreadores, buferes: &[], dinamicas: None };
-        let mut regs = alloc::vec::Vec::new();
-        self.correr_con(inputs, constants, &rec, outputs, &mut regs)
-    }
-}
 
 /// **Un bufer que el computo LEE** (un SRV estructurado: `stride` bytes por
 /// elemento; con `stride` 0, crudo: palabras de 4 bytes).
@@ -443,25 +358,3 @@ pub fn check_dispatch(d: &Dispatch) -> Result<(), Error> {
     Ok(())
 }
 
-/// **El Programa de la casa es un programa de computo** (la feature
-/// `prometeo`): su `despachar` (`prometeo/src/despacho.rs`, N5.5), con los
-/// buferes como SRV y UAV estructurados (o crudos).
-#[cfg(feature = "prometeo")]
-impl Compute for bmo_prometeo::programa::Programa {
-    fn threads(&self) -> [u32; 3] {
-        self.computo.hilos
-    }
-    fn dispatch(&self, groups: [u32; 3], constants: &[u8], reads: &[ReadBuffer], writes: &mut [RwBuffer]) -> u64 {
-        use bmo_prometeo::bufer::{Bufer, Rebanadas, Uav};
-        let srv: alloc::vec::Vec<Option<Bufer>> = reads.iter().map(|r| Some(Bufer { bytes: r.bytes, formato: 0, paso: r.stride, elementos: elements(r.bytes.len(), r.stride) })).collect();
-        let rec = bmo_prometeo::textura::Recursos { texturas: &[], muestreadores: &[], buferes: &srv, dinamicas: None };
-        let mut uavs: alloc::vec::Vec<Option<Uav>> = writes
-            .iter_mut()
-            .map(|w| {
-                let elementos = elements(w.bytes.len(), w.stride);
-                Some(Uav { bytes: &mut *w.bytes, formato: 0, paso: w.stride, elementos, contador: None, rebanadas: Rebanadas::PLANA })
-            })
-            .collect();
-        self.despachar(groups, constants, &rec, &mut uavs)
-    }
-}

@@ -19,6 +19,11 @@
 //!    cuadros   los pixeles en cuadros de 2x2 y en olas (E2.5)
 //!    mezcla    la mezcla de D3D12 (N5.11)
 //!    stencil   el stencil de D3D12
+//!    juez      el de los `Draw` y los `Dispatch` de VERRANO: los dibuja
+//!              ESTA trama (VC2 paso 2), y el Programa de la casa entra
+//!              como etapa (`Casa`)
+//!    estudio   el render de CALIDAD, al estilo RenderMan: trazado de
+//!              caminos en la CPU (11-10)
 //! ```
 //!
 //! Aparte de `bmo-verrano` por la memoria: esta pide `alloc` y el Programa
@@ -38,3 +43,13 @@ pub mod cuadros;
 pub mod mezcla;
 /// El stencil de D3D12.
 pub mod stencil;
+/// VC2 paso 2: el juez de los `Draw` y los `Dispatch` de VERRANO, con ESTA
+/// trama (una sola), y el Programa de la casa como etapa (`Casa`).
+pub mod juez;
+/// VERRANO ESTUDIO (11-10): el render de calidad al estilo RenderMan --
+/// trazado de caminos en la CPU: luz de area, sombras suaves, luz
+/// indirecta, metal y vidrio, la curva del cine --.
+pub mod estudio;
+
+#[cfg(test)]
+mod pruebas_juez;
