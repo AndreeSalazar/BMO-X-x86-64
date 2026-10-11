@@ -1,0 +1,6 @@
+[package]
+name = "mundo"
+
+[permissions]
+gpu = "compute"
+screen = true

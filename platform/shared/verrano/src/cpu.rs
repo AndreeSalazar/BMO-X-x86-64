@@ -26,6 +26,27 @@
 //!    7  se pinta si z < la del z-buffer (LESS), y se apunta; el z-buffer
 //!       empieza en 1.0
 //! ```
+//!
+//! ** V2b (11-10, MC1 de `docs/plan/PLAN_MUNDO.md`): EL RECORTE DE CERCA. Un
+//! triangulo con un vertice por DETRAS del plano de cerca (z < 0 en recorte:
+//! con w <= 0 la division lo daria la vuelta) se recorta contra z = 0, como
+//! D3D (`DepthClipEnable`): queda un triangulo o un cuadrilatero, en abanico,
+//! con el mismo sentido y el color de su vertice 0. Un suelo que pasa por
+//! debajo de la camara se ve hasta el borde de la pantalla. Lo que no cruza,
+//! ni se toca: los fotogramas de antes dan los mismos bits.
+//!
+//! ```text
+//!    0  si algun z < 0: Sutherland-Hodgman contra z >= 0, cada componente
+//!       de la posicion interpolada con t = za / (za - zb) en el cruce
+//! ```
+//!
+//! [!] La 3060 de hoy no esta puesta asi: `RECORTE_Z` (`ga10x`, `raster.rs`)
+//! deja la z sin recorte y la SUJETA en cada pixel. Lo que cae entre w = 0
+//! y el plano de cerca ella lo pinta (con z = 0) y el juez no; es lo que
+//! esta a menos de la distancia de cerca de los ojos, casi siempre fuera de
+//! la pantalla. Cuantos pixeles son, lo dice el juez de `laminas` en el
+//! metal (M1 de `EL_FOCO`); si son muchos, el arreglo es poner la 3060 como
+//! D3D (`FRUSTUM_XYZ_CLIP`), no cambiar el juez.
 
 use crate::{check, Backend, Cull, Error, Frame, Image, Stats, Unorm8};
 
@@ -89,11 +110,59 @@ impl Backend for Cpu {
         let (mw, mh) = (frame.viewport.width as f32 * 0.5, frame.viewport.height as f32 * 0.5);
         let mut n = 0;
         for tri in frame.vertices.chunks_exact(3) {
+            let color = self.unorm8.pack(tri[0].color);
+            let (piezas, cuantas) = recorta([tri[0].position, tri[1].position, tri[2].position]);
+            for pieza in &piezas[..cuantas] {
+                n += self.triangulo(frame, pieza, color, (w, h), (mw, mh), pixels, zb.as_deref_mut()) as u32;
+            }
+        }
+        Ok(Stats { triangles: n, device_us: 0, prepare_us: 0, warm: false, in_flight: false, wait_us: 0 })
+    }
+}
+
+/// ** V2b: el triangulo recortado contra z >= 0 (el plano de cerca), en
+/// triangulos: uno si no cruza (el MISMO, sin tocar), o dos.
+fn recorta(t: [[f32; 4]; 3]) -> ([[[f32; 4]; 3]; 2], usize) {
+    if t.iter().all(|p| p[2] >= 0.0) {
+        return ([t, t], 1);
+    }
+    let mut poli = [[0f32; 4]; 4];
+    let mut m = 0;
+    for k in 0..3 {
+        let (a, b) = (t[k], t[(k + 1) % 3]);
+        if a[2] >= 0.0 {
+            poli[m] = a;
+            m += 1;
+        }
+        if (a[2] >= 0.0) != (b[2] >= 0.0) {
+            let s = a[2] / (a[2] - b[2]);
+            let mut c = [0f32; 4];
+            for i in 0..4 {
+                c[i] = a[i] + s * (b[i] - a[i]);
+            }
+            c[2] = 0.0;
+            poli[m] = c;
+            m += 1;
+        }
+    }
+    match m {
+        3 => ([[poli[0], poli[1], poli[2]], [poli[0], poli[1], poli[2]]], 1),
+        4 => ([[poli[0], poli[1], poli[2]], [poli[0], poli[2], poli[3]]], 2),
+        _ => ([t, t], 0),
+    }
+}
+
+impl Cpu {
+    /// Un triangulo ya delante del plano de cerca: `true` si se dibujo (no
+    /// descartado ni de area 0).
+    #[allow(clippy::too_many_arguments)]
+    fn triangulo(&self, frame: &Frame, tri: &[[f32; 4]; 3], color: u32, (w, h): (i64, i64), (mw, mh): (f32, f32), pixels: &mut [u32], mut zb: Option<&mut [f32]>) -> bool {
+        {
             let mut x = [0i64; 3];
             let mut y = [0i64; 3];
             let mut zn = [0f64; 3];
             for k in 0..3 {
-                let p = tri[k].position;
+                let p = tri[k];
                 let inv_w = 1.0 / p[3];
                 let (nx, ny) = (p[0] * inv_w, p[1] * inv_w);
                 x[k] = redondear_par((nx * mw + mw) * SUBPIXEL as f32);
@@ -103,7 +172,7 @@ impl Backend for Cpu {
             let mut area = arista(x[0], y[0], x[1], y[1], x[2], y[2]);
             // V2: delante es horario en la pantalla (area > 0, con y hacia abajo)
             if frame.cull == Cull::Back && area < 0 {
-                continue;
+                return false;
             }
             if area < 0 {
                 x.swap(1, 2);
@@ -112,11 +181,9 @@ impl Backend for Cpu {
                 area = -area;
             }
             if area == 0 {
-                continue;
+                return false;
             }
-            n += 1;
             let incluye = [top_left(x[1], y[1], x[2], y[2]), top_left(x[2], y[2], x[0], y[0]), top_left(x[0], y[0], x[1], y[1])];
-            let color = self.unorm8.pack(tri[0].color);
             let c = SUBPIXEL / 2;
             let (min_x, max_x) = (x[0].min(x[1]).min(x[2]), x[0].max(x[1]).max(x[2]));
             let (min_y, max_y) = (y[0].min(y[1]).min(y[2]), y[0].max(y[1]).max(y[2]));
@@ -147,7 +214,7 @@ impl Backend for Cpu {
                 }
             }
         }
-        Ok(Stats { triangles: n, device_us: 0, prepare_us: 0, warm: false, in_flight: false, wait_us: 0 })
+        true
     }
 }
 
@@ -327,6 +394,50 @@ mod pruebas {
             assert!(p.iter().all(|&x| x == p[0]) && en(&p, 32, 24) != 0xFF_0000, "z = {z}");
         }
         assert_eq!(en(&pinta(&cuadrado(-0.5, -0.5, 0.5, 0.5, 0.0, ROJO), true, Cull::None), 32, 24), 0xFF_0000, "z = 0 si");
+    }
+
+    /// Un punto de la vista (x a la derecha, y arriba, z delante) a recorte:
+    /// focal 1,5 en 4:3, cerca 0,1 y lejos 64 -- la de MUNDO --.
+    fn a_recorte(x: f32, y: f32, z: f32, color: [f32; 4]) -> Vertex {
+        Vertex { position: [x * 1.125, y * 1.5, (z - 0.1) * 1.0015649, z], color }
+    }
+
+    /// ** V2b: UN SUELO QUE PASA POR DEBAJO DE LA CAMARA. Dos triangulos, con
+    /// dos esquinas DETRAS de ella (w < 0): recortados contra el plano de
+    /// cerca, el suelo llega al borde de abajo de la pantalla y nada sube
+    /// por encima del horizonte. Sin recorte, la division les da la vuelta.
+    #[test]
+    fn the_near_plane_cuts_a_floor_under_the_camera() {
+        let c = |x: f32, z: f32| a_recorte(x, -1.0, z, VERDE);
+        // horario visto desde arriba (la normal sale hacia +y)
+        let suelo = vec![c(-5.0, -2.0), c(-5.0, 10.0), c(5.0, 10.0), c(-5.0, -2.0), c(5.0, 10.0), c(5.0, -2.0)];
+        for cull in [Cull::None, Cull::Back] {
+            let p = pinta(&suelo, true, cull);
+            // abajo del todo, en el centro y en las esquinas: suelo
+            for x in [0, 32, 63] {
+                assert_eq!(en(&p, x, 47), 0x00FF_00, "{cull:?}: ({x}, 47)");
+            }
+            // el horizonte del suelo (z = 10) cae en la fila 24 + 1,5 / 10 * 24 = 27,6
+            for y in 0..27 {
+                assert!((0..64).all(|x| en(&p, x, y) != 0x00FF_00), "{cull:?}: la fila {y} es cielo");
+            }
+        }
+        // todo detras de la camara: nada
+        let detras: Vec<Vertex> = suelo.iter().map(|v| a_recorte(v.position[0] / 1.125, -1.0, -v.position[3] - 1.0, VERDE)).collect();
+        assert!(pinta(&detras, true, Cull::None).iter().all(|&x| x != 0x00FF_00));
+    }
+
+    /// Lo que no cruza el plano de cerca no se toca: el mismo triangulo, sin
+    /// partir.
+    #[test]
+    fn what_does_not_cross_is_left_alone() {
+        let t = [[0.1, 0.2, 0.3, 1.0], [0.5, -0.2, 0.0, 1.0], [-0.4, 0.1, 0.9, 2.0]];
+        let (piezas, n) = recorta(t);
+        assert_eq!((n, piezas[0]), (1, t));
+        // uno detras: un cuadrilatero, dos triangulos, todos con z >= 0
+        let (piezas, n) = recorta([[0.0, 0.0, 0.5, 1.0], [1.0, 0.0, 0.5, 1.0], [0.0, 1.0, -0.5, -0.4]]);
+        assert_eq!(n, 2);
+        assert!(piezas.iter().flatten().all(|p| p[2] >= 0.0 && p[3] > 0.0));
     }
 
     /// Profundidad sin z-buffer, en la CPU: no se dibuja (Error::Image).

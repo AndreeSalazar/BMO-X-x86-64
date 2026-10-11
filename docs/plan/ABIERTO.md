@@ -1,13 +1,13 @@
 <!-- GENERADO por toolchain/tools/planes. No se edita a mano. -->
 
-# LO QUE FALTA -- las casillas abiertas de los 78 planes
+# LO QUE FALTA -- las casillas abiertas de los 79 planes
 
 > Generado por `toolchain/tools/planes`. **El build comprueba que
 > este fichero y los planes dicen lo mismo**, asi que no puede
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   745 casillas ABIERTAS en 69 planes
+   754 casillas ABIERTAS en 70 planes
    603 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
@@ -54,14 +54,14 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] S1b -- la Biblioteca muestra lo de ESTRATOS. Hoy
 - ... y 43 mas
 
-## [`PLAN_VERRANO.md`](PLAN_VERRANO.md) -- 37 abiertas, 10 hechas
+## [`PLAN_VERRANO.md`](PLAN_VERRANO.md) -- 38 abiertas, 10 hechas
 
 *PLAN VERRANO -- la API de dibujo de BMO-X, con el BSF debajo*
 
 - [ ] V2 -- la profundidad y el culling (X5b de
+- [ ] V2b -- el recorte de cerca (MC1 de PLAN_MUNDO.md).
 - [ ] V3 -- las constantes. La matriz en un buffer y el programa de
-- [ ] V3b -- EL JUEZ DEL SASS: si la GPU calla, el compilador habla.
-- ... y 34 mas
+- ... y 35 mas
 
 ## [`PLAN_LA_LUDOTECA.md`](PLAN_LA_LUDOTECA.md) -- 32 abiertas, 14 hechas
 
@@ -277,6 +277,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] H1 -- LA TECLA DEL GESTOR: CTRL (2026-09-22)
 - [ ] H2 -- EL BORDE DE FOCO Y LOS HUECOS (2026-09-22)
 - [ ] H3 -- LA BARRA LATERAL EN VIVO (2026-09-22)
+- ... y 5 mas
+
+## [`PLAN_MUNDO.md`](PLAN_MUNDO.md) -- 8 abiertas, 0 hechas
+
+*PLAN MUNDO -- el Minecraft propio, en TITAN++, por VERRANO*
+
+- [ ] MC1 -- el mundo de bloques, la camara y picar. Un mundo de
+- [ ] MC2 -- mirar arriba y abajo, y la mira. El cabeceo de la camara
+- [ ] MC3 -- la fisica. Gravedad, saltar, y el jugador como una CAJA
 - ... y 5 mas
 
 ## [`PLAN_PROTON_X.md`](PLAN_PROTON_X.md) -- 8 abiertas, 8 hechas

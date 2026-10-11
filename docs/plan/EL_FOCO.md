@@ -521,6 +521,10 @@ linea dice que se mira y que seria un NO.
        (V2, la profundidad)    atras cruza POR DETRAS del de    dentro, o el de
                                delante; la consola: el juez     atras encima;
                                `... la 3060 da lo MISMO`        juez DISTINTO
+   MC1 MUNDO, los bloques      `run apps/mundo.bex`: el suelo   ver la lista de
+       (V2b, el recorte de     hasta abajo; w s a d q e r f     la seccion 3 de
+       cerca)                  andan; x quita, c pone tablas;   PLAN_MUNDO
+                               el juez de `laminas`
    TB1 TINTA, el lienzo        desde su icono: pintar, la goma  ver la lista de
                                (derecho), s guarda el PNG       5b2 de PLAN_LA_
                                                                 TINTA

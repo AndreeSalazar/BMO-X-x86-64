@@ -300,6 +300,18 @@ la SPH (128 B) y detras las instrucciones.
       metal:** `run titan/doscubos.bex` -- la 3060 con Z EN RAM, la sombra y
       el motor de copia (el camino de BMOX-12 `-z enram`) --, y el juez de
       `laminas` dice si da lo mismo.
+- [ ] **V2b -- el recorte de cerca** (MC1 de [`PLAN_MUNDO.md`](PLAN_MUNDO.md)).
+      Un triangulo con un vertice detras de los ojos (z < 0 en recorte) se
+      recorta contra z = 0, como D3D: un suelo que pasa por debajo de la
+      camara se ve hasta el borde de la pantalla. **11-10, HECHO en el
+      anfitrion:** el juez de la CPU (`cpu.rs`, `recorta`: Sutherland-Hodgman,
+      uno o dos triangulos, el mismo sentido); lo que no cruza ni se toca (las
+      huellas de D3D12 y las 16 pruebas de antes, iguales); probado con un
+      suelo bajo la camara y saboteado (sin recorte, caen dos). **Falta el
+      metal:** la 3060 de hoy recorta en w = 0 y SUJETA la z por pixel
+      (`RECORTE_Z`); el juez de `laminas` dice cuantos pixeles difieren con
+      `run apps/mundo.bex`. Si son muchos, se pone la 3060 como D3D
+      (`FRUSTUM_XYZ_CLIP`), no se cambia el juez.
 - [ ] **V3 -- las constantes.** La matriz en un buffer y el programa de
       vertice multiplicando (lo que hace D3D): la pregunta del FMA, medida.
       **Como se sabe:** la huella de D3D12 sale con las cuentas en la 3060.
@@ -340,6 +352,17 @@ la SPH (128 B) y detras las instrucciones.
 > corrio en el metal con los programas de BMOX-12 que traduce PROTON-X (E5,
 > 28-09 11:37). Lo que V4 y M4 piden sigue abierto: que `cubo.bsf` deje el
 > SASS a mano (el "Queda" de E5). V3b es J0-J2 de ese plan, hechos.
+
+> **11-10, el propietario:** *"recuerda reemplazamos el SPIR-V [...] pero
+> si es VULKAN simplemente es esto que es VERRANO que toma su lugar que come
+> VULKAN y DX12 (y en general claro)"*. Dicho para que no se lea al reves:
+> **VERRANO no va DEBAJO de Vulkan ni de D3D12: ocupa su sitio.** Lo de la
+> casa (TITAN++, MUNDO, el escritorio) habla VERRANO directo, sin SPIR-V ni
+> HLSL por medio; lo de FUERA (un juego de Vulkan, uno de D3D12 por
+> PROTON-X) se TRADUCE a VERRANO y se lo come. V4 queda como lo dice la
+> nota del 08-10: el emisor existe y su entrada es el Programa de la casa;
+> SPIR-V solo es algo que se lee de un juego ajeno (V5), nunca la lengua
+> de BMO-X.
 
 - [ ] **V5 -- Vulkan a VERRANO.** Las 67 funciones de vkQuake 0.50
       (Ludoteca 16) traducidas a VERRANO: el primer juego por la 3060.

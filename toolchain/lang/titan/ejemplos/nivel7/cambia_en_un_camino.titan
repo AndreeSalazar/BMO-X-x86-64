@@ -1,0 +1,20 @@
+# espera: BIEN
+# sale: true [0, 9, 0]
+# sale: false [0, 9, 0]
+# Un `mut` prestado que cambia en UN camino cuenta como cambiado: `marca` se
+# va pronto por el otro, sin tocarlo, y eso no es romper la promesa (MC1 de
+# PLAN_MUNDO, 11-10: el juez lo miraba en cada `return` por separado)
+mod main "un mut que cambia en un camino y vuelve pronto por otro"
+
+fn marca(mut t: [int; 3], i: int) -> bool
+    if t[i] != 0
+        return false
+    t[i] = 9
+    return true
+
+fn main()
+    let mut t = [0, 0, 0]
+    let a = marca(mut t, 1)
+    print(a, " ", t)
+    let b = marca(mut t, 1)
+    print(b, " ", t)

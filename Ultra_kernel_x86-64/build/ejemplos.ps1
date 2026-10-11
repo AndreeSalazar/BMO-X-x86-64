@@ -633,6 +633,28 @@ $cRecursos = @(
             '....oooooooo....'
         ) }
     ) }
+    # ** LA CARA DE MUNDO (MC1 de PLAN_MUNDO, 2026-10-11): un bloque de
+    # hierba en perspectiva -- su cara de arriba y sus dos lados --.
+    @{ bex = 'apps\mundo.bex'; recursos = @(
+        @{ nombre = 'icono'; icono = @(
+            '................',
+            '.......oo.......',
+            '.....oovvoo.....',
+            '...oovvvvvvoo...',
+            '.oovvvvvvvvvvoo.',
+            '.ottvvvvvvvvsso.',
+            '.ottttvvvvsssso.',
+            '.ottttttsssssso.',
+            '.ottttttsssssso.',
+            '.ottttttsssssso.',
+            '.ottttttsssssso.',
+            '.ottttttsssssso.',
+            '..oottttssssoo..',
+            '....oottssoo....',
+            '......oooo......',
+            '................'
+        ) }
+    ) }
     # ** LA CARA DE TINTA (TB1 de PLAN_LA_TINTA, 2026-10-10): una hoja con un
     # trazo de tinta, y la pluma que lo hizo.
     @{ bex = 'apps\tinta.bex'; recursos = @(
@@ -692,6 +714,11 @@ $BICO_PALETA = @{
     # Los dos del bloc de notas: el azul de su barra y el gris de sus renglones.
     'b' = @(0xFF, 0xA6, 0x58, 0xFF)
     'g' = @(0x90, 0x83, 0x76, 0xFF)
+    # Los tres de MUNDO (en BGRA, como todos): la hierba y sus dos lados de tierra.
+    # (letras que no tenia nadie: las claves de PowerShell no miran mayusculas)
+    'v' = @(0x30, 0xAA, 0x4C, 0xFF)
+    't' = @(0x24, 0x48, 0x72, 0xFF)
+    's' = @(0x18, 0x30, 0x4C, 0xFF)
 }
 
 function Compilar-Ejemplos {
@@ -854,6 +881,10 @@ try {
         # minimo -- pincel redondo con antialias, goma y PNG --, el primer
         # peldanio del Adobe + Clip Studio Paint propio. Una APP: con su icono.
         @{ src = 'Ultra_userspace\apps\tinta\src\main.titan'; out = 'tinta.bex'; dir = 'apps' },
+        # ** MUNDO (MC1 de docs/plan/PLAN_MUNDO.md, 2026-10-11): el primer
+        # peldanio del Minecraft propio -- bloques en 3D por VERRANO, una
+        # camara que anda, quitar y poner --. Una APP: con su icono.
+        @{ src = 'Ultra_userspace\apps\mundo\src\main.titan'; out = 'mundo.bex'; dir = 'apps' },
         # ** BICO y PNG (corte 4e de INTI, 2026-10-10): las herramientas de
         # imagen, de TITAN++ (`director.crea`, `escribe`, `cierra`). En el
         # metal: `run titan/bico.bex` (datos/foto.bmp y foto.qoi a BICO, sus

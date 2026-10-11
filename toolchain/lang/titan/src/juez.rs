@@ -146,6 +146,11 @@ fn judge_fn(f: &Function) -> Result<(), Message> {
             break;
         }
     }
+    // ** A `mut` alive at a `return` must have changed on SOME way out, not
+    // on every one: "nunca" is never, and a `return false` that leaves early
+    // without touching it is not the promise broken (the same as `meet`: a
+    // change on one side counts). Judged after the walk, with every way seen.
+    let mut out: Vec<Option<(usize, At, bool)>> = vec![None; f.locals.len()];
     for (i, b) in f.blocks.iter().enumerate() {
         // No way leads here (a line after a `break`): nothing in it runs.
         let Some(mut state) = entry[i].clone() else { continue };
@@ -174,7 +179,12 @@ fn judge_fn(f: &Function) -> Result<(), Message> {
                         &format!("pon un `return` al final de `fn {}`, para el caso que falta", f.name),
                     ));
                 }
-                never_changed(f, &state)?;
+                for (l, st) in state.iter().enumerate() {
+                    if let State::Alive { since, at, mutable: true, changed } = *st {
+                        let seen = out[l].get_or_insert((since, at, false));
+                        seen.2 |= changed;
+                    }
+                }
             }
             End::Branch { cond, .. } => {
                 let mut reads = Vec::new();
@@ -186,7 +196,7 @@ fn judge_fn(f: &Function) -> Result<(), Message> {
             End::Jump(_) => {}
         }
     }
-    Ok(())
+    never_changed(f, &out)
 }
 
 /// A read of `l` at `at`: it must be alive.
@@ -424,9 +434,9 @@ fn step(f: &Function, op: &Op, state: &mut [State]) -> Result<(), Message> {
 /// to whoever reads ("this one moves"), and a promise nobody keeps makes
 /// every `mut` worth less. Rust only warns; TITAN++ says it, because the
 /// reader -- and later the borrow checker -- trusts the word.
-fn never_changed(f: &Function, state: &[State]) -> Result<(), Message> {
-    for (l, st) in state.iter().enumerate() {
-        if let State::Alive { since, at, mutable: true, changed: false } = *st {
+fn never_changed(f: &Function, out: &[Option<(usize, At, bool)>]) -> Result<(), Message> {
+    for (l, seen) in out.iter().enumerate() {
+        if let Some((since, at, false)) = *seen {
             return Err(never(f, l, since, at));
         }
     }

@@ -475,7 +475,12 @@ fn main()
 **Se dice en los DOS lados** (`f(mut x)`, no solo `fn f(mut n)`): quien lee la
 llamada sabe que le puede pasar a `x` sin abrir la funcion -- en C, `f(&x)` solo
 dice "quiza". Y un `mut` en un parametro que nunca cambia es T0057, como el de
-un `let`: pide una copia.
+un `let`: pide una copia. **Nunca es nunca** (11-10, MC1 de `PLAN_MUNDO`): si
+cambia en UN camino, cuenta, aunque otro vuelva pronto sin tocarlo
+(`if t[i] != 0` / `return false`) -- lo mismo que donde dos caminos se juntan
+(`ejemplos/nivel7/cambia_en_un_camino.titan`). Y en la maquina, prestado es un
+puntero: una tabla de 2000 prestada hacia dentro no gasta su tamanio en cada
+marco (`emisor-x86_64/tests/pila.rs`).
 
 ### La precision de COBOL (el propietario: "precision fuerte para no generar bug")
 

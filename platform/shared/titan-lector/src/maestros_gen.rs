@@ -28,7 +28,7 @@ pub static FAMILIES: [&str; 15] = [
 ];
 
 /// Cuantos hay: la TAB mide sus tablas con esto.
-pub const COUNT: usize = 43;
+pub const COUNT: usize = 44;
 
 /// `static`, no `const`: UNA copia en `.rodata`, que Ring 3 lee por indice
 /// sin traerla a una pila de 64 KiB.
@@ -252,6 +252,17 @@ pub static MASTERS: [Master; COUNT] = [
         typed: &[],
         out: &["ana tiene 1250.00", "tras el interes: 1278.13", "tras pagar 99.99: 1178.14", "el interes redondeado a la vista: 28.1250 -> 28.13"],
         source: "# sale: ana tiene 1250.00\n# sale: tras el interes: 1278.13\n# sale: tras pagar 99.99: 1178.14\n# sale: el interes redondeado a la vista: 28.1250 -> 28.13\n# precision de COBOL: cada saldo declara sus cifras (dec(9, 2)) y el redondeo se ESCRIBE\nmod main \"un banco que no pierde un centimo\"\n\ntype Cuenta\n    titular: text\n    saldo: dec(9, 2)\n\nfn interes(saldo: dec(9, 2), tasa: dec(5, 4)) -> dec(9, 2)\n    # 1250.00 * 0.0225 = 28.125: tres decimales, y el saldo guarda dos\n    return round(saldo * tasa, 2)\n\nfn abona(mut c: Cuenta, tasa: dec(5, 4))\n    c.saldo = c.saldo + interes(c.saldo, tasa)\n\nfn paga(mut c: Cuenta, importe: dec(9, 2))\n    c.saldo = c.saldo - importe\n\nfn main()\n    let mut ana = Cuenta { titular: \"ana\", saldo: 1250 }\n    print(ana.titular, \" tiene \", ana.saldo)\n    abona(mut ana, 0.0225)\n    print(\"tras el interes: \", ana.saldo)\n    paga(mut ana, 99.99)\n    print(\"tras pagar 99.99: \", ana.saldo)\n    print(\"el interes redondeado a la vista: \", 1250.00 * 0.0225, \" -> \", interes(1250.00, 0.0225))\n",
+    },
+    Master {
+        name: "cambia_en_un_camino",
+        level: 7,
+        why: "PLAN_MUNDO, 11-10: el juez lo miraba en cada `return` por separado)",
+        says: "un mut que cambia en un camino y vuelve pronto por otro",
+        words: &["fn", "let", "mut", "if", "return"],
+        asks: Permissions::NONE,
+        typed: &[],
+        out: &["true [0, 9, 0]", "false [0, 9, 0]"],
+        source: "# sale: true [0, 9, 0]\n# sale: false [0, 9, 0]\n# Un `mut` prestado que cambia en UN camino cuenta como cambiado: `marca` se\n# va pronto por el otro, sin tocarlo, y eso no es romper la promesa (MC1 de\n# PLAN_MUNDO, 11-10: el juez lo miraba en cada `return` por separado)\nmod main \"un mut que cambia en un camino y vuelve pronto por otro\"\n\nfn marca(mut t: [int; 3], i: int) -> bool\n    if t[i] != 0\n        return false\n    t[i] = 9\n    return true\n\nfn main()\n    let mut t = [0, 0, 0]\n    let a = marca(mut t, 1)\n    print(a, \" \", t)\n    let b = marca(mut t, 1)\n    print(b, \" \", t)\n",
     },
     Master {
         name: "hundir",

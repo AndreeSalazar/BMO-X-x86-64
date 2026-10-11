@@ -401,8 +401,9 @@ casa: primero lo que no toca nada, despues lo que pide el metal.
    D2  el nombre TINTA       propuesto  --                   --
    D4  la pagina (B4 / ppp)  no         --                   --
    TB2 capas y fusion        no         --                   --
-   Minecraft en 3D, ILLAPA   en orden,  --                   --
-                             despues
+   Minecraft en 3D (MUNDO)   en orden   MC1 si               POR PROBAR
+                                        (PLAN_MUNDO.md)
+   ILLAPA                    despues    --                   --
 ```
 
 **Lo que se prueba en el metal, en este orden** (y que seria un NO):
