@@ -8,8 +8,14 @@
 //! ```text
 //!    a d   la camara a un lado y al otro      w s   mas cerca, mas lejos
 //!    r f   arriba, abajo                      m     la memoria de la luz si / no
-//!    Esc o q   cierra
+//!    c     completar si / no (VE5)            Esc o q   cierra
 //! ```
+//!
+//! **COMPLETAR** (VE5): lo que se ve no es la imagen cruda sino la
+//! COMPLETADA -- el filtro que quita el grano guiado por la superficie de
+//! cada pixel (`Vivo::completa`, el juez de lo que hara la 3060) --, con sus
+//! pasadas tambien repartidas por filas: desde el primer fotograma despues
+//! de mover la camara se ve limpia.
 //!
 //! La consola dice, cada 32 fotogramas, cuanto tarda uno y en cuantas partes
 //! va: lo que se mira en el metal (fila VE2 de EL_FOCO).
@@ -35,7 +41,7 @@ use core::sync::atomic::{AtomicUsize, Ordering::Relaxed};
 
 use bmo_userland as bmo;
 use bmo_verrano_trama::estudio::{caja_de_cornell, pelicula, Camara, Escena, V3};
-use bmo_verrano_trama::vivo::{Apunte, Cuaderno, Memoria, Parte, Vivo, APUNTES_POR_CAMINO};
+use bmo_verrano_trama::vivo::{Apunte, Cuaderno, Guia, Memoria, Parte, Vivo, APUNTES_POR_CAMINO};
 use window::{Input, Window};
 
 #[global_allocator]
@@ -82,6 +88,27 @@ fn filas(k: u32, n: u32) -> (u32, u32) {
     (k * H / n, (k + 1) * H / n)
 }
 
+/// Las pasadas de COMPLETAR (a 320x240, tres: `completa_prueba`).
+const PASADAS: u32 = 3;
+
+/// `parte(k)` en todos los nucleos; lo que un obrero no acabe, aqui.
+fn en_todos(n: u32, parte: &(dyn Fn(u32) + Sync)) {
+    let mal = obreros::repartir(n, parte);
+    for k in 1..n {
+        if mal & 1 << k != 0 {
+            parte(k);
+        }
+    }
+}
+
+/// Las filas `y0..y1` de un bufer de toda la imagen, para UNA parte.
+///
+/// SAFETY: quien llama da a cada parte filas que no pisa ninguna otra, y el
+/// bufer (de `T`, `W * H` de largo) vive todo el reparto.
+unsafe fn sus_filas<'a, T>(base: usize, y0: u32, y1: u32) -> &'a mut [T] {
+    unsafe { core::slice::from_raw_parts_mut((base as *mut T).add((y0 * W) as usize), ((y1 - y0) * W) as usize) }
+}
+
 #[no_mangle]
 pub extern "C" fn _start() -> ! {
     let Some(bloque) = bmo::Memoria::request(PARA_MONTON) else {
@@ -100,14 +127,18 @@ pub extern "C" fn _start() -> ! {
     let (objetos, luz, base) = caja_de_cornell();
     let mut ojo = base.ojo;
     let mut con_memoria = true;
+    let mut completar = true;
     let mut vivo = Vivo::nuevo(W, H, Some(memoria()));
     let mut nuevas: Vec<V3> = vec![[0.0; 3]; (W * H) as usize];
     let mut hojas: Vec<Apunte> = vec![Apunte { p: [0.0; 3], n: [0.0; 3], l: [0.0; 3] }; (W * H) as usize * APUNTES_POR_CAMINO];
+    // los de COMPLETAR: la guia nueva y la luz, de una pasada a la otra
+    let mut guia: Vec<Guia> = vec![Guia::default(); (W * H) as usize];
+    let (mut luz_a, mut luz_b): (Vec<V3>, Vec<V3>) = (vec![[0.0; 3]; (W * H) as usize], vec![[0.0; 3]; (W * H) as usize]);
     say("ESTUDIO: VERRANO ESTUDIO VIVO -- la luz estilo RenderMan que se recuerda (VE2)\n");
     let mut desde = ms();
+    let mut movida = true;
     loop {
         // la entrada: mover la camara olvida la imagen, NO la memoria
-        let mut movida = false;
         while let Some(ev) = win.next() {
             if let Input::Char(c) = ev {
                 match c {
@@ -123,17 +154,31 @@ pub extern "C" fn _start() -> ! {
                         vivo = Vivo::nuevo(W, H, con_memoria.then(memoria));
                         say(if con_memoria { "ESTUDIO: con la memoria de la luz\n" } else { "ESTUDIO: SIN la memoria de la luz\n" });
                     }
+                    b'c' => {
+                        completar = !completar;
+                        say(if completar { "ESTUDIO: COMPLETADA\n" } else { "ESTUDIO: cruda\n" });
+                        continue;
+                    }
                     _ => continue,
                 }
                 movida = true;
             }
         }
+        let escena = Escena { objetos: &objetos, luz, camara: Camara { ojo, ..base } };
+        let n = obreros::cuantas();
         if movida {
             vivo.olvida_imagen();
+            // la guia de la camara nueva (un rayo por pixel, sin luz), por filas
+            let (v, e, g) = (&vivo, &escena, guia.as_mut_ptr() as usize);
+            en_todos(n, &move |k: u32| {
+                let (y0, y1) = filas(k, n);
+                // SAFETY: las filas de la parte k son solo suyas.
+                v.guia_en(e, y0, y1, unsafe { sus_filas(g, y0, y1) });
+            });
+            core::mem::swap(&mut vivo.guia, &mut guia);
+            movida = false;
         }
-        let escena = Escena { objetos: &objetos, luz, camara: Camara { ojo, ..base } };
         // ** el fotograma, repartido por filas entre los nucleos
-        let n = obreros::cuantas();
         let b = Buferes { nuevas: nuevas.as_mut_ptr() as usize, hojas: hojas.as_mut_ptr() as usize, usadas: [const { AtomicUsize::new(0) }; obreros::MAX as usize] };
         {
             let (v, e, b) = (&vivo, &escena, &b);
@@ -148,13 +193,7 @@ pub extern "C" fn _start() -> ! {
                 v.calcula_en(e, y0, y1, Parte::Cuarto, mios, &mut c);
                 b.usadas[k as usize].store(c.n, Relaxed);
             };
-            let mal = obreros::repartir(n, &parte);
-            // lo que no salio, aqui
-            for k in 1..n {
-                if mal & 1 << k != 0 {
-                    parte(k);
-                }
-            }
+            en_todos(n, &parte);
         }
         for k in 0..n {
             let (y0, y1) = filas(k, n);
@@ -163,16 +202,48 @@ pub extern "C" fn _start() -> ! {
             vivo.pon_filas(y0, y1, Parte::Cuarto, &nuevas[a..z], &hojas[h0..h0 + b.usadas[k as usize].load(Relaxed)]);
         }
         vivo.cierra();
-        // ** a la ventana: la pelicula, al doble
-        let img = vivo.imagen();
-        for y in 0..H * ESCALA {
-            for x in 0..W * ESCALA {
-                let l = img[((y / ESCALA) * W + x / ESCALA) as usize];
-                if x < win.w && y < win.h {
-                    // SAFETY: (x, y) dentro de la ventana.
-                    unsafe { *win.px.add((y * win.w + x) as usize) = 0xFF00_0000 | pelicula(l, 1.0) };
+        // ** COMPLETAR, cada pasada por filas en todos los nucleos (entre
+        // una y otra se espera a todos: la siguiente lee las filas vecinas)
+        let pasadas = if completar { PASADAS } else { 0 };
+        {
+            let v = &vivo;
+            let a = luz_a.as_mut_ptr() as usize;
+            en_todos(n, &move |k: u32| {
+                let (y0, y1) = filas(k, n);
+                // SAFETY: las filas de la parte k son solo suyas.
+                v.separa(y0, y1, unsafe { sus_filas(a, y0, y1) });
+            });
+        }
+        let mut tolerancia = vivo.tolerancia();
+        for paso in 0..pasadas {
+            let (v, lee, b) = (&vivo, &luz_a[..], luz_b.as_mut_ptr() as usize);
+            en_todos(n, &move |k: u32| {
+                let (y0, y1) = filas(k, n);
+                // SAFETY: las filas de la parte k son solo suyas (y `lee` es
+                // el OTRO bufer).
+                v.alisa(paso, tolerancia, lee, y0, y1, unsafe { sus_filas(b, y0, y1) });
+            });
+            core::mem::swap(&mut luz_a, &mut luz_b);
+            tolerancia *= 0.5;
+        }
+        // ** a la ventana: otra vez por el color de cada material, y la
+        // pelicula, al doble
+        {
+            let (v, a, px, ww, wh) = (&vivo, luz_a.as_mut_ptr() as usize, win.px as usize, win.w, win.h);
+            en_todos(n, &move |k: u32| {
+                let (y0, y1) = filas(k, n);
+                // SAFETY: las filas de la parte k son solo suyas, en la luz y
+                // en la ventana (las filas y0..y1, al doble).
+                let mia: &mut [V3] = unsafe { sus_filas(a, y0, y1) };
+                v.vuelve(y0, y1, mia);
+                for y in y0 * ESCALA..(y1 * ESCALA).min(wh) {
+                    for x in 0..(W * ESCALA).min(ww) {
+                        let l = mia[((y / ESCALA - y0) * W + x / ESCALA) as usize];
+                        // SAFETY: (x, y) dentro de la ventana, en filas de k.
+                        unsafe { *(px as *mut u32).add((y * ww + x) as usize) = 0xFF00_0000 | pelicula(l, 1.0) };
+                    }
                 }
-            }
+            });
         }
         win.present();
         if vivo.fotograma % 32 == 0 {
@@ -183,7 +254,8 @@ pub extern "C" fn _start() -> ! {
             numero(n as u64);
             say(" partes; fotograma ");
             numero(vivo.fotograma as u64);
-            say(if con_memoria { ", con memoria\n" } else { ", sin memoria\n" });
+            say(if con_memoria { ", con memoria" } else { ", sin memoria" });
+            say(if completar { ", completada\n" } else { ", cruda\n" });
             desde = ahora;
         }
     }

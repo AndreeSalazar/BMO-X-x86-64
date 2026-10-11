@@ -174,6 +174,42 @@ pub struct Trozo {
     pub caminos: u64,
 }
 
+/// **La guia de un pixel** (VE5): lo que ve primero su centro -- la normal,
+/// la distancia y el color de su material --. Con ella, COMPLETAR sabe que
+/// pixeles son de la misma superficie.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct Guia {
+    pub n: V3,
+    pub z: f32,
+    pub albedo: V3,
+}
+
+/// Cuanto ruido se perdona al completar, con UNA muestra por pixel (la luz
+/// relativa: 2 es el doble de la media de los dos); con n, entre raiz(n).
+pub const FRENO: f32 = 2.0;
+
+/// El nucleo de 5 de la B3-spline (el de "a trous": 1 4 6 4 1, / 16).
+const NUCLEO: [f32; 5] = [1.0 / 16.0, 1.0 / 4.0, 3.0 / 8.0, 1.0 / 4.0, 1.0 / 16.0];
+
+/// **El peso entre dos pixeles** al completar, como (arriba, abajo) -- la
+/// division se deja para el final, UNA por vecino --: alto si son la MISMA
+/// superficie (casi la misma normal, casi la misma distancia, el mismo
+/// material), cero si no -- asi el ruido de la luz se alisa y los bordes se
+/// quedan --. `lejos`: 24 entre lo lejos que estan (a trous: 1, 2, 4...).
+#[inline(always)]
+fn peso(p: &Guia, q: &Guia, lejos: f32) -> (f32, f32) {
+    // lo mas barato primero: otro material, otra superficie
+    if (p.albedo[0] - q.albedo[0]).abs() >= 0.05 || (p.albedo[1] - q.albedo[1]).abs() >= 0.05 || (p.albedo[2] - q.albedo[2]).abs() >= 0.05 {
+        return (0.0, 1.0);
+    }
+    let mut wn = (p.n[0] * q.n[0] + p.n[1] * q.n[1] + p.n[2] * q.n[2]).max(0.0);
+    for _ in 0..5 {
+        wn *= wn; // coseno^32: un borde de 15 grados ya casi no pasa
+    }
+    let dz = (p.z - q.z).abs() * lejos;
+    (wn, 1.0 + dz * dz)
+}
+
 /// **La imagen viva**: la luz acumulada de cada pixel y cuantas muestras
 /// lleva, el fotograma, y la memoria (si se usa).
 #[derive(Clone, Debug)]
@@ -184,12 +220,14 @@ pub struct Vivo {
     cuenta: Vec<u32>,
     pub fotograma: u32,
     pub memoria: Option<Memoria>,
+    /// La guia de cada pixel (VE5), de la camara de ahora.
+    pub guia: Vec<Guia>,
 }
 
 impl Vivo {
     pub fn nuevo(ancho: u32, alto: u32, memoria: Option<Memoria>) -> Vivo {
         let n = (ancho * alto) as usize;
-        Vivo { ancho, alto, suma: vec![[0.0; 3]; n], cuenta: vec![0; n], fotograma: 0, memoria }
+        Vivo { ancho, alto, suma: vec![[0.0; 3]; n], cuenta: vec![0; n], fotograma: 0, memoria, guia: vec![Guia::default(); n] }
     }
 
     /// La camara se movio: la imagen acumulada ya no vale (la memoria del
@@ -197,6 +235,140 @@ impl Vivo {
     pub fn olvida_imagen(&mut self) {
         self.suma.fill([0.0; 3]);
         self.cuenta.fill(0);
+    }
+
+    /// **La guia de cada pixel** con la camara de `e` (un rayo por el centro
+    /// de cada uno, sin luz: barato). Se hace cuando la camara cambia.
+    pub fn prepara_guia(&mut self, e: &Escena) {
+        let mut guia = core::mem::take(&mut self.guia);
+        self.guia_en(e, 0, self.alto, &mut guia);
+        self.guia = guia;
+    }
+
+    /// La guia de las filas `y0..y1` en `fuera` (solo esas filas; sin
+    /// monton: un obrero la hace).
+    pub fn guia_en(&self, e: &Escena, y0: u32, y1: u32, fuera: &mut [Guia]) {
+        for y in y0..y1.min(self.alto) {
+            for x in 0..self.ancho {
+                let (o, d) = e.rayo_centro(x, y, self.ancho, self.alto);
+                fuera[((y - y0) * self.ancho + x) as usize] = e.guia(o, d).map_or(Guia::default(), |(n, z, albedo)| Guia { n, z, albedo });
+            }
+        }
+    }
+
+    /// **COMPLETAR** (VE5, el juez de lo que hara la 3060): lo que se ve, sin
+    /// el ruido -- la luz se separa del color del material, se alisa con el
+    /// filtro "a trous" (5x5, `pasos` veces, cada vez el doble de lejos)
+    /// solo entre pixeles de la MISMA superficie (la guia), y se vuelve a
+    /// multiplicar por su color --. Los bordes y las sombras de un objeto
+    /// sobre otro se quedan; el grano de la luz, se va. La idea de SVGF, la
+    /// de los motores con path tracing en tiempo real.
+    pub fn completa(&self, pasos: u32) -> Vec<V3> {
+        let n = (self.ancho * self.alto) as usize;
+        let (mut c, mut sig) = (vec![[0.0; 3]; n], vec![[0.0; 3]; n]);
+        self.separa(0, self.alto, &mut c);
+        let mut tolerancia = self.tolerancia();
+        for paso in 0..pasos {
+            self.alisa(paso, tolerancia, &c, 0, self.alto, &mut sig);
+            core::mem::swap(&mut c, &mut sig);
+            tolerancia *= 0.5;
+        }
+        self.vuelve(0, self.alto, &mut c);
+        c
+    }
+
+    /// El primer freno por la LUZ, con las muestras de ahora (despues, cada
+    /// pasada lo parte por 2).
+    pub fn tolerancia(&self) -> f32 {
+        FRENO / bmo_prometeo::programa::raiz(self.muestras_medias().max(1.0))
+    }
+
+    /// COMPLETAR, paso 1, de las filas `y0..y1` en `fuera` (solo esas
+    /// filas): lo que se ve PARTIDO por el color de su material -- la luz
+    /// sola, que es lo que tiene grano --.
+    pub fn separa(&self, y0: u32, y1: u32, fuera: &mut [V3]) {
+        let w = self.ancho as usize;
+        for y in y0..y1.min(self.alto) {
+            for x in 0..w {
+                let (i, k) = (y as usize * w + x, (y - y0) as usize * w + x);
+                let l = self.visto(i);
+                let a = self.guia[i].albedo.map(|a| a.max(0.01));
+                fuera[k] = [l[0] / a[0], l[1] / a[1], l[2] / a[2]];
+            }
+        }
+    }
+
+    /// COMPLETAR, el final: la luz alisada `y0..y1` (solo esas filas), otra
+    /// vez por el color de su material.
+    pub fn vuelve(&self, y0: u32, y1: u32, luz: &mut [V3]) {
+        let w = self.ancho as usize;
+        for y in y0..y1.min(self.alto) {
+            for x in 0..w {
+                let (i, k) = (y as usize * w + x, (y - y0) as usize * w + x);
+                let a = self.guia[i].albedo.map(|a| a.max(0.01));
+                luz[k] = [luz[k][0] * a[0], luz[k][1] * a[1], luz[k][2] * a[2]];
+            }
+        }
+    }
+
+    /// COMPLETAR, una pasada "a trous" (la `paso`: los vecinos a 2^paso)
+    /// de las filas `y0..y1`: lee TODA la luz `c` y escribe solo esas filas
+    /// en `fuera`. Sin monton: las filas se reparten entre los nucleos, y
+    /// entre pasada y pasada se espera a todos.
+    pub fn alisa(&self, paso: u32, tolerancia: f32, c: &[V3], y0: u32, y1: u32, fuera: &mut [V3]) {
+        let (w, h) = (self.ancho as i32, self.alto as i32);
+        let s = 1i32 << paso;
+        // ** el freno por la LUZ (el de SVGF): dos pixeles cuya luz difiere
+        // mas de lo que explica el ruido no se mezclan -- la sombra de una
+        // esfera sobre el suelo es la MISMA superficie, pero no la misma luz
+        // --. El ruido de n muestras va con 1/raiz(n), y cada pasada lo baja.
+        let luz = |v: &V3| 0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2];
+        let lejos = 24.0 / s as f32;
+        for y in y0 as i32..(y1 as i32).min(h) {
+            for x in 0..w {
+                let i = (y * w + x) as usize;
+                let gp = &self.guia[i];
+                let lp = luz(&c[i]);
+                // el del centro, con su peso entero
+                let mut pesos = NUCLEO[2] * NUCLEO[2];
+                let mut suma = por(c[i], pesos);
+                for (j, kj) in NUCLEO.iter().enumerate() {
+                    let qy = y + (j as i32 - 2) * s;
+                    if qy < 0 || qy >= h {
+                        continue;
+                    }
+                    // la fila del vecino, de una vez (sin mirar los limites
+                    // de la imagen en cada uno)
+                    let fila = (qy * w) as usize..((qy + 1) * w) as usize;
+                    let (cf, gf) = (&c[fila.clone()], &self.guia[fila]);
+                    for (k, kk) in NUCLEO.iter().enumerate() {
+                        let qx = x + (k as i32 - 2) * s;
+                        if qx < 0 || qx >= w || (j == 2 && k == 2) {
+                            continue;
+                        }
+                        let (cq, gq) = (&cf[qx as usize], &gf[qx as usize]);
+                        let (arriba, abajo) = peso(gp, gq, lejos);
+                        if arriba == 0.0 {
+                            continue; // otra superficie: ni se mira su luz
+                        }
+                        // 1 / (1 + dl^2), con dl = |lp - lq| / m, es
+                        // m^2 / (m^2 + (lp - lq)^2): sin dividir dos veces
+                        let lq = luz(cq);
+                        let m = tolerancia * (lp + lq) * 0.5 + 1e-3;
+                        let (m2, d) = (m * m, lp - lq);
+                        let wq = kj * kk * arriba * m2 / (abajo * (m2 + d * d));
+                        suma = mas(suma, por(*cq, wq));
+                        pesos += wq;
+                    }
+                }
+                fuera[(y as usize - y0 as usize) * w as usize + x as usize] = por(suma, 1.0 / pesos);
+            }
+        }
+    }
+
+    /// Las muestras por pixel, de media.
+    pub fn muestras_medias(&self) -> f32 {
+        self.cuenta.iter().map(|&c| c as f32).sum::<f32>() / self.cuenta.len().max(1) as f32
     }
 
     /// Si el pixel (x, y) toca en este fotograma.
@@ -310,30 +482,32 @@ impl Vivo {
     /// **Lo que se ve**: la media de cada pixel; el que aun no tiene
     /// muestras, la de los de su cuadro de 2x2 que si (la RAM que rellena).
     pub fn imagen(&self) -> Vec<V3> {
+        (0..(self.ancho * self.alto) as usize).map(|i| self.visto(i)).collect()
+    }
+
+    /// Lo que se ve en el pixel `i` (lo de [`imagen`](Self::imagen), sin
+    /// monton).
+    pub fn visto(&self, i: usize) -> V3 {
         let (w, h) = (self.ancho as usize, self.alto as usize);
         let media = |i: usize| por(self.suma[i], 1.0 / self.cuenta[i] as f32);
-        (0..w * h)
-            .map(|i| {
-                if self.cuenta[i] > 0 {
-                    return media(i);
-                }
-                let (x, y) = (i % w & !1, i / w & !1);
-                let mut s = [0.0; 3];
-                let mut k = 0;
-                for (dx, dy) in [(0, 0), (1, 0), (0, 1), (1, 1)] {
-                    let j = (y + dy).min(h - 1) * w + (x + dx).min(w - 1);
-                    if self.cuenta[j] > 0 {
-                        s = mas(s, media(j));
-                        k += 1;
-                    }
-                }
-                if k == 0 {
-                    [0.0; 3]
-                } else {
-                    por(s, 1.0 / k as f32)
-                }
-            })
-            .collect()
+        if self.cuenta[i] > 0 {
+            return media(i);
+        }
+        let (x, y) = (i % w & !1, i / w & !1);
+        let mut s = [0.0; 3];
+        let mut k = 0;
+        for (dx, dy) in [(0, 0), (1, 0), (0, 1), (1, 1)] {
+            let j = (y + dy).min(h - 1) * w + (x + dx).min(w - 1);
+            if self.cuenta[j] > 0 {
+                s = mas(s, media(j));
+                k += 1;
+            }
+        }
+        if k == 0 {
+            [0.0; 3]
+        } else {
+            por(s, 1.0 / k as f32)
+        }
     }
 }
 
@@ -437,6 +611,72 @@ mod pruebas {
         }
         assert_eq!(a.imagen(), b.imagen());
         assert_eq!(a.memoria.as_ref().unwrap().llenas(), b.memoria.as_ref().unwrap().llenas());
+    }
+
+    /// *** COMPLETAR (VE5, el juez de la 3060): con POCAS muestras (4 por
+    /// pixel), la imagen completada se parece mas al juez que la cruda; y el
+    /// borde de la pared roja con la pared del fondo SIGUE siendo un borde
+    /// (el rojo no se corre al blanco).
+    #[test]
+    fn completing_removes_the_grain_and_keeps_the_edges() {
+        let (o, _, _) = caja_de_cornell();
+        let e = escena(&o);
+        let juez = referencia(&e);
+        let mut v = Vivo::nuevo(W, H, None);
+        v.prepara_guia(&e);
+        for _ in 0..4 {
+            v.paso(&e, Parte::Todos);
+        }
+        // a 32x24 basta una pasada (a 160x120, tres: `--example
+        // completa_prueba`, donde 1 muestra completada vale como 16 crudas)
+        let (cruda, completa) = (v.imagen(), v.completa(1));
+        let (ec, ek) = (error(&cruda, &juez), error(&completa, &juez));
+        assert!(ek < ec * 0.8, "cruda {ec}, completada {ek}");
+        // la fila del medio: la pared roja (a la izquierda) es ROJA, y el
+        // fondo (en el centro) no lo es
+        let y = H / 2;
+        let roja = completa[(y * W + 2) as usize];
+        let fondo = completa[(y * W + W / 2) as usize];
+        assert!(roja[0] > 2.0 * roja[1] && fondo[0] < 1.5 * fondo[1], "roja {roja:?}, fondo {fondo:?}");
+    }
+
+    /// COMPLETAR repartido por filas (como lo hacen los nucleos: la guia,
+    /// separar, cada pasada con su espera, y volver) da los MISMOS bits que
+    /// de una vez.
+    #[test]
+    fn completing_by_rows_is_the_same_as_at_once() {
+        let (o, _, _) = caja_de_cornell();
+        let e = escena(&o);
+        let mut v = Vivo::nuevo(W, H, None);
+        v.prepara_guia(&e);
+        for _ in 0..3 {
+            v.paso(&e, Parte::Cuarto);
+        }
+        let de_una = v.completa(3);
+        // la guia, por trozos
+        let mut guia = vec![Guia::default(); (W * H) as usize];
+        let trozos = [(0, 5), (5, 6), (6, 17), (17, H)];
+        for &(y0, y1) in &trozos {
+            v.guia_en(&e, y0, y1, &mut guia[(y0 * W) as usize..(y1 * W) as usize]);
+        }
+        assert!(guia == v.guia);
+        let n = (W * H) as usize;
+        let (mut c, mut sig) = (vec![[0.0; 3]; n], vec![[0.0; 3]; n]);
+        for &(y0, y1) in &trozos {
+            v.separa(y0, y1, &mut c[(y0 * W) as usize..(y1 * W) as usize]);
+        }
+        let mut t = v.tolerancia();
+        for paso in 0..3 {
+            for &(y0, y1) in &trozos {
+                v.alisa(paso, t, &c, y0, y1, &mut sig[(y0 * W) as usize..(y1 * W) as usize]);
+            }
+            core::mem::swap(&mut c, &mut sig);
+            t *= 0.5;
+        }
+        for &(y0, y1) in trozos.iter().rev() {
+            v.vuelve(y0, y1, &mut c[(y0 * W) as usize..(y1 * W) as usize]);
+        }
+        assert!(c == de_una);
     }
 
     /// *** LOS PLANOS DE IMAGINACION: la memoria de la luz, educada unos

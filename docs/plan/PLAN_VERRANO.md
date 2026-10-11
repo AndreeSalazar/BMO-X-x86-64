@@ -468,6 +468,40 @@ propia, al lado de la trama de tiempo real
       quirofano de RAM) y COMPLETA -- rellena, suaviza (un filtro que quita
       el ruido, guiado por la memoria) y pinta -- mientras la CPU sigue
       calculando y educando.
+      **11-10, el JUEZ de la CPU HECHO (`Vivo::completa`):** la idea de
+      SVGF, la de los motores con path tracing en tiempo real. (1) La GUIA de
+      cada pixel: un rayo por su centro, sin luz -- la normal, la distancia y
+      el color del material -- (`prepara_guia`, solo cuando la camara se
+      mueve). (2) Lo que se ve se PARTE por el color del material: queda la
+      luz sola, que es lo que tiene grano. (3) El filtro "a trous" (5x5,
+      B3-spline) tres pasadas, cada una el doble de lejos, que solo mezcla
+      pixeles de la MISMA superficie (coseno^32 de las normales, la
+      distancia, el material) y de luz parecida (el freno de SVGF: lo que el
+      ruido de n muestras no explica, 2/raiz(n), no se mezcla; asi la sombra
+      de una esfera en el suelo se queda). (4) Se vuelve a multiplicar por
+      el color. Medido contra el juez de 256 muestras a 160x120
+      (`--example completa_prueba`), el error medio:
+
+      ```text
+         muestras   cruda    completada (3 pasadas)
+          1         0.0595   0.0174   -- 1 muestra completada vale como 16 crudas
+          4         0.0312   0.0112
+         16         0.0171   0.0080
+      ```
+
+      Va por FILAS y sin monton (`guia_en`, `separa`, `alisa` por pasada,
+      `vuelve`), como lo demas de VIVO: repartido da los MISMOS bits que de
+      una vez (su prueba), y la app `estudio` lo reparte entre los
+      sub-directores, con una espera entre pasada y pasada (`c` lo quita y
+      lo pone). En el anfitrion (4 nucleos, 320x240), el fotograma de un
+      cuarto de los pixeles con memoria 13 ms y completar 26 ms: el filtro
+      cuesta MAS que la luz -- 25 vecinos por pixel y pasada --, y por eso es
+      el trabajo de la 3060. `--example estudio_vivo` saca la tira: sin
+      memoria, con ella y COMPLETADA, en los fotogramas 1, 4, 16 y 64 tras
+      mover la camara; la completada se ve limpia desde el primero.
+      **Falta, la 3060:** el mismo `alisa` como computo de VERRANO (un hilo
+      por pixel, la guia y la luz en buferes), juzgado contra este; y el
+      metal de la app (fila VE2 de EL_FOCO).
 - [ ] **VE6 -- TITAN++ lo pide.** `director.estudio(...)`: una escena de
       TITAN++ renderizada por ESTUDIO.
 

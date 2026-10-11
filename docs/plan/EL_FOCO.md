@@ -525,7 +525,9 @@ linea dice que se mira y que seria un NO.
        recuerda (estilo          desde Ejecutar: la caja de       la consola con
        RenderMan, VERRANO)       Cornell se limpia sola; a d w s  1 parte con
                                  mueven; la consola: los ms y     `smp all`; un
-                                 las PARTES (los nucleos)         panico
+                                 las PARTES (los nucleos); se     panico; con `c`
+                                 ve LIMPIA (VE5, completada) y    manchas o
+                                 `c` la deja cruda, con grano     bordes borrados
    MC1 MUNDO, los bloques      `run apps/mundo.bex`: el suelo   ver la lista de
        (V2b, el recorte de     hasta abajo; w s a d q e r f     la seccion 3 de
        cerca)                  andan; x quita, c pone tablas;   PLAN_MUNDO

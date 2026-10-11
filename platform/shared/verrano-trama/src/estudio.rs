@@ -349,6 +349,31 @@ impl Escena<'_> {
         luz
     }
 
+    /// **La GUIA de un rayo** (VE5, para completar): lo que ve primero --
+    /// su normal, a que distancia y el color de su material -- sin luz y sin
+    /// azar. `None` si no golpea nada.
+    pub fn guia(&self, o: V3, d: V3) -> Option<(V3, f32, V3)> {
+        let g = self.golpe(o, d, f32::MAX)?;
+        let albedo = match self.objetos[g.k].material {
+            Material::Mate { color } | Material::Metal { color, .. } => color,
+            Material::Vidrio { .. } | Material::Luz { .. } => [1.0; 3],
+        };
+        let dist = raiz(punto(menos(g.p, o), menos(g.p, o)));
+        Some((g.n, dist, albedo))
+    }
+
+    /// El rayo de la camara por el CENTRO del pixel (x, y).
+    pub fn rayo_centro(&self, x: u32, y: u32, ancho: u32, alto: u32) -> (V3, V3) {
+        let c = self.camara;
+        let w = unidad(menos(c.mira, c.ojo));
+        let u = unidad(cruz(w, c.arriba));
+        let v = cruz(u, w);
+        let aspecto = ancho as f32 / alto as f32;
+        let sx = (2.0 * (x as f32 + 0.5) / ancho as f32 - 1.0) * c.tan_medio * aspecto;
+        let sy = (1.0 - 2.0 * (y as f32 + 0.5) / alto as f32) * c.tan_medio;
+        (c.ojo, unidad(mas(w, mas(por(u, sx), por(v, sy)))))
+    }
+
     /// El rayo de la camara por un sitio al azar del pixel (x, y).
     pub fn rayo(&self, x: u32, y: u32, ancho: u32, alto: u32, az: &mut Azar) -> (V3, V3) {
         let c = self.camara;
