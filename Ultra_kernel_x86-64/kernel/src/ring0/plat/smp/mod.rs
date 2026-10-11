@@ -74,8 +74,26 @@ pub mod ring3;
 // chicos, para repartir primero un nucleo fisico por parte.
 pub mod topologia;
 
-use core::sync::atomic::Ordering;
+use core::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use map::*;
+
+/// El ultimo `despertar` NO desperto a nadie porque ya habia obreros en pie
+/// (11-10): la caja lo dice en vez de pintar un `12 de 12` en verde.
+static REHUSADO: AtomicBool = AtomicBool::new(false);
+/// El CR0/CR4 de los obreros contra el BSP (`INFO_SMP_CPU`): bit 63 medido,
+/// obreros `[0..8)`, distintos `[8..16)`, sin cache `[16..24)`, sin MCE
+/// `[24..32)`.
+static VEREDICTO: AtomicU64 = AtomicU64::new(0);
+
+/// Si el ultimo `despertar` se nego a despertar otra vez.
+pub fn rehusado() -> bool {
+    REHUSADO.load(Ordering::SeqCst)
+}
+
+/// El veredicto del CR0/CR4 de los obreros (`INFO_SMP_CPU`).
+pub fn veredicto_cpu() -> u64 {
+    VEREDICTO.load(Ordering::SeqCst)
+}
 
 /// Despierta a los demas nucleos y cuenta cuantos contestan.
 ///
@@ -129,7 +147,7 @@ pub fn despertar(cuantos: u32, aviso: impl Fn(u32)) -> (u32, u32) {
         if c.apagados() > 0 {
             crate::ring0::cabina::warn(
                 "smp",
-                "nucleos LISTADOS y no habilitados: no se llaman",
+                "hilos LISTADOS y no habilitados: no se llaman",
                 c.apagados() as u64,
             );
         }
@@ -160,6 +178,7 @@ pub fn despertar(cuantos: u32, aviso: impl Fn(u32)) -> (u32, u32) {
     //
     // Y se contesta lo que hay ahora mismo: si ya se despertaron antes, este
     // camino lo dice sin volver a despertarlos.
+    REHUSADO.store(false, Ordering::SeqCst);
     if cuantos == 0 {
         crate::ring0::core::dashboard::dashboard_log("[smp] censo pedido, no se desperto a nadie");
         // Y los que fallaron desde la ultima vez que alguien miro, dichos.
@@ -201,9 +220,25 @@ pub fn despertar(cuantos: u32, aviso: impl Fn(u32)) -> (u32, u32) {
     //
     // It goes HERE and not in the shell so that any caller gets it: whoever asks
     // for cores wants cores, and a wake that leaves them parked is not a wake.
+    // ** NO SE DESPIERTA DOS VECES a quien ya trabaja (11-10, la auditoria
+    // de `smp all`). Un INIT+SIPI a un obrero en pie lo saca de lo que hacia
+    // (quiza de una parte en Ring 3) y lo hace llegar OTRA VEZ con un indice
+    // nuevo: con menos pedidos que en pie, dos nucleos con el mismo indice
+    // comparten TSS, pila de trap y salto, y el `rsp0 = 0` de uno es el
+    // triple fallo del otro. Despues de `smp stop` (todos parados) si se
+    // puede: para eso es `reanudar`.
+    let en_pie = tramp::VIVOS.load(Ordering::SeqCst);
+    if en_pie > 0 && (!crew::parados() || ring3::activa()) {
+        crate::ring0::cabina::warn("smp", "ya hay obreros en pie: no se despiertan otra vez (reinicia para cambiar cuantos)", en_pie as u64);
+        crate::ring0::core::dashboard::dashboard_log("[smp] ya hay obreros en pie: no se despiertan otra vez");
+        REHUSADO.store(true, Ordering::SeqCst);
+        return (en_pie, esperados);
+    }
     crew::reanudar();
 
-    let pedidos = cuantos.min(esperados);
+    // Nunca mas de los que caben en las fichas (`MAX_OBREROS`): uno de mas
+    // llegaria sin ficha ni TSS (`tss.rs` no le da) y podria tomar partes.
+    let pedidos = cuantos.min(esperados).min(ficha::MAX_OBREROS as u32);
     tramp::VIVOS.store(0, Ordering::SeqCst);
     tramp::MASCARA.store(0, Ordering::SeqCst);
     let yo = tramp::apic_id();
@@ -276,11 +311,27 @@ pub fn despertar(cuantos: u32, aviso: impl Fn(u32)) -> (u32, u32) {
             lapic::esperar_us(200);
         };
 
+        // ** EN EL ORDEN DE LA FILA (11-10), no en el de la MADT: un hilo de
+        // cada nucleo fisico ajeno primero, sus hermanos SMT despues y el
+        // hermano del BSP al final (`topologia::fila`). Con `smp all` da
+        // igual a quien se llame primero; con `smp 5` en un 5600X son CINCO
+        // NUCLEOS FISICOS y no "los cinco primeros que lista la placa", que
+        // con los hermanos juntos eran tres nucleos y el hermano del BSP.
+        let mut fila_ids = [0u32; bmo_orquesta::topologia::HILOS_MAXIMOS];
+        let por_fila = topologia::fila().map_or(0, |f| f.orden(yo, &mut fila_ids));
         match censo.as_ref() {
-            // * La lista del firmware, tal cual. Ni se inventa ni se ordena.
+            Some(_) if por_fila > 0 => {
+                for &id in &fila_ids[..por_fila] {
+                    if id != yo && (slot as u32) < pedidos {
+                        call(id, &mut slot);
+                    }
+                }
+            }
+            // * Sin fila, la lista del firmware tal cual. Ni se inventa ni se
+            // ordena.
             Some(c) => {
                 for &id in c.ids() {
-                    if id != yo && (slot as u32) < cuantos {
+                    if id != yo && (slot as u32) < pedidos {
                         call(id, &mut slot);
                     }
                 }
@@ -288,7 +339,7 @@ pub fn despertar(cuantos: u32, aviso: impl Fn(u32)) -> (u32, u32) {
             // El camino de respaldo, ya avisado mas arriba.
             None => {
                 for id in 0..esperados + 1 {
-                    if id != yo && (slot as u32) < cuantos {
+                    if id != yo && (slot as u32) < pedidos {
                         call(id, &mut slot);
                     }
                 }
@@ -323,20 +374,62 @@ pub fn despertar(cuantos: u32, aviso: impl Fn(u32)) -> (u32, u32) {
     crate::ring0::core::dashboard::dashboard_log(if alive == pedidos {
         "[smp] contestaron todos los que se llamaron"
     } else {
-        "[smp] FALTAN nucleos por contestar"
+        "[smp] FALTAN hilos por contestar"
     });
 
+    decir_estado_cpu(alive);
     if alive == pedidos {
         crate::ring0::cabina::info("smp", "contestaron todos los llamados", alive as u64 + 1);
     } else {
         crate::ring0::cabina::warn(
             "smp",
-            "faltan nucleos por contestar",
+            "faltan hilos por contestar",
             (pedidos - alive) as u64,
         );
         crate::ring0::cabina::warn("smp", "mascara de los que SI contestaron", mascara as u64);
     }
     (alive, esperados)
+}
+
+/// **El CR0 y el CR4 de los obreros contra los del BSP** (11-10). Lo que
+/// importa: `CR0.CD` (bit 30, la cache APAGADA en ese nucleo), `CR0.NW` (29) y
+/// `CR4.MCE` (6: sin el, una #MC es un apagado de la maquina entera). Se dice
+/// el del obrero 0, el del BSP, y cuantos obreros tienen cada bit de riesgo.
+fn decir_estado_cpu(vivos: u32) {
+    let (bsp0, bsp4): (u64, u64);
+    // SAFETY: leer CR0 y CR4 del BSP no cambia nada.
+    unsafe {
+        core::arch::asm!("mov {}, cr0", out(reg) bsp0, options(nomem, nostack));
+        core::arch::asm!("mov {}, cr4", out(reg) bsp4, options(nomem, nostack));
+    }
+    let n = (vivos as usize).min(ficha::MAX_OBREROS);
+    let cr0 = |i: usize| tramp::CR0_AP[i].load(Ordering::SeqCst);
+    let cr4 = |i: usize| tramp::CR4_AP[i].load(Ordering::SeqCst);
+    let sin_cache = (0..n).filter(|&i| cr0(i) & (3 << 29) != 0).count();
+    let sin_mce = (0..n).filter(|&i| cr4(i) & (1 << 6) == 0).count();
+    let distintos = (0..n).filter(|&i| cr0(i) != bsp0 || cr4(i) != bsp4).count();
+    let byte = |x: usize| x.min(0xFF) as u64;
+    VEREDICTO.store(1 << 63 | byte(n) | byte(distintos) << 8 | byte(sin_cache) << 16 | byte(sin_mce) << 24, Ordering::SeqCst);
+    use crate::ring0::cabina::{info, warn};
+    if n > 0 {
+        info("smp", "CR0 del obrero 0", cr0(0));
+        info("smp", "CR4 del obrero 0", cr4(0));
+    }
+    info("smp", "CR0 del BSP", bsp0);
+    info("smp", "CR4 del BSP", bsp4);
+    if distintos > 0 {
+        warn("smp", "obreros con CR0/CR4 distintos del BSP", distintos as u64);
+    }
+    if sin_cache > 0 {
+        warn("smp", "obreros con la CACHE apagada (CR0.CD o NW)", sin_cache as u64);
+    }
+    if sin_mce > 0 {
+        warn("smp", "obreros sin CR4.MCE: una #MC alli REINICIA el PC", sin_mce as u64);
+    }
+    let encendidos = tramp::LLEGARON_SIN_CACHE.load(Ordering::SeqCst);
+    if encendidos > 0 {
+        warn("smp", "obreros que LLEGARON con la cache apagada (encendida al llegar)", encendidos as u64);
+    }
 }
 
 /// `(alive, mascara)` sin volver a despertar nada.
@@ -414,7 +507,13 @@ impl Estado {
 /// `AUSENTE` --el BSP nunca pasa por el trampolin, asi que nunca pone su bit--
 /// y el panel diria que el nucleo que lo esta pintando no existe.
 pub fn estado_de(id: u32) -> Estado {
-    if id == 0 {
+    // El BSP es el que es, no el APIC 0 (11-10): en una placa que arranque
+    // por otro, el 0 seria un obrero pintado de maestro.
+    let bsp = match tramp::BSP_APIC.load(Ordering::SeqCst) {
+        u32::MAX => tramp::apic_id(),
+        b => b,
+    };
+    if id == bsp {
         return Estado::Maestro;
     }
     let (vivos, mascara) = alive();
@@ -484,22 +583,39 @@ pub fn estado_de(id: u32) -> Estado {
 /// ficha guarda el APIC --un numero suyo-- y la identidad se resuelve al
 /// MIRARLA, que pasa en el BSP.
 pub fn donde_vive(id: u32) -> Option<(u8, u8)> {
-    let t = (crate::ring0::cpu_vendor::profile::active().nucleos)()?;
-    let (nucleos, hilos) = (t.nucleos as u32, t.hilos as u32);
-    if nucleos == 0 || hilos == 0 || id >= 32 {
-        return None;
+    // ** DE LA FILA DEL SILICIO (11-10), no de dividir lo que dice el perfil.
+    // Antes: `id / (hilos / nucleos)`, que acierta en un 5600X solo si sus
+    // APIC son 0..11 seguidos -- un supuesto. Ahora el nucleo es `apic >>
+    // smt_bits` (CPUID 0x8000_001E, lo que lee `topologia::fila`) y el hilo
+    // es su puesto DENTRO de ese nucleo entre los que existen: 0 el primero
+    // (CORE), 1 su hermano SMT (THREAD). Con SMT apagado, todos son 0.
+    let f = topologia::fila()?;
+    let h = f.hilos().iter().find(|h| h.apic == id)?;
+    let puesto = f.hilos().iter().filter(|o| o.nucleo == h.nucleo && o.hermano < h.hermano).count();
+    Some((h.nucleo.min(255) as u8, puesto.min(255) as u8))
+}
+
+/// **El hilo `k` de la maquina** (11-10): los hilos que lista la placa,
+/// ordenados por (nucleo fisico, puesto en el nucleo). `(apic, nucleo, puesto,
+/// hilos de ese nucleo)`. Es lo que recorren los paneles: los APIC reales, no
+/// `0..hilos` (que solo acierta si la placa los numera seguidos).
+pub fn hilo_k(k: u32) -> Option<(u32, u32, u32, u32)> {
+    let f = topologia::fila()?;
+    let mut v = [(0u32, 0u32, 0u32); bmo_orquesta::topologia::HILOS_MAXIMOS];
+    let n = f.hilos().len().min(v.len());
+    for (s, h) in v.iter_mut().zip(f.hilos()) {
+        *s = (h.nucleo, h.hermano, h.apic);
     }
-    // Sin SMT no hay hermanos: cada hilo es su propio nucleo.
-    if hilos == nucleos {
-        return Some((id as u8, 0));
-    }
-    let por_nucleo = hilos / nucleos;
-    // Ni uno ni dos hilos por nucleo: este juez no sabe repartirlo por el ID, y
-    // lo dice en vez de dividir igual.
-    if por_nucleo != 2 || hilos != nucleos * 2 {
-        return None;
-    }
-    Some(((id / por_nucleo) as u8, (id % por_nucleo) as u8))
+    v[..n].sort_unstable();
+    let &(nucleo, _, apic) = v[..n].get(k as usize)?;
+    let puesto = v[..k as usize].iter().filter(|o| o.0 == nucleo).count() as u32;
+    let del_nucleo = v[..n].iter().filter(|o| o.0 == nucleo).count() as u32;
+    Some((apic, nucleo, puesto, del_nucleo))
+}
+
+/// Cuantos hilos lista la placa (sin repetidos). 0 si no hay MADT.
+pub fn hilos_listados() -> u32 {
+    topologia::fila().map_or(0, |f| f.hilos().len() as u32)
 }
 
 pub fn tipo_de(id: u32) -> &'static str {

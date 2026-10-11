@@ -340,13 +340,13 @@ pub fn tocar(pid: u32, parte_num: u64, pedidos: u64) -> u64 {
     {
         YA_SE_INTENTO.store(true, Ordering::SeqCst);
         let (despiertos, esperados) = super::despertar(u32::MAX, |_| {});
-        crate::ring0::cabina::info("orquesta", "una app pidio: nucleos despertados", despiertos as u64);
+        crate::ring0::cabina::info("orquesta", "una app pidio: hilos despertados", despiertos as u64);
         if despiertos == 0 {
             // ** El "nel" del orquestador, con su motivo: se reparte con el BSP
             // solo y no se vuelve a intentar hasta reiniciar.
             crate::ring0::cabina::warn(
                 "orquesta",
-                "desperte y no contesto ningun nucleo: toca el BSP solo",
+                "desperte y no contesto ningun hilo: toca el BSP solo",
                 esperados as u64,
             );
         }

@@ -264,6 +264,17 @@ pub fn reiniciar() -> ! {
     }
 }
 
+/// **A la caja negra** (11-10): `texto` directo al anillo de `CAIDA.TXT`, sin
+/// pasar por ninguna consola ni pantalla. 16 bytes por llamada.
+pub fn caida_anotar(texto: &[u8]) {
+    for trozo in texto.chunks(16) {
+        let mut w = [0u8; 16];
+        w[..trozo.len()].copy_from_slice(trozo);
+        let (a, b) = (u64::from_le_bytes(w[..8].try_into().unwrap_or([0; 8])), u64::from_le_bytes(w[8..].try_into().unwrap_or([0; 8])));
+        invoke(CURRENT_TASK, OP_CAIDA_ANOTAR, a, b, 0);
+    }
+}
+
 /// Escribir en la consola del kernel.
 ///
 /// La puerta admite 8 bytes empaquetados en little-endian por llamada, con el

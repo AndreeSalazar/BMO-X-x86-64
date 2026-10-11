@@ -997,6 +997,10 @@ pub(crate) fn smp(dsk: &mut Desktop, p: &bmo::Pantalla, arg: &[u8]) -> After {
         dsk.field.cur = 0;
         return After::NextKey;
     }
+    // `smp siempre` / `smp siempre off`: despertar a todos al arrancar.
+    if let Some(a) = super::smp_siempre::orden(dsk, p, arg) {
+        return a;
+    }
     let how_many = if arg.is_empty() {
         0
     } else if arg == b"all" || arg == b"todos" {
@@ -1015,67 +1019,80 @@ pub(crate) fn smp(dsk: &mut Desktop, p: &bmo::Pantalla, arg: &[u8]) -> After {
         }
         // Un argumento que no se entiende NO se
         // interpreta como "todos": eso convertiria
-        // un dedazo en once INIT+SIPI.
-        if ok { v } else { 0 }
+        // un dedazo en once INIT+SIPI. Y se DICE: antes
+        // salia el censo callado y parecia que si.
+        if ok { v } else { u32::MAX - 1 }
     };
+    if how_many == u32::MAX - 1 {
+        dsk.out.grid.with_ink(INK_ERR);
+        dsk.out.grid.text(b"  [!] `smp ");
+        dsk.out.grid.text(&arg[..arg.len().min(24)]);
+        dsk.out.grid.text(b"` no se entiende: solo se censa (abajo, las que hay)\n");
+        dsk.out.grid.with_ink(INK_PLAIN);
+    }
+    let how_many = if how_many == u32::MAX - 1 { 0 } else { how_many };
     if how_many == 0 {
         dsk.out.grid.text(b"  censando (no se despierta a nadie)\n");
     } else {
-        dsk.out.grid.text(b"  despertando nucleos (esto tarda)...\n");
+        dsk.out.grid.text(b"  despertando hilos (esto tarda)...\n");
     }
     paint_output(&p, &dsk.run_box, &dsk.out.grid);
     p.volcar();
-    let (alive, expected, stopped) = bmo::smp_censo(how_many);
-    dsk.out.grid.with_ink(if alive == expected {
-        INK_GOOD
-    } else {
-        INK_ERR
-    });
-    dsk.out.grid.text(b"  nucleos en pie: ");
-    let mut b = [0u8; 10];
-    let k = decimal((alive + 1) as u64, &mut b);
-    dsk.out.grid.text(&b[..k]);
+    let c = bmo::smp_pedir(how_many);
+    // ** UNA linea con el numero, y debajo SOLO lo que la contradice o la
+    // completa: ya en pie (11-10: un segundo `smp all` no despierta a nadie
+    // y antes se pintaba en verde como si si), parados, y la CPU de los
+    // obreros. El numero cuenta hilos CON el BSP, como F7 y el `save`.
+    dsk.out.grid.with_ink(if c.vivos == c.esperados && !c.parados { INK_GOOD } else { INK_ERR });
+    dsk.out.grid.text(b"  hilos en pie: ");
+    dsk.out.grid.dec(c.vivos as u64 + 1);
     dsk.out.grid.text(b" de ");
-    let k = decimal((expected + 1) as u64, &mut b);
-    dsk.out.grid.text(&b[..k]);
-    dsk.out.grid.text(b"   (F11 lo cuenta entero)\n");
+    dsk.out.grid.dec(c.esperados as u64 + 1);
+    // ** NUCLEOS NO SON HILOS: el 5600X son 6 nucleos fisicos con 2 hilos
+    // cada uno (SMT). "12 de 12" cuenta HILOS; un calculo denso rinde por
+    // nucleo, no por hilo, y por eso se dicen los dos.
+    dsk.out.grid.with_ink(INK_ECHO);
+    let nucleos = bmo::info(bmo::INFO_CPU_NUCLEOS);
+    let hilos = c.esperados as u64 + 1;
+    dsk.out.grid.text(b"   (");
+    if nucleos > 0 && hilos % nucleos == 0 {
+        dsk.out.grid.dec(nucleos);
+        dsk.out.grid.text(b" nucleos x ");
+        dsk.out.grid.dec(hilos / nucleos);
+        dsk.out.grid.text(b" hilos; ");
+    }
+    dsk.out.grid.text(b"el BSP y ");
+    dsk.out.grid.dec(c.vivos as u64);
+    dsk.out.grid.text(b" obreros; F11 dice en que esta cada uno)\n");
     dsk.out.grid.with_ink(INK_PLAIN);
-    // ** LA MITAD QUE FALTABA DEL CENSO.
-    //
-    // "En pie" cuenta nucleos que contestaron al
-    // SIPI, y ese numero no baja al pararlos --
-    // correctamente: salir del reset no es trabajar.
-    // Pero leido solo, dice que `smp stop` no hizo
-    // nada. Ahora se dicen las dos cosas.
-    if stopped {
+    if c.rehusado {
+        dsk.out.grid.with_ink(INK_ERR);
+        dsk.out.grid.text(b"  [!] ya estaban en pie: no se desperto a nadie otra vez\n");
+        dsk.out.grid.with_ink(INK_PLAIN);
+        dsk.out.grid.text(b"      (despertarlos dos veces daba a dos nucleos la misma ficha; reinicia para cambiar cuantos)\n");
+    }
+    // ** LA MITAD QUE FALTABA DEL CENSO: "en pie" cuenta nucleos que
+    // contestaron al SIPI y no baja al pararlos (salir del reset no es
+    // trabajar). Leido solo, diria que `smp stop` no hizo nada.
+    if c.parados {
         dsk.out.grid.with_ink(INK_ERR);
         dsk.out.grid.text(b"  [!] pero estan PARADOS: en pie no es trabajando\n");
         dsk.out.grid.with_ink(INK_PLAIN);
-        dsk.out.grid.text(b"      `smp all` los vuelve a poner a trabajar\n");
+        dsk.out.grid.text(b"      `smp all` los vuelve a llamar\n");
     }
-    // La guia va donde se necesita: justo despues
-    // de censar, que es cuando uno se pregunta
-    // "y ahora como los enciendo?". Un atajo que
-    // solo vive en la documentacion no existe.
-    // ** LAS CINCO, NO SOLO DOS (2026-08-11).
-    //
-    // Aqui se decian `smp all` y `smp N` y se
-    // callaban `prueba` y `parar`, que son las dos
-    // unicas que HACEN algo interesante. El propietario
-    // lo dijo con todas las letras: *"el smp no me
-    // salen mensajes de recomendacion"*.
-    //
-    // Son cinco lineas y caben. Una orden con
-    // subordenes que no las dice obliga a buscar en
-    // `help`, y a `help` se va cuando uno ya se
-    // rindio.
+    super::arranque::lineas_smp(&mut dsk.out.grid);
+    // La guia, justo despues de censar: es cuando uno se pregunta "y ahora
+    // como los enciendo?". Las CINCO ordenes, no solo dos (2026-08-11: *"el
+    // smp no me salen mensajes de recomendacion"*), en dos columnas fijas.
     if how_many == 0 {
-        dsk.out.grid.text(b"  smp all      despierta todos    smp 3   solo tres\n");
-        dsk.out.grid.text(b"  smp test     reparte una cuenta y mide la aceleracion\n");
-        dsk.out.grid.text(b"  smp stop     los duerme. [!] sin IPI NO vuelven\n");
-        dsk.out.grid.text(b"  smp tropezar el obrero 1 falla a proposito: la maquina tiene que seguir\n");
-        dsk.out.grid.text(b"  F11 dice en que esta cada nucleo y cual gira en vacio\n");
-        dsk.out.grid.text(b"  F7 (CPU): cada nucleo con sus hilos, y A todos  S parar  M medir\n");
+        dsk.out.grid.with_ink(INK_ECHO);
+        dsk.out.grid.text(b"  smp all       despierta a todos       smp 3      solo a tres\n");
+        dsk.out.grid.text(b"  smp test      reparte una cuenta y mide la aceleracion\n");
+        dsk.out.grid.text(b"  smp stop      los aparca (cli; hlt); `smp all` los vuelve a llamar\n");
+        dsk.out.grid.text(b"  smp tropezar  el obrero 1 falla a proposito: la maquina tiene que seguir\n");
+        dsk.out.grid.text(b"  smp siempre   despierta a todos al arrancar (`smp siempre off` lo desarma)\n");
+        dsk.out.grid.text(b"  F11 dice en que esta cada nucleo; F7 (CPU): A todos  S parar  M medir\n");
+        dsk.out.grid.with_ink(INK_PLAIN);
     }
     paint_status(&p, &dsk.run_box, "smp", INK_DIM);
     dsk.field.n = 0;
@@ -1094,6 +1111,9 @@ pub(crate) fn smp(dsk: &mut Desktop, p: &bmo::Pantalla, arg: &[u8]) -> After {
 /// apagar`): sin eso el booter del arranque siguiente salia con `0x15`. Si
 /// no sale, se reinicia igual y se dice: la salida es cortar la corriente.
 pub(crate) fn reboot(dsk: &mut Desktop, p: &bmo::Pantalla) -> After {
+    // El informe de la sesion, ANTES de que el reinicio se la lleve (11-10;
+    // en `save manual`, nada).
+    super::files::antes_de_reiniciar(dsk, p);
     if super::gspapagar::hace_falta() {
         // Antes del apagado: la 3060 deja de volcar y devuelve el lienzo.
         p.volcar_por_cpu();

@@ -137,6 +137,9 @@ pub const OP_FUTEX_ESPERAR: u32 = 0x42;
 pub const OP_FUTEX_DESPERTAR: u32 = 0x43;
 /// `bmo_abi::...::TASK_OP_ALARMA`. Ver [`alarma`].
 pub const OP_ALARMA: u32 = 0x44;
+/// `bmo_abi::...::TASK_OP_CAIDA_ANOTAR`: lo que se vio en pantalla, a la caja
+/// negra. Ver [`caida_anotar`].
+pub const OP_CAIDA_ANOTAR: u32 = 0x45;
 /// El log del kernel, leido desde Ring 3. Ver `klog_lineas`/`klog_texto`.
 pub const OP_KLOG_INFO: u32 = 0x16;
 pub const OP_KLOG_TEXTO: u32 = 0x17;
@@ -711,6 +714,14 @@ pub const INFO_PUERTA_DEL_LATIDO: u64 = 0xCD;
 pub const INFO_RESPIRO: u64 = 0xCE;
 /// El cierre de un fichero: escribir `[0..32)` y vaciar `[32..64)`, en us.
 pub const INFO_DISCO_GUARDAR: u64 = 0xCF;
+/// Por que se reinicio la vez anterior: `S5_RESET_STATUS` del FCH, crudo.
+/// `u64::MAX` = no se leyo.
+pub const INFO_REINICIO_FCH: u64 = 0xD0;
+/// Los bancos MCA al arrancar: con error `[0..32)`, cuantos hay `[32..64)`.
+pub const INFO_REINICIO_MCA: u64 = 0xD1;
+/// El CR0/CR4 de los obreros: bit 63 medido, obreros `[0..8)`, distintos
+/// `[8..16)`, sin cache `[16..24)`, sin MCE `[24..32)`.
+pub const INFO_SMP_CPU: u64 = 0xD2;
 /// El formato `i` (`INFO_AUDIO_FORMATO | (i << 8)`): alt, canales, bits,
 /// subframe, `wMaxPacketSize`, cuantas frecuencias, si CABE en 1 ms, si es el
 /// elegido y su sincronia. Ver `uaudio::info_formato` en el kernel.

@@ -64,7 +64,7 @@ Y el estado de las piezas es asimetrico:
 |---|---|
 | Tablas de **imports/exports** en BEF (`bmo-abi::bef::{imports,exports}`) | ✅ el formato lo soporta |
 | `tools/bex-link` -- ELF -> BEX | ✅ funciona: asi se construye el compositor |
-| `tools/bmo-linker` -- lee ELF y emite un TOML de simbolos | ◐ es un REGISTRO, no un enlazador |
+| `tools/bmo-linker` -- leia ELF y emitia un TOML de simbolos | BORRADO el 11-10: un REGISTRO que no llamaba nadie |
 | Resolucion entre **unidades distintas** | ❌ no existe |
 
 **La consecuencia practica**: `lang/base/bmo-rt` --la libc: `crt0`, monton,

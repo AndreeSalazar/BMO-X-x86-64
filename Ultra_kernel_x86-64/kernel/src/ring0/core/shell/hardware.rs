@@ -898,7 +898,7 @@ pub(crate) fn shell_smp(arg: &[u8]) {
     if let Some(c) = crate::ring0::plat::madt::censo() {
         row("firmware", |l| {
             l.dec(c.ids().len() as u64);
-            l.txt(" nucleos en la MADT");
+            l.txt(" hilos en la MADT");
             if c.apagados() > 0 {
                 l.txt("   (+");
                 l.dec(c.apagados() as u64);

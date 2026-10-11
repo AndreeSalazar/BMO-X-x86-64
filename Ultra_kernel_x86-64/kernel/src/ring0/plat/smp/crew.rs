@@ -66,6 +66,14 @@ pub(super) static TAREA: AtomicU64 = AtomicU64::new(0);
 pub(super) static PARTES: AtomicU32 = AtomicU32::new(0);
 /// Cuantos obreros han terminado su parte.
 pub(super) static HECHOS: AtomicU32 = AtomicU32::new(0);
+/// **La parte de cada obrero en esta ronda** (11-10): `0` = ninguna. Hasta hoy
+/// la parte era `indice + 1`, o sea el ORDEN DE LLEGADA -- que es el orden de
+/// la MADT, y en un 5600X con los hermanos SMT juntos (APIC 0/1, 2/3...) una
+/// faena de 6 partes caia en 3 nucleos fisicos, uno de ellos el del BSP.
+/// Ahora se da por la FILA de la CPU (`topologia::orden`, la misma que usan
+/// los sub-directores): un nucleo fisico distinto por parte, y los segundos
+/// hilos despues.
+pub(super) static PARTE_DE: [AtomicU32; super::ficha::MAX_OBREROS] = [const { AtomicU32::new(0) }; super::ficha::MAX_OBREROS];
 /// Una celda SOLA en su linea de cache de 64 bytes.
 ///
 /// == *** POR QUE HACE FALTA, y lo dijo el metal (2026-09-10) ============
@@ -155,6 +163,24 @@ pub fn repartir(faena: Faena, obreros: u32) -> bool {
 
     HECHOS.store(0, Ordering::SeqCst);
     VIERON.store(0, Ordering::SeqCst);
+    // Las partes 1..=obreros, por la fila (un nucleo fisico por parte
+    // primero). Un obrero sin parte ve la ronda y no hace nada.
+    for p in PARTE_DE.iter() {
+        p.store(0, Ordering::SeqCst);
+    }
+    let mut orden = [0u32; super::ficha::MAX_OBREROS];
+    let n = super::topologia::orden(&mut orden);
+    let mut dadas = 0u32;
+    for &i in &orden[..n] {
+        if dadas < obreros && (i as usize) < PARTE_DE.len() {
+            dadas += 1;
+            PARTE_DE[i as usize].store(dadas, Ordering::SeqCst);
+        }
+    }
+    // Las que no encontraron obrero (no deberia pasar: `obreros` no pasa de
+    // los que hay) las hace el BSP, como las de un obrero fallado.
+    let sin_obrero = obreros - dadas;
+    let obreros = dadas;
     PARTES.store(partes, Ordering::SeqCst);
     TAREA.store(faena as usize as u64, Ordering::SeqCst);
     // La ronda va LA ULTIMA: es la signal, y publicarla antes que los datos
@@ -164,6 +190,9 @@ pub fn repartir(faena: Faena, obreros: u32) -> bool {
 
     // El BSP hace la suya mientras los demas hacen las suyas.
     faena(0, partes);
+    for k in 0..sin_obrero {
+        faena(obreros + 1 + k, partes);
+    }
     // ** Y LAS DE LOS QUE FALLARON (2026-09-18, A1). Un obrero que tomo una
     // excepcion esta parado para siempre: ni vera esta ronda ni sumara a
     // `HECHOS`. Sin esto, su parte quedaria sin hacer --un HUECO-- y la
@@ -172,10 +201,11 @@ pub fn repartir(faena: Faena, obreros: u32) -> bool {
     // durante ESTA faena: ese si dejara la barrera esperar al tope, y `ok`
     // sera falso, que es lo correcto -- su parte no la hizo nadie.
     let mut fallados = 0u32;
-    for i in 0..obreros {
-        if super::ficha::fallado(i) {
+    for (i, p) in PARTE_DE.iter().enumerate() {
+        let parte = p.load(Ordering::SeqCst);
+        if parte != 0 && super::ficha::fallado(i as u32) {
             fallados += 1;
-            faena(i + 1, partes);
+            faena(parte, partes);
         }
     }
     super::ficha::reportar_fallos();
@@ -206,7 +236,11 @@ pub fn repartir(faena: Faena, obreros: u32) -> bool {
         // "el latido llego TARDE 1996 ms"). Su ficha ya dice FALLADO en el
         // instante en que cae: se mira cada vuelta y se deja de esperarle.
         // Su parte sigue sin hacerse, asi que `ok` sera falso igual.
-        let caidos = (0..obreros).filter(|&i| super::ficha::fallado(i)).count() as u32;
+        let caidos = PARTE_DE
+            .iter()
+            .enumerate()
+            .filter(|(i, p)| p.load(Ordering::SeqCst) != 0 && super::ficha::fallado(*i as u32))
+            .count() as u32;
         if caidos > fallados {
             esperados = obreros - caidos;
         }

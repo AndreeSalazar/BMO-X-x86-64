@@ -242,6 +242,7 @@ fn invoke_current_task(operation: u64, arg0: u64, arg1: u64) -> BmoStatus {
         }
         TASK_OP_CONSOLE_WRITE => op_consola::console_write(arg0, arg1),
         TASK_OP_CONSOLE_READ => op_consola::console_read(arg0, arg1),
+        TASK_OP_CAIDA_ANOTAR => op_consola::caida_anotar(arg0, arg1),
         TASK_OP_DIR_ABRIR => op_abrir::dir_abrir(arg0, arg1),
         TASK_OP_ARCHIVO_ABRIR => op_abrir::archivo_abrir(arg0, arg1),
         TASK_OP_MI_PAQUETE => op_abrir::mi_paquete(arg0, arg1),

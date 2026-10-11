@@ -212,6 +212,14 @@ pub fn enumerar(rsdp: u64) -> Option<Censo> {
 
     let mut c = Censo { ids: [0; MAX], n: 0, apagados: 0 };
     for d in &declarados[..n] {
+        // ** UNA VEZ CADA UNO (11-10, la auditoria de `smp all`). Hay placas
+        // que listan el mismo hilo como LAPIC (tipo 0) y como x2APIC (tipo
+        // 9): sin esto el censo daba 24 en un 5600X, y `despertar` mandaba
+        // INIT+SIPI dos veces al mismo hilo -- dos indices para un nucleo,
+        // el TSS compartido y el triple fallo que eso trae.
+        if c.ids[..c.n].contains(&d.apic) {
+            continue;
+        }
         if d.habilitado {
             c.ids[c.n] = d.apic;
             c.n += 1;

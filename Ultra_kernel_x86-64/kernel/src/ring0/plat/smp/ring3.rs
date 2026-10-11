@@ -443,10 +443,18 @@ static FALLO_CR2: AtomicU64 = AtomicU64::new(0);
 static FALLOS_DICHOS: AtomicU32 = AtomicU32::new(0);
 static APUROS_DICHOS: AtomicU64 = AtomicU64::new(0);
 static PARTES_MAL: AtomicU64 = AtomicU64::new(0);
+/// Obreros apartados por una #MC en su parte (V12).
+static MC_EN_RING3: AtomicU64 = AtomicU64::new(0);
+static MC_DICHAS: AtomicU64 = AtomicU64::new(0);
 
 /// Si hay una faena de Ring 3 en marcha (`crew::repartir` no reparte encima).
 pub fn activa() -> bool {
     ACTIVA.load(SeqCst)
+}
+
+/// La faena de ahora (o la ultima), para el pulso del tablero.
+pub fn faena() -> u64 {
+    FAENA.load(SeqCst)
 }
 
 /// `(hechas bien, falladas)` desde el arranque.
@@ -554,6 +562,12 @@ pub fn esperar(pid: u32) -> Result<Option<u64>, NoRing3> {
     let partes = PARTES.load(SeqCst);
     let asignadas = DADAS.load(SeqCst);
     let hechas = HECHAS.load(SeqCst);
+    {
+        // El tablero (11-10): el BSP salio de su parte 0 y pregunta. Si la
+        // maquina muere con esta casilla vacia, murio ANTES.
+        use crate::ring0::cabina::tablero as t;
+        t::marcar(t::ESPERA_BSP, t::ESPERA, hechas as u64, asignadas as u64);
+    }
     let hz = crate::ring0::task::scheduler::tsc_freq().max(1);
     let pasado = (crate::ring0::task::scheduler::rdtsc().saturating_sub(EMPEZO.load(SeqCst)) as u128 * 1_000_000_000 / hz as u128) as u64;
     if hechas < asignadas && pasado < TOPE_NS {
@@ -599,6 +613,10 @@ fn decir_migas() {
         crate::ring0::cabina::warn("smp", "  ...rip", FALLO_RIP.load(SeqCst));
         crate::ring0::cabina::warn("smp", "  ...cr2", FALLO_CR2.load(SeqCst));
     }
+    let mc = MC_EN_RING3.load(SeqCst);
+    if mc != MC_DICHAS.swap(mc, SeqCst) {
+        crate::ring0::cabina::warn("smp", "un obrero tomo un ERROR DE MAQUINA (#MC) en su parte: apartado; van", mc);
+    }
     let a = apuros();
     if a != APUROS_DICHOS.swap(a, SeqCst) {
         crate::ring0::cabina::warn("smp", "sub-director: un obrero se PARO en la ventana de Ring 0 (no la maquina); van", a);
@@ -622,6 +640,13 @@ pub fn atender(indice: u32) -> bool {
     let t0 = super::ficha::ciclos();
     let r = correr(i, k);
     super::ficha::apuntar(indice, super::ficha::ciclos().wrapping_sub(t0));
+    // ** UN ERROR DE MAQUINA (#MC, vector 18) en su parte (11-10, V12): con
+    // `CR4.MCE` ya no reinicia el PC, pero ese nucleo acaba de tener un fallo
+    // del silicio. No se le da ninguna parte mas en este arranque.
+    if r != BIEN && r & 0xFF == 18 {
+        PERDIDO[i].store(true, SeqCst);
+        MC_EN_RING3.fetch_add(1, SeqCst);
+    }
     // Solo si sigue siendo la misma faena: una que volvio tarde, calla.
     if FAENA.load(SeqCst) == id && ACTIVA.load(SeqCst) {
         RESULTADO[k as usize].store(r, SeqCst);
@@ -639,6 +664,14 @@ pub fn atender(indice: u32) -> bool {
         HECHAS.fetch_add(1, SeqCst);
     }
     ATENDIENDO[i].store(false, SeqCst);
+    {
+        // El tablero (11-10): las cuentas hechas y de vuelta al bucle. Un
+        // obrero que se queda en VOLVIO murio entre la vuelta y aqui.
+        use crate::ring0::cabina::tablero as t;
+        // SAFETY: el salto del obrero `i`, solo suyo, ya de vuelta.
+        let salto = unsafe { &*core::ptr::addr_of!(SALTOS[i]) };
+        t::marcar(t::OBREROS + i, t::APUNTO, id, salto.vector << 48 | (salto.rip & 0xFFFF_FFFF_FFFF));
+    }
     true
 }
 

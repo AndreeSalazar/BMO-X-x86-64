@@ -515,6 +515,17 @@ static SAVE_AUTOMATICO: core::sync::atomic::AtomicBool = core::sync::atomic::Ato
 /// **Antes de una orden arriesgada.** En modo automatico guarda el informe
 /// maestro y devuelve si se pudo; en manual, `true` sin hacer nada.
 pub(crate) fn antes_de_arriesgar(dsk: &mut Desktop, p: &bmo::Pantalla, que: &[u8]) -> bool {
+    guardar_antes(dsk, p, que, true)
+}
+
+/// **Antes de `reboot`** (11-10): el mismo save automatico, pero el
+/// reinicio va IGUAL si no se pudo -- lo pidio el propietario, y un disco que
+/// no escribe no es motivo para no reiniciar.
+pub(crate) fn antes_de_reiniciar(dsk: &mut Desktop, p: &bmo::Pantalla) {
+    guardar_antes(dsk, p, b"reboot", false);
+}
+
+fn guardar_antes(dsk: &mut Desktop, p: &bmo::Pantalla, que: &[u8], aborta: bool) -> bool {
     if !SAVE_AUTOMATICO.load(core::sync::atomic::Ordering::Relaxed) {
         return true;
     }
@@ -536,7 +547,7 @@ pub(crate) fn antes_de_arriesgar(dsk: &mut Desktop, p: &bmo::Pantalla, que: &[u8
             dsk.out.grid.with_ink(INK_ERR);
             dsk.out.grid.text(b"  save automatico NO se pudo (");
             dsk.out.grid.text(file_error_reason(e));
-            dsk.out.grid.text(b"): la orden NO se hace\n");
+            dsk.out.grid.text(if aborta { b"): la orden NO se hace\n" as &[u8] } else { b"): sigue igual\n" });
             dsk.out.grid.with_ink(INK_PLAIN);
             false
         }

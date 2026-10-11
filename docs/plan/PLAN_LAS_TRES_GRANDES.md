@@ -945,6 +945,17 @@ nulo van ademas al DIARIO (`diario::apuntar_arranque`), que se guarda
 entero. Y `datos/fallos.txt` no se abre desde PROTON-X (codigo 28, no
 esta): el lector tiro de las autopsias del kernel.
 
+**Estado al 11-10 (la ultima corrida, 07-10 17:28): nivel 4 A MEDIAS.**
+Los niveles 1 a 3, hechos en el metal: 24 DLL y 4793 funciones, el arranque
+por dentro, 1065 PSO en ~1,1 s y 43 `ExecuteCommandLists`. Del 4, la ventana
+SI (1738x1064) y el `Present` NO (0 en todas las corridas). Del 8, un trozo:
+el sonido arranca (`IAudioClient::Start`, 48 kHz por el audifono USB). Vivio
+68 s y murio por `memory allocation of 75497472 bytes failed` (V6, arreglado
+en el banco). Con `smp all` el PC se reinicia (V9 y V10 de
+`PLAN_LOS_DOCE_DIRECTORES`), asi que el 7 espera a eso. Lo que falta para
+cerrar el 4, en orden: el reinicio de `smp all`, V6 en el metal, E0.4 (el
+salto a 0 en `ffxDispatch`) y el primer `Present` pintado por la CPU.
+
 **Lo que dijo de sus sombreadores** (SYSPROTO, cada texto una vez), y su
 casilla:
 

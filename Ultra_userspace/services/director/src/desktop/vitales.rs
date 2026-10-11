@@ -132,7 +132,7 @@ fn mando_smp(dsk: &mut Desktop, p: &bmo::Pantalla, m: MandoSmp) {
     let mut d = [0u8; 10];
     match m {
         MandoSmp::Todos => {
-            dsk.win.mem.decir(b"despertando nucleos (esto tarda)...");
+            dsk.win.mem.decir(b"despertando hilos (esto tarda)...");
             pintar(dsk, p);
             p.volcar();
             let (vivos, esperados, parados) = bmo::smp_censo(u32::MAX);

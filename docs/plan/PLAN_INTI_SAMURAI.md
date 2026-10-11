@@ -276,6 +276,15 @@ escrita para que el propietario diga si; no se ha tocado codigo.
    [ ] 4  fuera el resto del runtime de app (objetos y monton) -- con su
           relevo (3.3): `png.inti` y `cpu.inti` usan el monton, y se
           quedan mientras sean de CPU
+          11-10, EL SONDEO (el propietario: "archivos de inti que siguen
+          vivos deben ser eliminados por completo"): de los 55 `.inti` del
+          arbol NINGUNO es de app -- cpu, pulso, musica (hasta Q2), el
+          monton (lo usa cpu.inti), las 43 sondas del censo y la biblioteca
+          del emisor (objetos, decimal, matematica), que solo cargan SUS
+          pruebas. Los objetos son el sitio por donde esas pruebas ejercen
+          el monton y la comprobacion de indice: salen JUNTO con el 5, no
+          antes. Fuera ese dia: las dos dependencias de banco de INTI en el
+          emisor de C (los gemelos se fueron en 4b)
    [ ] 5  el emisor pierde los caminos del monton y de los objetos; los docs
           de INTI dicen UN perfil
    [ ] 6  EL PRIMER CORTE DE VELOCIDAD: asignacion de registros (INTI_MAESTRO

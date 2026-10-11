@@ -51,6 +51,20 @@ pub(crate) fn ink_color(t: u8) -> u32 {
     }
 }
 
+/// **LO QUE SE VE, A LA CAJA NEGRA** (11-10). El propietario: *"que la RAM
+/// atrape la escritura de pantalla, para saber que paso"*. Cada linea que se
+/// cierra en una caja del escritorio va tambien al anillo de `CAIDA.TXT`
+/// (`bmo::caida_anotar`, 16 bytes por llamada), con `[caja] ` delante: si la
+/// maquina se reinicia, el CAIDA siguiente dice lo ultimo que se VIO, no solo
+/// lo que dijo el kernel. Callado durante un `save` (el informe ya va al
+/// disco, y sus 200 filas echarian del anillo lo que importa).
+static ESPEJO_CALLADO: core::sync::atomic::AtomicBool = core::sync::atomic::AtomicBool::new(false);
+
+/// Callar (o no) el espejo de la caja a la caja negra (lo usa el `save`).
+pub(crate) fn callar_espejo(si: bool) {
+    ESPEJO_CALLADO.store(si, core::sync::atomic::Ordering::Relaxed);
+}
+
 pub(crate) struct Output {
     /// El historial entero. Se ESCRIBE aqui; la ventana visible es un trozo.
     pub(crate) cells: [[u8; OUT_COLS]; OUT_HIST],
@@ -242,6 +256,17 @@ impl Output {
     }
 
     pub(crate) fn newline(&mut self) {
+        if !ESPEJO_CALLADO.load(core::sync::atomic::Ordering::Relaxed) {
+            let fila = &self.cells[self.row][..self.col.min(OUT_COLS)];
+            let n = fila.iter().rposition(|&c| c != b' ' && c != 0).map_or(0, |k| k + 1);
+            if n > 0 {
+                let mut l = [0u8; OUT_COLS + 8];
+                l[..7].copy_from_slice(b"[caja] ");
+                l[7..7 + n].copy_from_slice(&fila[..n]);
+                l[7 + n] = b'\n';
+                bmo::caida_anotar(&l[..8 + n]);
+            }
+        }
         self.sangria = 0;
         self.written += 1;
         self.alive_boxes = (self.alive_boxes + 1).min(OUT_HIST);

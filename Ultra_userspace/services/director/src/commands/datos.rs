@@ -75,8 +75,8 @@ const VACIO: Dato = Dato {
 
 /// Los nombres de los capitulos del maestro, en su orden. El `0` es "antes
 /// de cualquier capitulo" (la cabecera) y se escribe como `informe`.
-const CAPITULOS: [&[u8]; 8] = [
-    b"informe", b"sesion", b"maquina", b"memoria", b"consumo", b"programa", b"disco", b"autopsia",
+const CAPITULOS: [&[u8]; 9] = [
+    b"informe", b"sesion", b"maquina", b"memoria", b"consumo", b"programa", b"disco", b"autopsia", b"escrito",
 ];
 
 static mut DATOS: [Dato; MAX_DATOS] = [VACIO; MAX_DATOS];
@@ -100,7 +100,7 @@ pub(crate) fn parar() {
     unsafe { GRABANDO = false };
 }
 
-/// El capitulo del maestro que se esta escribiendo (1..=7); `0` = ninguno.
+/// El capitulo del maestro que se esta escribiendo (1..=8); `0` = ninguno.
 pub(crate) fn capitulo(n: u8) {
     unsafe { CAPITULO = n.min((CAPITULOS.len() - 1) as u8) };
 }

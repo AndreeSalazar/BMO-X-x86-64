@@ -3,7 +3,9 @@
 //! [carril]  ROJO      el tick del LAPIC: sin el no hay planificador
 //! [consumo] LATE      el tick: mil veces por segundo, haya o no haya nadie.
 //!                     Cada vuelta: latido::tic, channel::service_all y
-//!                     scheduler::on_timer; y cada 1024, power::acumular
+//!                     scheduler::on_timer; y cada 1024, power::acumular;
+//!                     los registros del BSP al tablero (RIP, RSP, anillo); y
+//!                     con una faena de Ring 3 en marcha, el pulso del tablero
 //!
 //! `s2_mem` calibrates and starts LAPIC vector 48. Ring 0 replaces that
 //! vector's boot-time halt stub with this handler, which shares the exact
@@ -198,6 +200,20 @@ extern "C" fn timer_dispatch(frame: &mut TrapFrame) -> u64 {
     // La caja negra, de la cache a la RAM (07-10): un reinicio de golpe
     // borra la cache, y con ella todo lo que la caida tenia que contar.
     crate::ring0::cabina::caida::a_la_ram();
+    // LOS REGISTROS DEL BSP (11-10), en cada tick: donde estaba cuando el
+    // reloj lo interrumpio. Una muerte de golpe no deja leer nada despues;
+    // esto ya esta en la RAM antes.
+    {
+        use crate::ring0::cabina::tablero as t;
+        let etapa = if frame.cs & 3 == 3 { t::TICK_RING3 } else { t::TICK_RING0 };
+        t::marcar(t::REGISTROS_BSP, etapa, frame.rip, frame.rsp);
+    }
+    // El PULSO del tablero (11-10), solo con una faena de Ring 3 en marcha:
+    // el CAIDA siguiente dice cuanto vivio el BSP despues de cada obrero.
+    if crate::ring0::plat::smp::ring3::activa() {
+        use crate::ring0::cabina::tablero as t;
+        t::marcar(t::PULSO, t::VIVO, n, crate::ring0::plat::smp::ring3::faena());
+    }
     // Budgeted estuary service before the scheduler decision: pending
     // submissions become completions and their WAITers wake this tick.
     // Must run before on_timer so no scheduler lock is held here.

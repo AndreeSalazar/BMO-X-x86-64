@@ -882,7 +882,7 @@ fn paint_cpu(p: &bmo::Pantalla, c: &VitalsWindow, tx: u32, y: &mut u32, step: u3
         place(b" en pie de ", b, &mut n);
         num(bmo::info(bmo::INFO_CPU_HILOS), b, &mut n);
     }
-    row(p, tx, *y, "nucleos", &b[..n], if alive_count == 0 { INK_DIM } else { INK_OK });
+    row(p, tx, *y, "hilos", &b[..n], if alive_count == 0 { INK_DIM } else { INK_OK });
     *y += step;
 
     let mut n = 0usize;

@@ -72,6 +72,9 @@ pub(crate) mod dispatch;
 pub(crate) mod files;
 pub(crate) mod shell;
 pub(crate) mod system;
+/// **El arranque y las caidas** (11-10): por que se reinicio la vez anterior
+/// y como estan los obreros, para el `save` y para `smp`.
+pub(crate) mod arranque;
 /// La ALARMA MAESTRA de F9 (HM5b), delante de la autopsia.
 mod alarma;
 pub(crate) use dispatch::{dispatch, After};
@@ -108,6 +111,8 @@ pub(crate) mod save_maestro;
 /// `save siempre` (03-10): CABINA guarda sola al arrancar, mientras corre un
 /// programa (datos/vivo.txt) y al acabar.
 pub(crate) mod save_siempre;
+/// **`smp siempre`** (11-10): despertar a todos los nucleos al arrancar.
+pub(crate) mod smp_siempre;
 pub(crate) mod datos;
 /// La TIPOGRAFIA de los informes: filas, barras y unidades. Salio de `reports`
 /// el 12-09 porque alli convivian dos clases de coste -- lo que pregunta a la
