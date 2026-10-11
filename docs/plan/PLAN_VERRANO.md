@@ -421,6 +421,25 @@ propia, al lado de la trama de tiempo real
       semilla da la misma luz; el suelo junto a la pared roja sale rojizo y
       junto a la verde verdoso; con la luz apagada, negro; la curva no baja
       ni pasa de blanco --, y la foto.
+- [x] **VE1b -- ESTUDIO VIVO: la luz que se RECUERDA, en tiempo real.**
+      Lo pidio el propietario el 11-10 (*"no siempre expone a la pantalla
+      [...] los calculo se quede la CPU en tiempo real [...] planos
+      imaginacion que la CPU lo deja la ram que se acuerda y lo rellena en
+      tiempo real, con la GPU que solo completa"*). HECHO en el anfitrion
+      (`verrano-trama/src/vivo.rs`): cada fotograma calcula UN CUARTO de los
+      pixeles (uno de cada 2x2, rotando) y el resto lo rellena su cuadro; lo
+      calculado se ACUMULA (con la camara quieta, la imagen va hacia la de
+      ESTUDIO entero); y la MEMORIA DE LA LUZ -- una tabla hash de la luz que
+      sale de cada trocito mate del MUNDO, la idea de la irradiance cache de
+      RenderMan -- sobrevive a la camara que se mueve: los caminos terminan
+      en ella y cada camino nuevo la educa. Se lee en paralelo y se escribe
+      al final del fotograma, sin cerrojos. Medido (`--example
+      estudio_vivo`, 320x240, un cuarto por fotograma, 4 nucleos): sin
+      memoria 21,8 ms por fotograma, CON ella 12,0 ms (~83 por segundo) y
+      menos ruido. **Como se sabe:** sus pruebas contra ESTUDIO entero (el
+      juez) -- la imagen quieta converge, cada 2x2 tiene uno calculado y lo
+      demas lo muestra, la memoria educada ayuda despues de mover la camara
+      --; saboteada (la memoria que nunca contesta): cae.
 - [ ] **VE2 -- en BMO-X, con todos los nucleos.** Una app de Ring 3 que
       reparte las filas entre los nucleos (`smp all`) y pinta la foto en su
       ventana, fila a fila, mientras se calcula.
@@ -431,6 +450,10 @@ propia, al lado de la trama de tiempo real
       verdad (microfacetas, GGX), el subsuelo de la piel, la niebla.
 - [ ] **VE5 -- la 3060 como ayudante.** El mismo trazado en su computo, un
       rayo por hilo, juzgado contra el de la CPU (que sigue siendo el juez).
+      Con VIVO: la 3060 lee la imagen acumulada y la memoria de la luz (el
+      quirofano de RAM) y COMPLETA -- rellena, suaviza (un filtro que quita
+      el ruido, guiado por la memoria) y pinta -- mientras la CPU sigue
+      calculando y educando.
 - [ ] **VE6 -- TITAN++ lo pide.** `director.estudio(...)`: una escena de
       TITAN++ renderizada por ESTUDIO.
 

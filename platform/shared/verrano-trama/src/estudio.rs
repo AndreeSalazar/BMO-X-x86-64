@@ -44,13 +44,13 @@ use bmo_prometeo::programa::raiz;
 /// Un vector de tres.
 pub type V3 = [f32; 3];
 
-fn mas(a: V3, b: V3) -> V3 {
+pub(crate) fn mas(a: V3, b: V3) -> V3 {
     [a[0] + b[0], a[1] + b[1], a[2] + b[2]]
 }
 fn menos(a: V3, b: V3) -> V3 {
     [a[0] - b[0], a[1] - b[1], a[2] - b[2]]
 }
-fn por(a: V3, k: f32) -> V3 {
+pub(crate) fn por(a: V3, k: f32) -> V3 {
     [a[0] * k, a[1] * k, a[2] * k]
 }
 fn mul(a: V3, b: V3) -> V3 {
@@ -250,9 +250,22 @@ impl Escena<'_> {
     }
 
     /// **La luz que llega por un rayo** (el camino entero).
-    pub fn camino(&self, mut o: V3, mut d: V3, az: &mut Azar) -> V3 {
+    pub fn camino(&self, o: V3, d: V3, az: &mut Azar) -> V3 {
+        self.camino_con(o, d, az, None, None)
+    }
+
+    /// **El camino con la MEMORIA DE LA LUZ** (ESTUDIO VIVO, `vivo.rs`): en
+    /// un rebote mate que no es el primero, si la memoria ya sabe la luz que
+    /// sale de ese sitio, se usa y el camino ACABA ahi (mas corto, y sin el
+    /// ruido de lo que falta); y lo que este camino aprende de cada sitio
+    /// mate se APUNTA (la luz que sale de el), para educar la memoria. El
+    /// primer golpe siempre se calcula entero: las sombras directas, nitidas.
+    pub fn camino_con(&self, mut o: V3, mut d: V3, az: &mut Azar, memoria: Option<&crate::vivo::Memoria>, mut apuntes: Option<&mut alloc::vec::Vec<crate::vivo::Apunte>>) -> V3 {
         let mut luz = [0.0f32; 3];
         let mut peso = [1.0f32; 3];
+        // los sitios mate de este camino: (punto, normal, luz y peso al llegar)
+        let mut vistos: [(V3, V3, V3, V3); 4] = [([0.0; 3], [0.0; 3], [0.0; 3], [0.0; 3]); 4];
+        let mut n_vistos = 0;
         let mut especular = true;
         // si el camino ya paso por algo mate: lo que llegue de la luz por un
         // espejo o un vidrio despues es una CAUSTICA, y se le pone techo
@@ -273,6 +286,16 @@ impl Escena<'_> {
                     break;
                 }
                 Material::Mate { color } => {
+                    if rebote > 0 {
+                        if let Some(l) = memoria.and_then(|m| m.mirar(g.p, g.n)) {
+                            luz = mas(luz, mul(peso, l));
+                            break;
+                        }
+                    }
+                    if n_vistos < vistos.len() {
+                        vistos[n_vistos] = (g.p, g.n, luz, peso);
+                        n_vistos += 1;
+                    }
                     luz = mas(luz, mul(peso, mul(color, self.directa(g.p, g.n, az))));
                     peso = mul(peso, color);
                     d = coseno(g.n, az);
@@ -313,24 +336,39 @@ impl Escena<'_> {
                 peso = por(peso, 1.0 / q);
             }
         }
+        // lo aprendido: la luz que salio de cada sitio mate, por lo que el
+        // camino junto DESPUES de el (dividido por lo que pesaba al llegar)
+        if let Some(a) = apuntes.as_deref_mut() {
+            for &(p, n, antes, w) in &vistos[..n_vistos] {
+                if w.iter().all(|&x| x > 1e-6) {
+                    let l = menos(luz, antes);
+                    a.push(crate::vivo::Apunte { p, n, l: [l[0] / w[0], l[1] / w[1], l[2] / w[2]] });
+                }
+            }
+        }
         luz
     }
 
-    /// **Un pixel**: `muestras` rayos por el, cada uno en su sitio dentro
-    /// del pixel, de media. La luz (sin techo), en lineal.
-    pub fn pixel(&self, x: u32, y: u32, ancho: u32, alto: u32, muestras: u32) -> V3 {
+    /// El rayo de la camara por un sitio al azar del pixel (x, y).
+    pub fn rayo(&self, x: u32, y: u32, ancho: u32, alto: u32, az: &mut Azar) -> (V3, V3) {
         let c = self.camara;
         let w = unidad(menos(c.mira, c.ojo));
         let u = unidad(cruz(w, c.arriba));
         let v = cruz(u, w);
         let aspecto = ancho as f32 / alto as f32;
+        let sx = (2.0 * (x as f32 + az.uno()) / ancho as f32 - 1.0) * c.tan_medio * aspecto;
+        let sy = (1.0 - 2.0 * (y as f32 + az.uno()) / alto as f32) * c.tan_medio;
+        (c.ojo, unidad(mas(w, mas(por(u, sx), por(v, sy)))))
+    }
+
+    /// **Un pixel**: `muestras` rayos por el, cada uno en su sitio dentro
+    /// del pixel, de media. La luz (sin techo), en lineal.
+    pub fn pixel(&self, x: u32, y: u32, ancho: u32, alto: u32, muestras: u32) -> V3 {
         let mut az = Azar::nuevo(y * ancho + x + 1);
         let mut suma = [0.0f32; 3];
         for _ in 0..muestras {
-            let sx = (2.0 * (x as f32 + az.uno()) / ancho as f32 - 1.0) * c.tan_medio * aspecto;
-            let sy = (1.0 - 2.0 * (y as f32 + az.uno()) / alto as f32) * c.tan_medio;
-            let d = unidad(mas(w, mas(por(u, sx), por(v, sy))));
-            suma = mas(suma, self.camino(c.ojo, d, &mut az));
+            let (o, d) = self.rayo(x, y, ancho, alto, &mut az);
+            suma = mas(suma, self.camino(o, d, &mut az));
         }
         por(suma, 1.0 / muestras as f32)
     }

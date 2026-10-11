@@ -24,6 +24,7 @@
 //!              como etapa (`Casa`)
 //!    estudio   el render de CALIDAD, al estilo RenderMan: trazado de
 //!              caminos en la CPU (11-10)
+//!    vivo      ESTUDIO en tiempo real: la luz que se recuerda (11-10)
 //! ```
 //!
 //! Aparte de `bmo-verrano` por la memoria: esta pide `alloc` y el Programa
@@ -50,6 +51,10 @@ pub mod juez;
 /// trazado de caminos en la CPU: luz de area, sombras suaves, luz
 /// indirecta, metal y vidrio, la curva del cine --.
 pub mod estudio;
+/// ESTUDIO VIVO (11-10): la luz de ESTUDIO en tiempo real porque se
+/// RECUERDA -- un cuarto de los pixeles por fotograma, la imagen que se
+/// acumula, y la memoria de la luz del mundo que sobrevive a la camara --.
+pub mod vivo;
 
 #[cfg(test)]
 mod pruebas_juez;

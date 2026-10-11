@@ -8,7 +8,7 @@
 
 ```text
    761 casillas ABIERTAS en 70 planes
-   604 hechas
+   605 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -54,7 +54,7 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] S1b -- la Biblioteca muestra lo de ESTRATOS. Hoy
 - ... y 43 mas
 
-## [`PLAN_VERRANO.md`](PLAN_VERRANO.md) -- 45 abiertas, 11 hechas
+## [`PLAN_VERRANO.md`](PLAN_VERRANO.md) -- 45 abiertas, 12 hechas
 
 *PLAN VERRANO -- la API de dibujo de BMO-X, con el BSF debajo*
 
