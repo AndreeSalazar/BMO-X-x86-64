@@ -33,6 +33,7 @@ use bmo_verrano::{Backend, Frame, Image, Vertex, Viewport};
 
 use super::sm86 as destino;
 use crate::desktop::Desktop;
+use crate::scene::output::Output;
 
 /// V2 (11-10): 256 triangulos por fotograma -- dos cubos enteros caben de
 /// sobra (24), y el descarte y la profundidad los hace VERRANO, no la app --.
@@ -81,11 +82,17 @@ fn estado() -> &'static mut Estado {
     unsafe { &mut *core::ptr::addr_of_mut!(ESTADO) }
 }
 
-fn decir(e: &mut Estado, que: &str) {
+/// ** 11-10: se dice TAMBIEN en la caja de Ejecutar (`g`), donde mira el
+/// propietario -- no solo en el panel del kernel (F11) --. MUNDO, en el
+/// metal, salio con su ventana vacia y sin una linea que dijera por que.
+fn decir(e: &mut Estado, g: &mut Output, que: &str) {
     e.imposible = true;
     bmo::consola("[Q0a3] la lamina NO va a su ventana: ");
     bmo::consola(que);
     bmo::consola("\n");
+    g.text(b"  [Q0a3] la lamina NO va a su ventana: ");
+    g.text(que.as_bytes());
+    g.text(b"\n");
 }
 
 /// **Cada vuelta del escritorio**: si hay una lamina con ventana y un
@@ -120,19 +127,19 @@ pub(crate) fn vuelta(dsk: &mut Desktop, p: &bmo::Pantalla) -> bool {
     e.secuencia = s;
     let Leido::Fotograma { vertices: n, .. } = leido else { return false };
     if w % 32 != 0 || (w as usize) * (h as usize) > PIXELES_MAX {
-        decir(e, "su ventana no mide un multiplo de 32 de ancho o pasa de 1280x720");
+        decir(e, &mut dsk.out.grid, "su ventana no mide un multiplo de 32 de ancho o pasa de 1280x720"); dsk.tick.repaint_field = true;
         return false;
     }
     if e.bloque.is_none() {
         e.bloque = bmo::Memoria::residente(4 * PIXELES_MAX as u64);
         if e.bloque.is_none() {
-            decir(e, "sin memoria para el bloque");
+            decir(e, &mut dsk.out.grid, "sin memoria para el bloque"); dsk.tick.repaint_field = true;
             return false;
         }
     }
     if e.aparato.is_none() {
         let Some(m) = bmo::Memoria::residente(destino::CAJA) else {
-            decir(e, "sin memoria para el paquete");
+            decir(e, &mut dsk.out.grid, "sin memoria para el paquete"); dsk.tick.repaint_field = true;
             return false;
         };
         // SAFETY: residente y OLVIDADA (no se devuelve nunca: el aparato vive
@@ -147,7 +154,7 @@ pub(crate) fn vuelta(dsk: &mut Desktop, p: &bmo::Pantalla) -> bool {
                 e.aparato = Some(a);
             }
             Err(_) => {
-                decir(e, "la puerta no se abrio (lo dice la salida)");
+                decir(e, &mut dsk.out.grid, "la puerta no se abrio (lo dice la salida)"); dsk.tick.repaint_field = true;
                 return false;
             }
         }
@@ -164,14 +171,16 @@ pub(crate) fn vuelta(dsk: &mut Desktop, p: &bmo::Pantalla) -> bool {
     match a.draw(&frame, &mut Image { pixels: pixeles, width: w, height: h , depth: None }) {
         Ok(_) => {
             if e.dibujados % JUZGAR_CADA == 0 {
-                juzgar(&mut e.hoja, &mut e.hoja_z, &mut e.dicho_distinto, e.dibujados == 0, &frame, pixeles);
+                if juzgar(&mut e.hoja, &mut e.hoja_z, &mut e.dicho_distinto, e.dibujados == 0, &frame, pixeles, &mut dsk.out.grid) {
+                    dsk.tick.repaint_field = true;
+                }
             }
             e.dibujados = e.dibujados.wrapping_add(1);
             dsk.table.poner_fuente(i, va, s);
             true
         }
         Err(_) => {
-            decir(e, "la 3060 no dibujo el fotograma (VERRANO dijo que no)");
+            decir(e, &mut dsk.out.grid, "la 3060 no dibujo el fotograma (VERRANO dijo que no)"); dsk.tick.repaint_field = true;
             false
         }
     }
@@ -179,15 +188,18 @@ pub(crate) fn vuelta(dsk: &mut Desktop, p: &bmo::Pantalla) -> bool {
 
 /// **El juez**: el fotograma, otra vez por la CPU de VERRANO, contra lo que
 /// dejo la 3060. Se dice el primero de cada app y el primero distinto.
-fn juzgar(hoja: &mut Option<bmo::Memoria>, hoja_z: &mut Option<bmo::Memoria>, dicho_distinto: &mut bool, primero: bool, frame: &Frame, visto: &[u32]) {
+/// `true` si dijo algo en la caja (`g`).
+fn juzgar(hoja: &mut Option<bmo::Memoria>, hoja_z: &mut Option<bmo::Memoria>, dicho_distinto: &mut bool, primero: bool, frame: &Frame, visto: &[u32], g: &mut Output) -> bool {
     if hoja.is_none() {
         *hoja = bmo::Memoria::residente(4 * PIXELES_MAX as u64);
     }
     let Some(m) = hoja.as_ref() else {
         if primero {
             bmo::consola("[Q0a3] el juez: sin memoria para su hoja, no se juzga\n");
+            g.text(b"  [Q0a3] el juez: sin memoria para su hoja, no se juzga\n");
+            return true;
         }
-        return;
+        return false;
     };
     // SAFETY: residente, `PIXELES_MAX` pixeles de este proceso, y solo la usa
     // el juez, en este hilo.
@@ -201,38 +213,45 @@ fn juzgar(hoja: &mut Option<bmo::Memoria>, hoja_z: &mut Option<bmo::Memoria>, di
         // SAFETY: residente, `PIXELES_MAX` f32 de este proceso, y solo la usa
         // el juez, en este hilo.
         (true, Some(m)) => Some(unsafe { core::slice::from_raw_parts_mut(m.base() as *mut f32, PIXELES_MAX) }),
-        (true, None) => return,
+        (true, None) => return false,
         _ => None,
     };
-    let Ok(j) = juez.juzgar(frame, visto, hoja, z) else { return };
+    let Ok(j) = juez.juzgar(frame, visto, hoja, z) else { return false };
     let distinto = j.distintos != 0;
     if !(primero || distinto && !*dicho_distinto) {
-        return;
+        return false;
     }
     *dicho_distinto |= distinto;
     let mut d = [0u8; 10];
-    let mut num = |v: u64| {
+    // lo mismo al panel del kernel y a la caja
+    let mut num = |g: &mut Output, v: u64| {
         let k = crate::text::decimal(v, &mut d);
         bmo::consola(core::str::from_utf8(&d[..k]).unwrap_or("?"));
+        g.text(&d[..k]);
     };
-    bmo::consola("[Q0a3] el juez (la CPU de VERRANO) a ");
-    num(frame.viewport.width as u64);
-    bmo::consola("x");
-    num(frame.viewport.height as u64);
+    let di = |g: &mut Output, t: &str| {
+        bmo::consola(t);
+        g.text(t.as_bytes());
+    };
+    di(g, "  [Q0a3] el juez (la CPU de VERRANO) a ");
+    num(g, frame.viewport.width as u64);
+    di(g, "x");
+    num(g, frame.viewport.height as u64);
     if !distinto {
-        bmo::consola(": la 3060 da lo MISMO, pixel a pixel\n");
-        return;
+        di(g, ": la 3060 da lo MISMO, pixel a pixel\n");
+        return true;
     }
-    bmo::consola(": la 3060 da DISTINTO en ");
-    num(j.distintos as u64);
-    bmo::consola(" de ");
-    num(j.pixeles as u64);
-    bmo::consola(" pixeles");
+    di(g, ": la 3060 da DISTINTO en ");
+    num(g, j.distintos as u64);
+    di(g, " de ");
+    num(g, j.pixeles as u64);
+    di(g, " pixeles");
     if let Some((x, y, _, _)) = j.primero {
-        bmo::consola(", el primero en ");
-        num(x as u64);
-        bmo::consola(",");
-        num(y as u64);
+        di(g, ", el primero en ");
+        num(g, x as u64);
+        di(g, ",");
+        num(g, y as u64);
     }
-    bmo::consola("\n");
+    di(g, "\n");
+    true
 }

@@ -528,6 +528,10 @@ linea dice que se mira y que seria un NO.
                                  las PARTES (los nucleos); se     panico; con `c`
                                  ve LIMPIA (VE5, completada) y    manchas o
                                  `c` la deja cruda, con grano     bordes borrados
+   ** 11-10, 04:10-04:16 (METAL_2026-10-11): VE5 VISTO (`gpu completa`,
+   76800 de 76800 en las 3 pasadas); VEL VISTO en 1 nucleo (estudio, ~95 ms,
+   "completada en la 3060", sin #GP); R1 VISTO (`resol.bex`); MC1 NO (la
+   ventana sin dibujo: el por que, ahora, en la caja); `smp all` reinicia.
    VEL ESTUDIO a toda          `gpu lienzo`, `smp all`, `run    un #GP al
        velocidad (SSE en Ring    sys/estudio.bex`: la consola     abrir (la pila),
        3 y la 3060 completa)     dice "completada en la 3060" y   "la 3060 no
