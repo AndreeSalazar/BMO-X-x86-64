@@ -1,9 +1,9 @@
-# LA MEDIDA GUARDADA, leida de lo tenido: `datos/resolucion.txt` dice
+# LA MEDIDA GUARDADA, leida de lo tenido: `datos/resol.txt` dice
 # "ANCHO ALTO" (y un salto de linea), lo que escribe RESOLUCION al pulsar
 # Enter. 0 si no se entiende: hasta cinco cifras, un espacio entre las dos
 # y nada detras. La misma pieza vive en `nivel11/ventana` (medida.titan):
 # una ventana de TITAN++ que quiera la medida elegida la lee asi.
-mod medida "la medida que eligio RESOLUCION: ANCHO ALTO en datos/resolucion.txt"
+mod medida "la medida que eligio RESOLUCION: ANCHO ALTO en datos/resol.txt"
 use director
 
 fn es_cifra(b: int) -> bool

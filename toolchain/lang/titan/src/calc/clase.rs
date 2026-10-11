@@ -464,7 +464,7 @@ pub(super) fn director(what: Director, args: &[Value], at: At, known: &[Option<C
             }
         }
         Director::Guarda => {
-            for (k, what, ej) in [(0, "la RUTA del fichero", "director.guarda(\"datos/resolucion.txt\", t)"), (1, "lo que se guarda: un texto", "director.guarda(ruta, \"1280 720\")")] {
+            for (k, what, ej) in [(0, "la RUTA del fichero", "director.guarda(\"datos/resol.txt\", t)"), (1, "lo que se guarda: un texto", "director.guarda(ruta, \"1280 720\")")] {
                 if got[k] != Class::Text {
                     return Err(wrong(args[k].at(), &Class::Text, &got[k], m.defs(), &format!("`director.guarda` pide {}", what), ej));
                 }

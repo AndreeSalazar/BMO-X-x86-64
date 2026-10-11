@@ -158,13 +158,13 @@ fn what_is_held_comes_before_the_window() {
 /// dice que no (no se guarda NADA).
 #[test]
 fn a_whole_file_is_saved() {
-    let src = programa("    print(director.guarda(\"datos/resolucion.txt\", \"1920 1080\\n\"), \" \", director.guarda(\"datos/vacio\", \"\"))\n    print(director.guarda(\"\", \"x\"), \" \", director.guarda(\"datos/no\", \"nada\"), \" \", director.medida())\n    if director.fichero(\"datos/resolucion.txt\")\n        print(director.medida(), \" \", director.byte(0), \" \", director.byte(9))\n");
+    let src = programa("    print(director.guarda(\"datos/resol.txt\", \"1920 1080\\n\"), \" \", director.guarda(\"datos/vacio\", \"\"))\n    print(director.guarda(\"\", \"x\"), \" \", director.guarda(\"datos/no\", \"nada\"), \" \", director.medida())\n    if director.fichero(\"datos/resol.txt\")\n        print(director.medida(), \" \", director.byte(0), \" \", director.byte(9))\n");
     let mut m = maquina(&src);
     m.fallar_al_guardar("datos/no");
     let m = run(m, 20_000_000);
     assert!(m.exited, "{}", m.console);
     assert_eq!(m.console, "true true\nfalse false 0\n10 49 10\n");
-    assert_eq!(m.archivos.get("datos/resolucion.txt").map(Vec::as_slice), Some(&b"1920 1080\n"[..]));
+    assert_eq!(m.archivos.get("datos/resol.txt").map(Vec::as_slice), Some(&b"1920 1080\n"[..]));
     assert_eq!(m.archivos.get("datos/vacio").map(Vec::len), Some(0));
     assert!(!m.archivos.contains_key("datos/no"));
 }

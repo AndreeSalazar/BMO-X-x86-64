@@ -1097,7 +1097,7 @@ director.profundidad(true)                    # la lamina con z-buffer (V2)
 ### El DIRECTOR: lo que se GUARDA (10-10, TA4 de `PLAN_LA_TINTA`, R1 de `EL_FOCO`)
 
 ```text
-if director.guarda("datos/resolucion.txt", "1280 720\n")   # si, si llego al disco
+if director.guarda("datos/resol.txt", "1280 720\n")   # si, si llego al disco
 ```
 
 - `director.guarda(ruta, texto)`: el fichero ENTERO, creado de cero

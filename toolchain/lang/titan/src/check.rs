@@ -743,7 +743,7 @@ fn target(p: &Program, callee: &str, n: usize, line: usize, col: usize, as_value
             Director::Presenta => "director.presenta()",
             Director::Toma => "if director.toma()",
             Director::Fichero => "if director.fichero(\"datos/ejemplo.lam\")",
-            Director::Guarda => "if director.guarda(\"datos/resolucion.txt\", \"1280 720\")",
+            Director::Guarda => "if director.guarda(\"datos/resol.txt\", \"1280 720\")",
             Director::Crea => "if director.crea(\"datos/foto.bic\")",
             Director::Escribe => "director.escribe(66)",
             Director::Cierra => "if not director.cierra()",

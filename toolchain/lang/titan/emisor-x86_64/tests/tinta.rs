@@ -41,7 +41,7 @@ fn con(medida: Option<&str>, eventos: &[u64]) -> Machine {
     let mut m = cargar_bex(&tinta()).expect("el .bex carga");
     m.padre = 7;
     if let Some(t) = medida {
-        m.archivos.insert("datos/resolucion.txt".into(), t.as_bytes().to_vec());
+        m.archivos.insert("datos/resol.txt".into(), t.as_bytes().to_vec());
     }
     for &e in eventos {
         m.buzon_pendiente.push_back(e);

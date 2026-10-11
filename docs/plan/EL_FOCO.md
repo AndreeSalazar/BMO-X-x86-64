@@ -337,12 +337,12 @@ Cada paso entra con sus pruebas en el anfitrion; el metal, UNA vez, al final
       ellas para cualquier ventana"*): `Ultra_userspace/apps/resolucion/`,
       en TITAN++. Ocho medidas, de 640x360 a 2560x1440; las flechas, las
       cifras 1-8 o el raton eligen, Enter la GUARDA en
-      `datos/resolucion.txt` ("ANCHO ALTO") con `director.guarda` (TA4,
+      `datos/resol.txt` ("ANCHO ALTO") con `director.guarda` (TA4,
       nuevo), Esc cierra. Quien la LEE: cada ventana de TITAN++ que la
       quiera, con su `medida.titan` -- `titan/ventana.bex` ya se abre con
       ella --; y despues Q0a, la medida del dibujo de la 3060 por VERRANO.
       Pruebas: `emisor-x86_64/tests/resolucion.rs` (5) y `entrada.rs`.
-      **Falta el metal:** `apps/resolucion.bex` desde su icono, Enter, y
+      **Falta el metal:** `apps/resol.bex` desde su icono, Enter, y
       `run titan/ventana.bex` con la medida nueva. [!] La medida la elige
       cada app al abrirse: el DIRECTOR no agranda una ventana ya abierta
       (eso seria otra pieza: la ventana que cambia de medida, R-APP).
@@ -496,7 +496,7 @@ linea dice que se mira y que seria un NO.
                                completa y con la CPU            parpadeo
    R3  las ventanas se         dos apps encima una de otra;     una se mezcla
        apilan                  clic en la de atras: sube        con la otra
-   R1  la resolucion           `run apps/resolucion.bex`, una   la ventana no
+   R1  la resolucion           `run apps/resol.bex`, una   la ventana no
                                medida, y abrir otra app         toma la medida
    4e  bico y png en TITAN++   `run titan/bico.bex` y           pixeles mal o
                                `run titan/png.bex`              el fichero no
