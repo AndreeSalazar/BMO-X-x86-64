@@ -1161,7 +1161,7 @@ mod escribir;
 /// **NOMBRES LARGOS, CARPETAS Y AÑADIR AL FINAL** (12-10): lo que FAT32 sabia
 /// leer de Windows y no sabia escribir.
 mod largo;
-pub use largo::{Hallada, NOMBRE_MAX};
+pub use largo::{nombre_escribible, Hallada, NOMBRE_MAX};
 /// **PLANEAR sin leer**: donde esta el siguiente tramo contiguo, para que el
 /// HILO DEL DISCO mande una orden y duerma mientras el aparato la cumple.
 mod plan;

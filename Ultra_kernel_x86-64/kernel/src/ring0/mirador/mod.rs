@@ -65,13 +65,15 @@ pub fn volcar_caida() -> usize {
     // bytes". Ahora: `CAIDA.TXT` es SIEMPRE la ultima (se reemplaza), y
     // `CAIDAnnn.TXT` la guarda con su generacion, para que la de antes no
     // se pierda tampoco.
-    let ultima = crate::ring0::fsys::fs::guardar(b"CAIDA   TXT", texto);
+    //
+    // ** Y EN `informe/` (12-10): todo lo que se escribe va alli.
+    let ultima = crate::ring0::fsys::fs::guardar_informe("CAIDA.TXT", texto);
     let g = crate::ring0::cabina::caida::generacion() % 1000;
-    let numerada = [b'C', b'A', b'I', b'D', b'A', b'0' + (g / 100) as u8, b'0' + (g / 10 % 10) as u8, b'0' + (g % 10) as u8, b'T', b'X', b'T'];
-    let copia = crate::ring0::fsys::fs::guardar(&numerada, texto);
+    let numerada = [b'C', b'A', b'I', b'D', b'A', b'0' + (g / 100) as u8, b'0' + (g / 10 % 10) as u8, b'0' + (g % 10) as u8, b'.', b'T', b'X', b'T'];
+    let copia = crate::ring0::fsys::fs::guardar_informe(core::str::from_utf8(&numerada).unwrap_or("CAIDA000.TXT"), texto);
     match (ultima, copia) {
         (Ok(()), Ok(())) => {
-            info("caida", "guardado en CAIDA.TXT (y en CAIDAnnn.TXT, nnn = generacion): bytes", n as u64);
+            info("caida", "guardado en informe/CAIDA.TXT (y en CAIDAnnn.TXT, nnn = generacion): bytes", n as u64);
             n
         }
         (Ok(()), Err(_)) => {

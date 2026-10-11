@@ -88,6 +88,12 @@ fn nombre_valido(n: &[u8]) -> bool {
         && !matches!(n.last(), Some(b'.') | Some(b' '))
 }
 
+/// **¿FAT puede guardar este nombre?** (largo o 8.3). Para validar ANTES de
+/// aceptar bytes que luego no se podrian guardar.
+pub fn nombre_escribible(n: &[u8]) -> bool {
+    nombre_valido(n)
+}
+
 /// **El 8.3 EXACTO de `n`**, si lo tiene: sin recortar ni inventar. Las
 /// minusculas valen (FAT las guarda en mayuscula, como hasta hoy).
 pub(crate) fn corto_exacto(n: &[u8]) -> Option<[u8; 11]> {
