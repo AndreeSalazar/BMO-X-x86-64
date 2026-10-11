@@ -271,6 +271,75 @@ host against a fake `Pantalla` that uses BMO-X's real 8x16 font
 paints, 4 seconds into a bubble's life. A photo from the metal replaces them
 when it exists -- and until then the caption says what they are.
 
+## 15. The RTX 3060 thinks in floating point, and a path tracer runs in a window (2026-10-11)
+
+Ten captures BMO-X took of itself on the Ryzen between 04:10 and 04:16, with
+`Impr Pant` (1920x1080, written to `capturas/` through its own FAT32 driver
+-- the log under each one says how long: the photo 1 ms, the PNG ~65 ms of
+CPU, the disk 4-7 ms). Like section 12, these are **screen captures, and said
+so**: the claim they back is what BMO-X drew, and the camera photos above
+already back "this is not an emulator". The full log of the session is
+[`../metal/METAL_2026-10-11.md`](../metal/METAL_2026-10-11.md).
+
+![gpu completa](25-3060-completa-ve5.png)
+
+**`gpu completa` -- the card's first floating-point program, judged.** Top
+right: the light of the house path tracer with ONE sample per pixel (grain),
+and beside it the same light **completed by the RTX 3060** (VE5: three passes
+of an edge-aware a-trous filter, guided by each pixel's normal, depth and
+albedo, in SM86 floating point -- `FADD`, `FMUL`, `FMNMX`, `FSETP`,
+`MUFU.RCP`). The box is the judge, pass by pass: `76800 de 76800 pixeles
+iguales al juez`, the card 7421, 7606 and 7694 us, the CPU recomputing every
+pixel in soft float 1454, 1416 and 1350 ms. Above it, the two oldest tests
+still passing in the same boot (the first shader, 32 of 32; the canvas in the
+PC's RAM, 16384 of 16384).
+
+![ESTUDIO VIVO, frame 32](30-estudio-vivo-a.png)
+![ESTUDIO VIVO](31-estudio-vivo-b.png)
+![ESTUDIO VIVO](32-estudio-vivo-c.png)
+![ESTUDIO VIVO](33-estudio-vivo-d.png)
+![ESTUDIO VIVO](34-estudio-vivo-e.png)
+
+**`run sys/estudio.bex` -- ESTUDIO VIVO, the RenderMan-style path tracer, in
+its own window.** A Cornell box: red and green walls, a diffuse sphere, a
+gold one and a glass one, the lamp through the ceiling. Traced on **one**
+core, for the first time with **hardware SSE in Ring 3** (until that day
+every float a Ring 3 program did was soft float), and **completed by the
+3060 every frame** through a narrow kernel door: 83 to 114 ms per frame, and
+every line of the log says `completada en la 3060`. The window was moved and
+resized between captures; the picture keeps converging (`con memoria`). The
+side panel tells the rest: `cpu 100%` (one core flat out -- `smp all` is what
+spreads it, and is what still resets the PC), the card at `P0` and 49
+degrees, and `pcie 1/3 x16`: the link at **Gen1** out of the board's **Gen3**.
+A 3060 trains at Gen1 from a cold boot and its own firmware raises it with
+the performance level; under BMO-X it has run at Gen3 before (the
+whole-screen copy measured ~12.8 GB/s on 2026-09-25), and `gpu relojes` now
+says the link before and after asking for `PERF_BOOST`.
+
+![RESOLUCION](27-resol-guardada.png)
+
+**`run apps/resol.bex` -- RESOLUCION**, a TITAN++ app: eight modes, arrows
+or 1-8 to choose, Enter saves -- `1920 x 1080 guardada`, in
+`datos/resol.txt`, which the other windows read. The first TITAN++ program
+that writes a setting other programs obey.
+
+![TINTA](28-tinta-lienzo.png)
+
+**TINTA** -- the minimal TITAN++ canvas (TB1), full window at 1738x1064: each
+click a dot. Small, and the point: a TITAN++ program reading the mouse and
+painting its own pixels.
+
+![MUNDO, the window without its blocks](26-mundo-sin-dibujo.png)
+![MUNDO, the second try](29-mundo-otra-vez.png)
+
+**MUNDO, and it did NOT draw -- kept here on purpose.** The 3D block world
+opens its window and says `bloques en 3D, los dibuja la 3060`, and the log
+says its sheet was offered (`ofrecio una lamina (30784 B)`), but the picture
+never comes. MUNDO is the first sheet that asks the 3060 for **depth**, and
+the card's depth buffer has not been seen on the metal yet (M1). Why it
+stops now prints in the box, not only in the kernel panel; the next run says
+it. A folder of only the successes would not be evidence.
+
 ## How this folder works
 
 These are **progress markers, one batch per milestone**. When something starts

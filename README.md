@@ -261,10 +261,10 @@ decides.
        22-doom-y-la-3060.jpg DOOM en ventana y la 3060 en el panel (YA ESTA)
        23/24-globo-*.png     el globo del puntero: RENDER en el anfitrion (YA
                              ESTA); una foto del metal lo sustituye
-       25-gpu-completa.jpg   `gpu completa` (11-10): la luz con grano y la
-                             completada por la 3060, 76800 de 76800 x3
-       26-estudio-vivo.jpg   `sys/estudio.bex` (11-10): la caja de Cornell en
-                             su ventana, "completada en la 3060"
+       25-3060-completa-ve5.png  `gpu completa` (11-10): la luz con grano y
+                             la completada por la 3060, 76800 de 76800 x3 (YA ESTA)
+       30..34-estudio-vivo-*.png `sys/estudio.bex` (11-10): la caja de Cornell
+                             en su ventana, "completada en la 3060" (YA ESTAN)
 
      [!] 26-09: las lineas ![...](16-...) y ![...](17-...) se QUITARON porque
      esos ficheros no existen y GitHub los pintaba como enlaces rotos. Cuando
@@ -302,6 +302,34 @@ What the card has done for BMO-X, each line read back and checked by the CPU:
 | Switched off in order | the GSP-RM is told to leave, FWSEC-SB closes, the unload booter takes its protected memory down -- so the next warm boot finds the card clean. Seen on the metal twice (`+wpr2-abajo`, SB error 0); now ~2 s instead of 7, and done by `reboot`, not by `save mode` -- so the card keeps working after the verification. **And proven on 2026-09-26: after a `reboot`, the card arrived cold (no WPR2, GSP stopped) and woke again with no power cut** |
 
 ![DOOM in a window, the sound panel, and the side panel with the RTX 3060 awake: gsp LISTO, 49 degrees, P0, PCIe Gen3 x16, 12 GiB GDDR6](docs/evidencia/22-doom-y-la-3060.jpg)
+
+**2026-10-11, the card's first floating point, captured by BMO-X itself**
+(`Impr Pant`, 1920x1080, straight from the framebuffer). Top right, the light
+of the house path tracer with one sample per pixel -- grain -- and beside it
+the same light **completed by the RTX 3060** (VE5, three passes of an
+edge-aware filter in SM86 floating point). The box underneath is the judge:
+`76800 de 76800 pixeles iguales al juez` in each pass, 7.4-7.7 ms per pass on
+the card, ~1.4 s per pass for the CPU recomputing every pixel.
+
+![gpu completa on the Ryzen: the grainy light and the light completed by the RTX 3060, 76800 of 76800 pixels equal to the CPU in all three passes](docs/evidencia/25-3060-completa-ve5.png)
+
+**ESTUDIO VIVO in its own window** -- red and green walls, a diffuse sphere, a
+gold one and a glass one, the light through the ceiling -- traced on ONE core
+with hardware SSE in Ring 3 and completed by the 3060 every frame: **83-114 ms
+per frame**, every line of the log saying `completada en la 3060`. The side
+panel says the truth around it too: `cpu 100%` (one core, flat out), the card
+at P0 and 49 degrees, and **`pcie 1/3 x16`** -- the link is running at Gen1
+out of a possible Gen3 (the A320 board's ceiling; the card itself is Gen4). A
+3060 trains at Gen1 from a cold boot and its own firmware (the GSP-RM) raises
+it with the performance level; under BMO-X it has already run at Gen3 (the
+whole-screen copy measured ~12.8 GB/s, 81 % of Gen3, on 2026-09-25), and `gpu
+relojes` now says the link before and after asking the RM for `PERF_BOOST`.
+
+![ESTUDIO VIVO on the Ryzen: a Cornell box with a diffuse, a gold and a glass sphere, traced on one core and completed by the RTX 3060 every frame, 83-114 ms per frame](docs/evidencia/33-estudio-vivo-d.png)
+
+The rest of that session -- every frame of ESTUDIO, RESOLUCION saving
+1920x1080, the TINTA canvas, and MUNDO opening its window **without** its 3D
+blocks yet -- is in [`docs/evidencia/`](docs/evidencia/README.md), section 15.
 
 **How the machine code was obtained, honestly.** The SM86 programs are not
 guessed: they come out of NVIDIA's own `ptxas` and are read back with NVIDIA's
