@@ -521,6 +521,11 @@ linea dice que se mira y que seria un NO.
        (V2, la profundidad)    atras cruza POR DETRAS del de    dentro, o el de
                                delante; la consola: el juez     atras encima;
                                `... la 3060 da lo MISMO`        juez DISTINTO
+   VE2 ESTUDIO, la luz que se  `smp all` y `run sys/estudio.bex` la caja sin luz, o
+       recuerda (estilo          desde Ejecutar: la caja de       la consola con
+       RenderMan, VERRANO)       Cornell se limpia sola; a d w s  1 parte con
+                                 mueven; la consola: los ms y     `smp all`; un
+                                 las PARTES (los nucleos)         panico
    MC1 MUNDO, los bloques      `run apps/mundo.bex`: el suelo   ver la lista de
        (V2b, el recorte de     hasta abajo; w s a d q e r f     la seccion 3 de
        cerca)                  andan; x quita, c pone tablas;   PLAN_MUNDO

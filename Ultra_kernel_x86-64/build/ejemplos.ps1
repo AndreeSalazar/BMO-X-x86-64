@@ -191,7 +191,9 @@ try {
     }
     # Y `jueces` (06-10): no es de una tecla; los jueces de PROTON-X, uno tras
     # otro y contados (`run sys/jueces.bex`, o un grupo: `d3d12`).
-    foreach ($app in @('taller', 'ludoteca', 'hermes', 'bankcat', 'jueces')) { Enlazar-App $app }
+    # Y `estudio` (11-10, VE2 de PLAN_VERRANO): la luz estilo RenderMan que se
+    # recuerda, con todos los nucleos (`smp all`; `run sys/estudio.bex`).
+    foreach ($app in @('taller', 'ludoteca', 'hermes', 'bankcat', 'jueces', 'estudio')) { Enlazar-App $app }
     # Y `teb.exe` (P1d, 27-09): lee su TEB y su PEB por `gs:` como el CRT de
     # Microsoft, y dice `bien` seis veces si el GS de la casa es el de Windows.
     # Y `ventana.exe` (P2, 27-09): una ventana Win32 de manual, con el user32 y

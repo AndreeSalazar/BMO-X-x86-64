@@ -23,6 +23,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "bmo-app-estudio"
+version = "0.1.0"
+dependencies = [
+ "bmo-monton",
+ "bmo-orquesta",
+ "bmo-userland",
+ "bmo-verrano-trama",
+]
+
+[[package]]
 name = "bmo-app-hermes"
 version = "0.1.0"
 dependencies = [

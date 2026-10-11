@@ -260,7 +260,7 @@ impl Escena<'_> {
     /// ruido de lo que falta); y lo que este camino aprende de cada sitio
     /// mate se APUNTA (la luz que sale de el), para educar la memoria. El
     /// primer golpe siempre se calcula entero: las sombras directas, nitidas.
-    pub fn camino_con(&self, mut o: V3, mut d: V3, az: &mut Azar, memoria: Option<&crate::vivo::Memoria>, mut apuntes: Option<&mut alloc::vec::Vec<crate::vivo::Apunte>>) -> V3 {
+    pub fn camino_con(&self, mut o: V3, mut d: V3, az: &mut Azar, memoria: Option<&crate::vivo::Memoria>, mut apuntes: Option<&mut dyn FnMut(crate::vivo::Apunte)>) -> V3 {
         let mut luz = [0.0f32; 3];
         let mut peso = [1.0f32; 3];
         // los sitios mate de este camino: (punto, normal, luz y peso al llegar)
@@ -342,7 +342,7 @@ impl Escena<'_> {
             for &(p, n, antes, w) in &vistos[..n_vistos] {
                 if w.iter().all(|&x| x > 1e-6) {
                     let l = menos(luz, antes);
-                    a.push(crate::vivo::Apunte { p, n, l: [l[0] / w[0], l[1] / w[1], l[2] / w[2]] });
+                    a(crate::vivo::Apunte { p, n, l: [l[0] / w[0], l[1] / w[1], l[2] / w[2]] });
                 }
             }
         }

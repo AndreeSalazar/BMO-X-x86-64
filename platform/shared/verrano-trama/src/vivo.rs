@@ -144,6 +144,26 @@ pub enum Parte {
     Cuarto,
 }
 
+/// **Un cuaderno de apuntes SIN monton** (VE2: los obreros de BMO-X no
+/// piden memoria ni llaman al sistema): hojas que ya existen; lo que no
+/// cabe no se apunta (la memoria es una ayuda, no la verdad).
+pub struct Cuaderno<'a> {
+    pub hojas: &'a mut [Apunte],
+    pub n: usize,
+}
+
+impl Cuaderno<'_> {
+    pub fn apunta(&mut self, a: Apunte) {
+        if let Some(h) = self.hojas.get_mut(self.n) {
+            *h = a;
+            self.n += 1;
+        }
+    }
+}
+
+/// Los apuntes de un camino como mucho (sus sitios mate).
+pub const APUNTES_POR_CAMINO: usize = 4;
+
 /// Lo que calculo un trozo de filas en un fotograma: cada pixel con su
 /// muestra nueva, y lo aprendido para la memoria.
 #[derive(Debug, Default)]
@@ -200,13 +220,61 @@ impl Vivo {
                 let i = (y * self.ancho + x) as usize;
                 let mut az = Azar::nuevo((i as u32).wrapping_mul(2_654_435_761) ^ self.fotograma.wrapping_mul(97_531) ^ 0x5bd1_e995);
                 let (o, d) = e.rayo(x, y, self.ancho, self.alto, &mut az);
-                let apuntes = self.memoria.as_ref().map(|_| &mut t.apuntes);
+                let mut apunta = |a: Apunte| t.apuntes.push(a);
+                let apuntes: Option<&mut dyn FnMut(Apunte)> = if self.memoria.is_some() { Some(&mut apunta) } else { None };
                 let l = e.camino_con(o, d, &mut az, self.memoria.as_ref(), apuntes);
                 t.pixeles.push((i, l));
                 t.caminos += 1;
             }
         }
         t
+    }
+
+    /// **Lo que calculan las filas `y0..y1`, SIN MONTON** (VE2, los obreros
+    /// de BMO-X): la muestra nueva de cada pixel que toca, en `nuevas` (las
+    /// de esas filas, fila a fila desde `y0`; los que no tocan, sin tocar) y
+    /// lo aprendido en `cuaderno`. Devuelve los caminos.
+    pub fn calcula_en(&self, e: &Escena, y0: u32, y1: u32, parte: Parte, nuevas: &mut [V3], cuaderno: &mut Cuaderno) -> u64 {
+        let mut caminos = 0;
+        for y in y0..y1.min(self.alto) {
+            for x in 0..self.ancho {
+                if !self.toca(x, y, parte) {
+                    continue;
+                }
+                let i = (y * self.ancho + x) as usize;
+                let mut az = Azar::nuevo((i as u32).wrapping_mul(2_654_435_761) ^ self.fotograma.wrapping_mul(97_531) ^ 0x5bd1_e995);
+                let (o, d) = e.rayo(x, y, self.ancho, self.alto, &mut az);
+                let mut apunta = |a: Apunte| cuaderno.apunta(a);
+                let apuntes: Option<&mut dyn FnMut(Apunte)> = if self.memoria.is_some() { Some(&mut apunta) } else { None };
+                nuevas[((y - y0) * self.ancho + x) as usize] = e.camino_con(o, d, &mut az, self.memoria.as_ref(), apuntes);
+                caminos += 1;
+            }
+        }
+        caminos
+    }
+
+    /// Lo de [`Vivo::calcula_en`], a la imagen y a la memoria (uno solo
+    /// escribe). El fotograma lo cierra [`Vivo::cierra`].
+    pub fn pon_filas(&mut self, y0: u32, y1: u32, parte: Parte, nuevas: &[V3], apuntes: &[Apunte]) {
+        for y in y0..y1.min(self.alto) {
+            for x in 0..self.ancho {
+                if self.toca(x, y, parte) {
+                    let i = (y * self.ancho + x) as usize;
+                    self.suma[i] = mas(self.suma[i], nuevas[((y - y0) * self.ancho + x) as usize]);
+                    self.cuenta[i] += 1;
+                }
+            }
+        }
+        if let Some(m) = self.memoria.as_mut() {
+            for a in apuntes {
+                m.apuntar(a);
+            }
+        }
+    }
+
+    /// El fin de un fotograma hecho con [`Vivo::pon_filas`].
+    pub fn cierra(&mut self) {
+        self.fotograma += 1;
     }
 
     /// **El fin del fotograma**: lo de cada trozo, a la imagen y a la
@@ -335,6 +403,40 @@ mod pruebas {
             v.paso(&e, Parte::Cuarto);
         }
         assert!((0..(W * H) as usize).all(|i| v.muestras(i) == 1));
+    }
+
+    /// ** SIN MONTON, LO MISMO (VE2): los obreros de BMO-X calculan sus
+    /// filas en buferes que ya existen y apuntan en un cuaderno; repartido
+    /// en tres trozos, la imagen y la memoria salen IGUAL que con `paso`.
+    #[test]
+    fn without_a_heap_in_slices_it_is_the_same() {
+        let (o, _, _) = caja_de_cornell();
+        let e = escena(&o);
+        let mut a = Vivo::nuevo(W, H, Some(Memoria::nueva(12, 0.08, 4)));
+        let mut b = a.clone();
+        for _ in 0..6 {
+            a.paso(&e, Parte::Cuarto);
+            let mut nuevas = vec![[0.0f32; 3]; (W * H) as usize];
+            let mut hojas = vec![Apunte { p: [0.0; 3], n: [0.0; 3], l: [0.0; 3] }; (W * H) as usize * APUNTES_POR_CAMINO];
+            let cortes = [0, 7, 15, H];
+            let (mut trozos, mut resto_n, mut resto_h) = (Vec::new(), &mut nuevas[..], &mut hojas[..]);
+            for k in 0..3 {
+                let filas = (cortes[k + 1] - cortes[k]) as usize;
+                let (n, r) = resto_n.split_at_mut(filas * W as usize);
+                let (h, rh) = resto_h.split_at_mut(filas * W as usize * APUNTES_POR_CAMINO);
+                resto_n = r;
+                resto_h = rh;
+                let mut c = Cuaderno { hojas: h, n: 0 };
+                b.calcula_en(&e, cortes[k], cortes[k + 1], Parte::Cuarto, n, &mut c);
+                trozos.push((cortes[k], cortes[k + 1], n.to_vec(), c.hojas[..c.n].to_vec()));
+            }
+            for (y0, y1, n, h) in trozos {
+                b.pon_filas(y0, y1, Parte::Cuarto, &n, &h);
+            }
+            b.cierra();
+        }
+        assert_eq!(a.imagen(), b.imagen());
+        assert_eq!(a.memoria.as_ref().unwrap().llenas(), b.memoria.as_ref().unwrap().llenas());
     }
 
     /// *** LOS PLANOS DE IMAGINACION: la memoria de la luz, educada unos

@@ -443,6 +443,20 @@ propia, al lado de la trama de tiempo real
 - [ ] **VE2 -- en BMO-X, con todos los nucleos.** Una app de Ring 3 que
       reparte las filas entre los nucleos (`smp all`) y pinta la foto en su
       ventana, fila a fila, mientras se calcula.
+      **11-10, HECHA y enlazada en el anfitrion:** `Ultra_userspace/apps/
+      estudio` (`sys/estudio.bex`, 42 KB): ESTUDIO VIVO a 320x240 en una
+      ventana de 640x480, un cuarto de los pixeles por fotograma, la memoria
+      de la luz (`m` la quita y la pone); la camara con a d w s r f (moverla
+      olvida la imagen, no la memoria). Las filas de cada fotograma se
+      reparten entre los SUB-DIRECTORES (H4.3: los otros nucleos, en Ring 3,
+      tras `smp all`; sin ellos, este nucleo): como un obrero no tiene
+      syscalls ni debe pedir memoria, ESTUDIO VIVO gano un camino SIN monton
+      (`Vivo::calcula_en` en buferes que ya existen, lo aprendido en un
+      `Cuaderno` de hojas fijas, y `pon_filas` + `cierra` en este nucleo):
+      repartido en trozos da la MISMA imagen y la misma memoria que de una
+      vez (su prueba). Lo que un obrero no acabe lo rehace este nucleo. La
+      consola dice cada 32 fotogramas los ms de uno y en cuantas partes va.
+      **Falta el metal** (fila VE2 de EL_FOCO).
 - [ ] **VE3 -- mallas de triangulos y su BVH.** Para escenas de verdad (un
       personaje, un coche): los triangulos de un modelo y el arbol que deja
       a cada rayo mirar solo los que puede tocar.

@@ -303,7 +303,9 @@ try {
     # sin construirla, F4 no abre nada.
     # ** Y `hermes` (03-10): F3, H5 de PLAN_HERMES. Sin ella, F3 solo avisa.
     # ** Y `jueces` (06-10): los jueces de PROTON-X corridos SOLOS (`run sys/jueces.bex`).
-    $out = cargo +nightly build -p bmo-service-director -p bmo-medida-coste -p bmo-medida-sombra -p bmo-app-proton-x -p bmo-app-taller -p bmo-app-ludoteca -p bmo-app-hermes -p bmo-app-bankcat -p bmo-app-jueces `
+    # ** Y `estudio` (11-10, VE2 de PLAN_VERRANO): VERRANO ESTUDIO VIVO con
+    # todos los nucleos (`smp all`, y `run sys/estudio.bex` desde Ejecutar).
+    $out = cargo +nightly build -p bmo-service-director -p bmo-medida-coste -p bmo-medida-sombra -p bmo-app-proton-x -p bmo-app-taller -p bmo-app-ludoteca -p bmo-app-hermes -p bmo-app-bankcat -p bmo-app-jueces -p bmo-app-estudio `
         --release --target x86_64-unknown-none 2>&1
     $out | ForEach-Object {
         if ($_ -match 'Compiling|Finished|error') { Write-Host ('    [userspace] ' + $_) -ForegroundColor DarkGray }
