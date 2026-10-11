@@ -47,7 +47,7 @@ pub type V3 = [f32; 3];
 pub(crate) fn mas(a: V3, b: V3) -> V3 {
     [a[0] + b[0], a[1] + b[1], a[2] + b[2]]
 }
-fn menos(a: V3, b: V3) -> V3 {
+pub(crate) fn menos(a: V3, b: V3) -> V3 {
     [a[0] - b[0], a[1] - b[1], a[2] - b[2]]
 }
 pub(crate) fn por(a: V3, k: f32) -> V3 {
@@ -56,13 +56,13 @@ pub(crate) fn por(a: V3, k: f32) -> V3 {
 fn mul(a: V3, b: V3) -> V3 {
     [a[0] * b[0], a[1] * b[1], a[2] * b[2]]
 }
-fn punto(a: V3, b: V3) -> f32 {
+pub(crate) fn punto(a: V3, b: V3) -> f32 {
     a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
 }
-fn cruz(a: V3, b: V3) -> V3 {
+pub(crate) fn cruz(a: V3, b: V3) -> V3 {
     [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]]
 }
-fn unidad(a: V3) -> V3 {
+pub(crate) fn unidad(a: V3) -> V3 {
     por(a, 1.0 / raiz(punto(a, a)))
 }
 
@@ -324,6 +324,8 @@ pub enum Forma {
     Esfera { centro: V3, radio: f32 },
     /// Un rectangulo: una esquina y sus dos lados (su normal, `u x v`).
     Rect { esquina: V3, u: V3, v: V3 },
+    /// Una MALLA de triangulos (VE3): la `indice` de las de la escena.
+    Malla { indice: u32 },
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -343,12 +345,14 @@ pub struct Camara {
 }
 
 /// **Una escena**: sus objetos, cual es la luz de area (un `Rect` de
-/// `Material::Luz`) y la camara.
+/// `Material::Luz`), la camara y sus mallas (las que nombran los objetos de
+/// `Forma::Malla`; ninguna: `&[]`).
 #[derive(Clone, Copy, Debug)]
 pub struct Escena<'a> {
     pub objetos: &'a [Objeto],
     pub luz: usize,
     pub camara: Camara,
+    pub mallas: &'a [crate::malla::Malla],
 }
 
 struct Golpe {
@@ -385,6 +389,8 @@ fn golpea(f: &Forma, o: V3, d: V3, t_max: f32) -> Option<(f32, V3)> {
             }
             None
         }
+        // las mallas las mira la escena (`Escena::golpe`): son suyas
+        Forma::Malla { .. } => None,
         Forma::Rect { esquina, u, v } => {
             let n = cruz(u, v);
             let den = punto(n, d);
@@ -411,6 +417,17 @@ impl Escena<'_> {
         let mut mejor: Option<Golpe> = None;
         let mut lim = t_max;
         for (k, ob) in self.objetos.iter().enumerate() {
+            if let Forma::Malla { indice } = ob.forma {
+                let Some(g) = self.mallas.get(indice as usize).and_then(|m| m.golpea(o, d, lim)) else { continue };
+                lim = g.t;
+                // de que lado, por el triangulo; la normal suave, hacia el
+                // rayo (si la mezcla la tuerce de mas, la del triangulo)
+                let fuera = punto(d, g.geo) < 0.0;
+                let n = if fuera { g.n } else { por(g.n, -1.0) };
+                let n = if punto(d, n) < 0.0 { n } else if fuera { g.geo } else { por(g.geo, -1.0) };
+                mejor = Some(Golpe { p: mas(o, por(d, g.t)), n, fuera, k });
+                continue;
+            }
             if let Some((t, n)) = golpea(&ob.forma, o, d, lim) {
                 lim = t;
                 let fuera = punto(d, n) < 0.0;
@@ -757,13 +774,36 @@ pub fn sala_de_materiales() -> ([Objeto; 12], usize, Camara) {
     (objetos, luz, camara)
 }
 
+/// **LA SALA DE MALLAS** (VE3): la caja de Cornell con TRIANGULOS -- una
+/// esfera de oro de 5120 (suave), una dona de pintura de coche de 36864
+/// (suave) tumbada en el suelo, y un icosaedro de plastico rojo de 80 (con
+/// sus facetas) --: unos 42 000 triangulos que cada rayo cruza mirando unas
+/// pocas cajas del arbol. Devuelve tambien las mallas (la escena las presta).
+pub fn sala_de_mallas() -> (alloc::vec::Vec<Objeto>, usize, Camara, alloc::vec::Vec<crate::malla::Malla>) {
+    use crate::malla::{dona, icosfera, Malla};
+    let (c, luz, _) = caja_de_cornell();
+    let mut objetos: alloc::vec::Vec<Objeto> = c[..6].to_vec();
+    let (v, k) = icosfera([-0.45, 0.32, -0.45], 0.32, 4);
+    let esfera = Malla::nueva(&v, &k, true);
+    let (v, k) = dona([0.42, 0.11, -0.3], 0.3, 0.11, 192, 96);
+    let rosca = Malla::nueva(&v, &k, true);
+    let (v, k) = icosfera([0.0, 0.2, 0.3], 0.2, 1);
+    let facetas = Malla::nueva(&v, &k, false);
+    let mallas = alloc::vec![esfera, rosca, facetas];
+    objetos.push(Objeto { forma: Forma::Malla { indice: 0 }, material: Material::Superficie(Superficie::metal([1.0, 0.78, 0.34], 0.2)) });
+    objetos.push(Objeto { forma: Forma::Malla { indice: 1 }, material: Material::Superficie(Superficie { base: [0.05, 0.16, 0.6], metal: 0.6, aspereza: 0.45, ior: 1.5, capa: 1.0, capa_aspereza: 0.03 }) });
+    objetos.push(Objeto { forma: Forma::Malla { indice: 2 }, material: Material::Superficie(Superficie::plastico([0.72, 0.06, 0.05], 0.2)) });
+    let camara = Camara { ojo: [0.0, 0.95, 3.4], mira: [0.0, 0.55, 0.0], arriba: [0.0, 1.0, 0.0], tan_medio: 0.36 };
+    (objetos, luz, camara, mallas)
+}
+
 #[cfg(test)]
 mod pruebas {
     use super::*;
 
     fn escena(objetos: &[Objeto]) -> Escena<'_> {
         let (_, luz, camara) = caja_de_cornell();
-        Escena { objetos, luz, camara }
+        Escena { objetos, luz, camara, mallas: &[] }
     }
 
     /// La misma semilla, la misma luz: el render es determinista.
@@ -916,7 +956,7 @@ mod pruebas {
     #[test]
     fn mis_is_unbiased() {
         let (o, luz, camara) = caja_de_cornell();
-        let e = Escena { objetos: &o[..6], luz, camara };
+        let e = Escena { objetos: &o[..6], luz, camara, mallas: &[] };
         let (p, n) = ([0.1, 0.0, 0.3], [0.0, 1.0, 0.0]);
         let wo = unidad([0.0, 1.0, 1.2]);
         let Material::Luz { emite } = o[luz].material else { panic!() };
@@ -964,7 +1004,7 @@ mod pruebas {
     #[test]
     fn the_materials_room_shows_each_layer() {
         let (o, luz, camara) = sala_de_materiales();
-        let e = Escena { objetos: &o, luz, camara };
+        let e = Escena { objetos: &o, luz, camara, mallas: &[] };
         let (w, h) = (96, 72);
         // el centro de cada esfera en la pantalla, a ojo de la camara
         let en = |x: f32| {
@@ -994,6 +1034,36 @@ mod pruebas {
         let (rojo, oro) = (media(en(-0.76)), media(en(-0.38)));
         assert!(rojo[0] > 3.0 * rojo[1], "rojo {rojo:?}");
         assert!(oro[0] > oro[1] && oro[1] > 1.5 * oro[2], "oro {oro:?}");
+    }
+
+    /// La sala de mallas: la esfera de triangulos se ve donde la pondria
+    /// la de verdad (el pixel de su centro es ORO: amarillo), y el suelo
+    /// bajo la dona esta en SOMBRA (mas oscuro que el suelo libre).
+    #[test]
+    fn the_meshes_room_draws_its_triangles() {
+        let (o, luz, camara, mallas) = sala_de_mallas();
+        let e = Escena { objetos: &o, luz, camara, mallas: &mallas };
+        let (w, h) = (96, 72);
+        let pixel_de = |p: V3| {
+            let d = unidad(menos(p, camara.ojo));
+            let mut mejor = (0, 0, -1.0);
+            for py in 0..h {
+                for px in 0..w {
+                    let c = punto(e.rayo_centro(px, py, w, h).1, d);
+                    if c > mejor.2 {
+                        mejor = (px, py, c);
+                    }
+                }
+            }
+            (mejor.0, mejor.1)
+        };
+        let (x, y) = pixel_de([-0.45, 0.32, -0.45]);
+        let oro = e.pixel(x, y, w, h, 64);
+        assert!(oro[0] > oro[1] && oro[1] > 1.5 * oro[2], "oro {oro:?}");
+        // el rayo del centro de ese pixel da en la malla 0
+        let (ojo, d) = e.rayo_centro(x, y, w, h);
+        let g = e.golpe(ojo, d, f32::MAX).unwrap();
+        assert_eq!(o[g.k].forma, Forma::Malla { indice: 0 });
     }
 
     /// La curva de la pelicula: el negro es negro, la luz de sobra no pasa

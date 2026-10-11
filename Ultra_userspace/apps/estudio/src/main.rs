@@ -164,7 +164,7 @@ pub extern "C" fn _start() -> ! {
                 movida = true;
             }
         }
-        let escena = Escena { objetos: &objetos, luz, camara: Camara { ojo, ..base } };
+        let escena = Escena { objetos: &objetos, luz, camara: Camara { ojo, ..base }, mallas: &[] };
         let n = obreros::cuantas();
         if movida {
             vivo.olvida_imagen();

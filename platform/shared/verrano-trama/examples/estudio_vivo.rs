@@ -65,8 +65,8 @@ fn main() {
     let salida = std::env::args().nth(1).unwrap_or_else(|| "estudio_vivo.ppm".into());
     let nucleos = std::thread::available_parallelism().map_or(4, |n| n.get()) as u32;
     let (objetos, luz, camara) = caja_de_cornell();
-    let antes = Escena { objetos: &objetos, luz, camara };
-    let despues = Escena { objetos: &objetos, luz, camara: Camara { ojo: [0.7, 1.25, 3.1], mira: [0.0, 0.85, 0.0], ..camara } };
+    let antes = Escena { objetos: &objetos, luz, camara, mallas: &[] };
+    let despues = Escena { objetos: &objetos, luz, camara: Camara { ojo: [0.7, 1.25, 3.1], mira: [0.0, 0.85, 0.0], ..camara }, mallas: &[] };
     // educar la memoria con la camara de ANTES
     let mut con = Vivo::nuevo(W, H, Some(Memoria::nueva(18, 0.05, 8)));
     for _ in 0..64 {

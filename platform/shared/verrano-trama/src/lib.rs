@@ -55,6 +55,7 @@ pub mod estudio;
 /// RECUERDA -- un cuarto de los pixeles por fotograma, la imagen que se
 /// acumula, y la memoria de la luz del mundo que sobrevive a la camara --.
 pub mod vivo;
+pub mod malla;
 
 #[cfg(test)]
 mod pruebas_juez;

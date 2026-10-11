@@ -6,7 +6,7 @@ use bmo_verrano_trama::estudio::{caja_de_cornell, Escena};
 use bmo_verrano_trama::vivo::{Parte, Vivo};
 fn main() {
     let (o, luz, camara) = caja_de_cornell();
-    let e = Escena { objetos: &o, luz, camara };
+    let e = Escena { objetos: &o, luz, camara, mallas: &[] };
     for (w, h) in [(32u32, 24u32), (160, 120)] {
         let juez: Vec<_> = (0..w * h).map(|i| e.pixel(i % w, i / w, w, h, 256)).collect();
         let err = |a: &[[f32; 3]]| a.iter().zip(&juez).map(|(p, q)| (0..3).map(|k| (p[k].min(1.5) - q[k].min(1.5)).abs()).sum::<f32>()).sum::<f32>() / (a.len() * 3) as f32;

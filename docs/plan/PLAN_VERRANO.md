@@ -460,6 +460,25 @@ propia, al lado de la trama de tiempo real
 - [ ] **VE3 -- mallas de triangulos y su BVH.** Para escenas de verdad (un
       personaje, un coche): los triangulos de un modelo y el arbol que deja
       a cada rayo mirar solo los que puede tocar.
+      **11-10, HECHA en el anfitrion (`verrano-trama/src/malla.rs`):** la
+      `Malla` (sus triangulos y su arbol) y `Forma::Malla` en la escena
+      (`Escena::mallas`). El arbol es un BVH de cajas hecho con la
+      heuristica de AREA (la SAH de pbrt y Cycles, 12 cortes por eje,
+      hojas de 4); el rayo baja del hijo mas cercano primero y no mira lo
+      que queda detras del golpe ya hallado; cada triangulo, por
+      Moller-Trumbore; la normal, la de la faceta o SUAVE (la de los
+      vertices por su area, mezclada por el sitio del golpe). Las formas de
+      la casa sin seno ni coseno de fuera (`icosfera`, `dona`: el circulo
+      gira por su serie) y el lector de `.obj` (`desde_obj`: `v`, `f` con
+      `a/t/n`, negativos, abanicos). Sus pruebas: el arbol da los MISMOS
+      golpes que mirar todos los triangulos en 3000 rayos -- saboteado (sin
+      el hijo lejano), cae --; la icosfera es una esfera (los mismos rayos
+      le dan, la normal suave a menos de 0,999); el `.obj`; y la SALA DE
+      MALLAS (`sala_de_mallas`: una esfera de oro de 5120 triangulos, una
+      dona de pintura de coche de 36 864 y un icosaedro de plastico con sus
+      facetas, unos 42 000 en total) da el oro donde va. La foto:
+      `--example estudio -- mallas.ppm 640 480 256 mallas`, 94 s en 4
+      nucleos (la sala de esferas de verdad, 70).
 - [ ] **VE4 -- materiales de pelicula.** Texturas, el metal y el plastico de
       verdad (microfacetas, GGX), el subsuelo de la piel, la niebla.
       El propietario, el 11-10: *"tengo mi propio RENDERMAN pero puedes
