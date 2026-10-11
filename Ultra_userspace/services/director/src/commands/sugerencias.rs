@@ -124,6 +124,7 @@ const LISTA: &[(&[u8], &[u8])] = &[
     (b"fallo", b"la ultima autopsia de Ring 3"),
     (b"red", b"tarjeta, enlace y tramas"),
     (b"smp all", b"levantar todos los nucleos"),
+    (b"smp siempre", b"levantar todos los nucleos en cada arranque (smp siempre off lo quita)"),
     (b"banda", b"el ancho de banda de la RAM"),
     (b"audio", b"el aparato de sonido"),
     (b"sonidos", b"el censo de los sonidos del disco entero"),

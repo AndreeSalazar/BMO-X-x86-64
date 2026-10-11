@@ -279,6 +279,11 @@ const INFO_RESPIRO: u64 = 0xCE;
 /// EL CIERRE DE UN FICHERO, partido (10-10): la escritura mas larga dentro del
 /// syscall y el vaciado (FLUSH) en vuelo mas largo. Ver `fsys::fs::guardar_en`.
 const INFO_DISCO_GUARDAR: u64 = 0xCF;
+/// Por que se reinicio la vez anterior (11-10): el FCH y los bancos MCA
+/// (`plat::porque`), y el CR0/CR4 de los obreros (`plat::smp`).
+const INFO_REINICIO_FCH: u64 = 0xD0;
+const INFO_REINICIO_MCA: u64 = 0xD1;
+const INFO_SMP_CPU: u64 = 0xD2;
 
 // El metro de la puerta: cuantas y cuantos ciclos dentro de `dispatch`. Se
 // leen como delta. Ver `ring0/syscall/meter.rs`.
@@ -906,6 +911,9 @@ pub fn campo(n: u64) -> Option<u64> {
         INFO_PUERTA_LARGA => crate::ring0::syscall::larga::peor(),
         INFO_PUERTA_DEL_LATIDO => crate::ring0::dev::usb::latido_peor_puerta(),
         INFO_RESPIRO => crate::ring0::dev::respiro::cuenta(),
+        INFO_REINICIO_FCH => crate::ring0::plat::porque::fch(),
+        INFO_REINICIO_MCA => crate::ring0::plat::porque::mca(),
+        INFO_SMP_CPU => crate::ring0::plat::smp::veredicto_cpu(),
         INFO_DISCO_GUARDAR => {
             crate::ring0::fsys::fs::guardar_peor_us() as u64
                 | (crate::ring0::dev::disk::vaciado_peor_us() as u64) << 32

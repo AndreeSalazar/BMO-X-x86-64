@@ -74,8 +74,26 @@ pub mod ring3;
 // chicos, para repartir primero un nucleo fisico por parte.
 pub mod topologia;
 
-use core::sync::atomic::Ordering;
+use core::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use map::*;
+
+/// El ultimo `despertar` NO desperto a nadie porque ya habia obreros en pie
+/// (11-10): la caja lo dice en vez de pintar un `12 de 12` en verde.
+static REHUSADO: AtomicBool = AtomicBool::new(false);
+/// El CR0/CR4 de los obreros contra el BSP (`INFO_SMP_CPU`): bit 63 medido,
+/// obreros `[0..8)`, distintos `[8..16)`, sin cache `[16..24)`, sin MCE
+/// `[24..32)`.
+static VEREDICTO: AtomicU64 = AtomicU64::new(0);
+
+/// Si el ultimo `despertar` se nego a despertar otra vez.
+pub fn rehusado() -> bool {
+    REHUSADO.load(Ordering::SeqCst)
+}
+
+/// El veredicto del CR0/CR4 de los obreros (`INFO_SMP_CPU`).
+pub fn veredicto_cpu() -> u64 {
+    VEREDICTO.load(Ordering::SeqCst)
+}
 
 /// Despierta a los demas nucleos y cuenta cuantos contestan.
 ///
@@ -160,6 +178,7 @@ pub fn despertar(cuantos: u32, aviso: impl Fn(u32)) -> (u32, u32) {
     //
     // Y se contesta lo que hay ahora mismo: si ya se despertaron antes, este
     // camino lo dice sin volver a despertarlos.
+    REHUSADO.store(false, Ordering::SeqCst);
     if cuantos == 0 {
         crate::ring0::core::dashboard::dashboard_log("[smp] censo pedido, no se desperto a nadie");
         // Y los que fallaron desde la ultima vez que alguien miro, dichos.
@@ -212,6 +231,7 @@ pub fn despertar(cuantos: u32, aviso: impl Fn(u32)) -> (u32, u32) {
     if en_pie > 0 && (!crew::parados() || ring3::activa()) {
         crate::ring0::cabina::warn("smp", "ya hay obreros en pie: no se despiertan otra vez (reinicia para cambiar cuantos)", en_pie as u64);
         crate::ring0::core::dashboard::dashboard_log("[smp] ya hay obreros en pie: no se despiertan otra vez");
+        REHUSADO.store(true, Ordering::SeqCst);
         return (en_pie, esperados);
     }
     crew::reanudar();
@@ -370,6 +390,8 @@ fn decir_estado_cpu(vivos: u32) {
     let sin_cache = (0..n).filter(|&i| cr0(i) & (3 << 29) != 0).count();
     let sin_mce = (0..n).filter(|&i| cr4(i) & (1 << 6) == 0).count();
     let distintos = (0..n).filter(|&i| cr0(i) != bsp0 || cr4(i) != bsp4).count();
+    let byte = |x: usize| x.min(0xFF) as u64;
+    VEREDICTO.store(1 << 63 | byte(n) | byte(distintos) << 8 | byte(sin_cache) << 16 | byte(sin_mce) << 24, Ordering::SeqCst);
     use crate::ring0::cabina::{info, warn};
     if n > 0 {
         info("smp", "CR0 del obrero 0", cr0(0));

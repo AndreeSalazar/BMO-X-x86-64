@@ -28,7 +28,24 @@
 //! Solo se lee: no se limpia nada (el registro del FCH se limpia escribiendo
 //! unos, y eso no se hace sin haberlo visto antes en el metal).
 
+use core::sync::atomic::{AtomicU64, Ordering};
+
 use crate::ring0::mm::HIGH_MEM_BASE;
+
+/// Lo leido, para `INFO_REINICIO_FCH` (crudo; `u64::MAX` = no se leyo) e
+/// `INFO_REINICIO_MCA` (con error `[0..32)`, bancos `[32..64)`).
+static FCH: AtomicU64 = AtomicU64::new(u64::MAX);
+static MCA: AtomicU64 = AtomicU64::new(0);
+
+/// El `S5_RESET_STATUS` leido al arrancar (`u64::MAX` = no se leyo).
+pub fn fch() -> u64 {
+    FCH.load(Ordering::Relaxed)
+}
+
+/// Los bancos MCA al arrancar: con error `[0..32)`, cuantos hay `[32..64)`.
+pub fn mca() -> u64 {
+    MCA.load(Ordering::Relaxed)
+}
 
 /// El registro del FCH con el motivo del ultimo reinicio (fisico).
 const S5_RESET_STATUS: u64 = 0xFED8_0300 + 0xC0;
@@ -90,6 +107,7 @@ pub fn decir() {
         // SAFETY: lectura de 32 bits del MMIO del FCH por el physmap (como
         // el LAPIC en `smp/lapic.rs`); leerlo no cambia nada.
         let v = unsafe { core::ptr::read_volatile((HIGH_MEM_BASE + S5_RESET_STATUS) as *const u32) };
+        FCH.store(v as u64, Ordering::Relaxed);
         if v == 0 || v == u32::MAX {
             info("reinicio", "el FCH no dice motivo (S5_RESET_STATUS crudo)", v as u64);
         } else {
@@ -121,6 +139,7 @@ pub fn decir() {
             warn("reinicio", "  ...direccion", rdmsr(0x402 + 4 * i));
         }
     }
+    MCA.store(guardados | (bancos as u64) << 32, Ordering::Relaxed);
     if guardados == 0 {
         info("reinicio", "MCA: ningun error de maquina guardado; bancos", bancos as u64);
     }

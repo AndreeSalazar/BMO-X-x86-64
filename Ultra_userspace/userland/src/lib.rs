@@ -711,6 +711,14 @@ pub const INFO_PUERTA_DEL_LATIDO: u64 = 0xCD;
 pub const INFO_RESPIRO: u64 = 0xCE;
 /// El cierre de un fichero: escribir `[0..32)` y vaciar `[32..64)`, en us.
 pub const INFO_DISCO_GUARDAR: u64 = 0xCF;
+/// Por que se reinicio la vez anterior: `S5_RESET_STATUS` del FCH, crudo.
+/// `u64::MAX` = no se leyo.
+pub const INFO_REINICIO_FCH: u64 = 0xD0;
+/// Los bancos MCA al arrancar: con error `[0..32)`, cuantos hay `[32..64)`.
+pub const INFO_REINICIO_MCA: u64 = 0xD1;
+/// El CR0/CR4 de los obreros: bit 63 medido, obreros `[0..8)`, distintos
+/// `[8..16)`, sin cache `[16..24)`, sin MCE `[24..32)`.
+pub const INFO_SMP_CPU: u64 = 0xD2;
 /// El formato `i` (`INFO_AUDIO_FORMATO | (i << 8)`): alt, canales, bits,
 /// subframe, `wMaxPacketSize`, cuantas frecuencias, si CABE en 1 ms, si es el
 /// elegido y su sincronia. Ver `uaudio::info_formato` en el kernel.

@@ -599,6 +599,18 @@ pub const INFO_RESPIRO: u64 = 0xCE;
 /// va en vuelo y lo aterriza el hilo del disco. Microsegundos, desde el
 /// arranque. Dice de que mitad era una puerta larga de "op 4".
 pub const INFO_DISCO_GUARDAR: u64 = 0xCF;
+/// **POR QUE SE REINICIO LA VEZ ANTERIOR, el FCH** (11-10, V10): el registro
+/// `S5_RESET_STATUS` crudo, leido al arrancar (`plat/porque.rs`). Un bit por
+/// motivo (23 = apagado interno de la CPU, 27 = sync flood, 19 = un reboot
+/// pedido). `u64::MAX` = esta CPU no lo tiene o no se leyo.
+pub const INFO_REINICIO_FCH: u64 = 0xD0;
+/// **Los bancos MCA al arrancar** (11-10): `[0..32)` cuantos guardaban un
+/// error de maquina, `[32..64)` cuantos bancos hay. 0 = sin MCA.
+pub const INFO_REINICIO_MCA: u64 = 0xD1;
+/// **El CR0/CR4 de los obreros contra el BSP** (11-10), medido en el ultimo
+/// `smp`: bit 63 = medido; `[0..8)` obreros, `[8..16)` distintos del BSP,
+/// `[16..24)` con la cache apagada (CR0.CD/NW), `[24..32)` sin `CR4.MCE`.
+pub const INFO_SMP_CPU: u64 = 0xD2;
 
 /// -- ** EL METRO DE LA PUERTA -------------------------------------------
 ///

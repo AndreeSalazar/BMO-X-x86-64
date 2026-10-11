@@ -795,6 +795,9 @@ pub extern "C" fn _start() -> ! {
     // `save siempre` armado: el save del arranque, y el aviso si la vez
     // anterior se quedo colgada (03-10).
     commands::save_siempre::al_arrancar(&mut dsk, &p);
+    // `smp siempre` armado: los obreros en pie DESPUES del save del arranque,
+    // que es el que dice por que se reinicio la vez anterior (11-10).
+    commands::smp_siempre::al_arrancar(&mut dsk, &p);
     loop {
         // -- Termino el programa que se lanzo? Entonces, a guardarlo --
         //

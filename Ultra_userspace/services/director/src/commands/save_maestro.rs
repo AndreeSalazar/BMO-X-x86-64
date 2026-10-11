@@ -13,7 +13,7 @@
 //!
 //! # Lo que hace
 //!
-//! Un fichero, siete capitulos, cada uno con su rotulo y en el mismo orden
+//! Un fichero, ocho capitulos, cada uno con su rotulo y en el mismo orden
 //! siempre, para que dos volcados se comparen poniendolos uno al lado del otro:
 //!
 //! ```text
@@ -29,7 +29,7 @@
 //! # ** El anillo de la pantalla mide 200 filas, y eso decide la forma
 //!
 //! Todo lo que se guarda pasa por la pantalla (un solo camino de salida: lo que
-//! esta en el fichero se vio). Pero siete capitulos son mas de 200 filas, asi
+//! esta en el fichero se vio). Pero ocho capitulos son mas de 200 filas, asi
 //! que no se pueden pintar todos y volcar al final: los primeros ya se habrian
 //! caido del anillo. Se pinta UN capitulo, se vuelca ESE tramo, y se sigue.
 //! El historial de la sesion se vuelca el primero de todos, antes de pintar
@@ -55,7 +55,8 @@
 //!    informe/SESION.TXT    1     informe/PROGRAMA.TXT   5
 //!    informe/MAQUINA.TXT   2     informe/DISCO.TXT      6
 //!    informe/MEMORIA.TXT   3     informe/AUTOPSIA.TXT   7
-//!    informe/CONSUMO.TXT   4
+//!    informe/CONSUMO.TXT   4     informe/ESCRITO.TXT    8
+//!    informe/DATOS.TXT     los numeros, `capitulo.clave = valor unidad`
 //! ```
 //!
 //! Cada fila se pinta UNA vez y se escribe en las dos: el camino de salida
@@ -107,8 +108,8 @@ static FIN_ANTERIOR: core::sync::atomic::AtomicUsize = core::sync::atomic::Atomi
 
 /// **El informe entero, a `dest`, y cada capitulo a su hoja en `informe/`.**
 /// Devuelve `(bytes, lineas, hojas)`: los bytes y las lineas del informe
-/// entero, y cuantas hojas se pudieron abrir (9 = el indice, las siete y
-/// DATOS.TXT).
+/// entero, y cuantas hojas se pudieron abrir (10 = el indice, las ocho de
+/// `HOJAS` y DATOS.TXT).
 ///
 /// [!] Una hoja que no se pueda crear NO para el informe: `dest` se escribe
 /// igual y el numero de hojas dice cuantas faltaron. La carpeta puede no
@@ -216,7 +217,7 @@ pub(crate) fn maestro(dsk: &mut Desktop, dest: &[u8], rayo: bmo::CuentasRayo) ->
             }
         }
     }
-    // ** LA HOJA PARA MAQUINAS, la ultima: lo mismo que las siete, sin
+    // ** LA HOJA PARA MAQUINAS, la ultima: lo mismo que las ocho, sin
     // tipografia. Se escribe directa al fichero, no pasa por la pantalla:
     // es la unica, y a proposito -- son los mismos numeros que ya se vieron.
     super::datos::parar();
@@ -579,7 +580,7 @@ fn cabecera(s: &mut Output) {
     };
     fila(s, b"lanzados", vistos + olvidados, b"programas", nota);
     s.text(b"    capitulos  1 la sesion   2 la maquina   3 la memoria   4 el consumo\n");
-    s.text(b"               5 los programas   6 el disco   7 la autopsia\n");
+    s.text(b"               5 los programas   6 el disco   7 la autopsia   8 lo escrito\n");
 }
 
 /// `AAAA-MM-DD HH:MM` de la placa, o 0 si no sabe que dia es.

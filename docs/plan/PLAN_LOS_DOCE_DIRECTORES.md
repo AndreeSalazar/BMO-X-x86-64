@@ -228,6 +228,13 @@ kernel. `cpu_vendor/ryzen_5_5600x/` es la fila de HOY, no la unica.
       bit 19: la tabla del FCH se comprueba sola), y despues el arranque
       siguiente al reinicio de `smp all`. Con el motivo delante: MCE con su
       IST3 por obrero, o el triple fallo en el nucleo que diga el tablero.
+      Y en la CAJA, no solo en F11 (11-10, el mismo dia): `smp` dice "ya
+      estaban en pie" (bit 62 de la respuesta), el veredicto del CR0/CR4 de
+      los obreros (`INFO_SMP_CPU`) y el motivo del reinicio anterior
+      (`INFO_REINICIO_FCH`, `INFO_REINICIO_MCA`); el `save` los lleva en su
+      bloque "el arranque y las caidas" (`commands/arranque.rs`); `reboot`
+      guarda antes (en `save auto`); y `smp siempre` despierta a todos al
+      arrancar -- APAGADO por defecto mientras V9 siga abierta.
 - [~] **V9 -- el tablero dice la hora de la muerte.** El metal (11-10): la
       `CAIDA` de `smp all` con ESTUDIO trajo el tablero entero -- `smp all`
       vivo 11,7 s, el reinicio ~3 ms despues de la PRIMERA faena de Ring 3,

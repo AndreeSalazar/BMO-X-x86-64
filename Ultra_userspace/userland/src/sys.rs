@@ -499,8 +499,27 @@ pub fn latido_esperar(handle: u64, visto: u64, timeout_ns: u64) -> u64 {
 
 
 pub fn smp_censo(cuantos: u32) -> (u32, u32, bool) {
+    let c = smp_pedir(cuantos);
+    (c.vivos, c.esperados, c.parados)
+}
+
+/// Lo que contesta el kernel a `smp` (`OP_SMP_DESPERTAR`), entero.
+#[derive(Clone, Copy)]
+pub struct SmpCenso {
+    /// Obreros en pie (sin el BSP).
+    pub vivos: u32,
+    /// Los que el firmware declara (sin el BSP).
+    pub esperados: u32,
+    /// Parados por `smp stop`: en pie, sin trabajar.
+    pub parados: bool,
+    /// NO se desperto a nadie: ya habia obreros en pie (11-10).
+    pub rehusado: bool,
+}
+
+/// **`smp N`, con todo lo que contesta**: `0` solo censa, `u32::MAX` todos.
+pub fn smp_pedir(cuantos: u32) -> SmpCenso {
     let v = invoke(CURRENT_TASK, OP_SMP_DESPERTAR, cuantos as u64, 0, 0).value;
-    (((v >> 32) as u32) & 0x7FFF_FFFF, v as u32, v & (1 << 63) != 0)
+    SmpCenso { vivos: ((v >> 32) as u32) & 0x3FFF_FFFF, esperados: v as u32, parados: v & (1 << 63) != 0, rehusado: v & (1 << 62) != 0 }
 }
 
 /// **Ofrece un trozo de un bloque MIO a otra tarea.** `true` si quedo apuntado.
