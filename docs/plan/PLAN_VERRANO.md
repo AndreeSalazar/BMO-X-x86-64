@@ -312,6 +312,29 @@ la SPH (128 B) y detras las instrucciones.
       (`RECORTE_Z`); el juez de `laminas` dice cuantos pixeles difieren con
       `run apps/mundo.bex`. Si son muchos, se pone la 3060 como D3D
       (`FRUSTUM_XYZ_CLIP`), no se cambia el juez.
+- [ ] **V3a -- VERRANO POR CATEGORIAS: el dibujo con PROGRAMAS** (11-10,
+      lo pidio el propietario: *"que VERRANO se aislen de elementos para
+      poder aplicar todo eso y asi crecer por categoria"*). `Draw` en
+      `dibujo.rs`: RECURSOS (`Buffer` de vertices sin transformar, indices,
+      el cbuffer), PROGRAMAS (`Shader`: una etapa en la lengua que sea; el
+      Programa de PROMETEO lo es con la feature `prometeo`, que el driver no
+      enciende), TUBERIA (`Pipeline`: las dos etapas, profundidad,
+      descarte) y DIBUJO. **11-10, HECHO en el anfitrion:** el juez de la CPU
+      lo dibuja (`DrawBackend`) corriendo los programas con el interprete de
+      la casa; el cubo de BMOX-12 con SUS dos programas de dxc (24 vertices
+      sin transformar, 36 indices, la matriz en el cbuffer) da la HUELLA de
+      D3D12 en los fotogramas 0, 30 y 60 -- la CPU ya no cuenta ni un
+      vertice --; sin descarte o con la matriz de otro fotograma, no;
+      saboteado (el de pixeles sin su cbuffer): cae. **Falta:** la 3060 como
+      `DrawBackend` (V3b abajo).
+- [ ] **V3b -- la 3060 dibuja un `Draw`.** El Aparato del DIRECTOR hoy
+      lleva los programas de BMOX-12 YA traducidos (`bmox12_vs.sm86`); con
+      un `Draw` cualquiera, sus programas van por el `.bsf` VIVO de
+      `proton-x-sm86` (el mapa, el emisor, el juez y el simulador bit a bit
+      contra la casa, y guardado para la proxima), la libreta, y la PUERTA
+      del kernel (el juez supremo) antes de la tarjeta. **Como se sabe:** en
+      el metal, `gpu verrano bmox12` por `Draw` da lo mismo que hoy, y el
+      juez de `laminas` dice IGUAL.
 - [ ] **V3 -- las constantes.** La matriz en un buffer y el programa de
       vertice multiplicando (lo que hace D3D): la pregunta del FMA, medida.
       **Como se sabe:** la huella de D3D12 sale con las cuentas en la 3060.
@@ -363,6 +386,37 @@ la SPH (128 B) y detras las instrucciones.
 > nota del 08-10: el emisor existe y su entrada es el Programa de la casa;
 > SPIR-V solo es algo que se lee de un juego ajeno (V5), nunca la lengua
 > de BMO-X.
+
+### VERRANO DEVORA: quien hace que (11-10)
+
+El propietario, el 11-10: *"PROTON-X [...] solo le emula a la ABI MUY
+PRECISAS para que ayude para algunas cosas (cyberpunk 2077) pero VERRANO
+DEVORA DirectX para poder tener FPS NATIVOS y eso tener control"*; y *"con
+OpenGL y VULKAN + DX12 (los DX en general llegaran)"*.
+
+```text
+   LO DE FUERA                      SE TRADUCE A               LO EJECUTA
+   D3D12, D3D11... (los DX)    -->  un Draw: recursos,    -->  VERRANO:
+   Vulkan                           programas, tuberia         el juez de
+   OpenGL                                                      la CPU, y
+   sus sombreadores: DXIL (dxc),    el Programa de la casa     la 3060 por
+   SM5 (FXC), SPIR-V, GLSL          (PROMETEO)                 su emisor,
+                                                               su juez, su
+   LO DE DENTRO                                                .bsf, su
+   TITAN++ (gpu fn), MUNDO     -->  lo mismo, directo           libreta y la
+                                                               PUERTA
+```
+
+- **PROTON-X** emula el ABI de Windows con precision -- carga el `.exe`,
+  sus DLL, sus llamadas -- y nada mas: su `d3d12.dll` es una capa FINA que
+  traduce a un `Draw` (VC2). Quien dibuja, y quien da los fotogramas
+  NATIVOS, es VERRANO.
+- **Cada lengua de sombreador es un diente**: DXIL y SM5 ya traducen al
+  Programa (PROTON-X); SPIR-V tiene lector, validador e interprete
+  (`bmo-spirv-front`) y le falta su traductor al Programa; GLSL, despues.
+- **Cada API es una capa delgada sobre las categorias**: si una necesita
+  algo que VERRANO no tiene (texturas, mezcla, varios destinos), crece la
+  CATEGORIA, para todas a la vez.
 
 - [ ] **V5 -- Vulkan a VERRANO.** Las 67 funciones de vkQuake 0.50
       (Ludoteca 16) traducidas a VERRANO: el primer juego por la 3060.

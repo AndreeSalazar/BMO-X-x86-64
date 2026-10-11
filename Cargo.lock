@@ -948,6 +948,8 @@ name = "bmo-verrano"
 version = "0.1.0"
 dependencies = [
  "bmo-cubo",
+ "bmo-prometeo",
+ "bmo-proton-x",
 ]
 
 [[package]]

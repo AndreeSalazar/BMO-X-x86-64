@@ -48,6 +48,7 @@
 //! metal (M1 de `EL_FOCO`); si son muchos, el arreglo es poner la 3060 como
 //! D3D (`FRUSTUM_XYZ_CLIP`), no cambiar el juez.
 
+use crate::dibujo::{check_draw, Draw, DrawBackend, MAX_IO};
 use crate::{check, Backend, Cull, Error, Frame, Image, Stats, Unorm8};
 
 /// Subpixeles por pixel (D3D10+).
@@ -89,31 +90,70 @@ fn top_left(ax: i64, ay: i64, bx: i64, by: i64) -> bool {
     (dy == 0 && dx > 0) || dy < 0
 }
 
+/// La imagen limpia y, si hay profundidad, su z-buffer a 1.0; sin el, un
+/// dibujo con profundidad no se dibuja.
+fn limpiar<'a>(out: &'a mut Image, fondo: u32, depth: bool) -> Result<(&'a mut [u32], Option<&'a mut [f32]>), Error> {
+    let n = (out.width * out.height) as usize;
+    let Image { pixels, depth: z, .. } = out;
+    pixels[..n].fill(fondo);
+    if !depth {
+        return Ok((pixels, None));
+    }
+    match z.as_deref_mut() {
+        Some(z) if z.len() >= n => {
+            z[..n].fill(1.0);
+            Ok((pixels, Some(z)))
+        }
+        _ => Err(Error::Image),
+    }
+}
+
 impl Backend for Cpu {
     fn draw(&mut self, frame: &Frame, out: &mut Image) -> Result<Stats, Error> {
         check(frame, out, self.max_vertices)?;
         let (w, h) = (out.width as i64, out.height as i64);
-        let fondo = self.unorm8.pack(frame.clear);
-        let Image { pixels, depth, .. } = out;
-        pixels[..(w * h) as usize].fill(fondo);
-        // V2: el z-buffer, a 1.0; sin el, un fotograma con profundidad no se dibuja.
-        let mut zb: Option<&mut [f32]> = None;
-        if frame.depth {
-            match depth.as_deref_mut() {
-                Some(z) if z.len() >= (w * h) as usize => {
-                    z[..(w * h) as usize].fill(1.0);
-                    zb = Some(z);
-                }
-                _ => return Err(Error::Image),
-            }
-        }
+        let (pixels, mut zb) = limpiar(out, self.unorm8.pack(frame.clear), frame.depth)?;
         let (mw, mh) = (frame.viewport.width as f32 * 0.5, frame.viewport.height as f32 * 0.5);
         let mut n = 0;
         for tri in frame.vertices.chunks_exact(3) {
             let color = self.unorm8.pack(tri[0].color);
             let (piezas, cuantas) = recorta([tri[0].position, tri[1].position, tri[2].position]);
             for pieza in &piezas[..cuantas] {
-                n += self.triangulo(frame, pieza, color, (w, h), (mw, mh), pixels, zb.as_deref_mut()) as u32;
+                n += self.triangulo(frame.cull, pieza, &mut |_, _| Some(color), (w, h), (mw, mh), pixels, zb.as_deref_mut()) as u32;
+            }
+        }
+        Ok(Stats { triangles: n, device_us: 0, prepare_us: 0, warm: false, in_flight: false, wait_us: 0 })
+    }
+}
+
+/// ** V3a: EL DIBUJO CON PROGRAMAS (las reglas, en `dibujo.rs`). Cada
+/// triangulo corre el de vertice en sus tres (sin cache: es el juez, no la
+/// carrera) y el de pixeles UNA vez, con lo del vertice 0: no lee su
+/// posicion (`check_draw`), asi que da lo mismo en cada pixel.
+impl DrawBackend for Cpu {
+    fn draw_with(&mut self, d: &Draw, out: &mut Image) -> Result<Stats, Error> {
+        check_draw(d, out, self.max_vertices)?;
+        let p = d.pipeline;
+        let (w, h) = (out.width as i64, out.height as i64);
+        let (pixels, mut zb) = limpiar(out, self.unorm8.pack(d.clear), p.depth)?;
+        let (mw, mh) = (d.viewport.width as f32 * 0.5, d.viewport.height as f32 * 0.5);
+        let stride = d.vertices.stride;
+        let mut n = 0;
+        let mut salidas = [[[0f32; 4]; MAX_IO]; 3];
+        for t in 0..d.count / 3 {
+            for (j, s) in salidas.iter_mut().enumerate() {
+                let v = d.vertex_at(3 * t + j);
+                *s = [[0.0; 4]; MAX_IO];
+                p.vertex.run(&d.vertices.data[v * stride..(v + 1) * stride], d.constants, &mut s[..p.vertex.outputs()]);
+            }
+            let mut color = [[0f32; 4]; MAX_IO];
+            if !p.pixel.run(&salidas[0][..p.pixel.inputs()], d.constants, &mut color[..p.pixel.outputs()]) {
+                continue;
+            }
+            let c = self.unorm8.pack(color[0]);
+            let (piezas, cuantas) = recorta([salidas[0][0], salidas[1][0], salidas[2][0]]);
+            for pieza in &piezas[..cuantas] {
+                n += self.triangulo(p.cull, pieza, &mut |_, _| Some(c), (w, h), (mw, mh), pixels, zb.as_deref_mut()) as u32;
             }
         }
         Ok(Stats { triangles: n, device_us: 0, prepare_us: 0, warm: false, in_flight: false, wait_us: 0 })
@@ -154,9 +194,10 @@ fn recorta(t: [[f32; 4]; 3]) -> ([[[f32; 4]; 3]; 2], usize) {
 
 impl Cpu {
     /// Un triangulo ya delante del plano de cerca: `true` si se dibujo (no
-    /// descartado ni de area 0).
+    /// descartado ni de area 0). `color(x, y)` da el de cada pixel que cubre
+    /// y pasa la profundidad, o `None` si su programa lo tira.
     #[allow(clippy::too_many_arguments)]
-    fn triangulo(&self, frame: &Frame, tri: &[[f32; 4]; 3], color: u32, (w, h): (i64, i64), (mw, mh): (f32, f32), pixels: &mut [u32], mut zb: Option<&mut [f32]>) -> bool {
+    fn triangulo(&self, cull: Cull, tri: &[[f32; 4]; 3], color: &mut dyn FnMut(i64, i64) -> Option<u32>, (w, h): (i64, i64), (mw, mh): (f32, f32), pixels: &mut [u32], mut zb: Option<&mut [f32]>) -> bool {
         {
             let mut x = [0i64; 3];
             let mut y = [0i64; 3];
@@ -171,7 +212,7 @@ impl Cpu {
             }
             let mut area = arista(x[0], y[0], x[1], y[1], x[2], y[2]);
             // V2: delante es horario en la pantalla (area > 0, con y hacia abajo)
-            if frame.cull == Cull::Back && area < 0 {
+            if cull == Cull::Back && area < 0 {
                 return false;
             }
             if area < 0 {
@@ -201,15 +242,21 @@ impl Cpu {
                     ];
                     if (0..3).all(|k| e[k] > 0 || (e[k] == 0 && incluye[k])) {
                         let i = (py * w + px) as usize;
-                        if let Some(z) = zb.as_deref_mut() {
+                        let mut zp = 0.0;
+                        if zb.is_some() {
                             // e[k] es el peso del vertice k (por el area)
-                            let zp = ((e[0] as f64 * zn[0] + e[1] as f64 * zn[1] + e[2] as f64 * zn[2]) / area as f64) as f32;
-                            if !(0.0..=1.0).contains(&zp) || zp >= z[i] {
+                            zp = ((e[0] as f64 * zn[0] + e[1] as f64 * zn[1] + e[2] as f64 * zn[2]) / area as f64) as f32;
+                            if !(0.0..=1.0).contains(&zp) || zb.as_deref().is_some_and(|z| zp >= z[i]) {
                                 continue;
                             }
+                        }
+                        // el programa de pixeles corre ANTES de escribir la
+                        // profundidad: uno que se tira no la toca (D3D)
+                        let Some(c) = color(px, py) else { continue };
+                        if let Some(z) = zb.as_deref_mut() {
                             z[i] = zp;
                         }
-                        pixels[i] = color;
+                        pixels[i] = c;
                     }
                 }
             }
@@ -438,6 +485,92 @@ mod pruebas {
         let (piezas, n) = recorta([[0.0, 0.0, 0.5, 1.0], [1.0, 0.0, 0.5, 1.0], [0.0, 1.0, -0.5, -0.4]]);
         assert_eq!(n, 2);
         assert!(piezas.iter().flatten().all(|p| p[2] >= 0.0 && p[3] > 0.0));
+    }
+
+    /// ** V3a / M2 en el anfitrion: EL CUBO DE BMOX-12 CON SUS PROGRAMAS.
+    /// Los 24 vertices SIN transformar, sus 36 indices y el cbuffer (la
+    /// matriz, el mundo, la luz) -- lo que da D3D12 --, y los DOS programas
+    /// que dxc compilo para BMOX-12, traducidos al Programa de la casa: el de
+    /// vertice transforma, el de pixeles ilumina. El juez los corre y da la
+    /// HUELLA de D3D12 en la 3060, fotograma a fotograma. La CPU ya no cuenta
+    /// ni un vertice: solo pone la matriz.
+    #[cfg(feature = "prometeo")]
+    mod con_programas {
+        use super::*;
+        use crate::dibujo::{Buffer, Draw, DrawBackend, Pipeline, Shader};
+        use bmo_prometeo::programa::Programa;
+
+        fn programa(d: &[u8]) -> Programa {
+            bmo_proton_x::dxil::programa::compilar(&bmo_proton_x::dxil::leer(d).unwrap()).unwrap()
+        }
+
+        pub(super) fn los_dos() -> (Programa, Programa) {
+            (programa(include_bytes!("../../proton-x/prueba/cubo_vs.dxil")), programa(include_bytes!("../../proton-x/prueba/cubo_ps.dxil")))
+        }
+
+        pub(super) fn cbuffer(f: u32) -> Vec<u8> {
+            let c = bmo_cubo::constantes(bmo_cubo::angulo_de_fotograma(f), ANCHO as f32 / ALTO as f32);
+            c.wvp.iter().chain(&c.world).chain(&c.luz).flat_map(|x| x.to_le_bytes()).collect()
+        }
+
+        pub(super) fn atributos() -> Vec<[f32; 4]> {
+            bmo_cubo::vertices().iter().flat_map(|v| [[v.pos[0], v.pos[1], v.pos[2], 1.0], [v.normal[0], v.normal[1], v.normal[2], 0.0], v.color]).collect()
+        }
+
+        pub(super) fn dibuja(vs: &dyn Shader, ps: &dyn Shader, cb: &[u8], indices: &[u32], cull: Cull) -> Result<(Vec<u32>, u32), Error> {
+            let datos = atributos();
+            let d = Draw {
+                clear: FONDO_F,
+                viewport: Viewport { width: ANCHO, height: ALTO },
+                pipeline: Pipeline { vertex: vs, pixel: ps, depth: false, cull },
+                vertices: Buffer { data: &datos, stride: 3 },
+                indices: Some(indices),
+                constants: cb,
+                count: indices.len(),
+            };
+            let mut px = vec![0u32; (ANCHO * ALTO) as usize];
+            let mut juez = Cpu { max_vertices: 1 << 16, ..Cpu::LA_3060 };
+            let s = juez.draw_with(&d, &mut Image { pixels: &mut px, width: ANCHO, height: ALTO, depth: None })?;
+            Ok((px, s.triangles))
+        }
+
+        pub(super) fn indices() -> Vec<u32> {
+            bmo_cubo::indices().iter().map(|&i| i as u32).collect()
+        }
+
+        #[test]
+        fn the_cube_of_bmox12_with_its_own_programs_gives_the_d3d12_print() {
+            let (vs, ps) = los_dos();
+            for f in [0, 30, 60] {
+                let (px, tris) = dibuja(&vs, &ps, &cbuffer(f), &indices(), Cull::Back).unwrap();
+                assert!((3..=8).contains(&tris), "fotograma {f}: {tris} triangulos de 12 miran");
+                assert_eq!(Some(huella(&px)), de_la_3060(f), "fotograma {f}: la huella de D3D12");
+            }
+        }
+
+        /// Sin descarte, las caras de detras se pintan encima (no hay
+        /// profundidad): la huella ya NO es la de D3D12. Y con la matriz de
+        /// otro fotograma, tampoco: lo que gira es la CONSTANTE.
+        #[test]
+        fn the_print_depends_on_the_cull_and_on_the_constants() {
+            let (vs, ps) = los_dos();
+            let (px, _) = dibuja(&vs, &ps, &cbuffer(30), &indices(), Cull::None).unwrap();
+            assert_ne!(Some(huella(&px)), de_la_3060(30));
+            let (px, _) = dibuja(&vs, &ps, &cbuffer(31), &indices(), Cull::Back).unwrap();
+            assert_ne!(Some(huella(&px)), de_la_3060(30));
+        }
+
+        /// Lo que no encaja se dice: un indice fuera, una de pixeles que lee
+        /// mas de lo que deja la de vertice.
+        #[test]
+        fn what_does_not_fit_is_refused() {
+            let (vs, ps) = los_dos();
+            let mut fuera = indices();
+            fuera[5] = 24;
+            assert_eq!(dibuja(&vs, &ps, &cbuffer(0), &fuera, Cull::Back).err(), Some(Error::Vertices));
+            // la de pixeles como de vertice: lee 3, y la de pixeles deja 1
+            assert_eq!(dibuja(&ps, &ps, &cbuffer(0), &indices(), Cull::Back).err(), Some(Error::Shader));
+        }
     }
 
     /// Profundidad sin z-buffer, en la CPU: no se dibuja (Error::Image).

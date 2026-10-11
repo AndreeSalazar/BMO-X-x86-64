@@ -35,7 +35,12 @@
 //!   z-buffer de D3D: MENOR que, se escribe, limpio a 1.0) y `Frame::cull`
 //!   (las caras de DETRAS fuera; delante es horario en la pantalla, lo de
 //!   D3D por defecto). Sin ellos, como V0: lo que le dan, en orden.
-//! - Un solo tipo de vertice y un solo par de programas: los del cubo.
+//! - ~~Un solo tipo de vertice y un solo par de programas~~ -- **V3a
+//!   (11-10)**: [`Draw`], por CATEGORIAS (recursos, programas, tuberia,
+//!   dibujo; ver `dibujo.rs`): vertices sin transformar, indices, el
+//!   cbuffer y DOS programas cualesquiera (el Programa de la casa, con la
+//!   feature `prometeo`). El juez de la CPU ya lo dibuja; la 3060, todavia
+//!   solo con los programas de BMOX-12 (`gpu verrano bmox12`).
 //! - Sin buferes propios. Vallas, desde V1b solo por dentro: un backend
 //!   puede dejar el fotograma EN VUELO (`Stats::in_flight`) y
 //!   `Backend::finish` espera lo que quede.
@@ -43,9 +48,17 @@
 #![no_std]
 #![forbid(unsafe_code)]
 
+#[cfg(feature = "prometeo")]
+extern crate alloc;
+
 pub mod cpu;
+/// V3a: el dibujo con PROGRAMAS, por categorias (recursos, programas,
+/// tuberia, dibujo).
+pub mod dibujo;
 /// La lamina: el bloque que otro proceso (INTI) escribe y VERRANO lee, sin cerrojo.
 pub mod lamina;
+
+pub use dibujo::{Buffer, Draw, DrawBackend, Pipeline, Shader};
 
 /// **Un vertice**, como lo lee `cubo.vert`: la posicion ya en coordenadas
 /// de RECORTE (x, y, z, w) y el color (r, g, b, a). 32 bytes.
@@ -230,6 +243,9 @@ pub enum Error {
     Image,
     /// El aparato lo nego o no contesto (con su motivo).
     Device(u32),
+    /// V3a: los programas no encajan (lo que uno deja y el otro lee), o
+    /// piden lo que el backend aun no hace.
+    Shader,
 }
 
 /// **Un backend de VERRANO**: dibuja un fotograma en una imagen.
