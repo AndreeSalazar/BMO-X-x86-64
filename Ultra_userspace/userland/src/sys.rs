@@ -636,6 +636,12 @@ pub fn mi_padre() -> u32 {
 /// los doce en pie hay once nucleos al 100 %. Esto es lo que lo apaga.
 /// **Que es y en que esta el hilo logico `id`.**
 ///
+/// ** `id` es el HILO k DE LA MAQUINA (11-10), no un APIC ID: el kernel
+/// recorre los que lista la placa, ordenados por nucleo fisico y puesto
+/// (`smp::hilo_k`). En un 5600X con APIC 0-5 y 8-13 (el CCD tiene sitio para
+/// ocho nucleos y solo seis viven), pedir los APIC 0..11 preguntaba por el 6
+/// y el 7, que no existen, y nunca por el 12 y el 13.
+///
 /// *** Existe porque `12 de 12` es una mentira comoda: presenta doce cosas como
 /// si fueran doce iguales, y son **SEIS nucleos con dos hilos cada uno**. Un
 /// hilo SMT no es medio nucleo ni es un nucleo -- es un sitio mas para meter
@@ -649,9 +655,9 @@ pub fn mi_padre() -> u32 {
 ///    tipo     1 = CORE, 2 = THREAD, 0 = no se sabe
 /// ```
 ///
-/// [!] El nucleo fisico y los hilos por nucleo salen del **perfil del CPU**, no
-/// de un desplazamiento escrito a mano: que los hermanos SMT sean IDs
-/// consecutivos es un hecho de ESTA maquina (ley 24).
+/// [!] El nucleo fisico y los hilos de ese nucleo salen de la FILA del
+/// silicio (`apic >> smt_bits`, CPUID 0x8000_001E), no de dividir lo que dice
+/// el perfil: que los hermanos SMT sean IDs seguidos es un hecho de cada placa.
 pub fn smp_hilo(id: u32) -> (u32, u32, u32, u32) {
     let v = invoke(CURRENT_TASK, OP_SMP_DESPERTAR, id as u64, 3, 0).value;
     (

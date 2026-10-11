@@ -187,36 +187,27 @@ pub(super) fn smp_despertar(arg0: u64, arg1: u64) -> BmoStatus {
             //    bits  0..8    el estado: 0 maestro, 1 obrero, 2 dormido,
             //                  3 ausente, 4 desconocido
             //    bits  8..16   1 si es CORE, 2 si es THREAD, 0 si no se sabe
-            //    bits 16..32   el nucleo FISICO al que pertenece
-            //    bits 32..48   cuantos hilos por nucleo dice el PERFIL
+            //    bits 16..32   el nucleo FISICO al que pertenece (apic >> smt)
+            //    bits 32..48   cuantos hilos tiene ESE nucleo (de la fila)
+            //    bits 48..64   el APIC ID del hilo
             3 => {
-                let id = if arg0 > 63 { 63 } else { arg0 as u32 };
-                let e = match smp::estado_de(id) {
+                // ** `arg0` es el HILO k de la maquina (11-10), no un APIC ID
+                // supuesto: los hilos que lista la placa, por nucleo fisico y
+                // puesto (`smp::hilo_k`). Asi el panel pinta los APIC reales
+                // aunque la placa no los numere 0..11 seguidos.
+                let Some((apic, nucleo, puesto, del_nucleo)) = smp::hilo_k(arg0.min(63) as u32) else {
+                    return BmoStatus::ok_value(4);
+                };
+                let e = match smp::estado_de(apic) {
                     smp::Estado::Maestro => 0u64,
                     smp::Estado::Obrero => 1,
                     smp::Estado::Dormido => 2,
                     smp::Estado::Ausente => 3,
                     _ => 4,
                 };
-                let t = match smp::tipo_de(id) {
-                    "CORE" => 1u64,
-                    "THREAD" => 2,
-                    _ => 0,
-                };
-                // ** El nucleo fisico sale del PERFIL, no de un desplazamiento
-                // escrito a mano. Que los hermanos SMT sean IDs consecutivos es
-                // un hecho de ESTA maquina, y el sitio de un hecho de maquina es
-                // el perfil (ley 24). El dia que un CPU los reparta de otra
-                // forma, cambia el perfil y esta cuenta no se entera.
-                let (fisico, por_nucleo) =
-                    match (crate::ring0::cpu_vendor::profile::active().nucleos)() {
-                        Some(n) if n.nucleos > 0 && n.hilos >= n.nucleos => {
-                            let hpc = (n.hilos / n.nucleos) as u64;
-                            (if hpc > 0 { id as u64 / hpc } else { id as u64 }, hpc)
-                        }
-                        _ => (id as u64, 0),
-                    };
-                BmoStatus::ok_value(e | (t << 8) | (fisico << 16) | (por_nucleo << 32))
+                // CORE el primer hilo del nucleo, THREAD su hermano SMT.
+                let t = if puesto == 0 { 1u64 } else { 2 };
+                BmoStatus::ok_value(e | (t << 8) | ((nucleo as u64 & 0xFFFF) << 16) | ((del_nucleo as u64 & 0xFFFF) << 32) | ((apic as u64 & 0xFFFF) << 48))
             }
             2 => {
                 let (alive, _) = smp::alive();
@@ -403,13 +394,9 @@ pub(super) fn smp_despertar(arg0: u64, arg1: u64) -> BmoStatus {
                 // CABINA, que es el sitio que se mira desde los dos lados y
                 // el unico que tiene filtros.
                 //
-                // El valor de cada evento es `nucleo * 16 + estado`, que
-                // cabe en un numero y se lee de un vistazo: la decena es el
-                // nucleo y la unidad el estado.
-                let hilos = match (crate::ring0::cpu_vendor::profile::active().nucleos)() {
-                    Some(t) => (t.hilos as u32).min(32),
-                    None => alive + 1,
-                };
+                // El valor de cada evento es el APIC ID del hilo (11-10; la
+                // frase de antes decia `nucleo * 16 + estado` y se mandaba el
+                // id: el comentario mentia).
                 // ** CORE o THREAD en el propio mensaje, y en ingles.
                 //
                 // Lo pidio el propietario para la vista y para los FILTROS, y esa
@@ -421,9 +408,14 @@ pub(super) fn smp_despertar(arg0: u64, arg1: u64) -> BmoStatus {
                 // Y hace falta: `12 hilos` no dice si son doce nucleos o
                 // seis con SMT, y de eso depende cuantos obreros pedir --
                 // calculo denso quiere seis, no doce.
-                for id in 0..hilos {
+                // ** Los hilos que LISTA LA PLACA (11-10), por nucleo fisico:
+                // `smp::hilo_k`, no `0..hilos` (que suponia APIC seguidos).
+                // El valor de cada linea es el APIC ID del hilo.
+                let listados = smp::hilos_listados();
+                for k in 0..listados.min(64) {
+                    let Some((id, _, puesto, _)) = smp::hilo_k(k) else { break };
                     let e = smp::estado_de(id);
-                    let t = smp::tipo_de(id);
+                    let t = if puesto == 0 { "CORE" } else { "THREAD" };
                     // `CORE OBRERO` / `THREAD DORMIDO`: dos palabras, la
                     // primera dice QUE es y la segunda EN QUE esta.
                     let msg: &'static str = match (t, e) {
@@ -447,7 +439,7 @@ pub(super) fn smp_despertar(arg0: u64, arg1: u64) -> BmoStatus {
                 if girando > 0 {
                     crate::ring0::cabina::warn(
                         "smp",
-                        "nucleos GIRANDO en vacio al 100% (con MWAIT serian 0)",
+                        "hilos GIRANDO en vacio al 100% (con MWAIT serian 0)",
                         girando as u64,
                     );
                 }

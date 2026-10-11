@@ -59,8 +59,11 @@ pub fn obrero(indice: u32, apic: u32) -> ! {
             }
             let f = TAREA.load(Ordering::SeqCst);
             let partes = PARTES.load(Ordering::SeqCst);
-            let mia = indice + 1;
-            if f != 0 && mia < partes {
+            // ** Su parte la dice el reparto, por la fila de la CPU (11-10,
+            // `crew::PARTE_DE`), no su orden de llegada: un nucleo fisico
+            // por parte primero. `0` = esta ronda no es suya.
+            let mia = super::crew::PARTE_DE.get(indice as usize).map_or(0, |p| p.load(Ordering::SeqCst));
+            if f != 0 && mia != 0 && mia < partes {
                 // Se apunta ANTES de la faena: si el obrero muere dentro, la
                 // diferencia entre `VIERON` y `HECHOS` es exactamente cuantos
                 // se quedaron por el camino.

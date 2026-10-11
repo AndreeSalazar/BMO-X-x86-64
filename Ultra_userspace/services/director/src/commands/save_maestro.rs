@@ -123,6 +123,7 @@ pub(crate) fn maestro(dsk: &mut Desktop, dest: &[u8], rayo: bmo::CuentasRayo) ->
     // La grabadora: cada `fila` de aqui hasta `parar` va tambien a
     // DATOS.TXT, la hoja para maquinas. Ver `datos.rs`.
     super::datos::empezar();
+    crate::scene::output::callar_espejo(true);
     let tick = &dsk.tick;
     let g = &mut dsk.out.grid;
 
@@ -221,6 +222,7 @@ pub(crate) fn maestro(dsk: &mut Desktop, dest: &[u8], rayo: bmo::CuentasRayo) ->
     // tipografia. Se escribe directa al fichero, no pasa por la pantalla:
     // es la unica, y a proposito -- son los mismos numeros que ya se vieron.
     super::datos::parar();
+    crate::scene::output::callar_espejo(false);
     if let Some(h) = hoja(b"DATOS.TXT") {
         super::datos::volcar(&h);
         if h.close() {

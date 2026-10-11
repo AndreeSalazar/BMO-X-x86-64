@@ -1034,7 +1034,7 @@ pub(crate) fn smp(dsk: &mut Desktop, p: &bmo::Pantalla, arg: &[u8]) -> After {
     if how_many == 0 {
         dsk.out.grid.text(b"  censando (no se despierta a nadie)\n");
     } else {
-        dsk.out.grid.text(b"  despertando nucleos (esto tarda)...\n");
+        dsk.out.grid.text(b"  despertando hilos (esto tarda)...\n");
     }
     paint_output(&p, &dsk.run_box, &dsk.out.grid);
     p.volcar();

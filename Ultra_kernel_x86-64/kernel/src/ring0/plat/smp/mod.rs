@@ -147,7 +147,7 @@ pub fn despertar(cuantos: u32, aviso: impl Fn(u32)) -> (u32, u32) {
         if c.apagados() > 0 {
             crate::ring0::cabina::warn(
                 "smp",
-                "nucleos LISTADOS y no habilitados: no se llaman",
+                "hilos LISTADOS y no habilitados: no se llaman",
                 c.apagados() as u64,
             );
         }
@@ -236,7 +236,9 @@ pub fn despertar(cuantos: u32, aviso: impl Fn(u32)) -> (u32, u32) {
     }
     crew::reanudar();
 
-    let pedidos = cuantos.min(esperados);
+    // Nunca mas de los que caben en las fichas (`MAX_OBREROS`): uno de mas
+    // llegaria sin ficha ni TSS (`tss.rs` no le da) y podria tomar partes.
+    let pedidos = cuantos.min(esperados).min(ficha::MAX_OBREROS as u32);
     tramp::VIVOS.store(0, Ordering::SeqCst);
     tramp::MASCARA.store(0, Ordering::SeqCst);
     let yo = tramp::apic_id();
@@ -309,11 +311,27 @@ pub fn despertar(cuantos: u32, aviso: impl Fn(u32)) -> (u32, u32) {
             lapic::esperar_us(200);
         };
 
+        // ** EN EL ORDEN DE LA FILA (11-10), no en el de la MADT: un hilo de
+        // cada nucleo fisico ajeno primero, sus hermanos SMT despues y el
+        // hermano del BSP al final (`topologia::fila`). Con `smp all` da
+        // igual a quien se llame primero; con `smp 5` en un 5600X son CINCO
+        // NUCLEOS FISICOS y no "los cinco primeros que lista la placa", que
+        // con los hermanos juntos eran tres nucleos y el hermano del BSP.
+        let mut fila_ids = [0u32; bmo_orquesta::topologia::HILOS_MAXIMOS];
+        let por_fila = topologia::fila().map_or(0, |f| f.orden(yo, &mut fila_ids));
         match censo.as_ref() {
-            // * La lista del firmware, tal cual. Ni se inventa ni se ordena.
+            Some(_) if por_fila > 0 => {
+                for &id in &fila_ids[..por_fila] {
+                    if id != yo && (slot as u32) < pedidos {
+                        call(id, &mut slot);
+                    }
+                }
+            }
+            // * Sin fila, la lista del firmware tal cual. Ni se inventa ni se
+            // ordena.
             Some(c) => {
                 for &id in c.ids() {
-                    if id != yo && (slot as u32) < cuantos {
+                    if id != yo && (slot as u32) < pedidos {
                         call(id, &mut slot);
                     }
                 }
@@ -321,7 +339,7 @@ pub fn despertar(cuantos: u32, aviso: impl Fn(u32)) -> (u32, u32) {
             // El camino de respaldo, ya avisado mas arriba.
             None => {
                 for id in 0..esperados + 1 {
-                    if id != yo && (slot as u32) < cuantos {
+                    if id != yo && (slot as u32) < pedidos {
                         call(id, &mut slot);
                     }
                 }
@@ -356,7 +374,7 @@ pub fn despertar(cuantos: u32, aviso: impl Fn(u32)) -> (u32, u32) {
     crate::ring0::core::dashboard::dashboard_log(if alive == pedidos {
         "[smp] contestaron todos los que se llamaron"
     } else {
-        "[smp] FALTAN nucleos por contestar"
+        "[smp] FALTAN hilos por contestar"
     });
 
     decir_estado_cpu(alive);
@@ -365,7 +383,7 @@ pub fn despertar(cuantos: u32, aviso: impl Fn(u32)) -> (u32, u32) {
     } else {
         crate::ring0::cabina::warn(
             "smp",
-            "faltan nucleos por contestar",
+            "faltan hilos por contestar",
             (pedidos - alive) as u64,
         );
         crate::ring0::cabina::warn("smp", "mascara de los que SI contestaron", mascara as u64);
@@ -485,7 +503,13 @@ impl Estado {
 /// `AUSENTE` --el BSP nunca pasa por el trampolin, asi que nunca pone su bit--
 /// y el panel diria que el nucleo que lo esta pintando no existe.
 pub fn estado_de(id: u32) -> Estado {
-    if id == 0 {
+    // El BSP es el que es, no el APIC 0 (11-10): en una placa que arranque
+    // por otro, el 0 seria un obrero pintado de maestro.
+    let bsp = match tramp::BSP_APIC.load(Ordering::SeqCst) {
+        u32::MAX => tramp::apic_id(),
+        b => b,
+    };
+    if id == bsp {
         return Estado::Maestro;
     }
     let (vivos, mascara) = alive();
@@ -555,22 +579,39 @@ pub fn estado_de(id: u32) -> Estado {
 /// ficha guarda el APIC --un numero suyo-- y la identidad se resuelve al
 /// MIRARLA, que pasa en el BSP.
 pub fn donde_vive(id: u32) -> Option<(u8, u8)> {
-    let t = (crate::ring0::cpu_vendor::profile::active().nucleos)()?;
-    let (nucleos, hilos) = (t.nucleos as u32, t.hilos as u32);
-    if nucleos == 0 || hilos == 0 || id >= 32 {
-        return None;
+    // ** DE LA FILA DEL SILICIO (11-10), no de dividir lo que dice el perfil.
+    // Antes: `id / (hilos / nucleos)`, que acierta en un 5600X solo si sus
+    // APIC son 0..11 seguidos -- un supuesto. Ahora el nucleo es `apic >>
+    // smt_bits` (CPUID 0x8000_001E, lo que lee `topologia::fila`) y el hilo
+    // es su puesto DENTRO de ese nucleo entre los que existen: 0 el primero
+    // (CORE), 1 su hermano SMT (THREAD). Con SMT apagado, todos son 0.
+    let f = topologia::fila()?;
+    let h = f.hilos().iter().find(|h| h.apic == id)?;
+    let puesto = f.hilos().iter().filter(|o| o.nucleo == h.nucleo && o.hermano < h.hermano).count();
+    Some((h.nucleo.min(255) as u8, puesto.min(255) as u8))
+}
+
+/// **El hilo `k` de la maquina** (11-10): los hilos que lista la placa,
+/// ordenados por (nucleo fisico, puesto en el nucleo). `(apic, nucleo, puesto,
+/// hilos de ese nucleo)`. Es lo que recorren los paneles: los APIC reales, no
+/// `0..hilos` (que solo acierta si la placa los numera seguidos).
+pub fn hilo_k(k: u32) -> Option<(u32, u32, u32, u32)> {
+    let f = topologia::fila()?;
+    let mut v = [(0u32, 0u32, 0u32); bmo_orquesta::topologia::HILOS_MAXIMOS];
+    let n = f.hilos().len().min(v.len());
+    for (s, h) in v.iter_mut().zip(f.hilos()) {
+        *s = (h.nucleo, h.hermano, h.apic);
     }
-    // Sin SMT no hay hermanos: cada hilo es su propio nucleo.
-    if hilos == nucleos {
-        return Some((id as u8, 0));
-    }
-    let por_nucleo = hilos / nucleos;
-    // Ni uno ni dos hilos por nucleo: este juez no sabe repartirlo por el ID, y
-    // lo dice en vez de dividir igual.
-    if por_nucleo != 2 || hilos != nucleos * 2 {
-        return None;
-    }
-    Some(((id / por_nucleo) as u8, (id % por_nucleo) as u8))
+    v[..n].sort_unstable();
+    let &(nucleo, _, apic) = v[..n].get(k as usize)?;
+    let puesto = v[..k as usize].iter().filter(|o| o.0 == nucleo).count() as u32;
+    let del_nucleo = v[..n].iter().filter(|o| o.0 == nucleo).count() as u32;
+    Some((apic, nucleo, puesto, del_nucleo))
+}
+
+/// Cuantos hilos lista la placa (sin repetidos). 0 si no hay MADT.
+pub fn hilos_listados() -> u32 {
+    topologia::fila().map_or(0, |f| f.hilos().len() as u32)
 }
 
 pub fn tipo_de(id: u32) -> &'static str {

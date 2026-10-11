@@ -567,7 +567,7 @@ pub(crate) fn report_cpu(s: &mut Output, consumo: Option<bmo_juicio::consumo::Co
         s.with_ink(INK_GOOD);
         s.dec(alive_count + 1);
         s.with_ink(INK_PLAIN);
-        s.text(b" nucleos en pie de ");
+        s.text(b" hilos en pie de ");
         s.dec(bmo::info(bmo::INFO_CPU_HILOS));
         s.byte(b'\n');
     }

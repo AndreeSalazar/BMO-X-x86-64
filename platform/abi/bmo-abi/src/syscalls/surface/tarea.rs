@@ -768,6 +768,12 @@ pub const ALARMA_PUERTA_MALA: u32 = 2;
 pub const ALARMA_BUZON_MALO: u32 = 3;
 pub const ALARMA_PERIODO_MALO: u32 = 4;
 pub const ALARMA_BUZON_NO_ESCRIBIBLE: u32 = 5;
+/// **LO QUE SE VIO EN PANTALLA, A LA CAJA NEGRA** (11-10): hasta 16 bytes
+/// (`arg0` y `arg1`, little-endian; el cero corta) directo al anillo de la
+/// caja negra (`cabina/caida.rs`), sin consola ni pantalla por medio. El
+/// DIRECTOR manda cada linea que cierra en su caja: si la maquina se
+/// reinicia, el `CAIDA.TXT` siguiente dice lo ultimo que el propietario VIO.
+pub const TASK_OP_CAIDA_ANOTAR: u64 = 0x45;
 /// La ventana de reserva: 384 GiB desde `0x20_0000_0000`, hasta el final
 /// de `PML4[0]` (era de 128: Cyberpunk aparta mas de 130 GiB al arrancar).
 pub const RESERVA_VENTANA_BASE: u64 = 0x0000_0020_0000_0000;

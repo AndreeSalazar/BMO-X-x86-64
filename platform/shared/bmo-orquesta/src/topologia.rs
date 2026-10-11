@@ -202,6 +202,41 @@ mod pruebas {
         assert_eq!(o[10], 1, "y al final el hermano del BSP");
     }
 
+    /// El 5600X con los APIC SEGUIDOS (0..11, hermanos juntos): lo mismo, un
+    /// hilo por nucleo fisico ajeno primero (11-10, la auditoria de `smp`).
+    #[test]
+    fn el_5600x_con_apic_seguidos() {
+        let apics: Vec<u32> = (0..12).collect();
+        let f = Fila::leer(&Medida { apics: &apics, smt_bits: smt_bits_amd(1 << 8), l3_bits: 4, tipos: &[] });
+        assert_eq!((f.hilos().len(), f.nucleos(), f.l3s()), (12, 6, 1));
+        let o = orden(&f, 0);
+        assert_eq!(&o[..5], &[2, 4, 6, 8, 10], "cinco nucleos fisicos, ninguno el del BSP");
+        assert_eq!(&o[5..10], &[3, 5, 7, 9, 11]);
+        assert_eq!(o[10], 1);
+    }
+
+    /// Una placa que lista primero todos los hilos 0 y despues los 1: el
+    /// orden NO depende de como los liste la MADT.
+    #[test]
+    fn el_orden_no_depende_de_la_lista_de_la_placa() {
+        let juntos: Vec<u32> = (0..12).collect();
+        let separados = [0, 2, 4, 6, 8, 10, 1, 3, 5, 7, 9, 11];
+        let m = |a: &[u32]| orden(&Fila::leer(&Medida { apics: a, smt_bits: 1, l3_bits: 4, tipos: &[] }), 0);
+        assert_eq!(m(&juntos), m(&separados));
+    }
+
+    /// Un BSP que no es el APIC 0: su hermano va al final, y el 0 es uno mas.
+    #[test]
+    fn un_bsp_que_no_es_el_cero() {
+        let apics = [0, 1, 2, 3, 4, 5, 8, 9, 10, 11, 12, 13];
+        let f = Fila::leer(&Medida { apics: &apics, smt_bits: 1, l3_bits: 4, tipos: &[] });
+        let o = orden(&f, 4);
+        assert_eq!(o.len(), 11);
+        assert_eq!(&o[..5], &[0, 2, 8, 10, 12], "los cinco nucleos ajenos al del BSP (el 2)");
+        assert_eq!(o[10], 5, "el hermano del BSP, el ultimo");
+        assert!(!o.contains(&4), "el BSP no se da a si mismo");
+    }
+
     /// Un Zen 2 de dos CCX (3+3, una L3 cada uno): primero los nucleos de la
     /// L3 del BSP, despues los de la otra.
     #[test]

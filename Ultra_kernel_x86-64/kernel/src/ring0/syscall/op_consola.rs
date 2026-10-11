@@ -62,6 +62,25 @@ pub(super) fn console_write(arg0: u64, _arg1: u64) -> BmoStatus {
         BmoStatus::ok_value(0)
 }
 
+/// **Lo que se vio en pantalla, a la caja negra** (11-10): hasta 16 bytes
+/// directo al anillo de `cabina/caida.rs`, sin consola, sin panel y sin
+/// serie. El DIRECTOR manda cada linea que cierra en su caja; la caja negra
+/// ya era el embudo de lo que el KERNEL dice, y ahora tambien de lo que el
+/// propietario VE. Solo escribe texto en un anillo de RAM del kernel: no
+/// concede nada.
+pub(super) fn caida_anotar(arg0: u64, arg1: u64) -> BmoStatus {
+    let mut w = [0u8; 16];
+    w[..8].copy_from_slice(&arg0.to_le_bytes());
+    w[8..].copy_from_slice(&arg1.to_le_bytes());
+    for &b in w.iter().take_while(|&&b| b != 0) {
+        // Solo texto: lo demas (salvo el salto de linea) se tira.
+        if b == b'\n' || (0x20..0x7F).contains(&b) {
+            crate::ring0::cabina::caida::anotar(b);
+        }
+    }
+    BmoStatus::ok_value(0)
+}
+
 pub(super) fn console_read(arg0: u64, _arg1: u64) -> BmoStatus {
         let _ = arg0;
         let pid = scheduler::current_pid();

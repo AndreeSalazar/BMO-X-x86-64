@@ -215,6 +215,29 @@ kernel. `cpu_vendor/ryzen_5_5600x/` es la fila de HOY, no la unica.
 
 ## 4T. EL TURNO, mientras hay UN nucleo (sin Ring 0)
 
+- [~] **V11 -- el reparto por NUCLEOS, no por orden de llegada; hilos no son
+      nucleos; y lo VISTO en pantalla, a la caja negra.** La auditoria del
+      11-10 (el propietario: *"es 6 core y 12 threads... algo huele"*):
+      CORE/THREAD NO estaba al reves, pero `crew` (atril, banda, `smp test`)
+      daba la parte `indice + 1`, o sea por ORDEN DE LLEGADA (el de la
+      MADT): con los hermanos SMT juntos, 6 partes caian en 3 nucleos
+      fisicos, uno el del BSP. Ahora: `crew::PARTE_DE` por
+      `topologia::orden` (un nucleo fisico por parte, los hermanos despues);
+      `smp N` llama por la fila (`smp 5` = cinco NUCLEOS); el censo de la
+      MADT sin repetidos (LAPIC y x2APIC del mismo hilo eran dos INIT+SIPI);
+      nunca mas de `MAX_OBREROS` llamados; `donde_vive` y CORE/THREAD de la
+      fila del silicio (`apic >> smt_bits`) y no de dividir el perfil; los
+      paneles recorren los APIC reales (`smp::hilo_k`: con APIC 0-5 y 8-13
+      se preguntaba por el 6 y el 7, que no existen); el BSP es el que es,
+      no el APIC 0; y "hilos" donde se contaban hilos (CABINA, KLOG, F7, el
+      `save`). `bmo-orquesta`: tres pruebas mas (APIC seguidos, la placa
+      que lista los hilos 0 primero, un BSP que no es el 0). Y la caja
+      negra: los registros del BSP (RIP, RSP, anillo) en CADA tick
+      (`tablero::REGISTROS_BSP`), y cada linea de la caja del escritorio
+      (`TASK_OP_CAIDA_ANOTAR`, `[caja] ...`; callada durante un `save`).
+      **Falta:** el metal -- `smp` en F11 con los APIC de verdad, `smp test`
+      con 5 obreros en 5 nucleos, y un `CAIDA.TXT` con `[caja]` y `BSP
+      registros`.
 - [~] **V10 -- la maquina dice COMO murio, y no se despierta dos veces.**
       La auditoria de `smp all` (11-10, seccion 5 de
       [`METAL_2026-10-11.md`](../metal/METAL_2026-10-11.md)): los obreros

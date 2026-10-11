@@ -39,3 +39,4 @@ mod.rs TASK_OP_TOMAR CORRECTA -- "nadie ofrece" es la respuesta NORMAL, mil vece
 op_consola.rs console_read CORRECTA -- lo dice su propio comentario: "cero = nada, no error: un programa que sondea no debe morir por preguntar"
 op_maquina.rs DISCO_OP_TRIM_LIBRE CORRECTA -- no se calla: empaqueta `DISCO_TRIM_SIN_VOLUMEN` en el campo de motivo. El valor DICE por que, que es lo que pide L6i
 op_maquina.rs RED_OP_ARMAR CORRECTA -- devuelve `RED_SIN_TARJETA`, un motivo propio, y ademas lo apunta en CABINA
+op_maquina.rs smp_despertar CORRECTA -- la rama del hilo k que no existe (11-10) contesta el estado 4, "no se sabe", que el panel ya pinta como tal: es una respuesta del censo, no una negativa. Negar daria valor 0, que el panel leeria como "maestro"

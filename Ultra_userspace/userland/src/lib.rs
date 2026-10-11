@@ -137,6 +137,9 @@ pub const OP_FUTEX_ESPERAR: u32 = 0x42;
 pub const OP_FUTEX_DESPERTAR: u32 = 0x43;
 /// `bmo_abi::...::TASK_OP_ALARMA`. Ver [`alarma`].
 pub const OP_ALARMA: u32 = 0x44;
+/// `bmo_abi::...::TASK_OP_CAIDA_ANOTAR`: lo que se vio en pantalla, a la caja
+/// negra. Ver [`caida_anotar`].
+pub const OP_CAIDA_ANOTAR: u32 = 0x45;
 /// El log del kernel, leido desde Ring 3. Ver `klog_lineas`/`klog_texto`.
 pub const OP_KLOG_INFO: u32 = 0x16;
 pub const OP_KLOG_TEXTO: u32 = 0x17;

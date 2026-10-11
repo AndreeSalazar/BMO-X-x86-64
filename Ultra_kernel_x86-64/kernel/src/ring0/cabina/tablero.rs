@@ -29,6 +29,9 @@
 //! en marcha: la hora de la muerte), la ESPERA (el BSP salio de su parte y
 //! pregunta) y APUNTO (el obrero hizo sus cuentas y vuelve a su bucle).
 //!
+//! Y desde el mismo 11-10, los REGISTROS del BSP en cada tick (RIP, RSP y el
+//! anillo), siempre: la ultima foto de donde estaba antes de morir.
+//!
 //! Vive justo detras del anillo (`caida::BASE + caida::BYTES`), en la misma
 //! reserva.
 
@@ -52,6 +55,11 @@ pub const ESPERA_BSP: usize = CASILLAS - 2;
 /// El tick del BSP mientras hay una faena de Ring 3 (11-10): la hora de la
 /// muerte, al milisegundo.
 pub const PULSO: usize = CASILLAS - 1;
+/// **Los registros del BSP en su ultimo tick** (11-10), SIEMPRE, haya faena o
+/// no: donde estaba (RIP, RSP, en que anillo) la ultima vez que el reloj lo
+/// interrumpio. Es la "foto de registros" que una muerte de golpe no deja
+/// sacar despues: se saca antes, mil veces por segundo, a la RAM.
+pub const REGISTROS_BSP: usize = CASILLAS - 3;
 
 /// Las etapas (el numero que se guarda) y como se dicen.
 pub const REPARTE: u64 = 1;
@@ -59,6 +67,8 @@ pub const ACABO: u64 = 2;
 pub const SALTA: u64 = 3;
 pub const ESPERA: u64 = 4;
 pub const VIVO: u64 = 5;
+pub const TICK_RING0: u64 = 6;
+pub const TICK_RING3: u64 = 7;
 pub const ENTRA_RING3: u64 = 10;
 pub const VUELVE: u64 = 11;
 pub const APUNTO: u64 = 12;
@@ -74,6 +84,8 @@ fn nombre(etapa: u64) -> &'static str {
         SALTA => "la ALARMA mando a la puerta (a = rip, b = tid)",
         ESPERA => "el BSP PREGUNTA si acabo (a = hechas, b = dadas)",
         VIVO => "BSP VIVO: su tick en la faena (a = tick, b = faena)",
+        TICK_RING0 => "ultimo tick: el BSP en RING 0 (a = rip, b = rsp)",
+        TICK_RING3 => "ultimo tick: el BSP en RING 3 (a = rip, b = rsp)",
         ENTRA_RING3 => "ENTRA en Ring 3 (a = faena, b = parte)",
         VUELVE => "VOLVIO de Ring 3 (a = faena, b = vector<<48 + rip)",
         APUNTO => "APUNTO y al bucle (a = faena, b = vector<<48 + rip)",
@@ -160,6 +172,7 @@ pub(super) fn abrir(virt: u64, decir: &mut dyn FnMut(&str)) {
                     SMP_BSP => l.txt("BSP smp: "),
                     ESPERA_BSP => l.txt("BSP espera: "),
                     PULSO => l.txt("BSP pulso: "),
+                    REGISTROS_BSP => l.txt("BSP registros: "),
                     _ => {
                         l.txt("obrero ");
                         l.dec((c - OBREROS) as u64);
