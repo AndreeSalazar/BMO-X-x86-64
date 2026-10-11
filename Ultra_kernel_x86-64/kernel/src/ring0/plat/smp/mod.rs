@@ -583,16 +583,20 @@ pub fn estado_de(id: u32) -> Estado {
 /// ficha guarda el APIC --un numero suyo-- y la identidad se resuelve al
 /// MIRARLA, que pasa en el BSP.
 pub fn donde_vive(id: u32) -> Option<(u8, u8)> {
-    // ** DE LA FILA DEL SILICIO (11-10), no de dividir lo que dice el perfil.
-    // Antes: `id / (hilos / nucleos)`, que acierta en un 5600X solo si sus
-    // APIC son 0..11 seguidos -- un supuesto. Ahora el nucleo es `apic >>
-    // smt_bits` (CPUID 0x8000_001E, lo que lee `topologia::fila`) y el hilo
-    // es su puesto DENTRO de ese nucleo entre los que existen: 0 el primero
-    // (CORE), 1 su hermano SMT (THREAD). Con SMT apagado, todos son 0.
-    let f = topologia::fila()?;
-    let h = f.hilos().iter().find(|h| h.apic == id)?;
-    let puesto = f.hilos().iter().filter(|o| o.nucleo == h.nucleo && o.hermano < h.hermano).count();
-    Some((h.nucleo.min(255) as u8, puesto.min(255) as u8))
+    // ** DEL SILICIO (11-10), no de dividir lo que dice el perfil: el nucleo
+    // es `apic >> smt_bits` (CPUID 0x8000_001E en AMD) y el hilo, los bits
+    // de abajo -- 0 el primero (CORE), 1 su hermano SMT (THREAD). Con SMT
+    // apagado `smt_bits` es 0 y todos son CORE.
+    //
+    // [!] SIN ARMAR LA FILA: esto lo llama `ficha::retrato`, que esta en el
+    // camino de un fallo (`revoke_all` -> `sacar_ya`, con la pila IST1 de
+    // 8 KiB) y en cada reparto. La fila entera son ~2,5 KiB de pila, y
+    // `pila.py` dijo que no caben (11-10). Lo mismo con un CPUID cacheado.
+    if id >= 1 << 16 {
+        return None;
+    }
+    let s = topologia::smt_bits() as u32;
+    Some(((id >> s).min(255) as u8, (id & ((1 << s) - 1)).min(255) as u8))
 }
 
 /// **El hilo `k` de la maquina** (11-10): los hilos que lista la placa,

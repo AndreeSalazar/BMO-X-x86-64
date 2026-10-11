@@ -122,6 +122,7 @@ pub(crate) fn orden(dsk: &mut Desktop, p: &bmo::Pantalla, quitar: bool) -> After
     }
     paint_status(p, &dsk.run_box, if quitar { "quitando la subida de relojes" } else { "midiendo la 3060, subiendo sus relojes y midiendo otra vez" }, INK_DIM);
     let antes_p = pstate();
+    let antes_l = enlace();
     let antes = if quitar { None } else { medir() };
     let c = if quitar { Control::RelojesNormales } else { Control::RelojesArriba };
     let r = controlar(c, &mut [0u8; CABECERA_CONTROL + 8]);
@@ -129,6 +130,10 @@ pub(crate) fn orden(dsk: &mut Desktop, p: &bmo::Pantalla, quitar: bool) -> After
     dormir_ms(100);
     let despues_p = pstate();
     let despues = if quitar { None } else { medir() };
+    // ** EL ENLACE PCIe, antes y despues (11-10). La 3060 arranca en Gen1 y
+    // el que lo sube es el GSP-RM, con el nivel de rendimiento: se mira
+    // DESPUES de medir (la carga es la que le dice al RM que hace falta).
+    let despues_l = enlace();
     let s = Subida { arriba: !quitar, r, pstate: (antes_p, despues_p), antes, despues, desde: bmo::ciclos() };
     // SAFETY: como `ultima`.
     unsafe { *core::ptr::addr_of_mut!(ULTIMA) = Some(s) };
@@ -145,9 +150,34 @@ pub(crate) fn orden(dsk: &mut Desktop, p: &bmo::Pantalla, quitar: bool) -> After
         (_, false) => b"  el GSP-RM NO acepto PERF_BOOST: mira la fila `relojes`\n",
     });
     g.with_ink(INK_PLAIN);
+    if let (Some(a), Some(d)) = (antes_l, despues_l) {
+        g.with_ink(if d.gen > a.gen { INK_GOOD } else { INK_ECHO });
+        g.text(b"  pcie: Gen");
+        g.dec(a.gen as u64);
+        g.text(b" -> Gen");
+        g.dec(d.gen as u64);
+        g.text(b" x");
+        g.dec(d.ancho as u64);
+        g.text(b" (lo mas que da la placa: Gen");
+        g.dec(d.gen_max as u64);
+        g.text(if d.gen >= d.gen_max {
+            b"): el enlace AL MAXIMO\n" as &[u8]
+        } else if d.gen > a.gen {
+            b"): el RM lo subio\n"
+        } else {
+            b"): el RM no lo subio con PERF_BOOST (L2 de PLAN_LA_3060)\n"
+        });
+        g.with_ink(INK_PLAIN);
+    }
     fila(g);
     paint_status(p, &dsk.run_box, "relojes", INK_DIM);
     After::Settle
+}
+
+/// El enlace PCIe de la 3060 AHORA (`INFO_GPU_SALUD`, palabra 1).
+fn enlace() -> Option<bmo_gpu_ga10x::salud::Enlace> {
+    let e = bmo::info(bmo::INFO_GPU_SALUD | 1 << 8);
+    bmo_gpu_ga10x::salud::enlace(e as u16, (e >> 32) as u32)
 }
 
 fn p_estado(s: &mut Output, k: Option<u8>) {

@@ -69,6 +69,24 @@ pub fn apuntar(indice: u32) {
 /// Cuantos obreros dijeron ya su tipo: el orden guardado se rehace si sube.
 static APUNTADOS: AtomicU32 = AtomicU32::new(0);
 
+/// Los `smt_bits` de esta CPU, leidos UNA vez (`0xFF` = sin leer). Es lo que
+/// pide `donde_vive` en caminos calientes y en el de un fallo (con la pila
+/// IST1 de 8 KiB): ahi no cabe armar la fila entera (11-10, lo cazo
+/// `pila.py`: 2592 bytes de `donde_vive` dentro de `revoke_all`).
+static SMT_BITS: AtomicU8 = AtomicU8::new(0xFF);
+
+/// **Cuantos bits bajos del APIC dicen el hilo dentro del nucleo** (AMD
+/// 0x8000_001E, si no 0x0B). Sin pila: un CPUID la primera vez.
+pub fn smt_bits() -> u8 {
+    let b = SMT_BITS.load(SeqCst);
+    if b != 0xFF {
+        return b;
+    }
+    let b = bits().0.min(31);
+    SMT_BITS.store(b, SeqCst);
+    b
+}
+
 /// `(smt_bits, l3_bits)` de esta CPU.
 fn bits() -> (u8, u8) {
     let amd = cpuid(0, 0).1 == 0x6874_7541; // "Auth"
