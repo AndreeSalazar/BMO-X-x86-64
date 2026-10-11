@@ -215,6 +215,18 @@ kernel. `cpu_vendor/ryzen_5_5600x/` es la fila de HOY, no la unica.
 
 ## 4T. EL TURNO, mientras hay UN nucleo (sin Ring 0)
 
+- [~] **V9 -- el tablero dice la hora de la muerte.** El metal (11-10): la
+      `CAIDA` de `smp all` con ESTUDIO trajo el tablero entero -- `smp all`
+      vivo 11,7 s, el reinicio ~3 ms despues de la PRIMERA faena de Ring 3,
+      nueve obreros DENTRO de su parte y el 10 ya de vuelta (vector 14 en
+      FIN: bien) --, pero no cuanto vivio la maquina despues ni donde estaba
+      el BSP. Tres marcas mas en `cabina/tablero.rs`: PULSO (el tick del BSP,
+      solo con una faena de Ring 3 en marcha), ESPERA (`ring3::esperar`: el
+      BSP salio de su parte 0) y APUNTO (el obrero hizo sus cuentas y vuelve a
+      su bucle). Nada en el ensamblador de la ida y la vuelta. **Falta:** el
+      metal: `smp 1`, `smp 5` y `smp all` con `sys/estudio.bex`, y el `CAIDA`
+      del primero que reinicie. Ver
+      [`METAL_2026-10-11.md`](../metal/METAL_2026-10-11.md), seccion 4.
 - [~] **V8 -- la caja negra escribe DIRECTO a la RAM (WT).** V7 salvaba lo
       escrito con `clflush` (cada linea, cada tick); V8 lo quita de raiz: al
       abrir la caja, la pagina de 2 MiB del physmap que la cubre pasa de WB a

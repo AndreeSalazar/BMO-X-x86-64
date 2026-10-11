@@ -22,6 +22,13 @@
 //!    +16    casillas de 32 B: [etapa, a, b, tsc]
 //! ```
 //!
+//! El metal (11-10): el `CAIDA` de `smp all` con ESTUDIO trajo el tablero
+//! entero -- nueve obreros DENTRO de su parte y uno que ya habia VUELTO --,
+//! pero no cuanto vivio la maquina despues ni donde estaba el BSP. Por eso,
+//! tres marcas mas: el PULSO (el tick del BSP, solo con una faena de Ring 3
+//! en marcha: la hora de la muerte), la ESPERA (el BSP salio de su parte y
+//! pregunta) y APUNTO (el obrero hizo sus cuentas y vuelve a su bucle).
+//!
 //! Vive justo detras del anillo (`caida::BASE + caida::BYTES`), en la misma
 //! reserva.
 
@@ -39,13 +46,22 @@ pub const ALARMA: usize = 1;
 /// El BSP despertando a los obreros (`smp all`).
 pub const SMP_BSP: usize = 2;
 pub const OBREROS: usize = 3;
+/// El BSP preguntando si la faena acabo (`esperar`, 11-10). Al final: las de
+/// los obreros llegan hasta `OBREROS + MAX_OBREROS` (35), lejos de aqui.
+pub const ESPERA_BSP: usize = CASILLAS - 2;
+/// El tick del BSP mientras hay una faena de Ring 3 (11-10): la hora de la
+/// muerte, al milisegundo.
+pub const PULSO: usize = CASILLAS - 1;
 
 /// Las etapas (el numero que se guarda) y como se dicen.
 pub const REPARTE: u64 = 1;
 pub const ACABO: u64 = 2;
 pub const SALTA: u64 = 3;
+pub const ESPERA: u64 = 4;
+pub const VIVO: u64 = 5;
 pub const ENTRA_RING3: u64 = 10;
 pub const VUELVE: u64 = 11;
+pub const APUNTO: u64 = 12;
 pub const LLAMA_AP: u64 = 20;
 pub const AP_ARRANCA: u64 = 21;
 pub const AP_LISTO: u64 = 22;
@@ -56,8 +72,11 @@ fn nombre(etapa: u64) -> &'static str {
         REPARTE => "el BSP REPARTE una faena (a = faena, b = partes)",
         ACABO => "el BSP CERRO la faena (a = faena, b = mascara de malas)",
         SALTA => "la ALARMA mando a la puerta (a = rip, b = tid)",
+        ESPERA => "el BSP PREGUNTA si acabo (a = hechas, b = dadas)",
+        VIVO => "BSP VIVO: su tick en la faena (a = tick, b = faena)",
         ENTRA_RING3 => "ENTRA en Ring 3 (a = faena, b = parte)",
         VUELVE => "VOLVIO de Ring 3 (a = faena, b = vector<<48 + rip)",
+        APUNTO => "APUNTO y al bucle (a = faena, b = vector<<48 + rip)",
         LLAMA_AP => "el BSP LLAMA a un obrero: INIT+SIPI (a = apic, b = orden)",
         AP_ARRANCA => "ARRANCA en 64 bits, sin GDT ni TSS propios (a = apic)",
         AP_LISTO => "LISTO: GDT, TSS y XSAVE puestos; al bucle (a = apic)",
@@ -139,6 +158,8 @@ pub(super) fn abrir(virt: u64, decir: &mut dyn FnMut(&str)) {
                     SUB_BSP => l.txt("BSP sub-dir: "),
                     ALARMA => l.txt("BSP alarma: "),
                     SMP_BSP => l.txt("BSP smp: "),
+                    ESPERA_BSP => l.txt("BSP espera: "),
+                    PULSO => l.txt("BSP pulso: "),
                     _ => {
                         l.txt("obrero ");
                         l.dec((c - OBREROS) as u64);

@@ -198,6 +198,12 @@ extern "C" fn timer_dispatch(frame: &mut TrapFrame) -> u64 {
     // La caja negra, de la cache a la RAM (07-10): un reinicio de golpe
     // borra la cache, y con ella todo lo que la caida tenia que contar.
     crate::ring0::cabina::caida::a_la_ram();
+    // El PULSO del tablero (11-10), solo con una faena de Ring 3 en marcha:
+    // el CAIDA siguiente dice cuanto vivio el BSP despues de cada obrero.
+    if crate::ring0::plat::smp::ring3::activa() {
+        use crate::ring0::cabina::tablero as t;
+        t::marcar(t::PULSO, t::VIVO, n, crate::ring0::plat::smp::ring3::faena());
+    }
     // Budgeted estuary service before the scheduler decision: pending
     // submissions become completions and their WAITers wake this tick.
     // Must run before on_timer so no scheduler lock is held here.
