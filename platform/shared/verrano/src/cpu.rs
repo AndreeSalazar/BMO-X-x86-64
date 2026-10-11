@@ -214,6 +214,15 @@ impl DrawBackend for Cpu {
     }
 }
 
+/// ** EL COMPUTO en el juez: los techos de D3D12 y el programa, hilo a hilo
+/// (el de la casa, con su memoria compartida y sus barreras).
+impl crate::dibujo::ComputeBackend for Cpu {
+    fn dispatch(&mut self, d: &crate::dibujo::Dispatch, reads: &[crate::dibujo::ReadBuffer], writes: &mut [crate::dibujo::RwBuffer]) -> Result<u64, Error> {
+        crate::dibujo::check_dispatch(d)?;
+        Ok(d.program.dispatch(d.groups, d.constants, reads, writes))
+    }
+}
+
 /// **SV_Position en el pixel** (regla 5 de `dibujo.rs`, la de la casa:
 /// `bmo_proton_x::trama`, N5.9): el centro del pixel, la z lineal en la
 /// pantalla y la w de RECORTE con perspectiva (la inversa de la media de las
@@ -878,6 +887,78 @@ mod pruebas {
             assert_eq!(encima(p, None, &mut a, &mut [&mut b, &mut c]).err(), Some(Error::Shader));
             p.targets = 3;
             assert_eq!(encima(p, None, &mut a, &mut [&mut b]).err(), Some(Error::Image));
+        }
+
+        fn computo(d: &[u8]) -> Programa {
+            bmo_proton_x::dxil::computo::preparar(d).unwrap().programa
+        }
+
+        fn f32s(b: &[u8], k: usize) -> [f32; 4] {
+            core::array::from_fn(|c| f32::from_le_bytes(b[16 * k + 4 * c..16 * k + 4 * c + 4].try_into().unwrap()))
+        }
+
+        fn u32s(b: &[u8], k: usize) -> [u32; 4] {
+            core::array::from_fn(|c| u32::from_le_bytes(b[16 * k + 4 * c..16 * k + 4 * c + 4].try_into().unwrap()))
+        }
+
+        /// *** EL COMPUTO POR VERRANO: `computo.hlsl` de la casa (dxc), dos
+        /// grupos de 64 hilos. Cada hilo deja su elemento en la memoria
+        /// COMPARTIDA, espera a los demas (la barrera) y escribe el de su
+        /// ESPEJO por la escala, con su grupo y su indice en la w: sin la
+        /// barrera o sin memoria compartida de verdad, sale otra cosa.
+        #[test]
+        fn compute_runs_with_shared_memory_and_a_barrier() {
+            use crate::dibujo::{ComputeBackend, Dispatch, ReadBuffer, RwBuffer};
+            let cs = computo(include_bytes!("../../proton-x/prueba/computo.dxil"));
+            assert_eq!(crate::dibujo::Compute::threads(&cs), [64, 1, 1]);
+            let entrada: Vec<u8> = (0..128u32).flat_map(|k| [k as f32, 0.5, -1.0, 2.0]).flat_map(f32::to_le_bytes).collect();
+            let mut salida = vec![0u8; 128 * 16];
+            let mut cb = [0u8; 16];
+            cb[..4].copy_from_slice(&128u32.to_le_bytes());
+            cb[4..8].copy_from_slice(&3.0f32.to_le_bytes());
+            let d = Dispatch { program: &cs, groups: [2, 1, 1], constants: &cb };
+            let mut juez = Cpu::LA_3060;
+            let hilos = juez.dispatch(&d, &[ReadBuffer { bytes: &entrada, stride: 16 }], &mut [RwBuffer { bytes: &mut salida, stride: 16 }]).unwrap();
+            assert_eq!(hilos, 128);
+            for k in 0..128usize {
+                let (g, gi) = (k / 64, k % 64);
+                let espejo = (64 * g + 63 - gi) as f32;
+                assert_eq!(f32s(&salida, k), [espejo * 3.0, 1.5, -3.0, (g * 1000 + gi) as f32], "hilo {k}");
+            }
+        }
+
+        /// Lo que pidieron dos CS de Cyberpunk en el metal (06-10): los
+        /// `Interlocked*` sobre la memoria COMPARTIDA y `mad` de enteros
+        /// (`compartido.hlsl`). Lo que se juzga no depende del orden de los
+        /// hilos: lo que quedo, que los "antes" de la suma son distintos, y
+        /// que UNO solo vio el cambio sin hacer.
+        #[test]
+        fn compute_atomics_on_shared_memory() {
+            use crate::dibujo::{ComputeBackend, Dispatch, RwBuffer};
+            let cs = computo(include_bytes!("../../proton-x/prueba/compartido.dxil"));
+            let mut salida = vec![0u8; 65 * 16];
+            let d = Dispatch { program: &cs, groups: [1, 1, 1], constants: &[] };
+            let mut juez = Cpu::LA_3060;
+            juez.dispatch(&d, &[], &mut [RwBuffer { bytes: &mut salida, stride: 16 }]).unwrap();
+            // w = 5 gi + 1; v = 200 - 3 gi
+            let suma: u32 = (0..64).map(|gi| 5 * gi + 1).sum();
+            assert_eq!(u32s(&salida, 64), [suma, 200 - 3 * 63, 33, u32::MAX], "la suma, el menor, el mayor y los bits");
+            let mut antes: Vec<u32> = (0..64).map(|k| u32s(&salida, k)[2]).collect();
+            antes.sort();
+            antes.dedup();
+            assert_eq!(antes.len(), 64, "cada hilo vio la suma de ANTES, distinta");
+            assert_eq!((0..64).filter(|&k| u32s(&salida, k)[3] == 1).count(), 1, "uno solo vio el contador sin cambiar");
+        }
+
+        /// Los techos de D3D12 se dicen: sin grupos, o mas de 65535 por eje.
+        #[test]
+        fn a_dispatch_out_of_the_limits_is_refused() {
+            use crate::dibujo::{ComputeBackend, Dispatch};
+            let cs = computo(include_bytes!("../../proton-x/prueba/compartido.dxil"));
+            let mut juez = Cpu::LA_3060;
+            for groups in [[0, 1, 1], [65536, 1, 1], [1, 0, 1]] {
+                assert_eq!(juez.dispatch(&Dispatch { program: &cs, groups, constants: &[] }, &[], &mut []).err(), Some(Error::Groups), "{groups:?}");
+            }
         }
 
         /// Lo que no encaja se dice: un indice fuera, una de pixeles que lee

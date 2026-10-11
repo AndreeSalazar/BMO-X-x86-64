@@ -226,6 +226,18 @@ y `puerta.rs`; el juez en `platform/drivers/gpu/ga10x/src/sass/juez.rs`):
 - [ ] **LI2f -- el computo del juego en la 3060.** Un PSO de computo al QMD
       (la 3060 ya corre computo fijo: `trabajos/blur.rs`), con UAV. **Como
       se sabe:** `olas` (A10) por la 3060, con su huella.
+      **11-10, la mitad de VERRANO HECHA en el anfitrion:** la categoria
+      COMPUTO (`Compute`, `Dispatch`, `ReadBuffer`/`RwBuffer`: los SRV y los
+      UAV) y el juez que despacha con el de la casa (`Programa::despachar`
+      de PROMETEO: grupos, memoria compartida, barreras, olas). `computo.hlsl`
+      (dxc) en dos grupos: cada hilo, el de su espejo tras la barrera;
+      `compartido.hlsl` -- los `Interlocked*` sobre la memoria compartida y el
+      `mad` de enteros que pidieron dos CS de Cyberpunk en el metal --: lo
+      que quedo, los "antes" distintos, uno solo sin el cambio; y los techos
+      de D3D12 (grupos de 1 a 65535, hilos hasta 1024) se dicen. Saboteado
+      (un grupo menos, el SRV sin su paso): cae. **Falta la mitad de la
+      3060:** el emisor aun rechaza `EscribeUav`, la memoria compartida, los
+      atomicos y las barreras, y el PSO de computo no va al QMD.
 - [ ] **LI2g -- DECISION DEL PROPIETARIO: los bits exactos o la tolerancia
       de D3D.** La regla de la casa es "los mismos bits que la CPU". La 3060
       APROXIMA la division, la raiz y el filtrado; D3D lo permite (unos

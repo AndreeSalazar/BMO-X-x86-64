@@ -58,7 +58,7 @@ pub mod dibujo;
 /// La lamina: el bloque que otro proceso (INTI) escribe y VERRANO lee, sin cerrojo.
 pub mod lamina;
 
-pub use dibujo::{Blend, BlendOp, Buffer, Draw, DrawBackend, Factor, Pipeline, Shader};
+pub use dibujo::{Blend, BlendOp, Buffer, Compute, ComputeBackend, Dispatch, Draw, DrawBackend, Factor, Pipeline, ReadBuffer, RwBuffer, Shader};
 
 /// **Un vertice**, como lo lee `cubo.vert`: la posicion ya en coordenadas
 /// de RECORTE (x, y, z, w) y el color (r, g, b, a). 32 bytes.
@@ -246,6 +246,8 @@ pub enum Error {
     /// V3a: los programas no encajan (lo que uno deja y el otro lee), o
     /// piden lo que el backend aun no hace.
     Shader,
+    /// Un despacho fuera de los techos de D3D12 (grupos o hilos).
+    Groups,
 }
 
 /// **Un backend de VERRANO**: dibuja un fotograma en una imagen.

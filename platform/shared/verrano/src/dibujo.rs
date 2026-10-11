@@ -20,6 +20,12 @@
 //!                             que ya sale de DXIL, de SM5 y de TITAN++
 //!    TUBERIA      Pipeline    las dos etapas, la profundidad, el descarte,
 //!                             cuantos render targets y la MEZCLA de cada uno
+//!    COMPUTO      Compute     un programa de computo y su `Dispatch`: grupos
+//!                             de hilos con su memoria compartida y sus
+//!                             barreras, que leen `ReadBuffer` y escriben
+//!                             `RwBuffer` (los SRV y los UAV de D3D12). Ahi
+//!                             calcula Cyberpunk su luz, sus sombras y su
+//!                             posproceso
 //!    DIBUJO       Draw        todo junto, con la limpieza (o sin ella: lo
 //!                             que ya habia se queda, para mezclar encima)
 //!                             y la vista
@@ -293,5 +299,81 @@ impl Shader for bmo_prometeo::programa::Programa {
     fn run(&self, inputs: &[[f32; 4]], constants: &[u8], outputs: &mut [[f32; 4]]) -> bool {
         let mut regs = alloc::vec::Vec::new();
         self.correr(inputs, constants, outputs, &mut regs)
+    }
+}
+
+/// **Un bufer que el computo LEE** (un SRV estructurado: `stride` bytes por
+/// elemento; con `stride` 0, crudo: palabras de 4 bytes).
+#[derive(Clone, Copy, Debug)]
+pub struct ReadBuffer<'a> {
+    pub bytes: &'a [u8],
+    pub stride: u32,
+}
+
+/// **Un bufer que el computo LEE Y ESCRIBE** (un UAV: `RWStructuredBuffer`
+/// con `stride`, o `RWByteAddressBuffer` con `stride` 0).
+#[derive(Debug)]
+pub struct RwBuffer<'a> {
+    pub bytes: &'a mut [u8],
+    pub stride: u32,
+}
+
+/// Los elementos de un bufer: de `stride` bytes, o palabras si es crudo.
+pub fn elements(bytes: usize, stride: u32) -> u32 {
+    (bytes / if stride == 0 { 4 } else { stride as usize }) as u32
+}
+
+/// **Un programa de computo**, en la lengua que sea.
+pub trait Compute {
+    /// Los hilos de un grupo (`[numthreads(x, y, z)]`).
+    fn threads(&self) -> [u32; 3];
+    /// `Dispatch(groups)`: cada hilo de cada grupo, con su memoria compartida
+    /// y sus barreras. Devuelve los hilos que corrieron.
+    fn dispatch(&self, groups: [u32; 3], constants: &[u8], reads: &[ReadBuffer], writes: &mut [RwBuffer]) -> u64;
+}
+
+/// **Un despacho**: el programa, cuantos grupos y su cbuffer.
+#[derive(Clone, Copy)]
+pub struct Dispatch<'a> {
+    pub program: &'a dyn Compute,
+    pub groups: [u32; 3],
+    pub constants: &'a [u8],
+}
+
+/// **Un backend que computa.**
+pub trait ComputeBackend {
+    fn dispatch(&mut self, d: &Dispatch, reads: &[ReadBuffer], writes: &mut [RwBuffer]) -> Result<u64, Error>;
+}
+
+/// Lo que se comprueba antes de despachar (los techos de D3D12): de 1 a
+/// 65535 grupos por eje, y de 1 a 1024 hilos por grupo (z hasta 64).
+pub fn check_dispatch(d: &Dispatch) -> Result<(), Error> {
+    let [x, y, z] = d.program.threads();
+    if d.groups.iter().any(|&g| g == 0 || g > 65535) || x == 0 || y == 0 || z == 0 || z > 64 || x as u64 * y as u64 * z as u64 > 1024 {
+        return Err(Error::Groups);
+    }
+    Ok(())
+}
+
+/// **El Programa de la casa es un programa de computo** (la feature
+/// `prometeo`): su `despachar` (`prometeo/src/despacho.rs`, N5.5), con los
+/// buferes como SRV y UAV estructurados (o crudos).
+#[cfg(feature = "prometeo")]
+impl Compute for bmo_prometeo::programa::Programa {
+    fn threads(&self) -> [u32; 3] {
+        self.computo.hilos
+    }
+    fn dispatch(&self, groups: [u32; 3], constants: &[u8], reads: &[ReadBuffer], writes: &mut [RwBuffer]) -> u64 {
+        use bmo_prometeo::bufer::{Bufer, Rebanadas, Uav};
+        let srv: alloc::vec::Vec<Option<Bufer>> = reads.iter().map(|r| Some(Bufer { bytes: r.bytes, formato: 0, paso: r.stride, elementos: elements(r.bytes.len(), r.stride) })).collect();
+        let rec = bmo_prometeo::textura::Recursos { texturas: &[], muestreadores: &[], buferes: &srv, dinamicas: None };
+        let mut uavs: alloc::vec::Vec<Option<Uav>> = writes
+            .iter_mut()
+            .map(|w| {
+                let elementos = elements(w.bytes.len(), w.stride);
+                Some(Uav { bytes: &mut *w.bytes, formato: 0, paso: w.stride, elementos, contador: None, rebanadas: Rebanadas::PLANA })
+            })
+            .collect();
+        self.despachar(groups, constants, &rec, &mut uavs)
     }
 }
