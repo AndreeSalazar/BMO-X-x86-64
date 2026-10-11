@@ -77,25 +77,70 @@ fn letra_corta(c: u8) -> bool {
     c.is_ascii_uppercase() || c.is_ascii_digit() || b"!#$%&'()-@^_`{}~".contains(&c)
 }
 
-/// Un nombre que FAT puede guardar: 1..=255 letras ASCII, sin las prohibidas,
-/// y sin acabar en punto o espacio (Windows los quitaria y serian OTRO nombre).
+/// **Los puntos del final no son del nombre** (Linux, `vfat_striptail_len`;
+/// Windows hace lo mismo): `fin.` es `fin`. `.` y `..` se quedan como estan.
+fn sin_puntos_al_final(n: &[u8]) -> &[u8] {
+    if n == b"." || n == b".." {
+        return n;
+    }
+    let mut k = n.len();
+    while k > 0 && n[k - 1] == b'.' {
+        k -= 1;
+    }
+    &n[..k]
+}
+
+/// Un nombre que FAT puede guardar (ya sin los puntos del final): 1..=255
+/// letras ASCII, sin las prohibidas de Linux (`vfat_bad_char`: control,
+/// `* ? < > | " : / \\`) y sin acabar en espacio (`vfat_is_used_badchars`).
 fn nombre_valido(n: &[u8]) -> bool {
     !n.is_empty()
         && n.len() <= NOMBRE_MAX
         && n != b"."
         && n != b".."
         && n.iter().all(|&c| (0x20..0x7F).contains(&c) && !b"\\/:*?\"<>|".contains(&c))
-        && !matches!(n.last(), Some(b'.') | Some(b' '))
+        && n.last() != Some(&b' ')
 }
 
 /// **¿FAT puede guardar este nombre?** (largo o 8.3). Para validar ANTES de
 /// aceptar bytes que luego no se podrian guardar.
 pub fn nombre_escribible(n: &[u8]) -> bool {
-    nombre_valido(n)
+    nombre_valido(sin_puntos_al_final(n))
 }
 
-/// **El 8.3 EXACTO de `n`**, si lo tiene: sin recortar ni inventar. Las
-/// minusculas valen (FAT las guarda en mayuscula, como hasta hoy).
+/// El byte 12 de la entrada (`lcase` en Linux, `NTRes` en Microsoft): la base
+/// y la extension se ENSEÑAN en minuscula aunque se guarden en mayuscula.
+const MINUSCULA_BASE: u8 = 0x08;
+const MINUSCULA_EXT: u8 = 0x10;
+
+/// **La forma corta de `n`, si la tiene** (Linux, `vfat_create_shortname`):
+/// `(8.3, banderas de minuscula, necesita nombre largo)`.
+///
+/// * Cada parte toda en minuscula o toda en mayuscula: SOLO la entrada 8.3,
+///   con las banderas de minuscula (`salida.txt` se guarda `SALIDA  TXT` +
+///   `MINUSCULA_BASE | MINUSCULA_EXT`, como Windows NT y `shortname=winnt`).
+/// * Mezcladas en una parte (`Salida.txt`): el 8.3 sin `~N` y, ademas, el
+///   nombre largo, para no perder la caja.
+/// * `None`: no cabe en 8.3; le toca un alias `BASE~N`.
+fn forma_corta(n: &[u8]) -> Option<([u8; 11], u8, bool)> {
+    let (base, ext) = match n.iter().rposition(|&c| c == b'.') {
+        Some(0) => return None,
+        Some(i) => (&n[..i], &n[i + 1..]),
+        None => (n, &n[n.len()..]),
+    };
+    let c = corto_exacto(n)?;
+    let caja = |p: &[u8]| (p.iter().any(u8::is_ascii_lowercase), p.iter().any(u8::is_ascii_uppercase));
+    let (bl, bu) = caja(base);
+    let (el, eu) = caja(ext);
+    if (bl && bu) || (el && eu) {
+        return Some((c, 0, true));
+    }
+    let lcase = if bl { MINUSCULA_BASE } else { 0 } | if el { MINUSCULA_EXT } else { 0 };
+    Some((c, lcase, false))
+}
+
+/// **El 8.3 EXACTO de `n`**, si lo tiene: sin recortar ni inventar, en
+/// mayuscula (la caja la guardan las banderas de [`forma_corta`]).
 pub(crate) fn corto_exacto(n: &[u8]) -> Option<[u8; 11]> {
     let (base, ext) = match n.iter().rposition(|&c| c == b'.') {
         Some(0) => return None,
@@ -155,6 +200,28 @@ fn base_de_alias(n: &[u8]) -> ([u8; 8], usize, [u8; 3]) {
     (base, k, e)
 }
 
+/// **El alias con hash** (Linux, el segundo intento de
+/// `vfat_create_shortname`): dos letras de la base, cuatro cifras hex y `~k`.
+/// Linux saca el numero de `jiffies`; aqui sale del NOMBRE (FNV-1a), para que
+/// el mismo nombre de el mismo alias en cada arranque.
+fn alias_hash(base: &[u8; 8], letras: usize, ext: &[u8; 3], h: u16, k: u8) -> [u8; 11] {
+    const HEX: &[u8; 16] = b"0123456789ABCDEF";
+    let mut c = [b' '; 11];
+    let b = letras.min(2);
+    c[..b].copy_from_slice(&base[..b]);
+    for (j, d) in [12u16, 8, 4, 0].into_iter().enumerate() {
+        c[b + j] = HEX[(h >> d & 0xF) as usize];
+    }
+    c[b + 4] = b'~';
+    c[b + 5] = b'1' + (k & 7);
+    c[8..].copy_from_slice(ext);
+    c
+}
+
+fn fnv(n: &[u8]) -> u32 {
+    n.iter().fold(0x811C_9DC5u32, |h, &b| (h ^ b.to_ascii_uppercase() as u32).wrapping_mul(0x0100_0193))
+}
+
 /// `BASE~N.EXT`: la base se acorta lo justo para que quepa la cola.
 fn alias(base: &[u8; 8], letras: usize, ext: &[u8; 3], n: u32) -> [u8; 11] {
     let mut cola = [0u8; 8];
@@ -181,12 +248,31 @@ fn alias(base: &[u8; 8], letras: usize, ext: &[u8; 3], n: u32) -> [u8; 11] {
     c
 }
 
+/// El 8.3 como se lee: `NOMBRE.EXT` sin el relleno, con las banderas de
+/// minuscula aplicadas (Linux, `fat_parse_short` con `shortname=winnt`).
+/// Devuelve cuantas letras.
+fn corto_legible_caja(c: &[u8; 11], lcase: u8, out: &mut [u8]) -> usize {
+    let mut l = [0u8; 12];
+    let n = corto_legible(c, &mut l);
+    let punto = l[..n].iter().position(|&b| b == b'.').unwrap_or(n);
+    for (i, b) in l[..n].iter_mut().enumerate() {
+        let minus = if i < punto { lcase & MINUSCULA_BASE != 0 } else { lcase & MINUSCULA_EXT != 0 };
+        if minus {
+            *b = b.to_ascii_lowercase();
+        }
+    }
+    let m = n.min(out.len());
+    out[..m].copy_from_slice(&l[..m]);
+    m
+}
+
 /// El 8.3 como se lee: `NOMBRE.EXT` sin el relleno. Devuelve cuantas letras.
+/// Un `0x05` delante es un `0xE5` de verdad (el `0xE5` marca las borradas).
 fn corto_legible(c: &[u8; 11], out: &mut [u8]) -> usize {
     let mut n = 0;
-    for &b in c[..8].iter().take_while(|&&b| b != b' ') {
+    for (i, &b) in c[..8].iter().enumerate().take_while(|&(_, &b)| b != b' ') {
         if n < out.len() {
-            out[n] = b;
+            out[n] = if i == 0 && b == 0x05 { 0xE5 } else { b };
             n += 1;
         }
     }
@@ -363,6 +449,7 @@ impl FatVolume {
     /// **Busca `nombre` en el directorio `dir`**, por su nombre largo o por su
     /// 8.3, sin distinguir mayusculas. Ficheros y carpetas.
     pub fn hallar(&mut self, dir: u32, nombre: &[u8]) -> Option<Hallada> {
+        let nombre = sin_puntos_al_final(nombre);
         if self.fs_type != FsType::Fat32 || nombre.is_empty() {
             return None;
         }
@@ -408,7 +495,7 @@ impl FatVolume {
                     }
                     m
                 }
-                None => corto_legible(&v.corto(), out),
+                None => corto_legible_caja(&v.corto(), v.e[12], out),
             };
             r = Some((largo, v.attr() & ATTR_DIR != 0, v.medida()));
             true
@@ -539,22 +626,37 @@ impl FatVolume {
         Ok(desde)
     }
 
-    /// Un alias `BASE~N` que no este en `dir`.
+    /// ¿Hay ya una entrada con este 8.3 en `dir`?
+    fn corto_ocupado(&mut self, dir: u32, c: &[u8; 11]) -> Result<bool, WriteError> {
+        let mut esta = false;
+        if matches!(self.recorrer(dir, |v| { esta = v.corto() == *c; esta }), Fin::Roto) {
+            return Err(WriteError::Io);
+        }
+        Ok(esta)
+    }
+
+    /// **Un alias que no este en `dir`**, como lo busca Linux
+    /// (`vfat_create_shortname`): `BASE~1` a `BASE~9` con seis letras, y
+    /// despues dos letras, cuatro de hash y `~k`. Antes se probaba `~1`,
+    /// `~2`... hasta 999.999, recorriendo el directorio entero cada vez: 300
+    /// capturas con el mismo principio eran 45.000 recorridos.
     fn alias_libre(&mut self, dir: u32, nombre: &[u8]) -> Result<[u8; 11], WriteError> {
         let (base, letras, ext) = base_de_alias(nombre);
-        for n in 1..1_000_000u32 {
-            let c = alias(&base, letras, &ext, n);
-            let mut esta = false;
-            let fin = self.recorrer(dir, |v| {
-                esta = v.corto() == c;
-                esta
-            });
-            if matches!(fin, Fin::Roto) {
-                return Err(WriteError::Io);
-            }
-            if !esta {
+        for n in 1..=9u32 {
+            let c = alias(&base, letras.min(6), &ext, n);
+            if !self.corto_ocupado(dir, &c)? {
                 return Ok(c);
             }
+        }
+        let f = fnv(nombre);
+        let mut h = f as u16;
+        let k = (f >> 16) as u8;
+        for _ in 0..=u16::MAX as u32 {
+            let c = alias_hash(&base, letras, &ext, h, k);
+            if !self.corto_ocupado(dir, &c)? {
+                return Ok(c);
+            }
+            h = h.wrapping_sub(11);
         }
         Err(WriteError::DirFull)
     }
@@ -562,9 +664,11 @@ impl FatVolume {
     /// **Apunta `nombre` en `dir`**: las entradas largas (si hacen falta) y la
     /// 8.3 la ULTIMA. Los datos ya tienen que estar en el disco.
     fn apuntar(&mut self, dir: u32, nombre: &[u8], attr: u8, primero: u32, medida: u32) -> Result<EntradaDir, WriteError> {
-        let (corto, largas) = match corto_exacto(nombre) {
-            Some(c) => (c, 0),
-            None => (self.alias_libre(dir, nombre)?, nombre.len().div_ceil(LETRAS)),
+        let largas_de = nombre.len().div_ceil(LETRAS);
+        let (corto, lcase, largas) = match forma_corta(nombre) {
+            Some((c, lcase, false)) => (c, lcase, 0),
+            Some((c, _, true)) => (c, 0, largas_de),
+            None => (self.alias_libre(dir, nombre)?, 0, largas_de),
         };
         let k = self.hueco(dir, largas + 1)?;
         let s = suma(&corto);
@@ -588,6 +692,7 @@ impl FatVolume {
         let mut e = [0u8; 32];
         e[..11].copy_from_slice(&corto);
         e[11] = attr;
+        e[12] = lcase;
         e[20..22].copy_from_slice(&((primero >> 16) as u16).to_le_bytes());
         e[26..28].copy_from_slice(&(primero as u16).to_le_bytes());
         e[28..32].copy_from_slice(&medida.to_le_bytes());
@@ -600,6 +705,13 @@ impl FatVolume {
     /// existe como carpeta, devuelve la que hay (crear dos veces no es un
     /// error: es lo que pide un `mkdir -p`); si existe como fichero, `Exists`.
     pub fn crear_carpeta(&mut self, dir: u32, nombre: &[u8]) -> Result<u32, WriteError> {
+        let r = self.crear_carpeta_sin_fsinfo(dir, nombre);
+        self.fsinfo_al_dia();
+        r
+    }
+
+    fn crear_carpeta_sin_fsinfo(&mut self, dir: u32, nombre: &[u8]) -> Result<u32, WriteError> {
+        let nombre = sin_puntos_al_final(nombre);
         self.se_puede_escribir()?;
         if !nombre_valido(nombre) {
             return Err(WriteError::Nombre);
@@ -639,6 +751,13 @@ impl FatVolume {
     /// reemplaza, con el orden seguro de `replace_file_fat32`). Acepta
     /// nombres largos.
     pub fn guardar_como(&mut self, dir: u32, nombre: &[u8], data: &[u8]) -> Result<(), WriteError> {
+        let r = self.guardar_como_sin_fsinfo(dir, nombre, data);
+        self.fsinfo_al_dia();
+        r
+    }
+
+    fn guardar_como_sin_fsinfo(&mut self, dir: u32, nombre: &[u8], data: &[u8]) -> Result<(), WriteError> {
+        let nombre = sin_puntos_al_final(nombre);
         self.se_puede_escribir()?;
         if !nombre_valido(nombre) {
             return Err(WriteError::Nombre);
@@ -665,13 +784,20 @@ impl FatVolume {
     /// **Añade `data` al final de `nombre`** (lo crea si no esta). Devuelve
     /// la medida nueva. Ver la cabecera: la medida se apunta la ultima.
     pub fn anadir(&mut self, dir: u32, nombre: &[u8], data: &[u8]) -> Result<u32, WriteError> {
+        let r = self.anadir_sin_fsinfo(dir, nombre, data);
+        self.fsinfo_al_dia();
+        r
+    }
+
+    fn anadir_sin_fsinfo(&mut self, dir: u32, nombre: &[u8], data: &[u8]) -> Result<u32, WriteError> {
+        let nombre = sin_puntos_al_final(nombre);
         self.se_puede_escribir()?;
         if !nombre_valido(nombre) {
             return Err(WriteError::Nombre);
         }
         let h = match self.hallar(dir, nombre) {
             None => {
-                self.guardar_como(dir, nombre, data)?;
+                self.guardar_como_sin_fsinfo(dir, nombre, data)?;
                 return Ok(data.len() as u32);
             }
             Some(h) if h.es_dir => return Err(WriteError::Exists),
@@ -782,7 +908,29 @@ mod reglas {
         let (b, n, e) = base_de_alias(b"datos-componentes");
         assert_eq!(&alias(&b, n, &e, 1), b"DATOS-~1   ");
         let (b, n, e) = base_de_alias(b"mi informe largo.texto");
-        assert_eq!(&alias(&b, n, &e, 12), b"MIINF~12TEX");
+        assert_eq!(&alias(&b, n.min(6), &e, 9), b"MIINFO~9TEX");
+        assert_eq!(&alias_hash(&b, n, &e, 0xBEEF, 2), b"MIBEEF~3TEX");
+    }
+
+    #[test]
+    fn la_caja_va_en_las_banderas_como_en_windows_nt() {
+        assert_eq!(forma_corta(b"salida.txt"), Some((*b"SALIDA  TXT", MINUSCULA_BASE | MINUSCULA_EXT, false)));
+        assert_eq!(forma_corta(b"INFORME"), Some((*b"INFORME    ", 0, false)));
+        assert_eq!(forma_corta(b"README.md"), Some((*b"README  MD ", MINUSCULA_EXT, false)));
+        assert_eq!(forma_corta(b"Salida.txt"), Some((*b"SALIDA  TXT", 0, true)));
+        assert_eq!(forma_corta(b"datos-componentes"), None);
+        let mut l = [0u8; 12];
+        let k = corto_legible_caja(b"README  MD ", MINUSCULA_EXT, &mut l);
+        assert_eq!(&l[..k], b"README.md");
+    }
+
+    #[test]
+    fn los_puntos_del_final_no_son_del_nombre() {
+        assert_eq!(sin_puntos_al_final(b"fin..."), b"fin");
+        assert_eq!(sin_puntos_al_final(b".."), b"..");
+        assert!(nombre_escribible(b"fin."));
+        assert!(!nombre_escribible(b"fin "));
+        assert!(!nombre_escribible(b"..."));
     }
 
     #[test]

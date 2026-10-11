@@ -1519,7 +1519,7 @@ fn anadir_a_uno_vacio_y_reemplazar_despues() {
 #[test]
 fn nombres_que_fat_no_guarda_se_rechazan() {
     let (_turno, mut v) = volumen();
-    for n in [&b""[..], b"a/b", b"que?", b"fin.", b"..", b"\xC3\xB1"] {
+    for n in [&b""[..], b"a/b", b"que?", b"fin ", b"..", b"...", b"\xC3\xB1"] {
         assert!(matches!(v.guardar_como(2, n, b"x"), Err(WriteError::Nombre)), "{n:?}");
     }
     // Un fichero no se convierte en carpeta.
@@ -1570,6 +1570,32 @@ fn contra_una_imagen() {
         fn flush(&self) -> Result<(), bmo_block::BlockError> { Ok(()) }
         fn writable(&self) -> bool { true }
     }
+    // Al reves (12-10): una imagen que escribio OTRO (mtools/Linux), y BMO-X
+    // la lee: `BMO_FAT32_AJENA=img`, con lo que deja el script de la prueba.
+    if let Ok(ruta) = std::env::var("BMO_FAT32_AJENA") {
+        let f = std::fs::OpenOptions::new().read(true).write(true).open(&ruta).unwrap();
+        let largo = f.metadata().unwrap().len() / 512;
+        let dev: &'static Imagen = Box::leak(Box::new(Imagen(std::sync::Mutex::new(f), largo)));
+        let mut v = mount(dev, true, 0).expect("monta");
+        let raiz = v.root_cluster();
+        let c = v.hallar(raiz, b"Datos-Componentes").expect("la carpeta de mtools").entrada.first_cluster;
+        let h = v.hallar(c, b"un nombre largo con espacios.txt").expect("el fichero de mtools");
+        let mut d = vec![0u8; h.entrada.size as usize];
+        v.read_file(h.entrada.first_cluster, h.entrada.size, &mut d);
+        assert_eq!(d, b"escrito por mtools\n");
+        let mut n = [0u8; 255];
+        let mut vistos = vec![];
+        let mut k = 0;
+        while let Some((l, _, _)) = v.entrada_larga(c, k, &mut n) {
+            vistos.push(String::from_utf8_lossy(&n[..l]).to_string());
+            k += 1;
+        }
+        assert!(vistos.contains(&"un nombre largo con espacios.txt".to_string()), "{vistos:?}");
+        assert!(vistos.contains(&"minus.txt".to_string()), "{vistos:?}");
+        // Y BMO-X escribe al lado sin romper nada (luego lo juzga fsck).
+        v.anadir(c, b"un nombre largo con espacios.txt", b"y bmo-x anade\n").unwrap();
+        return;
+    }
     let Ok(ruta) = std::env::var("BMO_FAT32_IMAGEN") else { return };
     let f = std::fs::OpenOptions::new().read(true).write(true).open(&ruta).unwrap();
     let largo = f.metadata().unwrap().len() / 512;
@@ -1581,6 +1607,9 @@ fn contra_una_imagen() {
     let comp = v.crear_carpeta(raiz, b"datos-componentes").unwrap();
     let gpu = v.crear_carpeta(inf, b"gpu-relojes").unwrap();
     v.guardar_como(comp, b"mov.txt", b"1050\n2075\n").unwrap();
+    v.guardar_como(inf, b"Salida-Mixta.txt", b"caja mezclada\n").unwrap();
+    v.guardar_como(inf, b"LEEME.TXT", b"mayusculas\n").unwrap();
+    v.guardar_como(inf, b"Nota.Md", b"8.3 con caja mezclada\n").unwrap();
     for i in 0..300 {
         v.guardar_como(gpu, format!("captura-numero-{i:03}.txt").as_bytes(), format!("captura {i}\n").as_bytes()).unwrap();
     }

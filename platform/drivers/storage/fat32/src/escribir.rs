@@ -155,6 +155,13 @@ impl FatVolume {
     /// a medias: si el disco se llena en mitad de un archivo, lo ya cogido se
     /// devuelve en vez de quedar perdido para siempre.
     pub(super) fn free_chain(&mut self, first: u32) {
+        self.soltar_cadena(first, true);
+    }
+
+    /// `free_chain`, diciendo si lo soltado CUENTA para los libres del
+    /// FSInfo: lo que `escribir_cadena` suelta a medias nunca llego a restarse.
+    fn soltar_cadena(&mut self, first: u32, contar: bool) {
+        let mut sueltos = 0u32;
         let mut c = first;
         let mut guard = 0u32;
         while c >= 2 && c <= self.max_cluster {
@@ -171,18 +178,73 @@ impl FatVolume {
                     return;
                 }
             };
-            if !self.set_fat_entry(c, 0) { return; }
+            if !self.set_fat_entry(c, 0) {
+                if contar { self.contar_libres(sueltos as i64); }
+                return;
+            }
+            sueltos += 1;
             // Lo soltado es hueco: la pista baja hasta el, y lo siguiente que
             // se guarde lo reusa (el volumen no se desparrama hacia el final).
             if self.pista != SIN_PISTA {
                 self.pista = self.pista.min(c * 4 / 512);
             }
-            if next < 2 || next >= 0x0FFF_FFF7 { return; }
+            if next < 2 || next >= 0x0FFF_FFF7 { break; }
             c = next;
             // Una FAT corrupta puede tener un ciclo; no se gira para siempre.
             guard += 1;
-            if guard > self.max_cluster { return; }
+            if guard > self.max_cluster { break; }
         }
+        if contar {
+            self.contar_libres(sueltos as i64);
+        }
+    }
+
+    /// **Los libres del FSInfo, al dia** (Linux: `free_clusters--` al coger,
+    /// `++` al soltar). La primera vez se leen del FSInfo y se validan; si no
+    /// valen, se dejan como "no se sabe" y no se tocan.
+    pub(super) fn contar_libres(&mut self, delta: i64) {
+        if self.fs_type != FsType::Fat32 || delta == 0 {
+            return;
+        }
+        if self.libres_fs.is_none() {
+            let maximo = self.clusteres();
+            self.libres_fs = Some(match self.libres_segun_fsinfo() {
+                Some(l) if l <= maximo => l,
+                _ => u32::MAX,
+            });
+        }
+        if let Some(l) = self.libres_fs {
+            if l != u32::MAX {
+                self.libres_fs = Some((l as i64 + delta).clamp(0, self.clusteres() as i64) as u32);
+                self.fsinfo_sucio = true;
+            }
+        }
+    }
+
+    /// **Reescribe el FSInfo** (Linux, `fat_clusters_flush`): los libres, si
+    /// se saben, y el "proximo libre" donde se cogio el ultimo. Un sector, al
+    /// final de cada escritura publica. Sin esto, `fsck.fat` decia "Free
+    /// cluster summary wrong" y Windows ensenaba un libre viejo.
+    pub(super) fn fsinfo_al_dia(&mut self) {
+        if !self.fsinfo_sucio || self.fs_type != FsType::Fat32 || self.fsinfo == 0 || self.fsinfo == 0xFFFF {
+            return;
+        }
+        self.fsinfo_sucio = false;
+        if !self.read_sector(self.fsinfo as u64, Buf::buf) {
+            return;
+        }
+        let le = |b: &[u8; 512], o: usize| u32::from_le_bytes([b[o], b[o + 1], b[o + 2], b[o + 3]]);
+        if le(&self.buf, 0) != 0x4161_5252 || le(&self.buf, 484) != 0x6141_7272 {
+            return;
+        }
+        if let Some(l) = self.libres_fs.filter(|&l| l != u32::MAX) {
+            self.buf[488..492].copy_from_slice(&l.to_le_bytes());
+        }
+        if self.pista != SIN_PISTA {
+            let proximo = (self.pista * 128).clamp(2, self.max_cluster);
+            self.buf[492..496].copy_from_slice(&proximo.to_le_bytes());
+        }
+        let _ = self.write_sector(self.fsinfo as u64, Buf::buf);
     }
 
     /// Find a free directory entry in a directory (by first cluster).
@@ -259,7 +321,11 @@ impl FatVolume {
     {
         if !self.escribible { return Err(WriteError::ReadOnly); }
         match self.fs_type {
-            FsType::Fat32 => self.create_file_fat32(dir_cluster, name_8_3, data),
+            FsType::Fat32 => {
+                let r = self.create_file_fat32(dir_cluster, name_8_3, data);
+                self.fsinfo_al_dia();
+                r
+            }
             // El creador de exFAT arrastra las mismas costuras que tenia el de
             // FAT32 y no se ha revisado contra la spec. Se dice, no se
             // disimula: BMO escribe FAT32 hoy.
@@ -285,10 +351,14 @@ impl FatVolume {
     {
         if !self.escribible { return Err(WriteError::ReadOnly); }
         match self.fs_type {
-            FsType::Fat32 => match self.find_entry_fat32_from(name_8_3, dir_cluster) {
-                Some(vieja) => self.replace_file_fat32(vieja, data),
-                None => self.create_file_fat32(dir_cluster, name_8_3, data),
-            },
+            FsType::Fat32 => {
+                let r = match self.find_entry_fat32_from(name_8_3, dir_cluster) {
+                    Some(vieja) => self.replace_file_fat32(vieja, data),
+                    None => self.create_file_fat32(dir_cluster, name_8_3, data),
+                };
+                self.fsinfo_al_dia();
+                r
+            }
             FsType::ExFat => Err(WriteError::Unsupported),
         }
     }
@@ -489,13 +559,14 @@ impl FatVolume {
         }
         // El proximo hueco esta donde se cogio el ultimo (o despues).
         self.pista = prev * 4 / 512;
+        self.contar_libres(-(needed as i64));
         Ok(first)
     }
 
     /// Suelta lo cogido si algo fallo a medias (y si se llego a coger algo).
     fn soltar_a_medias(&mut self, first: u32) {
         if first >= 2 {
-            self.free_chain(first);
+            self.soltar_cadena(first, false);
         }
     }
 
