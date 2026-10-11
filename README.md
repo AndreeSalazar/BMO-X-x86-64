@@ -146,11 +146,11 @@ under it is a slogan.
 | USB keyboard and mouse | xHCI + HID written here, no BIOS help |
 | Disk | AHCI, FAT32 read *and* write, plus **ESTRATOS**, its own copy-on-write volume: the first file saved on the Ryzen on 2026-08-19, and every write since is a version you can go back to without losing what came after ([below](#estratos-titan-and-the-taller)) |
 | A workshop where code is nodes | **F1, the TALLER**: a TITAN++ package drawn as a graph -- every module a node, every `use` a cable, the console line each node prints -- seen on the Ryzen on 2026-09-29 (and it stopped the machine that night; the cause and the fix are in [`PLAN_TALLER.md`](docs/plan/PLAN_TALLER.md)) |
-| 12 cores | SMP bring-up, `12 of 12` |
+| 6 cores, 12 threads | SMP bring-up on the Ryzen 5 5600X (6 physical cores, 2 threads each): `12 of 12` threads up -- the BSP and 11 workers |
 | Ring 3 isolation | a fault kills the task; the kernel takes the screen back and prints its last four lines |
 | Traps its own undefined behaviour | INTI `llano` on the Ryzen: overflow, divide-by-zero and bad conversion all caught **in metal** |
 | Plays DOOM | full width with the status bar, 1600x1000 scaled x5, **58 fps** in a window -- every pixel expanded and blitted by the CPU, no GPU. Played to the character's death on 2026-09-20 on the new format and the new C emitter (**-59 %** instructions on the metro, hybrid register calling convention), which no CPU had run before that day. On 2026-09-24, x3 at 960x600 and **~70 fps** in a window, beside the sound panel and the RTX 3060 awake in P0 ([photo](docs/evidencia/22-doom-y-la-3060.jpg)) |
-| 12 cores doing real work | a kernel-side workload measured at **11,52x** over one core |
+| All 12 threads doing real work | a kernel-side workload measured at **11,52x** over one thread (6 cores with SMT: the second thread of each core helps because that workload waits on memory, not on the ALUs) |
 | Explains its own crashes in Spanish | a page fault inside the framebuffer prints `ESCRIBIA EN LA PANTALLA QUE YA NO ES SUYA -- fila 231`, not just an address |
 | Both frozen syscalls in use | `WAIT` had **one** call site in the whole repo until 2026-09-08 -- and it was a plain sleep. The compositor is now its first real user, blocking on the hardware beat. ⚠ It still spins when the machine is idle (nobody else is Ready, so the scheduler has nowhere to switch); that is `P2.2` in [`PLAN_EL_PLAZO.md`](docs/plan/PLAN_EL_PLAZO.md) |
 | Survives its own userspace dying | DOOM launched **five times**, Ring 3 killed in between, the system never broke |
@@ -843,7 +843,7 @@ interrupt, which needed per-CPU state, which was exactly the work the module
 was built to avoid. That reasoning was correct and it was answering the wrong
 question: **those cores were not waiting for an interrupt, they were waiting
 for a memory write.** `MWAITX` sleeps on a write. `hlt` was never the tool --
-it was the habit. Measured on the Ryzen: **57,2 W with twelve cores up,
+it was the habit. Measured on the Ryzen: **57,2 W with all twelve threads up,
 against 58,9 W with one** -- twelve now cost less than one did.
 
 ### 5. And the strictness is not the opposite of that -- it is what protects it
@@ -1145,7 +1145,7 @@ row below is **work on top of something that already runs**, except the last one
 | | | blocked by |
 |---|---|---|
 | 🟢 | **Talk to the LAN and to the internet** -- receives, transmits behind a one-time gate with a 4 ms radar, gets its own IP by DHCP, and `ping` is answered by the router and by a server on the internet (2026-09-14) | done on metal |
-| 🟡 | **Give the 12 cores work from Ring 3** -- the door is built (`ATRIL` / `TOCAR`, two operations, a closed catalogue of parts) and the kernel side already measured **11,52x** | one boot: `smp orquesta` has never been executed |
+| 🟡 | **Give the 12 threads (6 cores) work from Ring 3** -- an app splits its own job across the workers in Ring 3 (the sub-directors, H4.3); on 2026-10-11 the first split ran on the metal and one worker came back cleanly, then the PC reset ~3 ms later. The black box and the reset reason now say how | the `smp all` reset (V9, V10 in [`PLAN_LOS_DOCE_DIRECTORES.md`](docs/plan/PLAN_LOS_DOCE_DIRECTORES.md)) |
 | 🟡 | **A LAN that works and is measured** -- `ping` works; DNS, files and banking terminals against a local server come next | DNS answers, then TCP on the metal |
 | ⚪ | **Cloud local** -- your phone does the web and BMO-X shows it (see below) | TCP on the metal, then a local MPEG-1 player |
 | 🟡 | **Sound** -- the headset is claimed by the enumerator with its descriptor in hand, volume and the isochronous pipe are driven by the bus thread (never from a syscall), the pipe opens itself on claim, and enumeration is done in **two beats** of its own: first the host *listens* to the device at address 0 to learn how it speaks (its EP0 packet), then a clean reset, the address and the papers -- each step justified by the USB and xHCI specs, not by what another host does. Written 2026-09-21; the first image shipped with two extra steps that left keyboard and mouse out, found by reading and removed 2026-09-22 | the next boot: the `save` says whether the 7.1 headset answered |

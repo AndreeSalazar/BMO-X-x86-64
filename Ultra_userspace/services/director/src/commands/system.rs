@@ -1048,8 +1048,20 @@ pub(crate) fn smp(dsk: &mut Desktop, p: &bmo::Pantalla, arg: &[u8]) -> After {
     dsk.out.grid.dec(c.vivos as u64 + 1);
     dsk.out.grid.text(b" de ");
     dsk.out.grid.dec(c.esperados as u64 + 1);
+    // ** NUCLEOS NO SON HILOS: el 5600X son 6 nucleos fisicos con 2 hilos
+    // cada uno (SMT). "12 de 12" cuenta HILOS; un calculo denso rinde por
+    // nucleo, no por hilo, y por eso se dicen los dos.
     dsk.out.grid.with_ink(INK_ECHO);
-    dsk.out.grid.text(b"   (el BSP y ");
+    let nucleos = bmo::info(bmo::INFO_CPU_NUCLEOS);
+    let hilos = c.esperados as u64 + 1;
+    dsk.out.grid.text(b"   (");
+    if nucleos > 0 && hilos % nucleos == 0 {
+        dsk.out.grid.dec(nucleos);
+        dsk.out.grid.text(b" nucleos x ");
+        dsk.out.grid.dec(hilos / nucleos);
+        dsk.out.grid.text(b" hilos; ");
+    }
+    dsk.out.grid.text(b"el BSP y ");
     dsk.out.grid.dec(c.vivos as u64);
     dsk.out.grid.text(b" obreros; F11 dice en que esta cada uno)\n");
     dsk.out.grid.with_ink(INK_PLAIN);

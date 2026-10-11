@@ -1,4 +1,4 @@
-//! **`smp siempre`** (11-10): los doce hilos en pie AL ARRANCAR, sin
+//! **`smp siempre`** (11-10): los doce hilos (seis nucleos x 2) en pie AL ARRANCAR, sin
 //! teclear `smp all` cada vez. Lo pidio el propietario: *"el smp all y el
 //! save intenta automatizar"*.
 //!
