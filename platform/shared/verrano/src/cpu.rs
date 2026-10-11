@@ -119,7 +119,7 @@ impl Backend for Cpu {
             let color = self.unorm8.pack(tri[0].color);
             let (piezas, cuantas) = recorta([tri[0].position, tri[1].position, tri[2].position]);
             for pieza in &piezas[..cuantas] {
-                n += self.triangulo(frame.cull, pieza, &mut |_, _| Some(color), (w, h), (mw, mh), pixels, zb.as_deref_mut()) as u32;
+                n += self.triangulo(frame.cull, pieza, &mut |_, _, _| Some(color), (w, h), (mw, mh), pixels, zb.as_deref_mut()) as u32;
             }
         }
         Ok(Stats { triangles: n, device_us: 0, prepare_us: 0, warm: false, in_flight: false, wait_us: 0 })
@@ -128,8 +128,8 @@ impl Backend for Cpu {
 
 /// ** V3a: EL DIBUJO CON PROGRAMAS (las reglas, en `dibujo.rs`). Cada
 /// triangulo corre el de vertice en sus tres (sin cache: es el juez, no la
-/// carrera) y el de pixeles UNA vez, con lo del vertice 0: no lee su
-/// posicion (`check_draw`), asi que da lo mismo en cada pixel.
+/// carrera) y el de pixeles UNA vez, con lo del vertice 0 -- o, si lee su
+/// POSICION, en cada pixel (regla 5) --.
 impl DrawBackend for Cpu {
     fn draw_with(&mut self, d: &Draw, out: &mut Image) -> Result<Stats, Error> {
         check_draw(d, out, self.max_vertices)?;
@@ -146,18 +146,48 @@ impl DrawBackend for Cpu {
                 *s = [[0.0; 4]; MAX_IO];
                 p.vertex.run(&d.vertices.data[v * stride..(v + 1) * stride], d.constants, &mut s[..p.vertex.outputs()]);
             }
+            let (piezas, cuantas) = recorta([salidas[0][0], salidas[1][0], salidas[2][0]]);
             let mut color = [[0f32; 4]; MAX_IO];
-            if !p.pixel.run(&salidas[0][..p.pixel.inputs()], d.constants, &mut color[..p.pixel.outputs()]) {
+            let entrada = &salidas[0][..p.pixel.inputs()];
+            if !p.pixel.reads(0) {
+                // regla 3: plano, del vertice 0; una vez por triangulo
+                if !p.pixel.run(entrada, d.constants, &mut color[..p.pixel.outputs()]) {
+                    continue;
+                }
+                let c = self.unorm8.pack(color[0]);
+                for pieza in &piezas[..cuantas] {
+                    n += self.triangulo(p.cull, pieza, &mut |_, _, _| Some(c), (w, h), (mw, mh), pixels, zb.as_deref_mut()) as u32;
+                }
                 continue;
             }
-            let c = self.unorm8.pack(color[0]);
-            let (piezas, cuantas) = recorta([salidas[0][0], salidas[1][0], salidas[2][0]]);
+            // regla 5: lee SV_Position -- en CADA pixel, lo de la casa (N5.9)
             for pieza in &piezas[..cuantas] {
-                n += self.triangulo(p.cull, pieza, &mut |_, _| Some(c), (w, h), (mw, mh), pixels, zb.as_deref_mut()) as u32;
+                let mut uno = |px: i64, py: i64, e: &[i64; 3]| {
+                    let mut ent = [[0f32; 4]; MAX_IO];
+                    ent[..entrada.len()].copy_from_slice(entrada);
+                    ent[0] = posicion(pieza, px, py, e);
+                    let mut c = [[0f32; 4]; MAX_IO];
+                    p.pixel.run(&ent[..entrada.len()], d.constants, &mut c[..p.pixel.outputs()]).then(|| self.unorm8.pack(c[0]))
+                };
+                n += self.triangulo(p.cull, pieza, &mut uno, (w, h), (mw, mh), pixels, zb.as_deref_mut()) as u32;
             }
         }
         Ok(Stats { triangles: n, device_us: 0, prepare_us: 0, warm: false, in_flight: false, wait_us: 0 })
     }
+}
+
+/// **SV_Position en el pixel** (regla 5 de `dibujo.rs`, la de la casa:
+/// `bmo_proton_x::trama`, N5.9): el centro del pixel, la z lineal en la
+/// pantalla y la w de RECORTE con perspectiva (la inversa de la media de las
+/// 1/w) -- la de D3D, no la 1/w de GL --. `e`: los pesos de `tri`.
+fn posicion(tri: &[[f32; 4]; 3], px: i64, py: i64, e: &[i64; 3]) -> [f32; 4] {
+    let s = (e[0] + e[1] + e[2]) as f32;
+    let (b1, b2) = (e[1] as f32 / s, e[2] as f32 / s);
+    let inv_w = [1.0 / tri[0][3], 1.0 / tri[1][3], 1.0 / tri[2][3]];
+    let zv = [tri[0][2] * inv_w[0], tri[1][2] * inv_w[1], tri[2][2] * inv_w[2]];
+    let z = zv[0] + b1 * (zv[1] - zv[0]) + b2 * (zv[2] - zv[0]);
+    let w = 1.0 / ((1.0 - b1 - b2) * inv_w[0] + b1 * inv_w[1] + b2 * inv_w[2]);
+    [px as f32 + 0.5, py as f32 + 0.5, z, w]
 }
 
 /// ** V2b: el triangulo recortado contra z >= 0 (el plano de cerca), en
@@ -194,10 +224,11 @@ fn recorta(t: [[f32; 4]; 3]) -> ([[[f32; 4]; 3]; 2], usize) {
 
 impl Cpu {
     /// Un triangulo ya delante del plano de cerca: `true` si se dibujo (no
-    /// descartado ni de area 0). `color(x, y)` da el de cada pixel que cubre
-    /// y pasa la profundidad, o `None` si su programa lo tira.
+    /// descartado ni de area 0). `color(x, y, e)` da el de cada pixel que
+    /// cubre y pasa la profundidad, o `None` si su programa lo tira; `e` son
+    /// los pesos de sus vertices (por el area), en el orden de `tri`.
     #[allow(clippy::too_many_arguments)]
-    fn triangulo(&self, cull: Cull, tri: &[[f32; 4]; 3], color: &mut dyn FnMut(i64, i64) -> Option<u32>, (w, h): (i64, i64), (mw, mh): (f32, f32), pixels: &mut [u32], mut zb: Option<&mut [f32]>) -> bool {
+    fn triangulo(&self, cull: Cull, tri: &[[f32; 4]; 3], color: &mut dyn FnMut(i64, i64, &[i64; 3]) -> Option<u32>, (w, h): (i64, i64), (mw, mh): (f32, f32), pixels: &mut [u32], mut zb: Option<&mut [f32]>) -> bool {
         {
             let mut x = [0i64; 3];
             let mut y = [0i64; 3];
@@ -215,7 +246,8 @@ impl Cpu {
             if cull == Cull::Back && area < 0 {
                 return false;
             }
-            if area < 0 {
+            let girado = area < 0;
+            if girado {
                 x.swap(1, 2);
                 y.swap(1, 2);
                 zn.swap(1, 2);
@@ -252,7 +284,8 @@ impl Cpu {
                         }
                         // el programa de pixeles corre ANTES de escribir la
                         // profundidad: uno que se tira no la toca (D3D)
-                        let Some(c) = color(px, py) else { continue };
+                        let pesos = if girado { [e[0], e[2], e[1]] } else { e };
+                        let Some(c) = color(px, py, &pesos) else { continue };
                         if let Some(z) = zb.as_deref_mut() {
                             z[i] = zp;
                         }
@@ -558,6 +591,99 @@ mod pruebas {
             assert_ne!(Some(huella(&px)), de_la_3060(30));
             let (px, _) = dibuja(&vs, &ps, &cbuffer(31), &indices(), Cull::Back).unwrap();
             assert_ne!(Some(huella(&px)), de_la_3060(30));
+        }
+
+        /// Un programa de vertice de prueba: deja su entrada 0 tal cual (la
+        /// posicion ya en recorte). Uno que no es el Programa de la casa:
+        /// cualquier etapa entra por `Shader`.
+        struct Paso;
+        impl Shader for Paso {
+            fn inputs(&self) -> usize {
+                1
+            }
+            fn outputs(&self) -> usize {
+                1
+            }
+            fn reads(&self, k: usize) -> bool {
+                k == 0
+            }
+            fn run(&self, i: &[[f32; 4]], _: &[u8], o: &mut [[f32; 4]]) -> bool {
+                o[0] = i[0];
+                true
+            }
+        }
+
+        /// Uno de pixeles de prueba: la w de su SV_Position / 4, en rojo.
+        struct LaW;
+        impl Shader for LaW {
+            fn inputs(&self) -> usize {
+                1
+            }
+            fn outputs(&self) -> usize {
+                1
+            }
+            fn reads(&self, k: usize) -> bool {
+                k == 0
+            }
+            fn run(&self, i: &[[f32; 4]], _: &[u8], o: &mut [[f32; 4]]) -> bool {
+                o[0] = [i[0][3] / 4.0, 0.0, 0.0, 1.0];
+                true
+            }
+        }
+
+        fn de_8x8(vs: &dyn Shader, ps: &dyn Shader, datos: &[[f32; 4]], indices: &[u32]) -> Vec<u32> {
+            let d = Draw {
+                clear: [0.0; 4],
+                viewport: Viewport { width: 8, height: 8 },
+                pipeline: Pipeline { vertex: vs, pixel: ps, depth: false, cull: Cull::None },
+                vertices: Buffer { data: datos, stride: 1 },
+                indices: Some(indices),
+                constants: &[],
+                count: indices.len(),
+            };
+            let mut px = vec![0u32; 64];
+            let mut juez = Cpu { max_vertices: 64, ..Cpu::D3D10 };
+            juez.draw_with(&d, &mut Image { pixels: &mut px, width: 8, height: 8, depth: None }).unwrap();
+            px
+        }
+
+        /// *** Cyberpunk lee SV_Position en el de pixeles (su G-buffer, su
+        /// ruido): era lo primero que la 3060 le nego. `posicion.hlsl` de la
+        /// casa (dxc) en un destino de 8x8: cada pixel ve SU centro, la z del
+        /// viewport y la w de recorte -- lo mismo que la prueba N5.9 de
+        /// `bmo_proton_x` --.
+        #[test]
+        fn the_pixel_program_reads_its_sv_position() {
+            let ps = programa(include_bytes!("../../proton-x/prueba/posicion.dxil"));
+            assert!(ps.reads(0), "posicion.hlsl lee su SV_Position");
+            let (z, w) = (0.5f32, 2.0f32);
+            let cuadro: Vec<[f32; 4]> = [(-1.0f32, 1.0f32), (1.0, 1.0), (-1.0, -1.0), (1.0, -1.0)].iter().map(|&(x, y)| [x * w, y * w, z * w, w]).collect();
+            let px = de_8x8(&Paso, &ps, &cuadro, &[0, 1, 2, 2, 1, 3]);
+            for y in 0..8 {
+                for x in 0..8 {
+                    let esperado = Cpu::D3D10.unorm8.pack([(x as f32 + 0.5) / 8.0, (y as f32 + 0.5) / 8.0, 0.5, 0.5]);
+                    assert_eq!(px[y * 8 + x], esperado, "pixel ({x}, {y})");
+                }
+            }
+        }
+
+        /// La w va con PERSPECTIVA: con w distinta por vertice, la del centro
+        /// de un pixel es la inversa de la media de las 1/w (el triangulo de
+        /// la prueba de la casa, `la_w_de_sv_position_va_con_perspectiva`).
+        #[test]
+        fn the_w_of_sv_position_goes_with_perspective() {
+            let tri = [[-1.0, 1.0, 0.0, 1.0], [12.0, 4.0, 0.0, 4.0], [-4.0, -12.0, 0.0, 4.0]];
+            let px = de_8x8(&Paso, &LaW, &tri, &[0, 1, 2]);
+            let pesos = |x: f32, y: f32| {
+                let (b1, b2) = (x / 16.0, y / 16.0);
+                1.0 / ((1.0 - b1 - b2) / 1.0 + b1 / 4.0 + b2 / 4.0)
+            };
+            for (x, y) in [(0usize, 0usize), (7, 7), (3, 5)] {
+                let esperado = Cpu::D3D10.unorm8.pack([pesos(x as f32 + 0.5, y as f32 + 0.5) / 4.0, 0.0, 0.0, 1.0]);
+                assert_eq!(px[y * 8 + x], esperado, "pixel ({x}, {y})");
+            }
+            // y no es plana: la esquina de w = 1 y la del fondo, distintas
+            assert_ne!(px[0], px[63]);
         }
 
         /// Lo que no encaja se dice: un indice fuera, una de pixeles que lee

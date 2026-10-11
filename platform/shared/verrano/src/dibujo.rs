@@ -40,10 +40,11 @@
 //!       juez: un color por cara). Interpolar llega con las texturas (M3)
 //!    4  su salida 0 es el color; si tira el pixel, no se pinta ni toca la
 //!       profundidad
+//!    5  si lee su entrada 0, es SV_POSITION y corre en CADA pixel: el
+//!       centro (x + 0.5, y + 0.5), la z lineal en la pantalla y la w de
+//!       recorte con perspectiva -- lo de la casa (`bmo_proton_x::trama`,
+//!       N5.9) y lo de D3D --. Cyberpunk la lee para su G-buffer y su ruido
 //! ```
-//!
-//! [!] Un programa de pixeles que lee su POSICION (SV_Position) no se dibuja
-//! todavia: [`Error::Shader`]. Se dice; no se inventa.
 
 use crate::{Cull, Error, Image, Stats, Viewport};
 
@@ -120,8 +121,9 @@ pub fn check_draw(d: &Draw, out: &Image, max_vertices: usize) -> Result<(), Erro
     if d.vertices.stride < p.vertex.inputs() || p.vertex.outputs() == 0 || p.vertex.outputs() > MAX_IO || p.pixel.outputs() == 0 || p.pixel.outputs() > MAX_IO {
         return Err(Error::Shader);
     }
-    // la de pixeles lee lo que la de vertice deja, y no su posicion (aun)
-    if p.pixel.inputs() > p.vertex.outputs() || p.pixel.reads(0) {
+    // la de pixeles lee lo que la de vertice deja (su entrada 0, la
+    // posicion: la pone la trama, regla 5)
+    if p.pixel.inputs() > p.vertex.outputs() {
         return Err(Error::Shader);
     }
     let (w, h) = (d.viewport.width, d.viewport.height);

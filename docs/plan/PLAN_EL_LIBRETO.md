@@ -158,6 +158,28 @@ y `puerta.rs`; el juez en `platform/drivers/gpu/ga10x/src/sass/juez.rs`):
       que toco Cyberpunk y es acotada. **Como se sabe:** `posicion.dxil`
       (de `prueba/`) pasa la puerta y da los mismos bits en el simulador de
       la 3060 que en la CPU; en el metal, la huella de `bmox12` igual.
+      **11-10, la mitad de VERRANO HECHA en el anfitrion:** el juez de
+      VERRANO (`Draw`, V3a) corre el de pixeles en CADA pixel cuando lee su
+      posicion, con la regla de la casa (N5.9: el centro, la z lineal en la
+      pantalla, la w de recorte con perspectiva); `posicion.dxil` da lo
+      mismo que la prueba de `bmo_proton_x`, y la w con perspectiva
+      tambien (saboteada con la media de las w: cae). **Falta la mitad de
+      la 3060**, y se dice lo que se sabe y lo que NO, antes de tocarla:
+      ```text
+         la cabecera     `ImapPositionW` es el bit 191 (raster.rs: nouveau
+                         lo pone siempre); los de X, Y y Z, al lado, por
+                         CONFIRMAR en NAK (`sph.rs`) -- desde aqui no se
+                         llego a su fuente: no se adivina un bit de la SPH
+         la lectura      IPA de a[0x70..0x7c] (la posicion, donde el de
+                         vertice la escribe); x e y ya son el centro
+         la w            la 3060 da 1/w; D3D quiere w: la division EXACTA
+                         de la casa (`cociente.rs`, DL10), no un MUFU.RCP
+         la z            su IPA contra la cuenta de la CPU: si no da los
+                         mismos bits, lo dice el juez de `laminas` en el
+                         metal, y se decide (como la raiz, DL10)
+      ```
+      Instrucciones nuevas para la tarjeta: van al metal con el permiso del
+      propietario, como E6.
 - [ ] **LI2b -- programas largos.** Hoy el cuerpo cabe en un hueco de 128
       instrucciones de la tuberia. Un sombreador de Cyberpunk no. El codigo
       tiene que vivir en su propia region de la VRAM (como hace el driver
