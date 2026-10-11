@@ -261,6 +261,10 @@ decides.
        22-doom-y-la-3060.jpg DOOM en ventana y la 3060 en el panel (YA ESTA)
        23/24-globo-*.png     el globo del puntero: RENDER en el anfitrion (YA
                              ESTA); una foto del metal lo sustituye
+       25-gpu-completa.jpg   `gpu completa` (11-10): la luz con grano y la
+                             completada por la 3060, 76800 de 76800 x3
+       26-estudio-vivo.jpg   `sys/estudio.bex` (11-10): la caja de Cornell en
+                             su ventana, "completada en la 3060"
 
      [!] 26-09: las lineas ![...](16-...) y ![...](17-...) se QUITARON porque
      esos ficheros no existen y GitHub los pintaba como enlaces rotos. Cuando
@@ -293,6 +297,8 @@ What the card has done for BMO-X, each line read back and checked by the CPU:
 | **Three colours blended by the rasterizer** | per-vertex colour interpolated by `IPA` in the pixel program -- seen on the metal the same boot |
 | **The whole screen** | a Mandelbrot zoom at the monitor's own resolution, every pixel written by the card **straight into the framebuffer the monitor scans** -- the CPU moves no pixel, it only re-checks 1024 per frame. **Seen on the metal (2026-09-24 21:36): 8 of 8 frames at 1920x1080, ~245 fps; ~466 fps on 2026-09-25 once the check left the syscall.** Its first try took the kernel down: the check read the framebuffer through its *physical* address inside a syscall, where that same number is the desktop's own user page -- SMAP said no. It reads through the kernel's physmap now |
 | **The D3D12 cube, without Windows** | the cube from the D3D study, drawn by the card's own rasterizer and **equal to what D3D12 draws on the same 3060 under Windows** -- including one pixel neither side can explain, which is therefore the silicon's (2026-09-25) |
+| **First floating point on the card** | the denoiser of the house path tracer (VE5, an SVGF-style a-trous filter guided by normal, depth and albedo): `FADD`, `FMUL`, `FMNMX`, `FSETP` and `MUFU.RCP` from `ptxas`, run on 320x240 with three passes -- **76800 of 76800 pixels equal to the CPU's answer in every pass** (2026-10-11 04:10). 7.4-7.7 ms per pass, and the card is not the slow part: it reads the block from the PC's RAM over PCIe, which still runs at Gen1. The CPU's own judge, in soft float, takes ~1.4 s per pass. Since the card's reciprocal is not IEEE division, "equal" means within 2e-5, and the tolerance is written next to the judge, not hidden |
+| **ESTUDIO VIVO, a path tracer in a window** | the house RenderMan-style tracer (GGX surfaces, skin by random walk, volumetric fog, triangle meshes behind a SAH BVH) running in Ring 3 with **hardware SSE** for the first time -- before 2026-10-11 every Ring 3 float was soft float -- and **denoised by the RTX 3060 every frame** through a narrow kernel door, a 32-pixel spot judge agreeing each time: **83-114 ms per frame on one core** (2026-10-11 04:16). With `smp all` it should be ~10x faster; that is exactly where the PC reboots (see [below](#what-is-next-and-what-blocks-it)) |
 | Switched off in order | the GSP-RM is told to leave, FWSEC-SB closes, the unload booter takes its protected memory down -- so the next warm boot finds the card clean. Seen on the metal twice (`+wpr2-abajo`, SB error 0); now ~2 s instead of 7, and done by `reboot`, not by `save mode` -- so the card keeps working after the verification. **And proven on 2026-09-26: after a `reboot`, the card arrived cold (no WPR2, GSP stopped) and woke again with no power cut** |
 
 ![DOOM in a window, the sound panel, and the side panel with the RTX 3060 awake: gsp LISTO, 49 degrees, P0, PCIe Gen3 x16, 12 GiB GDDR6](docs/evidencia/22-doom-y-la-3060.jpg)
