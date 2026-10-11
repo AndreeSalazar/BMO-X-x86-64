@@ -215,6 +215,19 @@ kernel. `cpu_vendor/ryzen_5_5600x/` es la fila de HOY, no la unica.
 
 ## 4T. EL TURNO, mientras hay UN nucleo (sin Ring 0)
 
+- [~] **V10 -- la maquina dice COMO murio, y no se despierta dos veces.**
+      La auditoria de `smp all` (11-10, seccion 5 de
+      [`METAL_2026-10-11.md`](../metal/METAL_2026-10-11.md)): los obreros
+      salen del trampolin SIN `CR4.MCE` (una #MC alli apaga el PC entero) y
+      con el CR0 sin normalizar; y `despertar` mandaba INIT+SIPI a obreros
+      ya en pie (dos nucleos con el mismo indice: triple fallo seguro). Hoy:
+      `plat/porque.rs` lee al arrancar el motivo del ultimo reinicio que
+      guarda el FCH y los bancos MCA; `smp all` dice el CR0/CR4 de los
+      obreros contra el del BSP; y `smp N` con obreros en pie no despierta a
+      nadie. **Falta:** el metal -- un `reboot` primero (tiene que salir el
+      bit 19: la tabla del FCH se comprueba sola), y despues el arranque
+      siguiente al reinicio de `smp all`. Con el motivo delante: MCE con su
+      IST3 por obrero, o el triple fallo en el nucleo que diga el tablero.
 - [~] **V9 -- el tablero dice la hora de la muerte.** El metal (11-10): la
       `CAIDA` de `smp all` con ESTUDIO trajo el tablero entero -- `smp all`
       vivo 11,7 s, el reinicio ~3 ms despues de la PRIMERA faena de Ring 3,

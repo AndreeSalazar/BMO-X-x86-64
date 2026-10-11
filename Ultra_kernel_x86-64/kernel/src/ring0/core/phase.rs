@@ -186,6 +186,10 @@ pub fn main(ctx: &mut BootContext) {
     crate::ring0::dev::console::serial_write(cpu_profile.name);
     crate::ring0::dev::console::serial_write("\n");
     crate::ring0::cabina::info("cpu", cpu_profile.name, 0);
+    // Y COMO murio la vez anterior (11-10): el FCH y los bancos MCA. El
+    // tablero dice que hacia cada nucleo; esto, si fue un triple fallo, una
+    // #MC o el data fabric.
+    crate::ring0::plat::porque::decir();
 
     // BEX is the only native executable contract admitted by this kernel.
     // The parser is allocation-free so it is safe before the process allocator.

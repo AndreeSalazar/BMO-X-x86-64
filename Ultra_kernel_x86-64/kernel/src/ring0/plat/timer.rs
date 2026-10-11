@@ -3,7 +3,8 @@
 //! [carril]  ROJO      el tick del LAPIC: sin el no hay planificador
 //! [consumo] LATE      el tick: mil veces por segundo, haya o no haya nadie.
 //!                     Cada vuelta: latido::tic, channel::service_all y
-//!                     scheduler::on_timer; y cada 1024, power::acumular
+//!                     scheduler::on_timer; y cada 1024, power::acumular;
+//!                     con una faena de Ring 3 en marcha, el pulso del tablero
 //!
 //! `s2_mem` calibrates and starts LAPIC vector 48. Ring 0 replaces that
 //! vector's boot-time halt stub with this handler, which shares the exact

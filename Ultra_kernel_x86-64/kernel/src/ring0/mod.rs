@@ -153,6 +153,9 @@ pub mod plat {
     /// debajo, declarado en un sitio. `placa` PREGUNTA (lee ACPI); esto
     /// DECLARA, y son dos cosas distintas. Ver `PERFIL/PLACA/`.
     pub mod perfil_placa;
+    /// **Por que se reinicio la vez anterior** (11-10): el motivo que guarda
+    /// el FCH y los bancos MCA, leidos una vez al arrancar. Solo lee.
+    pub mod porque;
     pub mod reinicio;
     /// Despertar los otros nucleos. **No corre en el arranque**: lo pide la
     /// orden `smp`. Ver la cabecera del modulo para saber por que esto no podia

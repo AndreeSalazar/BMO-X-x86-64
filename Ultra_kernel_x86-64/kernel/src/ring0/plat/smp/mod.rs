@@ -201,6 +201,19 @@ pub fn despertar(cuantos: u32, aviso: impl Fn(u32)) -> (u32, u32) {
     //
     // It goes HERE and not in the shell so that any caller gets it: whoever asks
     // for cores wants cores, and a wake that leaves them parked is not a wake.
+    // ** NO SE DESPIERTA DOS VECES a quien ya trabaja (11-10, la auditoria
+    // de `smp all`). Un INIT+SIPI a un obrero en pie lo saca de lo que hacia
+    // (quiza de una parte en Ring 3) y lo hace llegar OTRA VEZ con un indice
+    // nuevo: con menos pedidos que en pie, dos nucleos con el mismo indice
+    // comparten TSS, pila de trap y salto, y el `rsp0 = 0` de uno es el
+    // triple fallo del otro. Despues de `smp stop` (todos parados) si se
+    // puede: para eso es `reanudar`.
+    let en_pie = tramp::VIVOS.load(Ordering::SeqCst);
+    if en_pie > 0 && (!crew::parados() || ring3::activa()) {
+        crate::ring0::cabina::warn("smp", "ya hay obreros en pie: no se despiertan otra vez (reinicia para cambiar cuantos)", en_pie as u64);
+        crate::ring0::core::dashboard::dashboard_log("[smp] ya hay obreros en pie: no se despiertan otra vez");
+        return (en_pie, esperados);
+    }
     crew::reanudar();
 
     let pedidos = cuantos.min(esperados);
@@ -326,6 +339,7 @@ pub fn despertar(cuantos: u32, aviso: impl Fn(u32)) -> (u32, u32) {
         "[smp] FALTAN nucleos por contestar"
     });
 
+    decir_estado_cpu(alive);
     if alive == pedidos {
         crate::ring0::cabina::info("smp", "contestaron todos los llamados", alive as u64 + 1);
     } else {
@@ -337,6 +351,41 @@ pub fn despertar(cuantos: u32, aviso: impl Fn(u32)) -> (u32, u32) {
         crate::ring0::cabina::warn("smp", "mascara de los que SI contestaron", mascara as u64);
     }
     (alive, esperados)
+}
+
+/// **El CR0 y el CR4 de los obreros contra los del BSP** (11-10). Lo que
+/// importa: `CR0.CD` (bit 30, la cache APAGADA en ese nucleo), `CR0.NW` (29) y
+/// `CR4.MCE` (6: sin el, una #MC es un apagado de la maquina entera). Se dice
+/// el del obrero 0, el del BSP, y cuantos obreros tienen cada bit de riesgo.
+fn decir_estado_cpu(vivos: u32) {
+    let (bsp0, bsp4): (u64, u64);
+    // SAFETY: leer CR0 y CR4 del BSP no cambia nada.
+    unsafe {
+        core::arch::asm!("mov {}, cr0", out(reg) bsp0, options(nomem, nostack));
+        core::arch::asm!("mov {}, cr4", out(reg) bsp4, options(nomem, nostack));
+    }
+    let n = (vivos as usize).min(ficha::MAX_OBREROS);
+    let cr0 = |i: usize| tramp::CR0_AP[i].load(Ordering::SeqCst);
+    let cr4 = |i: usize| tramp::CR4_AP[i].load(Ordering::SeqCst);
+    let sin_cache = (0..n).filter(|&i| cr0(i) & (3 << 29) != 0).count();
+    let sin_mce = (0..n).filter(|&i| cr4(i) & (1 << 6) == 0).count();
+    let distintos = (0..n).filter(|&i| cr0(i) != bsp0 || cr4(i) != bsp4).count();
+    use crate::ring0::cabina::{info, warn};
+    if n > 0 {
+        info("smp", "CR0 del obrero 0", cr0(0));
+        info("smp", "CR4 del obrero 0", cr4(0));
+    }
+    info("smp", "CR0 del BSP", bsp0);
+    info("smp", "CR4 del BSP", bsp4);
+    if distintos > 0 {
+        warn("smp", "obreros con CR0/CR4 distintos del BSP", distintos as u64);
+    }
+    if sin_cache > 0 {
+        warn("smp", "obreros con la CACHE apagada (CR0.CD o NW)", sin_cache as u64);
+    }
+    if sin_mce > 0 {
+        warn("smp", "obreros sin CR4.MCE: una #MC alli REINICIA el PC", sin_mce as u64);
+    }
 }
 
 /// `(alive, mascara)` sin volver a despertar nada.

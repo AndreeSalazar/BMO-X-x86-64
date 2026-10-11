@@ -41,7 +41,13 @@
 //!    para SOLO. Lo que sigue sin tener es GS por-CPU y `rsp0`: un obrero no
 //!    entra por SYSCALL ni corre Ring 3 -- ese es el sub-director entero.
 
-use core::sync::atomic::{AtomicU32, Ordering};
+use core::sync::atomic::{AtomicU32, AtomicU64, Ordering};
+
+/// El CR0 y el CR4 con los que cada obrero llego a su bucle (11-10): el BSP
+/// los compara con los suyos al contarlos (`despertar`). El trampolin pone
+/// bits con OR y no quita ninguno: lo que traiga el AP del INIT, sigue.
+pub static CR0_AP: [AtomicU64; super::ficha::MAX_OBREROS] = [const { AtomicU64::new(0) }; super::ficha::MAX_OBREROS];
+pub static CR4_AP: [AtomicU64; super::ficha::MAX_OBREROS] = [const { AtomicU64::new(0) }; super::ficha::MAX_OBREROS];
 
 core::arch::global_asm!(
     r#"
@@ -243,6 +249,16 @@ pub extern "C" fn smp_ap_entrada() -> ! {
     // el orden de llegada; el APIC dice DONDE VIVE. Sin el segundo, un
     // reparto no puede saber que dos obreros comparten nucleo -- que es
     // justo lo que hace que doce partes iguales sean una mentira.
+    if let (Some(c0), Some(c4)) = (CR0_AP.get(indice as usize), CR4_AP.get(indice as usize)) {
+        let (cr0, cr4): (u64, u64);
+        // SAFETY: leer CR0 y CR4 de este nucleo no cambia nada.
+        unsafe {
+            core::arch::asm!("mov {}, cr0", out(reg) cr0, options(nomem, nostack));
+            core::arch::asm!("mov {}, cr4", out(reg) cr4, options(nomem, nostack));
+        }
+        c0.store(cr0, Ordering::SeqCst);
+        c4.store(cr4, Ordering::SeqCst);
+    }
     {
         use crate::ring0::cabina::tablero as t;
         t::marcar(t::OBREROS + indice as usize, t::AP_LISTO, id as u64, indice as u64);
