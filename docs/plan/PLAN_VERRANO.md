@@ -462,6 +462,57 @@ propia, al lado de la trama de tiempo real
       a cada rayo mirar solo los que puede tocar.
 - [ ] **VE4 -- materiales de pelicula.** Texturas, el metal y el plastico de
       verdad (microfacetas, GGX), el subsuelo de la piel, la niebla.
+      El propietario, el 11-10: *"tengo mi propio RENDERMAN pero puedes
+      combinar ARNOLDs y otros RENDER profesionales combo?"*. Si: de cada
+      uno se toma la IDEA publicada (sus articulos, sus especificaciones
+      abiertas), nunca su codigo, y se escribe en la casa con su prueba:
+
+      ```text
+         DE QUIEN            LA IDEA                         EN ESTUDIO
+         RenderMan (Pixar)   trazado de caminos en la CPU,   VE1, HECHO
+                             la luz de area, clampIndirect
+         V-Ray (Chaos)       el "light cache": la luz del    la MEMORIA de
+                             mundo guardada en celdas        VIVO, HECHO
+         Arnold (Autodesk)   standard_surface: el material   VE4a, HECHO
+         y OpenPBR (ASWF)    por CAPAS (base, brillo GGX,
+                             metal, barniz)
+         Veach / Arnold /    MIS: la luz por las dos         VE4a, HECHO
+         Cycles              maneras, con su peso
+         SVGF / OIDN         completar: quitar el ruido      VE5, el juez
+                             guiado por la superficie        de la CPU
+         Cycles / pbrt       el BVH de los triangulos        VE3
+         Arnold              el subsuelo (la piel) y la      VE4b
+                             niebla por volumen
+         Manuka (Weta)       la luz ESPECTRAL (longitudes    VE4c, despues
+                             de onda, no RGB): el vidrio
+                             que separa los colores
+      ```
+
+      **VE4a, 11-10, HECHA en el anfitrion -- LA SUPERFICIE:**
+      `Material::Superficie` (`estudio.rs`): la base mate (lo que el brillo
+      deja pasar, al entrar y al salir), el brillo de microfacetas GGX
+      (Trowbridge-Reitz, sombra de Smith, Fresnel de Schlick; blanco en lo
+      dielectrico con su `ior`, del color de la base en el metal), `metal`
+      de 0 a 1, y el BARNIZ encima (`capa`, otro GGX de ior 1,5 con su
+      aspereza: la pintura de un coche). Se muestrea por capas (cada una
+      por lo que refleja vista desde ahi) y la luz directa va con **MIS**
+      (la luz preguntada y la luz encontrada al rebotar, cada una con el
+      peso de la potencia). Sus pruebas: (1) lo que refleja en total, con
+      sus muestras, es lo mismo que CONTADO sin azar (por el disco
+      proyectado, sin seno ni coseno) -- saboteada la probabilidad (un 3
+      donde va un 4), cae --, y nunca devuelve mas luz de la que llega; (2)
+      MIS no tiene sesgo: solo la luz, solo rebotar y las dos con MIS dan
+      lo mismo -- saboteado el peso (siempre 1: la luz contada dos veces,
+      el doble), cae --; (3) la SALA DE MATERIALES (`sala_de_materiales`:
+      plastico rojo, oro cepillado, pintura de coche, cobre pulido y
+      ceramica, y el vidrio delante) da el oro amarillo y el rojo rojo;
+      (4) lo PULIDO no da NaN. La primera foto salio con puntos negros por
+      todas partes: una microfaceta justo en la normal (nh de 1,0000001 por
+      el redondeo) dejaba la GGX en infinito, y por una capa que pesa 0,
+      NaN; ahora la GGX tiene su suelo (a^2) y la capa que no pesa no se
+      cuenta -- saboteado, cae --. La foto: `--example estudio -- sala.ppm
+      640 480 256 materiales`, 70 s en 4 nucleos.
+      Lo mate de siempre sigue igual (la memoria de VIVO aprende de el).
 - [ ] **VE5 -- la 3060 como ayudante.** El mismo trazado en su computo, un
       rayo por hilo, juzgado contra el de la CPU (que sigue siendo el juez).
       Con VIVO: la 3060 lee la imagen acumulada y la memoria de la luz (el

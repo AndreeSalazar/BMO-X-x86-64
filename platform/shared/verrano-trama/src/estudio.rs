@@ -118,6 +118,204 @@ pub enum Material {
     Vidrio { indice: f32 },
     /// Lo que da luz.
     Luz { emite: V3 },
+    /// **LA SUPERFICIE** (VE4a): el material por capas de los render de
+    /// pelicula -- el `standard_surface` de Arnold, el OpenPBR --, ver
+    /// [`Superficie`].
+    Superficie(Superficie),
+}
+
+/// **LA SUPERFICIE** (VE4a, 11-10): un material por CAPAS, como el
+/// `standard_surface` de Arnold y el OpenPBR (las dos son especificaciones
+/// abiertas: se toma la IDEA, no su codigo). De abajo arriba:
+///
+/// ```text
+///    la base      lo mate de debajo, de `base` (Lambert), lo que el brillo
+///                 deja pasar (1 - Fresnel, al entrar y al salir)
+///    el brillo    microfacetas GGX de `aspereza` (la de Trowbridge-Reitz,
+///                 la de todos: Arnold, RenderMan, Cycles, Unreal), con la
+///                 sombra de Smith y Fresnel de Schlick. Dielectrico: blanco,
+///                 con su `ior`; metal: del color de la `base`
+///    el metal     de 0 a 1: cuanto es metal (sin base mate, brillo de color)
+///    la capa      el barniz de encima (`capa`, de 0 a 1): otro brillo GGX,
+///                 transparente y de ior 1,5, con su `capa_aspereza` -- la
+///                 pintura de un coche, la madera barnizada --; lo de debajo
+///                 recibe lo que el barniz no refleja
+/// ```
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Superficie {
+    pub base: V3,
+    pub metal: f32,
+    pub aspereza: f32,
+    pub ior: f32,
+    pub capa: f32,
+    pub capa_aspereza: f32,
+}
+
+impl Superficie {
+    /// Un plastico (o una ceramica): base de color y brillo blanco.
+    pub const fn plastico(base: V3, aspereza: f32) -> Superficie {
+        Superficie { base, metal: 0.0, aspereza, ior: 1.5, capa: 0.0, capa_aspereza: 0.0 }
+    }
+    /// Un metal: el brillo del color de la base.
+    pub const fn metal(base: V3, aspereza: f32) -> Superficie {
+        Superficie { base, metal: 1.0, aspereza, ior: 1.5, capa: 0.0, capa_aspereza: 0.0 }
+    }
+}
+
+/// Lo mas liso que se deja a GGX (un espejo PERFECTO es otro material: con
+/// aspereza 0 la cuenta divide por cero).
+const ASPEREZA_MIN: f32 = 0.02;
+
+/// Fresnel de Schlick: lo que refleja con `f0` de frente, a `coseno`.
+fn schlick(f0: f32, coseno: f32) -> f32 {
+    let x = (1.0 - coseno).clamp(0.0, 1.0);
+    let x2 = x * x;
+    f0 + (1.0 - f0) * x2 * x2 * x
+}
+
+/// La distribucion GGX (Trowbridge-Reitz) de las microfacetas, con `a` =
+/// aspereza^2 (la convencion de Disney, la que siguen todos).
+fn ggx_d(a: f32, nh: f32) -> f32 {
+    let a2 = a * a;
+    // su minimo es a^2 (nh = 1); el redondeo de un nh de 1,0000001 lo
+    // llevaba a 0 -- un infinito, y un NaN al multiplicarlo por una capa
+    // que pesa 0: pixeles negros en la foto --
+    let t = (nh * nh * (a2 - 1.0) + 1.0).max(a2);
+    a2 / (core::f32::consts::PI * t * t)
+}
+
+/// La sombra de Smith de GGX en una direccion (G1).
+fn ggx_g1(a: f32, nv: f32) -> f32 {
+    let a2 = a * a;
+    2.0 * nv / (nv + raiz(a2 + (1.0 - a2) * nv * nv))
+}
+
+/// Lo que pesa cada capa al MUESTREAR (no al evaluar): cuanto refleja cada
+/// una vista desde `cos_o`. Suman 1.
+fn reparto(m: &Superficie, cos_o: f32) -> (f32, f32, f32) {
+    let f0d = ((m.ior - 1.0) / (m.ior + 1.0)) * ((m.ior - 1.0) / (m.ior + 1.0));
+    let fc = m.capa * schlick(0.04, cos_o);
+    let f0 = luminancia(mezcla_v(&[f0d; 3], &m.base, m.metal));
+    let ws = (1.0 - fc) * schlick(f0, cos_o);
+    let wd = (1.0 - fc) * (1.0 - m.metal) * luminancia(m.base) * (1.0 - schlick(f0d, cos_o));
+    let t = fc + ws + wd;
+    if t <= 0.0 {
+        (0.0, 0.0, 1.0)
+    } else {
+        (fc / t, ws / t, wd / t)
+    }
+}
+
+fn luminancia(v: V3) -> f32 {
+    0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2]
+}
+
+fn mezcla_v(a: &V3, b: &V3, t: f32) -> V3 {
+    [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t]
+}
+
+impl Superficie {
+    fn asperezas(&self) -> (f32, f32) {
+        let a = self.aspereza.max(ASPEREZA_MIN);
+        let c = self.capa_aspereza.max(ASPEREZA_MIN);
+        (a * a, c * c)
+    }
+
+    /// **Lo que refleja** (la BSDF, sin el coseno): de la luz que llega por
+    /// `wi`, cuanta sale hacia `wo` (los dos, desde el punto hacia fuera).
+    pub fn refleja(&self, n: V3, wo: V3, wi: V3) -> V3 {
+        let (cos_o, cos_i) = (punto(n, wo), punto(n, wi));
+        if cos_o <= 0.0 || cos_i <= 0.0 {
+            return [0.0; 3];
+        }
+        let h = unidad(mas(wo, wi));
+        let (nh, oh) = (punto(n, h).max(0.0), punto(wo, h).max(0.0));
+        let (a, ac) = self.asperezas();
+        let f0d = ((self.ior - 1.0) / (self.ior + 1.0)) * ((self.ior - 1.0) / (self.ior + 1.0));
+        // el brillo: D G F / (4 cos cos)
+        let dg = ggx_d(a, nh) * ggx_g1(a, cos_o) * ggx_g1(a, cos_i) / (4.0 * cos_o * cos_i);
+        let f0 = mezcla_v(&[f0d; 3], &self.base, self.metal);
+        let brillo = f0.map(|f| schlick(f, oh) * dg);
+        // la base: lo que el brillo deja entrar y salir
+        let pasa = (1.0 - schlick(f0d, cos_o)) * (1.0 - schlick(f0d, cos_i));
+        let mate = por(self.base, (1.0 - self.metal) * pasa / core::f32::consts::PI);
+        let debajo = mas(brillo, mate);
+        if self.capa <= 0.0 {
+            return debajo;
+        }
+        // el barniz: su brillo, y lo de debajo con lo que el deja pasar
+        let barniz = self.capa * schlick(0.04, oh) * ggx_d(ac, nh) * ggx_g1(ac, cos_o) * ggx_g1(ac, cos_i) / (4.0 * cos_o * cos_i);
+        let deja = (1.0 - self.capa * schlick(0.04, cos_o)) * (1.0 - self.capa * schlick(0.04, cos_i));
+        mas(por(debajo, deja), [barniz; 3])
+    }
+
+    /// **La probabilidad** (por angulo solido) de que [`muestrea`](Self::muestrea)
+    /// saque `wi` viendo desde `wo`: la de cada capa, por lo que pesa.
+    pub fn probabilidad(&self, n: V3, wo: V3, wi: V3) -> f32 {
+        let (cos_o, cos_i) = (punto(n, wo), punto(n, wi));
+        if cos_o <= 0.0 || cos_i <= 0.0 {
+            return 0.0;
+        }
+        let h = unidad(mas(wo, wi));
+        let (nh, oh) = (punto(n, h).max(0.0), punto(wo, h).max(1e-6));
+        let (a, ac) = self.asperezas();
+        let (pc, ps, pd) = reparto(self, cos_o);
+        // la capa que no pesa no se cuenta (ni su infinito, si lo hubiera)
+        let ggx = |p: f32, a: f32| if p > 0.0 { p * ggx_d(a, nh) * nh / (4.0 * oh) } else { 0.0 };
+        ggx(pc, ac) + ggx(ps, a) + pd * cos_i / core::f32::consts::PI
+    }
+
+    /// **Una direccion de salida** al azar viendo desde `wo`: se elige una
+    /// capa por lo que pesa y se saca de ella (la normal de una microfaceta
+    /// de GGX y su reflejo, o el coseno de la base). `None` si cae por
+    /// debajo de la superficie (la luz se pierde ahi: la sombra de Smith).
+    pub fn muestrea(&self, n: V3, wo: V3, az: &mut Azar) -> Option<V3> {
+        let cos_o = punto(n, wo);
+        let (pc, ps, _) = reparto(self, cos_o);
+        let (a, ac) = self.asperezas();
+        let u = az.uno();
+        let wi = if u < pc + ps {
+            let a = if u < pc { ac } else { a };
+            // la microfaceta: tan^2 = a^2 e / (1 - e), y un giro al azar
+            // (un punto del circulo, por rechazo: sin seno ni coseno)
+            let e = az.uno();
+            let tan = a * raiz(e / (1.0 - e).max(1e-7));
+            let (x, y) = loop {
+                let (x, y) = (2.0 * az.uno() - 1.0, 2.0 * az.uno() - 1.0);
+                let r2 = x * x + y * y;
+                if r2 > 1e-6 && r2 < 1.0 {
+                    let r = raiz(r2);
+                    break (x / r, y / r);
+                }
+            };
+            let (t, b) = base_de(n);
+            let h = unidad(mas(n, por(mas(por(t, x), por(b, y)), tan)));
+            menos(por(h, 2.0 * punto(wo, h)), wo)
+        } else {
+            coseno(n, az)
+        };
+        (punto(n, wi) > 0.0).then_some(wi)
+    }
+}
+
+/// Dos ejes perpendiculares a `n` (y entre si).
+fn base_de(n: V3) -> (V3, V3) {
+    let t = unidad(if n[0].abs() > 0.5 { cruz(n, [0.0, 1.0, 0.0]) } else { cruz(n, [1.0, 0.0, 0.0]) });
+    (t, cruz(n, t))
+}
+
+/// **MIS** (Veach, 1997; lo usan Arnold, RenderMan y Cycles): la misma luz
+/// se puede encontrar de DOS maneras -- preguntando a la luz o rebotando y
+/// dando con ella --; cada una es buena donde la otra es mala (la luz
+/// grande en lo aspero; la luz chica en lo pulido). Se usan las dos, cada
+/// una con su peso (el de la potencia: p^2 / (p^2 + q^2)), y sin sesgo.
+fn potencia_mis(p: f32, q: f32) -> f32 {
+    let (p2, q2) = (p * p, q * q);
+    if p2 + q2 <= 0.0 {
+        0.0
+    } else {
+        p2 / (p2 + q2)
+    }
 }
 
 /// **Lo que hay en la escena.**
@@ -249,6 +447,46 @@ impl Escena<'_> {
         por(emite, cos_p * cos_l * area / (d2 * core::f32::consts::PI))
     }
 
+    /// **La luz DIRECTA en una SUPERFICIE** (VE4a): un punto al azar de la
+    /// luz, por lo que refleja hacia `wo`, con el peso de MIS.
+    fn directa_superficie(&self, p: V3, n: V3, wo: V3, m: &Superficie, az: &mut Azar) -> V3 {
+        let ob = &self.objetos[self.luz];
+        let (Forma::Rect { esquina, u, v }, Material::Luz { emite }) = (ob.forma, ob.material) else { return [0.0; 3] };
+        let q = mas(esquina, mas(por(u, az.uno()), por(v, az.uno())));
+        let hacia = menos(q, p);
+        let d2 = punto(hacia, hacia);
+        let dist = raiz(d2);
+        let l = por(hacia, 1.0 / dist);
+        let cos_p = punto(n, l);
+        // la luz alumbra por su cara de delante (la de `u x v`)
+        let cos_l = -punto(unidad(cruz(u, v)), l);
+        if cos_p <= 0.0 || cos_l <= 0.0 {
+            return [0.0; 3];
+        }
+        if let Some(g) = self.golpe(p, l, dist - EPS) {
+            if g.k != self.luz {
+                return [0.0; 3];
+            }
+        }
+        let area = raiz(punto(cruz(u, v), cruz(u, v)));
+        let p_luz = d2 / (cos_l * area);
+        let w = potencia_mis(p_luz, m.probabilidad(n, wo, l));
+        mul(emite, por(m.refleja(n, wo, l), cos_p * w / p_luz))
+    }
+
+    /// La probabilidad (por angulo solido) de que [`directa_superficie`]
+    /// saque la luz que se ve a `t` por `d`, golpeada con normal `n`.
+    fn probabilidad_luz(&self, d: V3, n: V3, t: f32) -> f32 {
+        let Forma::Rect { u, v, .. } = self.objetos[self.luz].forma else { return 0.0 };
+        let area = raiz(punto(cruz(u, v), cruz(u, v)));
+        let cos_l = -punto(d, n);
+        if cos_l <= 0.0 {
+            0.0
+        } else {
+            t * t / (cos_l * area)
+        }
+    }
+
     /// **La luz que llega por un rayo** (el camino entero).
     pub fn camino(&self, o: V3, d: V3, az: &mut Azar) -> V3 {
         self.camino_con(o, d, az, None, None)
@@ -270,14 +508,27 @@ impl Escena<'_> {
         // si el camino ya paso por algo mate: lo que llegue de la luz por un
         // espejo o un vidrio despues es una CAUSTICA, y se le pone techo
         let mut vio_mate = false;
+        // si el ultimo rebote fue una SUPERFICIE, con que probabilidad saco
+        // su direccion (para el peso de MIS si da con la luz)
+        let mut ultima: Option<f32> = None;
         for rebote in 0..12 {
             let Some(g) = self.golpe(o, d, f32::MAX) else { break };
             match self.objetos[g.k].material {
                 Material::Luz { emite } => {
                     // la luz se ve directa solo desde la camara o un espejo:
                     // desde lo mate ya se conto (`directa`)
-                    if especular && g.fuera {
-                        let mut c = mul(peso, emite);
+                    let w = match ultima {
+                        _ if !g.fuera => 0.0,
+                        // por un rebote de SUPERFICIE: MIS contra preguntar a la luz
+                        Some(pb) => {
+                            let t = raiz(punto(menos(g.p, o), menos(g.p, o)));
+                            potencia_mis(pb, self.probabilidad_luz(d, g.n, t))
+                        }
+                        None if especular => 1.0,
+                        None => 0.0,
+                    };
+                    if w > 0.0 {
+                        let mut c = por(mul(peso, emite), w);
                         if vio_mate {
                             c = c.map(|x| x.min(TECHO_INDIRECTO));
                         }
@@ -301,6 +552,20 @@ impl Escena<'_> {
                     d = coseno(g.n, az);
                     especular = false;
                     vio_mate = true;
+                    ultima = None;
+                }
+                Material::Superficie(m) => {
+                    let wo = por(d, -1.0);
+                    luz = mas(luz, mul(peso, self.directa_superficie(g.p, g.n, wo, &m, az)));
+                    let Some(wi) = m.muestrea(g.n, wo, az) else { break };
+                    let pb = m.probabilidad(g.n, wo, wi);
+                    if pb <= 0.0 {
+                        break;
+                    }
+                    peso = mul(peso, por(m.refleja(g.n, wo, wi), punto(g.n, wi) / pb));
+                    d = wi;
+                    especular = false;
+                    ultima = Some(pb);
                 }
                 Material::Metal { color, aspereza } => {
                     let r = menos(d, por(g.n, 2.0 * punto(d, g.n)));
@@ -310,6 +575,7 @@ impl Escena<'_> {
                     }
                     peso = mul(peso, color);
                     especular = true;
+                    ultima = None;
                 }
                 Material::Vidrio { indice } => {
                     let eta = if g.fuera { 1.0 / indice } else { indice };
@@ -324,6 +590,7 @@ impl Escena<'_> {
                         unidad(mas(por(d, eta), por(g.n, eta * cos_i - raiz(1.0 - sin2))))
                     };
                     especular = true;
+                    ultima = None;
                 }
             }
             o = g.p;
@@ -356,6 +623,7 @@ impl Escena<'_> {
         let g = self.golpe(o, d, f32::MAX)?;
         let albedo = match self.objetos[g.k].material {
             Material::Mate { color } | Material::Metal { color, .. } => color,
+            Material::Superficie(m) => m.base,
             Material::Vidrio { .. } | Material::Luz { .. } => [1.0; 3],
         };
         let dist = raiz(punto(menos(g.p, o), menos(g.p, o)));
@@ -463,6 +731,32 @@ pub fn caja_de_cornell() -> ([Objeto; 9], usize, Camara) {
     (objetos, 5, camara)
 }
 
+/// **LA SALA DE MATERIALES** (VE4a): la caja de Cornell con CINCO esferas
+/// de LA SUPERFICIE en fila, de izquierda a derecha -- plastico rojo,
+/// oro cepillado, la pintura de un coche (azul metalizado con barniz),
+/// cobre pulido y ceramica blanca -- y, delante, la de vidrio. Para ver lo
+/// que hace cada capa con la misma luz.
+pub fn sala_de_materiales() -> ([Objeto; 12], usize, Camara) {
+    let (c, luz, _) = caja_de_cornell();
+    let esfera = |x: f32, m: Superficie| Objeto { forma: Forma::Esfera { centro: [x, 0.17, -0.35], radio: 0.17 }, material: Material::Superficie(m) };
+    let objetos = [
+        c[0],
+        c[1],
+        c[2],
+        c[3],
+        c[4],
+        c[5],
+        esfera(-0.76, Superficie::plastico([0.72, 0.06, 0.05], 0.25)),
+        esfera(-0.38, Superficie::metal([1.0, 0.78, 0.34], 0.35)),
+        esfera(0.0, Superficie { base: [0.05, 0.16, 0.6], metal: 0.6, aspereza: 0.45, ior: 1.5, capa: 1.0, capa_aspereza: 0.03 }),
+        esfera(0.38, Superficie::metal([0.95, 0.64, 0.54], 0.06)),
+        esfera(0.76, Superficie::plastico([0.85, 0.85, 0.82], 0.08)),
+        Objeto { forma: Forma::Esfera { centro: [0.0, 0.16, 0.35], radio: 0.16 }, material: Material::Vidrio { indice: 1.5 } },
+    ];
+    let camara = Camara { ojo: [0.0, 0.85, 3.4], mira: [0.0, 0.6, 0.0], arriba: [0.0, 1.0, 0.0], tan_medio: 0.36 };
+    (objetos, luz, camara)
+}
+
 #[cfg(test)]
 mod pruebas {
     use super::*;
@@ -504,6 +798,202 @@ mod pruebas {
         oscuro[5].material = Material::Luz { emite: [0.0; 3] };
         let e = escena(&oscuro);
         assert_eq!(e.pixel(32, 40, 64, 48, 16), [0.0; 3]);
+    }
+
+    /// Lo que refleja en total (el albedo) visto desde `wo`, CONTADO sin
+    /// azar: con la normal arriba, la direccion `(x, raiz(1-x^2-z^2), z)`
+    /// por cada punto del disco unidad, y `f cos dw = f dx dz` (el angulo
+    /// solido proyectado: sin seno ni coseno).
+    fn albedo_contado(m: &Superficie, wo: V3, lado: usize) -> f32 {
+        let n = [0.0, 1.0, 0.0];
+        let paso = 2.0 / lado as f32;
+        let mut s = 0.0f64;
+        for i in 0..lado {
+            for j in 0..lado {
+                let (x, z) = (-1.0 + (i as f32 + 0.5) * paso, -1.0 + (j as f32 + 0.5) * paso);
+                let y2 = 1.0 - x * x - z * z;
+                if y2 > 0.0 {
+                    s += luminancia(m.refleja(n, wo, [x, raiz(y2), z])) as f64;
+                }
+            }
+        }
+        (s * (paso * paso) as f64) as f32
+    }
+
+    fn materiales() -> [Superficie; 5] {
+        [
+            Superficie::plastico([0.7, 0.1, 0.08], 0.3),
+            Superficie::plastico([0.8, 0.8, 0.8], 0.2),
+            Superficie::metal([1.0, 0.78, 0.34], 0.4),
+            Superficie::metal([0.95, 0.64, 0.54], 0.2),
+            Superficie { base: [0.1, 0.2, 0.65], metal: 0.5, aspereza: 0.4, ior: 1.5, capa: 1.0, capa_aspereza: 0.2 },
+        ]
+    }
+
+    /// Pulidas: un lobulo tan fino que lo uniforme casi nunca lo encuentra.
+    fn pulidos() -> [Superficie; 3] {
+        [
+            Superficie::plastico([0.8, 0.8, 0.8], 0.02),
+            Superficie::metal([0.95, 0.95, 0.95], 0.02),
+            Superficie { base: [0.9, 0.9, 0.9], metal: 0.0, aspereza: 0.3, ior: 1.5, capa: 1.0, capa_aspereza: 0.02 },
+        ]
+    }
+
+    /// *** LA SUPERFICIE se muestrea con la probabilidad que DICE: lo que
+    /// refleja en total (el albedo), con sus muestras y CONTADO sin azar,
+    /// sale igual -- si `probabilidad` mintiera, la imagen saldria mas clara
+    /// u oscura que la luz de verdad --; y nunca devuelve mas luz de la que
+    /// le llega.
+    #[test]
+    fn the_surface_samples_with_the_probability_it_says() {
+        let n = [0.0, 1.0, 0.0];
+        for (k, m) in materiales().iter().enumerate() {
+            for wo in [unidad([0.0, 1.0, 0.2]), unidad([0.6, 0.5, 0.0]), unidad([0.0, 0.25, -1.0])] {
+                let mut az = Azar::nuevo(7 + k as u32);
+                let mut propia = [0.0f32; 3];
+                let muestras = 30_000;
+                for _ in 0..muestras {
+                    if let Some(wi) = m.muestrea(n, wo, &mut az) {
+                        let pb = m.probabilidad(n, wo, wi);
+                        if pb > 0.0 {
+                            propia = mas(propia, por(m.refleja(n, wo, wi), punto(n, wi) / pb));
+                        }
+                    }
+                }
+                let (a, b) = (luminancia(propia) / muestras as f32, albedo_contado(m, wo, 400));
+                assert!((a - b).abs() < 0.02 * b.max(0.05), "material {k}, wo {wo:?}: con sus muestras {a}, contado {b}");
+                assert!(a <= 1.02, "material {k}: devuelve {a} de cada 1");
+            }
+        }
+        // lo pulido y blanco: ni crea luz, ni la pierde de mas
+        for (k, m) in pulidos().iter().enumerate() {
+            for wo in [unidad([0.0, 1.0, 0.2]), unidad([0.0, 0.25, -1.0])] {
+                let mut az = Azar::nuevo(31 + k as u32);
+                let mut propia = [0.0f32; 3];
+                for _ in 0..100_000 {
+                    if let Some(wi) = m.muestrea(n, wo, &mut az) {
+                        let pb = m.probabilidad(n, wo, wi);
+                        if pb > 0.0 {
+                            propia = mas(propia, por(m.refleja(n, wo, wi), punto(n, wi) / pb));
+                        }
+                    }
+                }
+                let a = luminancia(propia) / 100_000.0;
+                assert!(a <= 1.02 && a > 0.5, "pulido {k}, wo {wo:?}: devuelve {a} de cada 1");
+            }
+        }
+    }
+
+    /// Lo PULIDO no da NaN: una microfaceta justo en la normal (nh de
+    /// 1,0000001 por el redondeo) dejaba la GGX en infinito, y por una capa
+    /// que pesa 0, NaN -- en la foto de la sala, puntos negros por todas
+    /// partes --. Con muchas vistas al azar, la probabilidad y lo que
+    /// refleja salen siempre finitos.
+    #[test]
+    fn polished_surfaces_never_give_nan() {
+        assert!(ggx_d(0.0004, 1.000_000_1).is_finite());
+        let mut az = Azar::nuevo(3);
+        for m in pulidos() {
+            for _ in 0..100_000 {
+                let n = unidad(en_esfera(&mut az));
+                let wo = unidad(en_esfera(&mut az));
+                if punto(n, wo) <= 0.0 {
+                    continue;
+                }
+                if let Some(wi) = m.muestrea(n, wo, &mut az) {
+                    let pb = m.probabilidad(n, wo, wi);
+                    let f = m.refleja(n, wo, wi);
+                    assert!(pb.is_finite() && f.iter().all(|x| x.is_finite()), "n {n:?} wo {wo:?} wi {wi:?}: pb {pb}, f {f:?}");
+                }
+            }
+        }
+    }
+
+    /// *** MIS no tiene sesgo: la luz directa en un punto del suelo de
+    /// SUPERFICIE, preguntando SOLO a la luz, SOLO rebotando, o con las dos
+    /// y MIS, da lo mismo. Si los pesos no sumaran 1 (la luz contada dos
+    /// veces, o ninguna), saldria distinta.
+    #[test]
+    fn mis_is_unbiased() {
+        let (o, luz, camara) = caja_de_cornell();
+        let e = Escena { objetos: &o[..6], luz, camara };
+        let (p, n) = ([0.1, 0.0, 0.3], [0.0, 1.0, 0.0]);
+        let wo = unidad([0.0, 1.0, 1.2]);
+        let Material::Luz { emite } = o[luz].material else { panic!() };
+        let Forma::Rect { esquina, u, v } = o[luz].forma else { panic!() };
+        let area = raiz(punto(cruz(u, v), cruz(u, v)));
+        for m in [Superficie::plastico([0.7, 0.1, 0.08], 0.3), Superficie::metal([1.0, 0.78, 0.34], 0.15)] {
+            let muestras = 400_000;
+            let mut az = Azar::nuevo(99);
+            let (mut solo_luz, mut solo_rebote, mut con_mis) = (0.0f32, 0.0f32, 0.0f32);
+            for _ in 0..muestras {
+                // solo la luz, sin MIS
+                let q = mas(esquina, mas(por(u, az.uno()), por(v, az.uno())));
+                let hacia = menos(q, p);
+                let d2 = punto(hacia, hacia);
+                let l = por(hacia, 1.0 / raiz(d2));
+                let cos_l = -punto(unidad(cruz(u, v)), l);
+                if punto(n, l) > 0.0 && cos_l > 0.0 {
+                    solo_luz += luminancia(mul(emite, por(m.refleja(n, wo, l), punto(n, l) * cos_l * area / d2)));
+                }
+                // solo rebotar, y lo que da con la luz
+                let rebote = |az: &mut Azar| -> (f32, f32) {
+                    let Some(wi) = m.muestrea(n, wo, az) else { return (0.0, 0.0) };
+                    let pb = m.probabilidad(n, wo, wi);
+                    match e.golpe(p, wi, f32::MAX) {
+                        Some(g) if g.k == luz && g.fuera && pb > 0.0 => {
+                            let t = raiz(punto(menos(g.p, p), menos(g.p, p)));
+                            let c = luminancia(mul(emite, por(m.refleja(n, wo, wi), punto(n, wi) / pb)));
+                            (c, c * potencia_mis(pb, e.probabilidad_luz(wi, g.n, t)))
+                        }
+                        _ => (0.0, 0.0),
+                    }
+                };
+                let (sin_peso, con_peso) = rebote(&mut az);
+                solo_rebote += sin_peso;
+                con_mis += con_peso + luminancia(e.directa_superficie(p, n, wo, &m, &mut az));
+            }
+            let (a, b, c) = (solo_luz / muestras as f32, solo_rebote / muestras as f32, con_mis / muestras as f32);
+            assert!((a - c).abs() < 0.03 * a && (b - c).abs() < 0.05 * a, "solo la luz {a}, solo rebotar {b}, con MIS {c}");
+        }
+    }
+
+    /// La sala de materiales: el oro sale AMARILLO (su brillo es de su
+    /// color) y el plastico rojo, ROJO; y las esferas pulidas reflejan la
+    /// luz del techo (un punto mucho mas claro que su media).
+    #[test]
+    fn the_materials_room_shows_each_layer() {
+        let (o, luz, camara) = sala_de_materiales();
+        let e = Escena { objetos: &o, luz, camara };
+        let (w, h) = (96, 72);
+        // el centro de cada esfera en la pantalla, a ojo de la camara
+        let en = |x: f32| {
+            let d = unidad(menos([x, 0.17, -0.35], camara.ojo));
+            // de vuelta al pixel: el que tiene el rayo de centro mas parecido
+            let mut mejor = (0, 0, -1.0);
+            for py in 0..h {
+                for px in 0..w {
+                    let (_, r) = e.rayo_centro(px, py, w, h);
+                    let c = punto(r, d);
+                    if c > mejor.2 {
+                        mejor = (px, py, c);
+                    }
+                }
+            }
+            (mejor.0, mejor.1)
+        };
+        let media = |(x, y): (u32, u32)| {
+            let mut s = [0.0f32; 3];
+            for dy in 0..2 {
+                for dx in 0..2 {
+                    s = mas(s, e.pixel(x + dx, y + dy, w, h, 64));
+                }
+            }
+            s
+        };
+        let (rojo, oro) = (media(en(-0.76)), media(en(-0.38)));
+        assert!(rojo[0] > 3.0 * rojo[1], "rojo {rojo:?}");
+        assert!(oro[0] > oro[1] && oro[1] > 1.5 * oro[2], "oro {oro:?}");
     }
 
     /// La curva de la pelicula: el negro es negro, la luz de sobra no pasa
