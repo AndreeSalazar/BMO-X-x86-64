@@ -2,7 +2,7 @@
 # RESOLUCION (10-10, R1 de docs/plan/EL_FOCO.md): la app que ELIGE la medida
 # de las ventanas de TITAN++. Una lista de medidas -- de 640 x 360 a
 # 2560 x 1440 --; las flechas, las cifras 1 a 8 o el raton eligen; Enter la
-# GUARDA en datos/resolucion.txt ("ANCHO ALTO"), y Esc o q cierran.
+# GUARDA en datos/resol.txt ("ANCHO ALTO"), y Esc o q cierran.
 #
 #    quien la lee     cada ventana de TITAN++ que la quiera, al abrirse (su
 #                     `medida.titan`): `titan/ventana.bex` ya la usa
@@ -135,7 +135,7 @@ fn dibuja(sel: int, guardada: int, estado: int)
             director.texto(264, y, "guardada", 1, bien())
     director.texto(12, 252, "Flechas o 1-8 eligen, Enter guarda", 1, gris())
     if estado == 1
-        director.texto(12, 272, "En datos/resolucion.txt", 1, bien())
+        director.texto(12, 272, "En datos/resol.txt", 1, bien())
     else if estado == 2
         director.texto(12, 272, "El disco no la guardo", 1, aviso())
     else
@@ -145,7 +145,7 @@ fn dibuja(sel: int, guardada: int, estado: int)
 fn main()
     # La que ya estaba guardada, si la hay y es de la lista.
     let mut guardada = -1
-    if director.fichero("datos/resolucion.txt")
+    if director.fichero("datos/resol.txt")
         guardada = cual(medida.ancho(), medida.alto())
     let mut sel = 3
     if guardada >= 0
@@ -177,7 +177,7 @@ fn main()
                     sel = sel + 1
                     repintar = true
                 if c == 28
-                    if director.guarda("datos/resolucion.txt", texto_de(sel))
+                    if director.guarda("datos/resol.txt", texto_de(sel))
                         guardada = sel
                         estado = 1
                     else

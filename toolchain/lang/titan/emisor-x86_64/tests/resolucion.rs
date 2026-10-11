@@ -13,7 +13,7 @@ use std::path::Path;
 use bmo_abi::syscalls::surface::{SUP_CABECERA, SUP_EV_CARACTER, SUP_EV_RATON};
 use bmo_lower::emu::{cargar_bex, run, Machine};
 
-const RUTA: &str = "datos/resolucion.txt";
+const RUTA: &str = "datos/resol.txt";
 
 fn paquete(dir: &Path) -> Vec<u8> {
     let src = std::fs::read_to_string(dir.join("src/main.titan")).expect("el main");

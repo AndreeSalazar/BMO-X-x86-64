@@ -617,7 +617,7 @@ $cRecursos = @(
     ) }
     # ** LA CARA DE RESOLUCION (R1 de EL_FOCO, 2026-10-10): una pantalla con
     # sus dos flechas de esquina a esquina, la medida que crece.
-    @{ bex = 'apps\resolucion.bex'; recursos = @(
+    @{ bex = 'apps\resol.bex'; recursos = @(
         @{ nombre = 'icono'; icono = @(
             '................',
             '.oooooooooooooo.',
@@ -878,9 +878,9 @@ try {
         # `apps/`, con DOOM, porque es una APP; su icono, en el empaquetado.
         @{ src = 'Ultra_userspace\apps\navegar\src\main.titan'; out = 'navegar.bex'; dir = 'apps' },
         # ** RESOLUCION (R1 de EL_FOCO, 2026-10-10): elegir la medida de las
-        # ventanas de TITAN++ y guardarla en `datos\resolucion.txt`
+        # ventanas de TITAN++ y guardarla en `datos\resol.txt`
         # (`director.guarda`, TA4); `titan/ventana.bex` ya se abre con ella.
-        @{ src = 'Ultra_userspace\apps\resolucion\src\main.titan'; out = 'resolucion.bex'; dir = 'apps' },
+        @{ src = 'Ultra_userspace\apps\resolucion\src\main.titan'; out = 'resol.bex'; dir = 'apps' },
         # ** TINTA (TB1 de docs/plan/PLAN_LA_TINTA.md, 2026-10-10): el lienzo
         # minimo -- pincel redondo con antialias, goma y PNG --, el primer
         # peldanio del Adobe + Clip Studio Paint propio. Una APP: con su icono.

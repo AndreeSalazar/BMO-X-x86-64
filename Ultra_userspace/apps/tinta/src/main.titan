@@ -162,7 +162,7 @@ fn main()
     # La medida que eligio RESOLUCION (o 640 x 400), de 160 x 120 a 1920 x 1080.
     let mut w = 640
     let mut alto = 400
-    if director.fichero("datos/resolucion.txt")
+    if director.fichero("datos/resol.txt")
         let a = medida.ancho()
         let b = medida.alto()
         if a >= 160 and a <= 1920 and b >= 120 and b <= 1080
