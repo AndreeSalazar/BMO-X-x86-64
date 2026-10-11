@@ -1,9 +1,9 @@
-//! `cargo run --release -p bmo-verrano-trama --example estudio -- SALIDA.ppm [ancho] [alto] [muestras] [cornell|materiales|mallas]`:
-//! la caja de Cornell de VERRANO ESTUDIO (o la sala de materiales, VE4a, o
-//! la de mallas, VE3),
+//! `cargo run --release -p bmo-verrano-trama --example estudio -- SALIDA.ppm [ancho] [alto] [muestras] [cornell|materiales|mallas|piel]`:
+//! la caja de Cornell de VERRANO ESTUDIO (o la sala de materiales, VE4a, la
+//! de mallas, VE3, o la de piel y niebla, VE4b),
 //! con TODOS los nucleos de la CPU (cada uno, sus filas), a un PPM.
 
-use bmo_verrano_trama::estudio::{caja_de_cornell, pelicula, sala_de_mallas, sala_de_materiales, Escena};
+use bmo_verrano_trama::estudio::{caja_de_cornell, pelicula, sala_de_mallas, sala_de_materiales, sala_de_piel, Escena};
 use std::time::Instant;
 
 fn main() {
@@ -12,11 +12,12 @@ fn main() {
     let ancho: u32 = a.get(2).and_then(|x| x.parse().ok()).unwrap_or(640);
     let alto: u32 = a.get(3).and_then(|x| x.parse().ok()).unwrap_or(480);
     let muestras: u32 = a.get(4).and_then(|x| x.parse().ok()).unwrap_or(256);
-    let (cornell, sala, mallas) = (caja_de_cornell(), sala_de_materiales(), sala_de_mallas());
+    let (cornell, sala, mallas, piel) = (caja_de_cornell(), sala_de_materiales(), sala_de_mallas(), sala_de_piel());
     let e = match a.get(5).map(String::as_str) {
-        Some("materiales") => Escena { objetos: &sala.0, luz: sala.1, camara: sala.2, mallas: &[] },
-        Some("mallas") => Escena { objetos: &mallas.0, luz: mallas.1, camara: mallas.2, mallas: &mallas.3 },
-        _ => Escena { objetos: &cornell.0, luz: cornell.1, camara: cornell.2, mallas: &[] },
+        Some("materiales") => Escena { objetos: &sala.0, luz: sala.1, camara: sala.2, mallas: &[], niebla: None },
+        Some("piel") => Escena { objetos: &piel.0, luz: piel.1, camara: piel.2, mallas: &[], niebla: Some(piel.3) },
+        Some("mallas") => Escena { objetos: &mallas.0, luz: mallas.1, camara: mallas.2, mallas: &mallas.3, niebla: None },
+        _ => Escena { objetos: &cornell.0, luz: cornell.1, camara: cornell.2, mallas: &[], niebla: None },
     };
     let nucleos = std::thread::available_parallelism().map_or(4, |n| n.get());
     let t0 = Instant::now();

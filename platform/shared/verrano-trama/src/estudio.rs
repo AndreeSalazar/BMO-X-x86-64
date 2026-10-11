@@ -124,6 +124,12 @@ pub enum Material {
     /// pelicula -- el `standard_surface` de Arnold, el OpenPBR --, ver
     /// [`Superficie`].
     Superficie(Superficie),
+    /// **LA PIEL** (VE4b): lo que deja entrar la luz y la saca por otro
+    /// sitio -- la piel, el jade, el marmol, la cera --. `color`: lo que se
+    /// ve de lejos (el albedo de todo el paseo); `radio`: cuanto anda la luz
+    /// por dentro de cada color antes de chocar (el rojo, mas: por eso la
+    /// oreja a contraluz es roja); `ior`: el brillo de su piel de fuera.
+    Piel { color: V3, radio: V3, ior: f32 },
 }
 
 /// **LA SUPERFICIE** (VE4a, 11-10): un material por CAPAS, como el
@@ -355,6 +361,134 @@ pub struct Escena<'a> {
     pub luz: usize,
     pub camara: Camara,
     pub mallas: &'a [crate::malla::Malla],
+    /// La NIEBLA (VE4b), si la hay.
+    pub niebla: Option<Niebla>,
+}
+
+/// **LA NIEBLA** (VE4b): un medio que llena una caja -- el humo, la bruma,
+/// el polvo en el aire --. La luz que la cruza se apaga con la distancia
+/// (Beer: `e^(-densidad d)`) y una parte se DESVIA hacia el ojo: los rayos
+/// de luz que se ven en el aire.
+///
+/// ```text
+///    densidad   cuanto choca por unidad de camino
+///    albedo     de lo que choca, cuanto se desvia (el resto se apaga)
+///    g          hacia donde se desvia (Henyey-Greenstein): 0 a todos
+///               lados, > 0 hacia delante (la bruma, el humo)
+/// ```
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Niebla {
+    pub densidad: f32,
+    pub albedo: f32,
+    pub g: f32,
+    pub min: V3,
+    pub max: V3,
+}
+
+impl Niebla {
+    /// El tramo del rayo `o + t d` (t en [0, lim]) dentro de la caja.
+    fn tramo(&self, o: V3, d: V3, lim: f32) -> Option<(f32, f32)> {
+        let (mut t0, mut t1) = (0.0f32, lim);
+        for k in 0..3 {
+            let inv = 1.0 / d[k];
+            let (a, b) = ((self.min[k] - o[k]) * inv, (self.max[k] - o[k]) * inv);
+            let (a, b) = if a < b { (a, b) } else { (b, a) };
+            t0 = t0.max(a);
+            t1 = t1.min(b);
+            if t0 > t1 {
+                return None;
+            }
+        }
+        Some((t0, t1))
+    }
+
+    /// Lo que llega de la luz tras `dist` por `d` desde `o`.
+    fn transmite(&self, o: V3, d: V3, dist: f32) -> f32 {
+        self.tramo(o, d, dist).map_or(1.0, |(t0, t1)| exp(-self.densidad * (t1 - t0)))
+    }
+}
+
+/// e^x (por `exp2`).
+fn exp(x: f32) -> f32 {
+    exp2(x * core::f32::consts::LOG2_E)
+}
+
+/// ln x (por el log2 de PROMETEO).
+fn ln(x: f32) -> f32 {
+    mates::log2(x) * core::f32::consts::LN_2
+}
+
+/// Henyey-Greenstein: cuanto se desvia hacia un angulo de coseno `c` (por
+/// angulo solido; integra 1).
+fn hg(g: f32, c: f32) -> f32 {
+    let x = 1.0 + g * g - 2.0 * g * c;
+    (1.0 - g * g) / (4.0 * core::f32::consts::PI * x * raiz(x))
+}
+
+/// Una direccion desviada de `d` por Henyey-Greenstein (exacta: su
+/// probabilidad es `hg`).
+fn muestrea_hg(g: f32, d: V3, az: &mut Azar) -> V3 {
+    let e = az.uno();
+    let c = if g.abs() < 1e-3 {
+        1.0 - 2.0 * e
+    } else {
+        let q = (1.0 - g * g) / (1.0 - g + 2.0 * g * e);
+        ((1.0 + g * g - q * q) / (2.0 * g)).clamp(-1.0, 1.0)
+    };
+    let s = raiz((1.0 - c * c).max(0.0));
+    let (x, y) = loop {
+        let (x, y) = (2.0 * az.uno() - 1.0, 2.0 * az.uno() - 1.0);
+        let r2 = x * x + y * y;
+        if r2 > 1e-6 && r2 < 1.0 {
+            let r = raiz(r2);
+            break (x / r, y / r);
+        }
+    };
+    let (t, b) = base_de(d);
+    unidad(mas(por(d, c), por(mas(por(t, x), por(b, y)), s)))
+}
+
+/// **El albedo de cada choque** dentro de LA PIEL para que el paseo entero
+/// devuelva `a` (la inversion de van de Hulst, la de Cycles y de Arnold para
+/// el paseo al azar con entrada de Lambert).
+pub fn albedo_de_paseo(a: f32) -> f32 {
+    let a = a.clamp(0.0, 0.999);
+    let s = 4.09712 + 4.20863 * a - raiz(9.59217 + 41.6808 * a + 17.7126 * a * a);
+    1.0 - s * s
+}
+
+/// **EL PASEO** (VE4b): la luz que entro en `o` por `d` anda por dentro --
+/// choca, se desvia a cualquier lado, se apaga un poco en cada choque --
+/// hasta que SALE. `sale(p, d)` da cuanto falta hasta el borde y la normal
+/// de fuera alli (`None`: por ahi no hay borde, como el fondo de una losa). Cada paso elige un color al azar para la distancia (el
+/// "color heroe") y pesa los tres por lo que les tocaba (sin sesgo).
+/// `Some((donde sale, su normal de fuera, el peso de cada color))`, o `None`
+/// si la luz se quedo dentro.
+pub fn paseo(o: V3, d: V3, color: V3, radio: V3, az: &mut Azar, sale: impl Fn(V3, V3) -> Option<(f32, V3)>) -> Option<(V3, V3, V3)> {
+    let sigma = radio.map(|r| 1.0 / r.max(1e-4));
+    let alfa = color.map(albedo_de_paseo);
+    let (mut p, mut d, mut w) = (o, d, [1.0f32; 3]);
+    for _ in 0..256 {
+        let c = ((az.uno() * 3.0) as usize).min(2);
+        let t = -ln(1.0 - az.uno()) / sigma[c];
+        let (borde, n) = sale(p, d).unwrap_or((f32::INFINITY, [0.0; 3]));
+        if t >= borde {
+            let tr = sigma.map(|s| exp(-s * borde));
+            let q = (tr[0] + tr[1] + tr[2]) / 3.0;
+            w = [w[0] * tr[0] / q, w[1] * tr[1] / q, w[2] * tr[2] / q];
+            return Some((mas(p, por(d, borde)), n, w));
+        }
+        let tr = [sigma[0] * exp(-sigma[0] * t), sigma[1] * exp(-sigma[1] * t), sigma[2] * exp(-sigma[2] * t)];
+        let q = (tr[0] + tr[1] + tr[2]) / 3.0;
+        w = [w[0] * alfa[0] * tr[0] / q, w[1] * alfa[1] * tr[1] / q, w[2] * alfa[2] * tr[2] / q];
+        // casi nada: se queda dentro (y el peso no explota)
+        if w[0].max(w[1]).max(w[2]) < 1e-4 {
+            return None;
+        }
+        p = mas(p, por(d, t));
+        d = unidad(en_esfera(az));
+    }
+    None
 }
 
 struct Golpe {
@@ -463,7 +597,8 @@ impl Escena<'_> {
             }
         }
         let area = raiz(punto(cruz(u, v), cruz(u, v)));
-        por(emite, cos_p * cos_l * area / (d2 * core::f32::consts::PI))
+        let niebla = self.niebla.map_or(1.0, |nb| nb.transmite(p, l, dist));
+        por(emite, niebla * cos_p * cos_l * area / (d2 * core::f32::consts::PI))
     }
 
     /// **La luz DIRECTA en una SUPERFICIE** (VE4a): un punto al azar de la
@@ -490,7 +625,32 @@ impl Escena<'_> {
         let area = raiz(punto(cruz(u, v), cruz(u, v)));
         let p_luz = d2 / (cos_l * area);
         let w = potencia_mis(p_luz, m.probabilidad(n, wo, l));
-        mul(emite, por(m.refleja(n, wo, l), cos_p * w / p_luz))
+        let niebla = self.niebla.map_or(1.0, |nb| nb.transmite(p, l, dist));
+        mul(emite, por(m.refleja(n, wo, l), niebla * cos_p * w / p_luz))
+    }
+
+    /// **La luz directa en un punto de la NIEBLA** (VE4b): un punto al azar
+    /// de la luz, por lo que se desvia hacia `d` (Henyey-Greenstein) y lo que
+    /// la niebla deja llegar.
+    fn directa_niebla(&self, p: V3, d: V3, nb: &Niebla, az: &mut Azar) -> V3 {
+        let ob = &self.objetos[self.luz];
+        let (Forma::Rect { esquina, u, v }, Material::Luz { emite }) = (ob.forma, ob.material) else { return [0.0; 3] };
+        let q = mas(esquina, mas(por(u, az.uno()), por(v, az.uno())));
+        let hacia = menos(q, p);
+        let d2 = punto(hacia, hacia);
+        let dist = raiz(d2);
+        let l = por(hacia, 1.0 / dist);
+        let cos_l = -punto(unidad(cruz(u, v)), l);
+        if cos_l <= 0.0 {
+            return [0.0; 3];
+        }
+        if let Some(g) = self.golpe(p, l, dist - EPS) {
+            if g.k != self.luz {
+                return [0.0; 3];
+            }
+        }
+        let area = raiz(punto(cruz(u, v), cruz(u, v)));
+        por(emite, hg(nb.g, punto(d, l)) * nb.transmite(p, l, dist) * cos_l * area / d2)
     }
 
     /// La probabilidad (por angulo solido) de que [`directa_superficie`]
@@ -531,7 +691,31 @@ impl Escena<'_> {
         // su direccion (para el peso de MIS si da con la luz)
         let mut ultima: Option<f32> = None;
         for rebote in 0..12 {
-            let Some(g) = self.golpe(o, d, f32::MAX) else { break };
+            let golpe = self.golpe(o, d, f32::MAX);
+            // ** LA NIEBLA (VE4b): antes del golpe, el rayo puede CHOCAR en
+            // el aire (a una distancia al azar, la de Beer); si choca, se
+            // desvia ahi, con su luz directa
+            if let Some(nb) = self.niebla {
+                let lim = golpe.as_ref().map_or(f32::MAX, |g| raiz(punto(menos(g.p, o), menos(g.p, o))));
+                if let Some((t0, t1)) = nb.tramo(o, d, lim) {
+                    let t = t0 - ln(1.0 - az.uno()) / nb.densidad;
+                    if t < t1 {
+                        let p = mas(o, por(d, t));
+                        peso = por(peso, nb.albedo);
+                        luz = mas(luz, mul(peso, self.directa_niebla(p, d, &nb, az)));
+                        d = muestrea_hg(nb.g, d, az);
+                        o = p;
+                        (especular, ultima, vio_mate) = (false, None, true);
+                        if !ruleta(rebote, &mut peso, az) {
+                            break;
+                        }
+                        continue;
+                    }
+                }
+            }
+            let Some(g) = golpe else { break };
+            // de donde sale el rayo siguiente (LA PIEL lo saca por otro sitio)
+            let mut desde = g.p;
             match self.objetos[g.k].material {
                 Material::Luz { emite } => {
                     // la luz se ve directa solo desde la camara o un espejo:
@@ -611,15 +795,38 @@ impl Escena<'_> {
                     especular = true;
                     ultima = None;
                 }
-            }
-            o = g.p;
-            // la ruleta: despues de 3 rebotes, sin sesgo
-            if rebote >= 3 {
-                let q = peso[0].max(peso[1]).max(peso[2]).min(0.95);
-                if az.uno() > q {
-                    break;
+                Material::Piel { color, radio, ior } => {
+                    if !g.fuera {
+                        break;
+                    }
+                    // su piel de fuera: refleja como un espejo lo que dice
+                    // Fresnel; lo demas ENTRA (con el coseno) y pasea
+                    let r0 = ((1.0 - ior) / (1.0 + ior)) * ((1.0 - ior) / (1.0 + ior));
+                    if az.uno() < schlick(r0, -punto(d, g.n)) {
+                        d = menos(d, por(g.n, 2.0 * punto(d, g.n)));
+                        especular = true;
+                        ultima = None;
+                    } else {
+                        let k = g.k;
+                        let sale = |p: V3, d: V3| {
+                            let s = self.golpe(p, d, f32::MAX)?;
+                            // el borde, visto desde dentro: su normal de fuera
+                            let n = if s.k == k && !s.fuera { por(s.n, -1.0) } else { s.n };
+                            Some((raiz(punto(menos(s.p, p), menos(s.p, p))), n))
+                        };
+                        let Some((p, n, w)) = paseo(g.p, coseno(por(g.n, -1.0), az), color, radio, az, sale) else { break };
+                        // sale como de algo mate: su luz directa y un rebote
+                        peso = mul(peso, w);
+                        luz = mas(luz, mul(peso, self.directa(p, n, az)));
+                        d = coseno(n, az);
+                        desde = p;
+                        (especular, ultima, vio_mate) = (false, None, true);
+                    }
                 }
-                peso = por(peso, 1.0 / q);
+            }
+            o = desde;
+            if !ruleta(rebote, &mut peso, az) {
+                break;
             }
         }
         // lo aprendido: la luz que salio de cada sitio mate, por lo que el
@@ -643,6 +850,7 @@ impl Escena<'_> {
         let albedo = match self.objetos[g.k].material {
             Material::Mate { color } | Material::Metal { color, .. } => color,
             Material::Superficie(m) => m.base,
+            Material::Piel { color, .. } => color,
             Material::Vidrio { .. } | Material::Luz { .. } => [1.0; 3],
         };
         let dist = raiz(punto(menos(g.p, o), menos(g.p, o)));
@@ -684,6 +892,19 @@ impl Escena<'_> {
         }
         por(suma, 1.0 / muestras as f32)
     }
+}
+
+/// **La ruleta**: despues de 3 rebotes, un camino que trae poco se corta al
+/// azar y el que sigue vale mas: sin sesgo. `false`: se corto.
+fn ruleta(rebote: u32, peso: &mut V3, az: &mut Azar) -> bool {
+    if rebote >= 3 {
+        let q = peso[0].max(peso[1]).max(peso[2]).min(0.95);
+        if az.uno() > q {
+            return false;
+        }
+        *peso = por(*peso, 1.0 / q);
+    }
+    true
 }
 
 /// Un punto al azar dentro de la esfera unidad (por rechazo: sin seno ni
@@ -799,13 +1020,34 @@ pub fn sala_de_mallas() -> (alloc::vec::Vec<Objeto>, usize, Camara, alloc::vec::
     (objetos, luz, camara, mallas)
 }
 
+/// **LA SALA DE PIEL Y NIEBLA** (VE4b): la caja de Cornell con BRUMA (la
+/// luz del techo se ve en el aire) y tres esferas que dejan entrar la luz:
+/// PIEL (el rojo anda mas por dentro), JADE y MARMOL.
+pub fn sala_de_piel() -> ([Objeto; 9], usize, Camara, Niebla) {
+    let (c, luz, camara) = caja_de_cornell();
+    let esfera = |centro: V3, radio: f32, material| Objeto { forma: Forma::Esfera { centro, radio }, material };
+    let objetos = [
+        c[0],
+        c[1],
+        c[2],
+        c[3],
+        c[4],
+        c[5],
+        esfera([-0.45, 0.32, -0.3], 0.32, Material::Piel { color: [0.86, 0.58, 0.47], radio: [0.12, 0.045, 0.025], ior: 1.4 }),
+        esfera([0.45, 0.28, -0.45], 0.28, Material::Piel { color: [0.35, 0.75, 0.48], radio: [0.03, 0.12, 0.05], ior: 1.6 }),
+        esfera([0.05, 0.2, 0.25], 0.2, Material::Piel { color: [0.9, 0.89, 0.86], radio: [0.09, 0.09, 0.08], ior: 1.5 }),
+    ];
+    let niebla = Niebla { densidad: 0.25, albedo: 0.9, g: 0.4, min: [-1.0, 0.0, -1.0], max: [1.0, 2.0, 1.0] };
+    (objetos, luz, camara, niebla)
+}
+
 #[cfg(test)]
 mod pruebas {
     use super::*;
 
     fn escena(objetos: &[Objeto]) -> Escena<'_> {
         let (_, luz, camara) = caja_de_cornell();
-        Escena { objetos, luz, camara, mallas: &[] }
+        Escena { objetos, luz, camara, mallas: &[], niebla: None }
     }
 
     /// La misma semilla, la misma luz: el render es determinista.
@@ -958,7 +1200,7 @@ mod pruebas {
     #[test]
     fn mis_is_unbiased() {
         let (o, luz, camara) = caja_de_cornell();
-        let e = Escena { objetos: &o[..6], luz, camara, mallas: &[] };
+        let e = Escena { objetos: &o[..6], luz, camara, mallas: &[], niebla: None };
         let (p, n) = ([0.1, 0.0, 0.3], [0.0, 1.0, 0.0]);
         let wo = unidad([0.0, 1.0, 1.2]);
         let Material::Luz { emite } = o[luz].material else { panic!() };
@@ -1006,7 +1248,7 @@ mod pruebas {
     #[test]
     fn the_materials_room_shows_each_layer() {
         let (o, luz, camara) = sala_de_materiales();
-        let e = Escena { objetos: &o, luz, camara, mallas: &[] };
+        let e = Escena { objetos: &o, luz, camara, mallas: &[], niebla: None };
         let (w, h) = (96, 72);
         // el centro de cada esfera en la pantalla, a ojo de la camara
         let en = |x: f32| {
@@ -1044,7 +1286,7 @@ mod pruebas {
     #[test]
     fn the_meshes_room_draws_its_triangles() {
         let (o, luz, camara, mallas) = sala_de_mallas();
-        let e = Escena { objetos: &o, luz, camara, mallas: &mallas };
+        let e = Escena { objetos: &o, luz, camara, mallas: &mallas, niebla: None };
         let (w, h) = (96, 72);
         let pixel_de = |p: V3| {
             let d = unidad(menos(p, camara.ojo));
@@ -1066,6 +1308,103 @@ mod pruebas {
         let (ojo, d) = e.rayo_centro(x, y, w, h);
         let g = e.golpe(ojo, d, f32::MAX).unwrap();
         assert_eq!(o[g.k].forma, Forma::Malla { indice: 0 });
+    }
+
+    /// *** EL PASEO DEVUELVE EL COLOR QUE SE PIDE: en una losa sin fondo
+    /// (lo de debajo de z = 0), la luz que entra con el coseno y pasea sale
+    /// en la proporcion `color` (la inversion de van de Hulst esta hecha
+    /// para eso). Saboteado el albedo de cada choque, sale otra cosa.
+    #[test]
+    fn the_walk_gives_back_the_color_asked() {
+        let mut az = Azar::nuevo(17);
+        let color = [0.8, 0.5, 0.2];
+        let radio = [0.1, 0.1, 0.1];
+        let sale = |p: V3, d: V3| if d[2] > 0.0 { Some((-p[2] / d[2], [0.0, 0.0, 1.0])) } else { None };
+        let n = 40_000;
+        let mut suma = [0.0f32; 3];
+        for _ in 0..n {
+            let d = coseno([0.0, 0.0, -1.0], &mut az);
+            if let Some((p, _, w)) = paseo([0.0; 3], d, color, radio, &mut az, sale) {
+                assert!(p[2].abs() < 1e-3, "sale por el borde: {p:?}");
+                suma = mas(suma, w);
+            }
+        }
+        for k in 0..3 {
+            let r = suma[k] / n as f32;
+            assert!((r - color[k]).abs() < 0.05, "color {k}: pedido {}, sale {r}", color[k]);
+        }
+    }
+
+    /// *** LA NIEBLA APAGA COMO DICE BEER: con albedo 0 (solo apaga), la luz
+    /// del techo vista desde dentro de la caja llega por `e^(-densidad d)`,
+    /// d lo que el rayo anda DENTRO de la caja.
+    #[test]
+    fn the_fog_dims_the_light_as_beer_says() {
+        let (o, luz, camara) = caja_de_cornell();
+        let niebla = Niebla { densidad: 0.8, albedo: 0.0, g: 0.0, min: [-1.0, 0.0, -1.0], max: [1.0, 2.0, 1.0] };
+        let solo_luz = [o[luz]];
+        let (desde, hasta) = ([0.0, 0.5, 0.0], [0.0, 1.998, 0.0]);
+        let d = unidad(menos(hasta, desde));
+        let media = |e: &Escena| {
+            let mut az = Azar::nuevo(3);
+            let n = 20_000;
+            (0..n).map(|_| e.camino(desde, d, &mut az)[0]).sum::<f32>() / n as f32
+        };
+        let limpia = media(&Escena { objetos: &solo_luz, luz: 0, camara, mallas: &[], niebla: None });
+        let con = media(&Escena { objetos: &solo_luz, luz: 0, camara, mallas: &[], niebla: Some(niebla) });
+        let beer = exp(-0.8 * 1.498);
+        assert!((con / limpia - beer).abs() < 0.02, "con niebla {con}, sin {limpia}: {} y Beer dice {beer}", con / limpia);
+    }
+
+    /// LA NIEBLA QUE DESVIA da luz donde no la habia: un rayo desde dentro
+    /// de la caja hacia su boca abierta (la noche, negra) no trae NADA sin
+    /// bruma, y con bruma trae la luz que el aire desvio hacia el; y la sala
+    /// de piel y niebla no da NaN.
+    #[test]
+    fn the_fog_that_scatters_lights_the_air() {
+        let (o, luz, camara, niebla) = sala_de_piel();
+        let (desde, d) = ([0.0, 1.0, 0.5], [0.0, 0.0, 1.0]);
+        let media = |e: &Escena| {
+            let mut az = Azar::nuevo(9);
+            let n = 4000;
+            (0..n).map(|_| luminancia(e.camino(desde, d, &mut az))).sum::<f32>() / n as f32
+        };
+        let sin = media(&Escena { objetos: &o, luz, camara, mallas: &[], niebla: None });
+        let con = media(&Escena { objetos: &o, luz, camara, mallas: &[], niebla: Some(niebla) });
+        assert_eq!(sin, 0.0, "sin bruma, la noche es negra");
+        assert!(con > 0.01, "con bruma, el aire trae luz: {con}");
+        let e = Escena { objetos: &o, luz, camara, mallas: &[], niebla: Some(niebla) };
+        let (w, h) = (48, 36);
+        for y in (0..h).step_by(5) {
+            for x in (0..w).step_by(5) {
+                assert!(e.pixel(x, y, w, h, 4).iter().all(|v| v.is_finite()), "({x}, {y})");
+            }
+        }
+    }
+
+    /// LA PIEL deja pasar la luz: la esfera de piel, en su lado de SOMBRA
+    /// (abajo, contra el suelo), sale mas clara que la misma esfera mate; y
+    /// del color que es (rojiza).
+    #[test]
+    fn the_skin_lets_the_light_through() {
+        let (o, luz, camara, _) = sala_de_piel();
+        let mut mate = o;
+        mate[6].material = Material::Mate { color: [0.86, 0.58, 0.47] };
+        let (w, h) = (64, 48);
+        // abajo de la esfera de piel, en la pantalla
+        let zona = |e: &Escena| {
+            let mut s = [0.0f32; 3];
+            for y in 33..36 {
+                for x in 17..21 {
+                    s = mas(s, e.pixel(x, y, w, h, 64));
+                }
+            }
+            s
+        };
+        let piel = zona(&Escena { objetos: &o, luz, camara, mallas: &[], niebla: None });
+        let solo = zona(&Escena { objetos: &mate, luz, camara, mallas: &[], niebla: None });
+        assert!(luminancia(piel) > luminancia(solo), "piel {piel:?}, mate {solo:?}");
+        assert!(piel[0] > piel[2], "rojiza: {piel:?}");
     }
 
     /// La curva de la pelicula: el negro es negro, la luz de sobra no pasa

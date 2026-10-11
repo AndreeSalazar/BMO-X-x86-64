@@ -449,7 +449,7 @@ mod pruebas {
 
     fn escena(o: &[Objeto]) -> Escena<'_> {
         let (_, luz, camara) = caja_de_cornell();
-        Escena { objetos: o, luz, camara, mallas: &[] }
+        Escena { objetos: o, luz, camara, mallas: &[], niebla: None }
     }
 
     /// El JUEZ: ESTUDIO entero, muchas muestras.

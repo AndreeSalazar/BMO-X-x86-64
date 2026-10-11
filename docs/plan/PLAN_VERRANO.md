@@ -500,8 +500,8 @@ propia, al lado de la trama de tiempo real
          SVGF / OIDN         completar: quitar el ruido      VE5, el juez
                              guiado por la superficie        de la CPU
          Cycles / pbrt       el BVH de los triangulos        VE3
-         Arnold              el subsuelo (la piel) y la      VE4b
-                             niebla por volumen
+         Arnold y Cycles     el subsuelo por PASEO (la       VE4b, HECHO
+                             piel) y la niebla por volumen
          Manuka (Weta)       la luz ESPECTRAL (longitudes    VE4c, despues
                              de onda, no RGB): el vidrio
                              que separa los colores
@@ -532,6 +532,28 @@ propia, al lado de la trama de tiempo real
       cuenta -- saboteado, cae --. La foto: `--example estudio -- sala.ppm
       640 480 256 materiales`, 70 s en 4 nucleos.
       Lo mate de siempre sigue igual (la memoria de VIVO aprende de el).
+
+      **VE4b, 11-10, HECHA en el anfitrion -- LA PIEL Y LA NIEBLA:**
+      `Material::Piel { color, radio, ior }`: su piel de fuera refleja lo
+      que dice Fresnel; lo demas ENTRA con el coseno y PASEA por dentro
+      (`paseo`, el "random walk" de Arnold y Cycles): cada choque a una
+      distancia de Beer con un color HEROE al azar (y los tres pesados por lo
+      que les tocaba: sin sesgo), se desvia a cualquier lado y se apaga un
+      poco, hasta que sale por otro sitio, donde sigue como algo mate. El
+      `color` es lo que se ve de lejos: el albedo de cada choque sale de la
+      inversion de van de Hulst (`albedo_de_paseo`). `Escena::niebla`
+      (`Niebla { densidad, albedo, g, caja }`): el rayo puede chocar en el
+      aire antes de su golpe (la distancia de Beer, solo dentro de la caja);
+      ahi se desvia por Henyey-Greenstein (`g`: hacia delante, la bruma) con
+      su luz directa, y las sombras de toda la escena cruzan la niebla
+      (`e^(-densidad d)`). Sus pruebas: el paseo devuelve el color que se
+      pide en una losa sin fondo (a 0,05; saboteada la inversion, 0,34 en
+      vez de 0,8); la niebla que solo apaga apaga lo de Beer (a 0,02;
+      saboteada la distancia, 0,55 en vez de 0,30); la que desvia trae luz
+      a un rayo que mira a la noche (sin ella, 0 exacto); la piel a la
+      sombra sale mas clara que la misma esfera mate, y rojiza; y la sala no
+      da NaN. La SALA DE PIEL Y NIEBLA (`sala_de_piel`: piel, jade y marmol
+      en bruma): `--example estudio -- piel.ppm 640 480 256 piel`.
 - [ ] **VE5 -- la 3060 como ayudante.** El mismo trazado en su computo, un
       rayo por hilo, juzgado contra el de la CPU (que sigue siendo el juez).
       Con VIVO: la 3060 lee la imagen acumulada y la memoria de la luz (el
