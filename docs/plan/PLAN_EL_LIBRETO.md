@@ -205,6 +205,21 @@ y `puerta.rs`; el juez en `platform/drivers/gpu/ga10x/src/sass/juez.rs`):
       `PLAN_VERRANO.md`). El G-buffer: hasta 8 destinos y el z-buffer en la
       VRAM. **Como se sabe:** la escena 3D dura (A11) pintada por la 3060
       con la huella de Windows.
+      **11-10, la mitad de VERRANO HECHA en el anfitrion, y con ella la
+      MEZCLA:** el `Draw` de VERRANO (V3a) escribe hasta 8 render targets a
+      la vez (la salida k al k) y mezcla cada uno con las reglas de D3D12 --
+      los 13 factores que usan los juegos, las 5 operaciones, la mascara y
+      el factor de `OMSetBlendFactor` --, en floats sobre lo que ya estaba
+      y a 8 bits otra vez; y un dibujo SIN limpiar deja lo de antes, para
+      la pasada que suma la luz. Probado: la mezcla da los MISMOS bits que
+      la de la casa (`bmo_proton_x::mezcla`) en las 1.690 combinaciones;
+      `gbuffer.hlsl` (dxc) pinta sus tres destinos -- el albedo, el sitio de
+      su SV_Position y la normal -- pixel a pixel; la luz que se suma en dos
+      pasadas, la transparencia y la mascara. Saboteado tres veces (sin
+      mezcla, la salida 0 en todos, la resta al reves): cae cada vez.
+      **Falta la mitad de la 3060:** varios destinos en la tuberia
+      (`pso.rs` aun dice "varios render targets") y su mezcla en el ROP,
+      con la regla 4 del juez (el redondeo de la 3060) en el metal.
 - [ ] **LI2e -- la entrada de vertices de verdad**: formatos de 8 y 16 bits
       (UNORM, SNORM, half) y `SV_VertexID` / `SV_InstanceID`. **Como se
       sabe:** las instancias de N5.19 por la 3060, con su huella.

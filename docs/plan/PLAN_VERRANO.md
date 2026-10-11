@@ -329,7 +329,10 @@ la SPH (128 B) y detras las instrucciones.
       SV_Position** (LI2a de [`PLAN_EL_LIBRETO.md`](PLAN_EL_LIBRETO.md), lo
       primero que la 3060 le nego a Cyberpunk): el de pixeles que lee su
       posicion corre en cada pixel con la regla de la casa (N5.9); la de la
-      3060, en LI2a. **Falta:** la 3060 como `DrawBackend` (V3b abajo).
+      3060, en LI2a. **11-10, y varios render targets y la MEZCLA** (LI2d):
+      hasta 8 destinos, la mezcla de D3D12 en cada uno (la de la casa, bit a
+      bit) y el dibujo sin limpiar para las pasadas que se suman. **Falta:**
+      la 3060 como `DrawBackend` (V3b abajo).
 - [ ] **V3b -- la 3060 dibuja un `Draw`.** El Aparato del DIRECTOR hoy
       lleva los programas de BMOX-12 YA traducidos (`bmox12_vs.sm86`); con
       un `Draw` cualquiera, sus programas van por el `.bsf` VIVO de

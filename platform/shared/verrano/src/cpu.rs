@@ -90,36 +90,52 @@ fn top_left(ax: i64, ay: i64, bx: i64, by: i64) -> bool {
     (dy == 0 && dx > 0) || dy < 0
 }
 
-/// La imagen limpia y, si hay profundidad, su z-buffer a 1.0; sin el, un
-/// dibujo con profundidad no se dibuja.
-fn limpiar<'a>(out: &'a mut Image, fondo: u32, depth: bool) -> Result<(&'a mut [u32], Option<&'a mut [f32]>), Error> {
+/// La imagen limpia (con `fondo`; sin el, lo que habia) y, si hay
+/// profundidad, su z-buffer (a 1.0 si se limpia); sin el, un dibujo con
+/// profundidad no se dibuja.
+fn limpiar<'a>(out: &'a mut Image, fondo: Option<u32>, depth: bool) -> Result<(&'a mut [u32], Option<&'a mut [f32]>), Error> {
     let n = (out.width * out.height) as usize;
     let Image { pixels, depth: z, .. } = out;
-    pixels[..n].fill(fondo);
+    if let Some(f) = fondo {
+        pixels[..n].fill(f);
+    }
     if !depth {
         return Ok((pixels, None));
     }
     match z.as_deref_mut() {
         Some(z) if z.len() >= n => {
-            z[..n].fill(1.0);
+            if fondo.is_some() {
+                z[..n].fill(1.0);
+            }
             Ok((pixels, Some(z)))
         }
         _ => Err(Error::Image),
     }
 }
 
+/// Un pixel guardado (`0xAARRGGBB`) a sus cuatro canales (la mezcla lee el
+/// que esta).
+fn canales(p: u32) -> [f32; 4] {
+    let b = |k: u32| ((p >> k) & 0xFF) as f32 / 255.0;
+    [b(16), b(8), b(0), b(24)]
+}
+
 impl Backend for Cpu {
     fn draw(&mut self, frame: &Frame, out: &mut Image) -> Result<Stats, Error> {
         check(frame, out, self.max_vertices)?;
         let (w, h) = (out.width as i64, out.height as i64);
-        let (pixels, mut zb) = limpiar(out, self.unorm8.pack(frame.clear), frame.depth)?;
+        let (pixels, mut zb) = limpiar(out, Some(self.unorm8.pack(frame.clear)), frame.depth)?;
         let (mw, mh) = (frame.viewport.width as f32 * 0.5, frame.viewport.height as f32 * 0.5);
         let mut n = 0;
         for tri in frame.vertices.chunks_exact(3) {
             let color = self.unorm8.pack(tri[0].color);
             let (piezas, cuantas) = recorta([tri[0].position, tri[1].position, tri[2].position]);
             for pieza in &piezas[..cuantas] {
-                n += self.triangulo(frame.cull, pieza, &mut |_, _, _| Some(color), (w, h), (mw, mh), pixels, zb.as_deref_mut()) as u32;
+                let mut pinta = |i: usize, _: i64, _: i64, _: &[i64; 3]| {
+                    pixels[i] = color;
+                    true
+                };
+                n += self.triangulo(frame.cull, pieza, &mut pinta, (w, h), (mw, mh), zb.as_deref_mut()) as u32;
             }
         }
         Ok(Stats { triangles: n, device_us: 0, prepare_us: 0, warm: false, in_flight: false, wait_us: 0 })
@@ -131,15 +147,30 @@ impl Backend for Cpu {
 /// carrera) y el de pixeles UNA vez, con lo del vertice 0 -- o, si lee su
 /// POSICION, en cada pixel (regla 5) --.
 impl DrawBackend for Cpu {
-    fn draw_with(&mut self, d: &Draw, out: &mut Image) -> Result<Stats, Error> {
-        check_draw(d, out, self.max_vertices)?;
+    fn draw_targets(&mut self, d: &Draw, out: &mut Image, others: &mut [&mut [u32]]) -> Result<Stats, Error> {
+        check_draw(d, out, others, self.max_vertices)?;
         let p = d.pipeline;
         let (w, h) = (out.width as i64, out.height as i64);
-        let (pixels, mut zb) = limpiar(out, self.unorm8.pack(d.clear), p.depth)?;
+        let fondo = d.clear.map(|c| self.unorm8.pack(c));
+        let (pixels, mut zb) = limpiar(out, fondo, p.depth)?;
+        if let Some(f) = fondo {
+            for o in others[..p.targets - 1].iter_mut() {
+                o[..(w * h) as usize].fill(f);
+            }
+        }
         let (mw, mh) = (d.viewport.width as f32 * 0.5, d.viewport.height as f32 * 0.5);
         let stride = d.vertices.stride;
+        let unorm8 = self.unorm8;
         let mut n = 0;
         let mut salidas = [[[0f32; 4]; MAX_IO]; 3];
+        // ** reglas 6 y 7: cada salida a su render target, con su mezcla
+        let mut poner = |i: usize, colores: &[[f32; 4]; MAX_IO]| {
+            for t in 0..p.targets {
+                let destino: &mut u32 = if t == 0 { &mut pixels[i] } else { &mut others[t - 1][i] };
+                let b = p.blend[t];
+                *destino = if b.trivial() { unorm8.pack(colores[t]) } else { unorm8.pack(b.apply(colores[t], canales(*destino), p.blend_factor)) };
+            }
+        };
         for t in 0..d.count / 3 {
             for (j, s) in salidas.iter_mut().enumerate() {
                 let v = d.vertex_at(3 * t + j);
@@ -147,29 +178,36 @@ impl DrawBackend for Cpu {
                 p.vertex.run(&d.vertices.data[v * stride..(v + 1) * stride], d.constants, &mut s[..p.vertex.outputs()]);
             }
             let (piezas, cuantas) = recorta([salidas[0][0], salidas[1][0], salidas[2][0]]);
-            let mut color = [[0f32; 4]; MAX_IO];
             let entrada = &salidas[0][..p.pixel.inputs()];
             if !p.pixel.reads(0) {
                 // regla 3: plano, del vertice 0; una vez por triangulo
-                if !p.pixel.run(entrada, d.constants, &mut color[..p.pixel.outputs()]) {
+                let mut colores = [[0f32; 4]; MAX_IO];
+                if !p.pixel.run(entrada, d.constants, &mut colores[..p.pixel.outputs()]) {
                     continue;
                 }
-                let c = self.unorm8.pack(color[0]);
                 for pieza in &piezas[..cuantas] {
-                    n += self.triangulo(p.cull, pieza, &mut |_, _, _| Some(c), (w, h), (mw, mh), pixels, zb.as_deref_mut()) as u32;
+                    let mut pinta = |i: usize, _: i64, _: i64, _: &[i64; 3]| {
+                        poner(i, &colores);
+                        true
+                    };
+                    n += self.triangulo(p.cull, pieza, &mut pinta, (w, h), (mw, mh), zb.as_deref_mut()) as u32;
                 }
                 continue;
             }
             // regla 5: lee SV_Position -- en CADA pixel, lo de la casa (N5.9)
             for pieza in &piezas[..cuantas] {
-                let mut uno = |px: i64, py: i64, e: &[i64; 3]| {
+                let mut pinta = |i: usize, px: i64, py: i64, e: &[i64; 3]| {
                     let mut ent = [[0f32; 4]; MAX_IO];
                     ent[..entrada.len()].copy_from_slice(entrada);
                     ent[0] = posicion(pieza, px, py, e);
-                    let mut c = [[0f32; 4]; MAX_IO];
-                    p.pixel.run(&ent[..entrada.len()], d.constants, &mut c[..p.pixel.outputs()]).then(|| self.unorm8.pack(c[0]))
+                    let mut colores = [[0f32; 4]; MAX_IO];
+                    if !p.pixel.run(&ent[..entrada.len()], d.constants, &mut colores[..p.pixel.outputs()]) {
+                        return false;
+                    }
+                    poner(i, &colores);
+                    true
                 };
-                n += self.triangulo(p.cull, pieza, &mut uno, (w, h), (mw, mh), pixels, zb.as_deref_mut()) as u32;
+                n += self.triangulo(p.cull, pieza, &mut pinta, (w, h), (mw, mh), zb.as_deref_mut()) as u32;
             }
         }
         Ok(Stats { triangles: n, device_us: 0, prepare_us: 0, warm: false, in_flight: false, wait_us: 0 })
@@ -224,11 +262,11 @@ fn recorta(t: [[f32; 4]; 3]) -> ([[[f32; 4]; 3]; 2], usize) {
 
 impl Cpu {
     /// Un triangulo ya delante del plano de cerca: `true` si se dibujo (no
-    /// descartado ni de area 0). `color(x, y, e)` da el de cada pixel que
-    /// cubre y pasa la profundidad, o `None` si su programa lo tira; `e` son
-    /// los pesos de sus vertices (por el area), en el orden de `tri`.
-    #[allow(clippy::too_many_arguments)]
-    fn triangulo(&self, cull: Cull, tri: &[[f32; 4]; 3], color: &mut dyn FnMut(i64, i64, &[i64; 3]) -> Option<u32>, (w, h): (i64, i64), (mw, mh): (f32, f32), pixels: &mut [u32], mut zb: Option<&mut [f32]>) -> bool {
+    /// descartado ni de area 0). `pinta(i, x, y, e)` sombrea y pinta cada
+    /// pixel que cubre y pasa la profundidad (`i` su indice), y dice si
+    /// quedo -- `false`: su programa lo tiro, y la profundidad no se toca --;
+    /// `e` son los pesos de sus vertices (por el area), en el orden de `tri`.
+    fn triangulo(&self, cull: Cull, tri: &[[f32; 4]; 3], pinta: &mut dyn FnMut(usize, i64, i64, &[i64; 3]) -> bool, (w, h): (i64, i64), (mw, mh): (f32, f32), mut zb: Option<&mut [f32]>) -> bool {
         {
             let mut x = [0i64; 3];
             let mut y = [0i64; 3];
@@ -285,11 +323,12 @@ impl Cpu {
                         // el programa de pixeles corre ANTES de escribir la
                         // profundidad: uno que se tira no la toca (D3D)
                         let pesos = if girado { [e[0], e[2], e[1]] } else { e };
-                        let Some(c) = color(px, py, &pesos) else { continue };
+                        if !pinta(i, px, py, &pesos) {
+                            continue;
+                        }
                         if let Some(z) = zb.as_deref_mut() {
                             z[i] = zp;
                         }
-                        pixels[i] = c;
                     }
                 }
             }
@@ -553,9 +592,9 @@ mod pruebas {
         pub(super) fn dibuja(vs: &dyn Shader, ps: &dyn Shader, cb: &[u8], indices: &[u32], cull: Cull) -> Result<(Vec<u32>, u32), Error> {
             let datos = atributos();
             let d = Draw {
-                clear: FONDO_F,
+                clear: Some(FONDO_F),
                 viewport: Viewport { width: ANCHO, height: ALTO },
-                pipeline: Pipeline { vertex: vs, pixel: ps, depth: false, cull },
+                pipeline: Pipeline::new(vs, ps, false, cull),
                 vertices: Buffer { data: &datos, stride: 3 },
                 indices: Some(indices),
                 constants: cb,
@@ -633,9 +672,9 @@ mod pruebas {
 
         fn de_8x8(vs: &dyn Shader, ps: &dyn Shader, datos: &[[f32; 4]], indices: &[u32]) -> Vec<u32> {
             let d = Draw {
-                clear: [0.0; 4],
+                clear: Some([0.0; 4]),
                 viewport: Viewport { width: 8, height: 8 },
-                pipeline: Pipeline { vertex: vs, pixel: ps, depth: false, cull: Cull::None },
+                pipeline: Pipeline::new(vs, ps, false, Cull::None),
                 vertices: Buffer { data: datos, stride: 1 },
                 indices: Some(indices),
                 constants: &[],
@@ -684,6 +723,161 @@ mod pruebas {
             }
             // y no es plana: la esquina de w = 1 y la del fondo, distintas
             assert_ne!(px[0], px[63]);
+        }
+
+        /// Uno de pixeles de prueba: los mismos colores siempre (uno por
+        /// render target).
+        struct Fijo([[f32; 4]; 3]);
+        impl Shader for Fijo {
+            fn inputs(&self) -> usize {
+                0
+            }
+            fn outputs(&self) -> usize {
+                3
+            }
+            fn reads(&self, _: usize) -> bool {
+                false
+            }
+            fn run(&self, _: &[[f32; 4]], _: &[u8], o: &mut [[f32; 4]]) -> bool {
+                o.copy_from_slice(&self.0[..o.len()]);
+                true
+            }
+        }
+
+        /// El cuadro que llena 8x8, en recorte (w = 1).
+        fn lleno() -> Vec<[f32; 4]> {
+            [(-1.0f32, 1.0f32), (1.0, 1.0), (-1.0, -1.0), (1.0, -1.0)].iter().map(|&(x, y)| [x, y, 0.5, 1.0]).collect()
+        }
+
+        /// Un dibujo del cuadro en 8x8 sobre lo que ya hay en `px` (y en
+        /// `otros`), con `p` como tuberia.
+        fn encima(p: Pipeline, clear: Option<[f32; 4]>, px: &mut [u32], otros: &mut [&mut [u32]]) -> Result<Stats, Error> {
+            let datos = lleno();
+            let d = Draw { clear, viewport: Viewport { width: 8, height: 8 }, pipeline: p, vertices: Buffer { data: &datos, stride: 1 }, indices: Some(&[0, 1, 2, 2, 1, 3]), constants: &[], count: 6 };
+            let mut juez = Cpu { max_vertices: 64, ..Cpu::D3D10 };
+            juez.draw_targets(&d, &mut Image { pixels: px, width: 8, height: 8, depth: None }, otros)
+        }
+
+        /// *** LA MEZCLA ES LA DE LA CASA (N5.11): cada factor y cada
+        /// operacion de VERRANO dan los MISMOS bits que `bmo_proton_x::
+        /// mezcla`, sobre colores que no son 0 ni 1.
+        #[test]
+        fn blending_is_the_house_blending() {
+            use crate::dibujo::{Blend, BlendOp, Factor};
+            use bmo_proton_x::mezcla as m;
+            let factores = [
+                (Factor::Zero, m::CERO),
+                (Factor::One, m::UNO),
+                (Factor::SrcColor, m::ORIGEN_COLOR),
+                (Factor::InvSrcColor, m::INV_ORIGEN_COLOR),
+                (Factor::SrcAlpha, m::ORIGEN_ALFA),
+                (Factor::InvSrcAlpha, m::INV_ORIGEN_ALFA),
+                (Factor::DestAlpha, m::DESTINO_ALFA),
+                (Factor::InvDestAlpha, m::INV_DESTINO_ALFA),
+                (Factor::DestColor, m::DESTINO_COLOR),
+                (Factor::InvDestColor, m::INV_DESTINO_COLOR),
+                (Factor::SrcAlphaSat, m::ORIGEN_ALFA_SAT),
+                (Factor::BlendFactor, m::FACTOR),
+                (Factor::InvBlendFactor, m::INV_FACTOR),
+            ];
+            let ops = [(BlendOp::Add, m::SUMAR), (BlendOp::Subtract, m::RESTAR), (BlendOp::RevSubtract, m::RESTAR_AL_REVES), (BlendOp::Min, m::MIN), (BlendOp::Max, m::MAX)];
+            let (o, d, k) = ([0.9, 0.3, 0.55, 0.4], [0.2, 0.7, 0.35, 0.8], [0.6, 0.15, 0.85, 0.3]);
+            let mut vistas = 0;
+            for &(fo, mo) in &factores {
+                for &(fd, md) in &factores {
+                    for &(op, mop) in &ops {
+                        for mascara in [0xF, 0b1010] {
+                            let v = Blend { enable: true, src: fo, dst: fd, op, src_alpha: fd, dst_alpha: fo, op_alpha: op, write_mask: mascara };
+                            let casa = m::Mezcla { encendida: true, origen: mo, destino: md, op: mop, origen_a: md, destino_a: mo, op_a: mop, mascara };
+                            let (a, b) = (v.apply(o, d, k), casa.aplicar(o, d, k));
+                            assert_eq!(a.map(f32::to_bits), b.map(f32::to_bits), "{fo:?} {fd:?} {op:?} {mascara:#x}");
+                            vistas += 1;
+                        }
+                    }
+                }
+            }
+            assert_eq!(vistas, 13 * 13 * 5 * 2);
+        }
+
+        /// ** LA LUZ QUE SE SUMA: una pasada que limpia y pinta 0,25, y otra
+        /// SIN limpiar que suma 0,5 encima (One, One): lo guardado mas 0,5.
+        /// Y la transparencia (SrcAlpha, InvSrcAlpha) de rojo a la mitad sobre
+        /// azul; y la mascara, que deja lo que no esta.
+        #[test]
+        fn light_adds_up_over_two_passes() {
+            use crate::dibujo::Blend;
+            let mut px = vec![0u32; 64];
+            let base = Fijo([[0.25, 0.25, 0.25, 1.0]; 3]);
+            encima(Pipeline::new(&Paso, &base, false, Cull::None), Some([0.0, 0.0, 0.0, 1.0]), &mut px, &mut []).unwrap();
+            let luz = Fijo([[0.5, 0.5, 0.5, 0.0]; 3]);
+            let mut p = Pipeline::new(&Paso, &luz, false, Cull::None);
+            p.blend[0] = Blend::ADD;
+            encima(p, None, &mut px, &mut []).unwrap();
+            // el destino es de 8 bits: guardo 0,25 como 64/255, y sobre ESO se
+            // suma (lo de D3D con un render target UNORM8): 192, no 191
+            let guardado = Cpu::D3D10.unorm8.convert(0.25) as f32 / 255.0;
+            let esperado = Cpu::D3D10.unorm8.pack([guardado + 0.5, guardado + 0.5, guardado + 0.5, 1.0]);
+            assert_eq!(esperado & 0xFF, 192);
+            assert!(px.iter().all(|&c| c == esperado), "{:#x} contra {esperado:#x}", px[0]);
+
+            let mut px = vec![0u32; 64];
+            encima(Pipeline::new(&Paso, &Fijo([[0.0, 0.0, 1.0, 1.0]; 3]), false, Cull::None), Some([0.0; 4]), &mut px, &mut []).unwrap();
+            let mut p = Pipeline::new(&Paso, &Fijo([[1.0, 0.0, 0.0, 0.5]; 3]), false, Cull::None);
+            p.blend[0] = Blend::ALPHA;
+            encima(p, None, &mut px, &mut []).unwrap();
+            assert_eq!(px[27], Cpu::D3D10.unorm8.pack([0.5, 0.0, 0.5, 1.0]), "rojo a la mitad sobre azul");
+
+            let mut p = Pipeline::new(&Paso, &Fijo([[1.0, 1.0, 1.0, 1.0]; 3]), false, Cull::None);
+            p.blend[0] = Blend { write_mask: 0b0001, ..Blend::NONE };
+            encima(p, None, &mut px, &mut []).unwrap();
+            assert_eq!(px[27], Cpu::D3D10.unorm8.pack([1.0, 0.0, 0.5, 1.0]), "solo el rojo cambia");
+        }
+
+        /// *** EL G-BUFFER: `gbuffer.hlsl` de la casa (dxc) escribe tres
+        /// render targets a la vez -- el albedo, el SITIO (de su SV_Position)
+        /// y la normal --, como Cyberpunk antes de su luz. Cada salida en el
+        /// suyo, pixel a pixel.
+        #[test]
+        fn the_gbuffer_writes_three_targets_at_once() {
+            let ps = programa(include_bytes!("../../proton-x/prueba/gbuffer.dxil"));
+            assert_eq!((ps.outputs(), ps.reads(0)), (3, true));
+            // uno de vertice que deja la posicion y un TEXCOORD a cero
+            struct DosSalidas;
+            impl Shader for DosSalidas {
+                fn inputs(&self) -> usize {
+                    1
+                }
+                fn outputs(&self) -> usize {
+                    2
+                }
+                fn reads(&self, k: usize) -> bool {
+                    k == 0
+                }
+                fn run(&self, i: &[[f32; 4]], _: &[u8], o: &mut [[f32; 4]]) -> bool {
+                    o[0] = i[0];
+                    o[1] = [0.0; 4];
+                    true
+                }
+            }
+            let (mut a, mut b, mut c) = (vec![0u32; 64], vec![0u32; 64], vec![0u32; 64]);
+            let mut p = Pipeline::new(&DosSalidas, &ps, false, Cull::None);
+            p.targets = 3;
+            encima(p, Some([0.0; 4]), &mut a, &mut [&mut b, &mut c]).unwrap();
+            let u = Cpu::D3D10.unorm8;
+            for y in 0..8 {
+                for x in 0..8 {
+                    let i = y * 8 + x;
+                    assert_eq!(a[i], u.pack([1.0, 0.0, 0.0, 1.0]), "albedo ({x}, {y})");
+                    assert_eq!(b[i], u.pack([(x as f32 + 0.5) / 8.0, (y as f32 + 0.5) / 8.0, 0.0, 1.0]), "sitio ({x}, {y})");
+                    assert_eq!(c[i], u.pack([0.0, 0.0, 1.0, 0.5]), "normal ({x}, {y})");
+                }
+            }
+            // mas render targets que salidas, o sin su imagen: se dice
+            let mut p = Pipeline::new(&DosSalidas, &ps, false, Cull::None);
+            p.targets = 4;
+            assert_eq!(encima(p, None, &mut a, &mut [&mut b, &mut c]).err(), Some(Error::Shader));
+            p.targets = 3;
+            assert_eq!(encima(p, None, &mut a, &mut [&mut b]).err(), Some(Error::Image));
         }
 
         /// Lo que no encaja se dice: un indice fuera, una de pixeles que lee

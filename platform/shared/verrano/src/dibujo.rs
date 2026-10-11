@@ -18,8 +18,11 @@
 //!                             sabe que lengua es: el de la casa es el
 //!                             Programa de PROMETEO (la feature `prometeo`),
 //!                             que ya sale de DXIL, de SM5 y de TITAN++
-//!    TUBERIA      Pipeline    las dos etapas, la profundidad y el descarte
-//!    DIBUJO       Draw        todo junto, con la limpieza y la vista
+//!    TUBERIA      Pipeline    las dos etapas, la profundidad, el descarte,
+//!                             cuantos render targets y la MEZCLA de cada uno
+//!    DIBUJO       Draw        todo junto, con la limpieza (o sin ella: lo
+//!                             que ya habia se queda, para mezclar encima)
+//!                             y la vista
 //! ```
 //!
 //! Lo de FUERA se traduce a estas piezas y nada mas -- las llamadas de
@@ -44,6 +47,12 @@
 //!       centro (x + 0.5, y + 0.5), la z lineal en la pantalla y la w de
 //!       recorte con perspectiva -- lo de la casa (`bmo_proton_x::trama`,
 //!       N5.9) y lo de D3D --. Cyberpunk la lee para su G-buffer y su ruido
+//!    6  VARIOS RENDER TARGETS (el G-buffer, N5.8 de la casa): su salida k
+//!       va al render target k, hasta 8
+//!    7  LA MEZCLA de cada uno (N5.11 de la casa, `D3D12_BLEND_DESC`): en
+//!       floats, sobre el que ya estaba (sus 8 bits / 255), y a 8 bits otra
+//!       vez; la mascara deja los canales que no estan. La luz que se SUMA,
+//!       el humo, el cristal, la interfaz
 //! ```
 
 use crate::{Cull, Error, Image, Stats, Viewport};
@@ -63,6 +72,109 @@ pub trait Shader {
     fn run(&self, inputs: &[[f32; 4]], constants: &[u8], outputs: &mut [[f32; 4]]) -> bool;
 }
 
+/// Lo mas de render targets a la vez (D3D12: 8).
+pub const MAX_TARGETS: usize = 8;
+
+/// **Un factor de mezcla** (`D3D12_BLEND`, los que usan los juegos).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Factor {
+    Zero,
+    One,
+    SrcColor,
+    InvSrcColor,
+    SrcAlpha,
+    InvSrcAlpha,
+    DestAlpha,
+    InvDestAlpha,
+    DestColor,
+    InvDestColor,
+    /// min(o.a, 1 - d.a) en el color; 1 en el alfa.
+    SrcAlphaSat,
+    /// El de `OMSetBlendFactor` ([`Pipeline::blend_factor`]).
+    BlendFactor,
+    InvBlendFactor,
+}
+
+/// **Una operacion de mezcla** (`D3D12_BLEND_OP`). Min y Max no miran los
+/// factores.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum BlendOp {
+    Add,
+    Subtract,
+    RevSubtract,
+    Min,
+    Max,
+}
+
+/// **La mezcla de un render target** (`D3D12_RENDER_TARGET_BLEND_DESC`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Blend {
+    pub enable: bool,
+    pub src: Factor,
+    pub dst: Factor,
+    pub op: BlendOp,
+    pub src_alpha: Factor,
+    pub dst_alpha: Factor,
+    pub op_alpha: BlendOp,
+    /// R 1, G 2, B 4, A 8.
+    pub write_mask: u8,
+}
+
+impl Blend {
+    /// Sin mezcla y los cuatro canales: el pixel nuevo, tal cual.
+    pub const NONE: Blend = Blend { enable: false, src: Factor::One, dst: Factor::Zero, op: BlendOp::Add, src_alpha: Factor::One, dst_alpha: Factor::Zero, op_alpha: BlendOp::Add, write_mask: 0xF };
+    /// La luz que se SUMA (One, One).
+    pub const ADD: Blend = Blend { enable: true, src: Factor::One, dst: Factor::One, op: BlendOp::Add, src_alpha: Factor::One, dst_alpha: Factor::One, op_alpha: BlendOp::Add, write_mask: 0xF };
+    /// La transparencia de siempre (SrcAlpha, InvSrcAlpha).
+    pub const ALPHA: Blend = Blend { enable: true, src: Factor::SrcAlpha, dst: Factor::InvSrcAlpha, op: BlendOp::Add, src_alpha: Factor::One, dst_alpha: Factor::InvSrcAlpha, op_alpha: BlendOp::Add, write_mask: 0xF };
+
+    /// Si no cambia nada: el pixel nuevo se escribe tal cual.
+    pub fn trivial(&self) -> bool {
+        !self.enable && self.write_mask == 0xF
+    }
+
+    /// **El color que queda**: el nuevo `o` sobre el que estaba `d`, con el
+    /// factor `k` (la cuenta de la casa: `bmo_proton_x::mezcla`, N5.11).
+    pub fn apply(&self, o: [f32; 4], d: [f32; 4], k: [f32; 4]) -> [f32; 4] {
+        let mezclado = if self.enable {
+            core::array::from_fn(|c| {
+                let (fo, fd, op) = if c < 3 { (self.src, self.dst, self.op) } else { (self.src_alpha, self.dst_alpha, self.op_alpha) };
+                let (a, b) = (o[c] * factor(fo, c, o, d, k), d[c] * factor(fd, c, o, d, k));
+                match op {
+                    BlendOp::Add => a + b,
+                    BlendOp::Subtract => a - b,
+                    BlendOp::RevSubtract => b - a,
+                    BlendOp::Min => o[c].min(d[c]),
+                    BlendOp::Max => o[c].max(d[c]),
+                }
+            })
+        } else {
+            o
+        };
+        core::array::from_fn(|c| if self.write_mask & (1 << c) != 0 { mezclado[c] } else { d[c] })
+    }
+}
+
+/// El factor `f` para el canal `c` (3 es el alfa).
+fn factor(f: Factor, c: usize, o: [f32; 4], d: [f32; 4], k: [f32; 4]) -> f32 {
+    match f {
+        Factor::Zero => 0.0,
+        Factor::One => 1.0,
+        Factor::SrcColor => o[c],
+        Factor::InvSrcColor => 1.0 - o[c],
+        Factor::SrcAlpha => o[3],
+        Factor::InvSrcAlpha => 1.0 - o[3],
+        Factor::DestAlpha => d[3],
+        Factor::InvDestAlpha => 1.0 - d[3],
+        Factor::DestColor => d[c],
+        Factor::InvDestColor => 1.0 - d[c],
+        Factor::SrcAlphaSat if c < 3 => o[3].min(1.0 - d[3]),
+        Factor::SrcAlphaSat => 1.0,
+        Factor::BlendFactor => k[c],
+        Factor::InvBlendFactor => 1.0 - k[c],
+    }
+}
+
 /// **La tuberia**: las dos etapas y como se dibuja.
 #[derive(Clone, Copy)]
 pub struct Pipeline<'a> {
@@ -70,6 +182,20 @@ pub struct Pipeline<'a> {
     pub pixel: &'a dyn Shader,
     pub depth: bool,
     pub cull: Cull,
+    /// Cuantos render targets escribe (1..=8): la salida k del de pixeles
+    /// va al k.
+    pub targets: usize,
+    /// La mezcla de cada uno.
+    pub blend: [Blend; MAX_TARGETS],
+    /// `OMSetBlendFactor`.
+    pub blend_factor: [f32; 4],
+}
+
+impl<'a> Pipeline<'a> {
+    /// Un render target, sin mezcla.
+    pub fn new(vertex: &'a dyn Shader, pixel: &'a dyn Shader, depth: bool, cull: Cull) -> Pipeline<'a> {
+        Pipeline { vertex, pixel, depth, cull, targets: 1, blend: [Blend::NONE; MAX_TARGETS], blend_factor: [1.0; 4] }
+    }
 }
 
 /// **Un bufer de vertices**: `stride` float4 por vertice, uno por atributo.
@@ -82,7 +208,10 @@ pub struct Buffer<'a> {
 /// **Un dibujo**: `count` vertices -- o indices, si los hay -- en triangulos.
 #[derive(Clone, Copy)]
 pub struct Draw<'a> {
-    pub clear: [f32; 4],
+    /// Con que se limpian los render targets (y la profundidad, a 1.0) antes
+    /// de dibujar; `None`: lo que habia se queda (una pasada que mezcla
+    /// encima de otra).
+    pub clear: Option<[f32; 4]>,
     pub viewport: Viewport,
     pub pipeline: Pipeline<'a>,
     pub vertices: Buffer<'a>,
@@ -101,14 +230,28 @@ impl Draw<'_> {
     }
 }
 
-/// **Un backend que dibuja con programas.**
+/// **Un backend que dibuja con programas.** `out` es el render target 0 (y
+/// la profundidad); `others`, los de detras (1, 2...), de su misma medida.
 pub trait DrawBackend {
-    fn draw_with(&mut self, d: &Draw, out: &mut Image) -> Result<Stats, Error>;
+    fn draw_targets(&mut self, d: &Draw, out: &mut Image, others: &mut [&mut [u32]]) -> Result<Stats, Error>;
+
+    /// Un render target.
+    fn draw_with(&mut self, d: &Draw, out: &mut Image) -> Result<Stats, Error> {
+        self.draw_targets(d, out, &mut [])
+    }
 }
 
 /// Lo que se comprueba antes de nada, igual para todos los backends.
-pub fn check_draw(d: &Draw, out: &Image, max_vertices: usize) -> Result<(), Error> {
+pub fn check_draw(d: &Draw, out: &Image, others: &[&mut [u32]], max_vertices: usize) -> Result<(), Error> {
     let p = &d.pipeline;
+    // tantos render targets como dice, cada uno con su salida
+    if p.targets == 0 || p.targets > MAX_TARGETS || p.targets > p.pixel.outputs() {
+        return Err(Error::Shader);
+    }
+    let n = (out.width * out.height) as usize;
+    if others.len() + 1 < p.targets || others[..p.targets - 1].iter().any(|o| o.len() < n) {
+        return Err(Error::Image);
+    }
     if d.count == 0 || d.count % 3 != 0 || d.count > max_vertices {
         return Err(Error::Vertices);
     }

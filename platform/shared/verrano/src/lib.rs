@@ -58,7 +58,7 @@ pub mod dibujo;
 /// La lamina: el bloque que otro proceso (INTI) escribe y VERRANO lee, sin cerrojo.
 pub mod lamina;
 
-pub use dibujo::{Buffer, Draw, DrawBackend, Pipeline, Shader};
+pub use dibujo::{Blend, BlendOp, Buffer, Draw, DrawBackend, Factor, Pipeline, Shader};
 
 /// **Un vertice**, como lo lee `cubo.vert`: la posicion ya en coordenadas
 /// de RECORTE (x, y, z, w) y el color (r, g, b, a). 32 bytes.
