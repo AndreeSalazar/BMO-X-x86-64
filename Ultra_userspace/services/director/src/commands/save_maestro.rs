@@ -222,7 +222,6 @@ pub(crate) fn maestro(dsk: &mut Desktop, dest: &[u8], rayo: bmo::CuentasRayo) ->
     // tipografia. Se escribe directa al fichero, no pasa por la pantalla:
     // es la unica, y a proposito -- son los mismos numeros que ya se vieron.
     super::datos::parar();
-    crate::scene::output::callar_espejo(false);
     if let Some(h) = hoja(b"DATOS.TXT") {
         super::datos::volcar(&h);
         if h.close() {
@@ -295,6 +294,11 @@ pub(crate) fn maestro(dsk: &mut Desktop, dest: &[u8], rayo: bmo::CuentasRayo) ->
     g.with_ink(INK_PLAIN);
     let (f, t) = g.rows_since(m);
     volcar(&a, g, f, t, &mut c);
+    // ** El espejo de la caja negra, otra vez, AQUI y no al acabar los
+    // capitulos (11-10, los CAIDA004..007): la cola "PARA PEGAR" iba despues
+    // y llenaba un tercio del anillo -- 37 copias, una por cada `save` de
+    // `save mode` -- echando de la caja negra lo que importaba.
+    crate::scene::output::callar_espejo(false);
 
     if a.close() {
         FIN_ANTERIOR.store(g.mark(), core::sync::atomic::Ordering::Relaxed);

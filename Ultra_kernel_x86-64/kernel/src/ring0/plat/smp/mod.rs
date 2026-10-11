@@ -378,6 +378,15 @@ pub fn despertar(cuantos: u32, aviso: impl Fn(u32)) -> (u32, u32) {
     });
 
     decir_estado_cpu(alive);
+    // ** QUIEN LISTA LA PLACA Y QUIEN CONTESTO, como mascaras de APIC (11-10:
+    // F11 dijo `CORE ABSENT =10` y `THREAD ABSENT =11` con "12 de 12" en
+    // pie). Si las dos no cuadran, la lista de la MADT y el APIC que cada
+    // obrero lee de CPUID no son el mismo numero.
+    if let Some(c) = censo.as_ref() {
+        let madt = c.ids().iter().filter(|&&id| id < 32).fold(0u64, |m, &id| m | 1 << id);
+        crate::ring0::cabina::info("smp", "APIC que lista la MADT (mascara)", madt);
+        crate::ring0::cabina::info("smp", "APIC que contestaron, y el BSP (mascara)", mascara as u64 | 1 << (yo & 31));
+    }
     if alive == pedidos {
         crate::ring0::cabina::info("smp", "contestaron todos los llamados", alive as u64 + 1);
     } else {
@@ -407,7 +416,17 @@ fn decir_estado_cpu(vivos: u32) {
     let cr4 = |i: usize| tramp::CR4_AP[i].load(Ordering::SeqCst);
     let sin_cache = (0..n).filter(|&i| cr0(i) & (3 << 29) != 0).count();
     let sin_mce = (0..n).filter(|&i| cr4(i) & (1 << 6) == 0).count();
-    let distintos = (0..n).filter(|&i| cr0(i) != bsp0 || cr4(i) != bsp4).count();
+    // ** Solo los bits que IMPORTAN (11-10): el metal dijo "11 de 11 con otro
+    // CR0/CR4" porque el BSP lleva PGE, SMEP, SMAP, UMIP y FSGSBASE y los
+    // obreros NO, a proposito (V12: cambian lo que el obrero ve de las
+    // paginas). Esos no son una diferencia que avisar.
+    //   CR0: PE 0, MP 1, EM 2, TS 3, NE 5, NW 29, CD 30, PG 31
+    //   CR4: PAE 5, MCE 6, OSFXSR 9, OSXMMEXCPT 10, OSXSAVE 18
+    const CR0_IMPORTA: u64 = 1 | 1 << 1 | 1 << 2 | 1 << 3 | 1 << 5 | 1 << 29 | 1 << 30 | 1 << 31;
+    const CR4_IMPORTA: u64 = 1 << 5 | 1 << 6 | 1 << 9 | 1 << 10 | 1 << 18;
+    let distintos = (0..n)
+        .filter(|&i| (cr0(i) ^ bsp0) & CR0_IMPORTA != 0 || (cr4(i) ^ bsp4) & CR4_IMPORTA != 0)
+        .count();
     let byte = |x: usize| x.min(0xFF) as u64;
     VEREDICTO.store(1 << 63 | byte(n) | byte(distintos) << 8 | byte(sin_cache) << 16 | byte(sin_mce) << 24, Ordering::SeqCst);
     use crate::ring0::cabina::{info, warn};
