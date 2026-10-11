@@ -44,8 +44,9 @@ pub use bmo_prometeo::bufer;
 pub mod cifra;
 pub mod cargar;
 /// E2.5 (05-10): los pixeles en cuadros de 2x2 y en olas (las de un
-/// sombreador que usa `Wave*` y `Quad*`).
-pub mod cuadros;
+/// sombreador que usa `Wave*` y `Quad*`). En VERRANO desde el 11-10 (VC2:
+/// la trama es de VERRANO, `bmo-verrano-trama`; PROTON-X la usa).
+pub use bmo_verrano_trama::cuadros;
 pub mod desenrollar;
 /// Los formatos de un vertice: de los bytes a lo que lee el sombreador (03-10).
 /// En PROMETEO desde el 08-10 (LB3b).
@@ -69,7 +70,7 @@ pub mod resumen;
 pub mod seh;
 pub mod sm5;
 pub mod sombras;
-pub mod stencil;
+pub use bmo_verrano_trama::stencil;
 pub mod hilos;
 pub mod hora;
 pub mod lote;
@@ -77,7 +78,7 @@ pub use bmo_prometeo::mates;
 /// ** DL13 (09-10): las Mate de series como RECETAS de f32 (la casa las corre,
 /// cada tarjeta las repite), y la FMA exacta de la casa.
 pub use bmo_prometeo::{cuentas, fma as fma_casa};
-pub mod mezcla;
+pub use bmo_verrano_trama::mezcla;
 pub mod nulo;
 pub mod mensajes;
 pub mod monton;
@@ -92,7 +93,7 @@ pub mod teb;
 pub mod texto;
 pub use bmo_prometeo::textura;
 pub mod tls;
-pub mod trama;
+pub use bmo_verrano_trama::trama;
 pub mod ventanas;
 
 pub use cargar::{colocar, colocar_en, importaciones, importaciones_de_seccion, partir, resolver, retrasadas_de_seccion, tramos, Funcion, Importacion, Partes, Tramo, PAGINA};

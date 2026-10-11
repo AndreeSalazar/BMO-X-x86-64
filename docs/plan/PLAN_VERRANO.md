@@ -1070,6 +1070,18 @@ puertas de la 3060 que faltan y el orden): [`PLAN_EL_LIBRETO.md`](PLAN_EL_LIBRET
   trama a mano; la trama queda como el backend CPU (el juez). **Como se
   sabe:** todos los jueces de `prueba/` (hdr, stencil, olas...) dicen lo
   mismo por la nueva puerta.
+  **11-10, PASO 1 HECHO (lo decidio el propietario: "Mudar la trama a
+  VERRANO"):** la trama de la casa -- `trama`, `cuadros`, `mezcla`,
+  `stencil`, la de D3D12 entera en la CPU -- es de VERRANO:
+  `platform/shared/verrano-trama/` (`bmo-verrano-trama`, aparte de
+  `bmo-verrano` porque pide `alloc` y el driver y el DIRECTOR no tienen
+  asignador: dos crates con un nombre, como PROMETEO). Se movio con
+  `git mv`, sin tocar una cuenta; PROTON-X la reexporta con sus nombres de
+  siempre, asi que sus 25 ficheros no cambiaron. En verde: sus pruebas, las
+  de PROTON-X, el kernel, el Ring 3 entero y los guardianes. **Paso 2:** el
+  juez de `Draw` (`verrano/src/cpu.rs`) deja su rasterizador y dibuja con
+  ESTA trama -- una sola --; **paso 3:** `tuberia.rs` de la casa entrega
+  `Draw` y `Dispatch` en vez de un `Lote`.
 - [ ] **VC3 -- la cara de Vulkan** (`platform/drivers/gpu/rdna4/PLAN_VULKAN.md`):
   un `vulkan-1.dll` en la casa que dice lo suyo en el MISMO VERRANO; el
   SPIR-V ya entra por `toolchain/lang/spirv`. Despues de VC2: Vulkan no se

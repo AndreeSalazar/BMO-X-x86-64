@@ -1086,7 +1086,7 @@ la proxima corrida del metal dice cual pesa mas:
   de Windows (`proton-x-casa/tests/gbuffer.rs`). En la 3060 todavia uno:
   el G-buffer va por la CPU (N6.1).
 - [x] **N5.11 -- la MEZCLA** (03-10): la luz que se suma, las
-  particulas, el humo, el cristal, la interfaz. `proton-x/src/mezcla.rs`:
+  particulas, el humo, el cristal, la interfaz. `proton-x/src/mezcla.rs` (desde el 11-10, `verrano-trama/src/mezcla.rs`: VC2):
   los factores, las cinco operaciones, color y alfa por separado y la
   mascara por canal; cada render target la suya (IndependentBlendEnable) y
   el factor de `OMSetBlendFactor`. La trama guarda en su memoria el color
@@ -1100,7 +1100,7 @@ la proxima corrida del metal dice cual pesa mas:
   (`Destino::pixeles` vacio). Probado por las puertas de Windows: un mapa
   de sombras D32 (`tests/gbuffer.rs`). La 3060 no lo toma todavia (sin
   back buffer que darle a la puerta): por la CPU.
-- [x] **N5.12b -- el STENCIL** (05-10, `proton-x/src/stencil.rs`, `prueba/stencil.exe`):
+- [x] **N5.12b -- el STENCIL** (05-10, `proton-x/src/stencil.rs` -- desde el 11-10 en `verrano-trama/src/stencil.rs`, VC2 --, `prueba/stencil.exe`):
   las mascaras de luz y las calcomanias de Cyberpunk. Antes el PSO lo
   apuntaba y no lo usaba (un aviso), y un juego que recorta con stencil
   pintaba de mas. Ahora, con las reglas de D3D12: StencilEnable, las

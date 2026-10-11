@@ -1,0 +1,17 @@
+[package]
+name = "bmo-verrano-trama"
+version = "0.1.0"
+edition = "2021"
+description = "VERRANO, su TRAMA (VC2): la de D3D12 entera en la CPU -- triangulos a pixeles, el recorte, la profundidad, el stencil, la mezcla, los cuadros y las olas --. La usa PROTON-X, que solo emula el ABI. Puro."
+license = "Apache-2.0"
+
+# Va aparte de `bmo-verrano` por la memoria: la trama pide `alloc` (y el
+# Programa de PROMETEO), y el VERRANO de base lo usan el driver de la 3060 y
+# el DIRECTOR, que no tienen asignador. Dos crates con un nombre, como
+# PROMETEO.
+[dependencies]
+bmo-prometeo = { path = "../prometeo" }
+
+[lib]
+name = "bmo_verrano_trama"
+path = "src/lib.rs"

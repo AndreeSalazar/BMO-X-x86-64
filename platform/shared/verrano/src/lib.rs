@@ -58,6 +58,7 @@ pub mod dibujo;
 /// La lamina: el bloque que otro proceso (INTI) escribe y VERRANO lee, sin cerrojo.
 pub mod lamina;
 
+
 pub use dibujo::{Address, Blend, BlendOp, Buffer, Compute, ComputeBackend, Dispatch, Draw, DrawBackend, Factor, Filter, Pipeline, ReadBuffer, Resources, RwBuffer, Sampler, Shader, Texture};
 
 /// **Un vertice**, como lo lee `cubo.vert`: la posicion ya en coordenadas
