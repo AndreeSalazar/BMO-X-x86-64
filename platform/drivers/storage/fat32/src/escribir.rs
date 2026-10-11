@@ -154,7 +154,7 @@ impl FatVolume {
     /// Suelta una cadena de clusters entera. Se usa para deshacer una reserva
     /// a medias: si el disco se llena en mitad de un archivo, lo ya cogido se
     /// devuelve en vez de quedar perdido para siempre.
-    fn free_chain(&mut self, first: u32) {
+    pub(super) fn free_chain(&mut self, first: u32) {
         let mut c = first;
         let mut guard = 0u32;
         while c >= 2 && c <= self.max_cluster {
@@ -321,7 +321,7 @@ impl FatVolume {
     /// Reemplazar un archivo de 1 GiB pide 1 GiB libre aunque el archivo final
     /// mida lo mismo que el que sustituye. Es el precio de no poder perderlo, y
     /// se paga a gusto: la alternativa barata es la que pierde datos.
-    fn replace_file_fat32(&mut self, vieja: EntradaDir, data: &[u8]) -> Result<(), WriteError> {
+    pub(super) fn replace_file_fat32(&mut self, vieja: EntradaDir, data: &[u8]) -> Result<(), WriteError> {
         // 1. La cadena nueva, entera y antes de tocar nada.
         let nueva = self.escribir_cadena(data)?;
 
@@ -397,7 +397,7 @@ impl FatVolume {
     ///
     /// ** El orden seguro no cambia: la cadena (FAT y datos) entera ANTES de que
     /// ninguna entrada de directorio apunte a ella. Eso lo hace quien llama.
-    fn escribir_cadena(&mut self, data: &[u8]) -> Result<u32, WriteError> {
+    pub(super) fn escribir_cadena(&mut self, data: &[u8]) -> Result<u32, WriteError> {
         let spc = self.sectors_per_cluster as usize;
         if spc == 0 { return Err(WriteError::Io); }
         let cluster_bytes = spc * 512;
