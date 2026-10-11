@@ -446,7 +446,9 @@ impl Disco for Kernel {
         // Siete bytes por llamada: solo para destinos que no son del monton.
         let mut hecho = 0usize;
         while hecho < n {
-            let v = unsafe { syscall::archivo_op(h, ARCH_OP_LEER, 0, 0, 0) };
+            // Con el tope de lo que cabe: la sobra de la ultima tirada se perdia.
+            let tope = (n - hecho).min(7) as u64;
+            let v = unsafe { syscall::archivo_op(h, ARCH_OP_LEER, tope, 0, 0) };
             let k = ((v >> 56) as usize).min(7);
             if k == 0 {
                 break;

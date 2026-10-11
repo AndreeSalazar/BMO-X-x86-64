@@ -259,6 +259,9 @@ pub fn leer_bytes(code: &mut Vec<u8>, n: u32) {
     // -- 3) Pedir otro paquete al kernel --
     x86::mov_r64_r64(code, RDI, R10);
     x86::mov_r32_imm32(code, RSI, ARCH_OP_LEER as u32);
+    // arg0 = 0: siete por paquete. Sin esto el TOPE seria lo que quedara en
+    // rdx; la sobra ya la guarda el area de detras.
+    x86::mov_r32_imm32(code, RDX, 0);
     x86::mov_r32_imm32(code, RAX, NR_INVOKE);
     x86::syscall(code);
     // rcx = cuantos trae (byte alto), rdx = los bytes.

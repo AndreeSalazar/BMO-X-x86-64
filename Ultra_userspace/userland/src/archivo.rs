@@ -476,7 +476,11 @@ impl Archivo {
         }
         let mut puestos = 0usize;
         while puestos < dst.len() {
-            let v = invoke(self.cap, ARCH_OP_LEER, 0, 0, 0).value;
+            // El tope: lo que cabe. Sin el, la ultima tirada de un destino que
+            // no mide un multiplo de 7 tiraba la sobra (3 bytes de cada 2048
+            // en la copia con fecha del `save`).
+            let tope = (dst.len() - puestos).min(7) as u64;
+            let v = invoke(self.cap, ARCH_OP_LEER, tope, 0, 0).value;
             let n = (v >> 56) as usize;
             if n == 0 {
                 break;
