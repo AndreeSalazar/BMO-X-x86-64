@@ -449,9 +449,9 @@ pub struct Export {
 
 /// Un `BMO.toml`.
 ///
-/// `provides`/`requires` son los mismos nombres de capacidad que ya usa
-/// `BMO_SYMBOLS.toml` en la raiz del repo (`storage.write`, `telemetry.log`).
-/// Estaban en dos formatos distintos describiendo lo mismo; aqui caben en el
+/// `provides`/`requires` son nombres de capacidad (`storage.write`,
+/// `telemetry.log`), los que usaba el registro `BMO_SYMBOLS.toml` de
+/// `bmo-linker` (los dos fuera del arbol desde el 11-10). Aqui caben en el
 /// manifiesto para que un modulo declare que NECESITA -- que es la pregunta
 /// que un sistema de capabilities tiene que poder hacerle antes de admitirlo.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]

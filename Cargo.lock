@@ -119,8 +119,6 @@ dependencies = [
  "bmo-abi",
  "bmo-bex-gate",
  "bmo-c-front",
- "bmo-inti-front",
- "bmo-inti-x86-64",
  "bmo-lower",
  "bmo-mods",
  "bmo-sem-asm",

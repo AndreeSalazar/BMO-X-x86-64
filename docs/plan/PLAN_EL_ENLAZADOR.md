@@ -74,7 +74,8 @@ hay maduren por completo"**, es exactamente este plan.
 Y lo que NO es lo que parece:
 
 ```text
-   tools/bmo-linker      un REGISTRO de simbolos ELF, fuera del workspace
+   tools/bmo-linker      un REGISTRO de simbolos ELF, fuera del workspace --
+                         BORRADO el 11-10 con su `BMO_SYMBOLS.toml`
    el enlazador dinamico 308 lineas en bmo-abi que no llamaba nadie -- BORRADO
                          el 2026-09-17 (E0). Lo que sigue es lo que decia:
                          contra la decision escrita "todo estatico"
