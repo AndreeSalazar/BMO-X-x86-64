@@ -16,3 +16,7 @@ bmo-userland = { path = "../../userland" }
 bmo-verrano-trama = { path = "../../../platform/shared/verrano-trama" }
 # El pedido de los sub-directores (H4.3): sus bloques, su pila y su FIN.
 bmo-orquesta = { path = "../../../platform/shared/bmo-orquesta" }
+# VEL2: la puerta de COMPLETAR por la 3060 -- la cabecera de su bloque (puro,
+# sin dependencias) y el bloque y el juez de VERRANO.
+bmo-gpu-ga10x = { path = "../../../platform/drivers/gpu/ga10x" }
+bmo-verrano = { path = "../../../platform/shared/verrano" }

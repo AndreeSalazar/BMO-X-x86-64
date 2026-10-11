@@ -26,9 +26,11 @@ dependencies = [
 name = "bmo-app-estudio"
 version = "0.1.0"
 dependencies = [
+ "bmo-gpu-ga10x",
  "bmo-monton",
  "bmo-orquesta",
  "bmo-userland",
+ "bmo-verrano",
  "bmo-verrano-trama",
 ]
 

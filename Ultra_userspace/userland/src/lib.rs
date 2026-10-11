@@ -349,6 +349,8 @@ pub const IOMMU_OP_GPU_ETERNO: u64 = 0x4E;
 /// abajo | la tolerancia en los bits 48..63). Ver el ABI.
 pub const IOMMU_OP_GPU_COMPLETA_FORMATO: u64 = 0x4F;
 pub const IOMMU_OP_GPU_COMPLETA: u64 = 0x50;
+/// VEL2: la puerta estrecha de COMPLETAR, para una app (ver el ABI).
+pub const IOMMU_OP_GPU_COMPLETAR: u64 = 0x51;
 pub const COMPLETA_DE_B: u64 = 1 << 3;
 pub const COMPLETA_CARGAR: u64 = 1 << 4;
 pub const CUBO_LEER: u64 = 1 << 63;

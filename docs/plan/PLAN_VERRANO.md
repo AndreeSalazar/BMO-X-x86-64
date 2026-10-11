@@ -611,11 +611,7 @@ propia, al lado de la trama de tiempo real
       de mentira de 320x240 con su guia, tres pasadas en la 3060 (A -> B ->
       A -> B), CADA pixel de cada pasada contra la cuenta de VERRANO, y la
       luz con grano y la completada en la pantalla.
-      **Falta:** el metal (fila VE5 de EL_FOCO); y que la APP `estudio` la
-      use cada fotograma: hoy las dos llaves (la autoridad MAQUINA y la
-      pantalla) solo dejan al escritorio. Una app necesita la puerta de
-      COMPUTO de las apps (LB8 de `PLAN_LAS_LIBRERIAS`), que es de Ring 0 y
-      la decide el propietario.
+      **Falta:** el metal (fila VE5 de EL_FOCO).
 
       **Lo que se encontro por el camino (11-10), para decidir:** las apps de
       Ring 3 se compilan para `x86_64-unknown-none`, que hace la coma
@@ -627,6 +623,41 @@ propia, al lado de la trama de tiempo real
       become a hard error"). El camino limpio es un objetivo propio de Ring
       3 (un `.json` con la coma flotante por hardware, `build-std` como el
       kernel). Cambia el ABI de TODAS las apps: lo decide el propietario.
+
+      **LA VELOCIDAD, 11-10 (el propietario: *"dale con la velocidad de
+      fotograma primero"*):**
+      - **VEL1, la coma flotante por hardware, para `estudio`:**
+        `Ultra_userspace/x86_64-bmo-ring3.json` es `x86_64-unknown-none` con
+        SSE2 y el ABI de hardware (sin `rustc-abi: softfloat`); se construye
+        con `-Z build-std=core,alloc` (un paso propio en `build.ps1`, y
+        `Enlazar-App 'estudio' 'x86_64-bmo-ring3'`). El ELF pasa de 0 a 1674
+        instrucciones de coma flotante de verdad (y 0 llamadas a
+        `__mulsf3`). El kernel ya estaba listo: cada tarea arranca con su
+        FCW y su MXCSR de serie y cada trap guarda TODO (`xsaveopt64`). Lo
+        que SI hizo falta: el `_start` DESNUDO (`and rsp, -16` y `call`).
+        El kernel entra con la pila alineada a 16 (`USER_STACK_TOP`, lo del
+        ABI de SysV para un proceso) y Rust la espera como despues de un
+        `call`: con la coma flotante por software daba igual, con SSE es un
+        #GP en el primer `movaps` (el ELF tiene 1344). Las demas apps
+        siguen en `x86_64-unknown-none` hasta medir esta en el metal.
+      - **VEL2, la puerta de COMPLETAR para las apps:**
+        `IOMMU_OP_GPU_COMPLETAR` (0x51), la SEGUNDA puerta estrecha (como la
+        de las recetas): el programa es el del kernel, el bloque es de quien
+        pide (una pagina de cabecera -- "VE5C", medidas, pasadas, tolerancia
+        -- y el de VERRANO), el GR con su cerrojo, y TODAS las pasadas en una
+        llamada (el bloque se presta una vez). La app `estudio` la usa cada
+        fotograma (`g` la quita y la pone): juzga 32 pixeles de la ultima
+        pasada con la cuenta de VERRANO y, si la puerta dice que no o un
+        pixel no es el del juez, lo dice y completa la CPU. El guardian
+        `la-3060` (P2) exige las dos puertas y lo que hace segura a esta
+        (`fisica_de` con su pid, `co::cabecera`, `gr_ocupado`, el programa
+        por `co::preparar` y el `devolver_gpu`). **Y se encontro que P2
+        pasaba en VACIO desde el 10-10**: la puerta de las recetas se movio a
+        `iommu_puerta` (el respiro) y el guardian leia solo `fn iommu`; ahora
+        lee las dos y falla si no ve la puerta (saboteado: sin el cerrojo en
+        la nueva, cae; sin el juez en la de las recetas, cae).
+      **Falta, el metal** (fila VEL de EL_FOCO): los ms por fotograma de la
+      consola, antes y despues.
 - [ ] **VE6 -- TITAN++ lo pide.** `director.estudio(...)`: una escena de
       TITAN++ renderizada por ESTUDIO.
 

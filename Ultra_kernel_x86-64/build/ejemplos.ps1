@@ -173,8 +173,8 @@ try {
     # el Ryzen F1 dio "un nombre no cabe en 8.3". Windows lo copia con nombre
     # largo y el FAT32 de BMO-X busca por el corto. Por eso la funcion
     # comprueba el 8.3 de cada una, como `Construir-Ejemplos`.
-    function Enlazar-App([string]$app) {
-        $elf = Join-Path $usDir ('target\x86_64-unknown-none\release\' + $app)
+    function Enlazar-App([string]$app, [string]$objetivo = 'x86_64-unknown-none') {
+        $elf = Join-Path $usDir ('target\' + $objetivo + '\release\' + $app)
         if (-not (Test-Path $elf)) { Fail ('no salio el ELF de apps/' + $app) }
         $bex = Join-Path $dataBase ('sys\' + $app + '.bex')
         if ([System.IO.Path]::GetFileNameWithoutExtension($bex).Length -gt 8) { Fail ($bex + ': el tallo no cabe en 8.3') }
@@ -193,7 +193,9 @@ try {
     # otro y contados (`run sys/jueces.bex`, o un grupo: `d3d12`).
     # Y `estudio` (11-10, VE2 de PLAN_VERRANO): la luz estilo RenderMan que se
     # recuerda, con todos los nucleos (`smp all`; `run sys/estudio.bex`).
-    foreach ($app in @('taller', 'ludoteca', 'hermes', 'bankcat', 'jueces', 'estudio')) { Enlazar-App $app }
+    foreach ($app in @('taller', 'ludoteca', 'hermes', 'bankcat', 'jueces')) { Enlazar-App $app }
+    # `estudio`, con la coma flotante por hardware (su objetivo, `build.ps1`).
+    Enlazar-App 'estudio' 'x86_64-bmo-ring3'
     # Y `teb.exe` (P1d, 27-09): lee su TEB y su PEB por `gs:` como el CRT de
     # Microsoft, y dice `bien` seis veces si el GS de la casa es el de Windows.
     # Y `ventana.exe` (P2, 27-09): una ventana Win32 de manual, con el user32 y

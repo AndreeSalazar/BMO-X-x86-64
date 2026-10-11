@@ -528,6 +528,11 @@ linea dice que se mira y que seria un NO.
                                  las PARTES (los nucleos); se     panico; con `c`
                                  ve LIMPIA (VE5, completada) y    manchas o
                                  `c` la deja cruda, con grano     bordes borrados
+   VEL ESTUDIO a toda          `gpu lienzo`, `smp all`, `run    un #GP al
+       velocidad (SSE en Ring    sys/estudio.bex`: la consola     abrir (la pila),
+       3 y la 3060 completa)     dice "completada en la 3060" y   "la 3060 no
+                                 los ms por fotograma; `g` lo     completa", o
+                                 pasa a la CPU: la diferencia     los mismos ms
    VE5 COMPLETAR por la 3060   `gpu completa` (tras `gpu         un pixel
        (el filtro de ESTUDIO     lienzo`): tres lineas "76800 de  distinto, la
        VIVO, juzgado pixel a     76800 pixeles iguales al juez"   3060 sin pagar,

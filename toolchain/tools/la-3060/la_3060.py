@@ -23,11 +23,16 @@ las esperas, que es la deuda que se quiere bajar):
                    `autoridad::MAQUINA` antes de mirar la orden
     R  REGISTROS   solo dev/gpu*, dev/gpu_trabajo/ y dev/vblank.rs tocan
                    los registros de la 3060 (`Bar0(`, `gpu::bar0()`)
-    P2 LA PUERTA ESTRECHA (P3b4c, 28-09): `fn iommu` (la envoltura) desvia
-                   UNA orden antes de las llaves, `IOMMU_OP_GPU_DIBUJAR`, y
-                   solo a `gpu_trabajo::receta`; y esa pega con
-                   `receta::pegar` (juez R7 del cuerpo y R0..R6 del programa)
-                   y dibuja con `en_frio` (el destino, obligatorio y suyo)
+    P2 LAS PUERTAS ESTRECHAS (P3b4c, 28-09; VEL2, 11-10): `fn iommu` (la
+                   envoltura) desvia DOS ordenes antes de las llaves, y solo
+                   esas: `IOMMU_OP_GPU_DIBUJAR`, a `gpu_trabajo::receta` (que
+                   pega con `receta::pegar` -- juez R7 del cuerpo y R0..R6
+                   del programa -- y dibuja con `en_frio`: el destino,
+                   obligatorio y suyo), e `IOMMU_OP_GPU_COMPLETAR`, a
+                   `gpu_trabajo::completar_de_app` (el bloque es SUYO,
+                   `fisica_de` con su pid; el programa es el del kernel,
+                   `co::preparar`; el GR con su cerrojo, `gr_ocupado`; y el
+                   bloque se devuelve, `pasadas`)
     O  ORDENES     cada `IOMMU_OP_*` vale lo mismo en el kernel, el ABI y
                    userland; ninguna repite valor; cada una tiene nombre
                    (`nombre_iommu`, lo que dice la pantalla amarilla) y
@@ -162,12 +167,33 @@ def puerta_estrecha(fallos):
     if i < 0 or j < 0:
         fallos.append('P2: no se encuentran `fn iommu(` y `fn iommu_(` en syscall/op_maquina.rs')
         return
-    envoltura = t[i:t.find('\n}\n', i)]
+    # ** 11-10: la envoltura son `fn iommu` Y `fn iommu_puerta` (el respiro,
+    # 10-10, partio la puerta en dos): de `fn iommu(` hasta `fn iommu_(`.
+    # Antes se leia solo `fn iommu`, que ya no desviaba nada: esta regla
+    # pasaba en VACIO. Ahora, sin ver la puerta de las recetas, falla.
+    envoltura = t[i:j] if j > i else t[i:t.find('\n}\n', i)]
     ordenes = set(re.findall(r'IOMMU_OP_[A-Z0-9_]+', envoltura))
-    if ordenes - {'IOMMU_OP_GPU_DIBUJAR'}:
-        fallos.append('P2: `fn iommu` desvia antes de las llaves ordenes que no son la puerta estrecha: %s' % ', '.join(sorted(ordenes - {'IOMMU_OP_GPU_DIBUJAR'})))
-    if ordenes and 'gpu_trabajo::receta(' not in envoltura:
+    if 'IOMMU_OP_GPU_DIBUJAR' not in ordenes:
+        fallos.append('P2: no se ve la puerta estrecha (`IOMMU_OP_GPU_DIBUJAR`) entre `fn iommu(` y `fn iommu_(`: la puerta se movio y este guardian no mira')
+    estrechas = {'IOMMU_OP_GPU_DIBUJAR', 'IOMMU_OP_GPU_COMPLETAR'}
+    if ordenes - estrechas:
+        fallos.append('P2: `fn iommu` desvia antes de las llaves ordenes que no son las puertas estrechas: %s' % ', '.join(sorted(ordenes - estrechas)))
+    if 'IOMMU_OP_GPU_DIBUJAR' in ordenes and 'gpu_trabajo::receta(' not in envoltura:
         fallos.append('P2: `IOMMU_OP_GPU_DIBUJAR` no va a `gpu_trabajo::receta`: una app mandaria en otra cosa de la 3060 sin MAQUINA')
+    if 'IOMMU_OP_GPU_COMPLETAR' in ordenes and 'gpu_trabajo::completar_de_app(' not in envoltura:
+        fallos.append('P2: `IOMMU_OP_GPU_COMPLETAR` no va a `gpu_trabajo::completar_de_app`: una app mandaria en otra cosa de la 3060 sin MAQUINA')
+    if 'IOMMU_OP_GPU_COMPLETAR' in ordenes:
+        cc = sin_comentarios(leer(os.path.join(RING0, 'dev', 'gpu_trabajo', 'completa.rs')))
+        k = cc.find('pub fn completar_de_app(')
+        cuerpo_c = cc[k:cc.find('\n}\n', k)] if k >= 0 else ''
+        for hace, porque in (('fisica_de(pid', 'mira que el bloque sea de QUIEN pide'), ('co::cabecera(', 'lee la cabecera por el lector juzgado (medidas, pasadas, que quepa)'), ('gr_ocupado(', 'toma el GR con el cerrojo de todos'), ('pasadas(', 'presta, lanza el programa del kernel y DEVUELVE el bloque')):
+            if hace not in cuerpo_c:
+                fallos.append('P2: `completar_de_app` ya no llama a `%s`: es lo que %s' % (hace, porque))
+        k = cc.find('fn pasadas(')
+        cuerpo_p = cc[k:cc.find('\n}\n', k)] if k >= 0 else ''
+        for hace, porque in (('co::preparar(', 'sube el programa DEL KERNEL (no uno de la app)'), ('devolver_gpu(', 'devuelve el bloque salga como salga')):
+            if hace not in cuerpo_p:
+                fallos.append('P2: `pasadas` de completar ya no llama a `%s`: es lo que %s' % (hace, porque))
     c = sin_comentarios(leer(os.path.join(RING0, 'dev', 'gpu_trabajo', 'cubo.rs')))
     k = c.find('pub fn receta(')
     cuerpo = c[k:c.find('\n}\n', k)] if k >= 0 else ''

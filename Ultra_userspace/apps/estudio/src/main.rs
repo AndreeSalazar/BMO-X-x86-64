@@ -8,8 +8,16 @@
 //! ```text
 //!    a d   la camara a un lado y al otro      w s   mas cerca, mas lejos
 //!    r f   arriba, abajo                      m     la memoria de la luz si / no
-//!    c     completar si / no (VE5)            Esc o q   cierra
+//!    c     completar si / no (VE5)            g     en la 3060 si / no (VEL2)
+//!    Esc o q   cierra
 //! ```
+//!
+//! **EN LA 3060** (VEL2): si el escritorio preparo la 3060 (`gpu lienzo`),
+//! las pasadas de COMPLETAR las hace ELLA, por la puerta estrecha de las apps
+//! (`IOMMU_OP_GPU_COMPLETAR`: el programa es el del kernel, el bloque es
+//! nuestro). Cada fotograma se juzgan 32 pixeles de la ultima pasada con la
+//! cuenta de VERRANO; si la puerta dice que no o un pixel no es el del juez,
+//! lo dice y la CPU sigue.
 //!
 //! **COMPLETAR** (VE5): lo que se ve no es la imagen cruda sino la
 //! COMPLETADA -- el filtro que quita el grano guiado por la superficie de
@@ -39,7 +47,9 @@ use alloc::vec;
 use alloc::vec::Vec;
 use core::sync::atomic::{AtomicUsize, Ordering::Relaxed};
 
+use bmo_gpu_ga10x::completa as co;
 use bmo_userland as bmo;
+use bmo_verrano::completa as vc;
 use bmo_verrano_trama::estudio::{caja_de_cornell, pelicula, Camara, Escena, V3};
 use bmo_verrano_trama::vivo::{Apunte, Cuaderno, Guia, Memoria, Parte, Vivo, APUNTES_POR_CAMINO};
 use window::{Input, Window};
@@ -91,6 +101,48 @@ fn filas(k: u32, n: u32) -> (u32, u32) {
 /// Las pasadas de COMPLETAR (a 320x240, tres: `completa_prueba`).
 const PASADAS: u32 = 3;
 
+/// **COMPLETAR EN LA 3060** (VEL2): la luz separada `luz` (y la guia, si
+/// `guia_lista` es falso) al bloque, UNA llamada con las [`PASADAS`], el juez
+/// en 32 pixeles de la ultima, y lo que salio, en `luz`. `Err(por que)`: la
+/// CPU sigue.
+fn completar_en_la_3060(base: usize, vivo: &Vivo, luz: &mut [V3], guia_lista: &mut bool, t: f32) -> Result<(), &'static str> {
+    let n = (W * H) as usize;
+    // SAFETY: el bloque es nuestro (pedido al arrancar y olvidado: vive lo
+    // que el proceso) y mide `co::CABECERA` + el de VERRANO; la 3060 lo ve
+    // solo DENTRO de la llamada.
+    let (cabecera, b) = unsafe { (&mut *(base as *mut [u32; 5]), core::slice::from_raw_parts_mut((base + co::CABECERA as usize) as *mut f32, 16 * n)) };
+    *cabecera = [co::MAGIA, W, H, PASADAS, t.to_bits()];
+    if !*guia_lista {
+        for (i, g) in vivo.guia.iter().enumerate() {
+            vc::pon_guia(b, n, i, g);
+        }
+        *guia_lista = true;
+    }
+    for (i, l) in luz.iter().enumerate() {
+        vc::pon_luz(b, n, false, i, *l);
+    }
+    let r = bmo::iommu_orden_con(bmo::IOMMU_OP_GPU_COMPLETAR, base as u64).map_err(|_| "la puerta dijo que no (sin `gpu lienzo` en el escritorio?)")?;
+    let (hechas, ..) = co::desempaquetar(r);
+    if hechas != PASADAS || !co::sano(r) {
+        return Err("una pasada no se pago");
+    }
+    // ** el juez: la ultima pasada, desde lo que leyo (la otra luz sigue ahi)
+    let (paso, de_b, tk) = co::pasada(PASADAS - 1, t);
+    for k in 0..32u32 {
+        let (x, y) = ((k * 37 + 5) % W, (k * 53 + 3) % H);
+        let cpu = vc::del_bloque(b, W, H, paso, de_b, tk, x, y);
+        let gpu = vc::luz_del_bloque(b, n, !de_b, (y * W + x) as usize);
+        if !co::igual(gpu, cpu) {
+            return Err("un pixel de la 3060 no es el del juez");
+        }
+    }
+    let en_b = co::acaba_en_b(PASADAS);
+    for (i, l) in luz.iter_mut().enumerate() {
+        *l = vc::luz_del_bloque(b, n, en_b, i);
+    }
+    Ok(())
+}
+
 /// `parte(k)` en todos los nucleos; lo que un obrero no acabe, aqui.
 fn en_todos(n: u32, parte: &(dyn Fn(u32) + Sync)) {
     let mal = obreros::repartir(n, parte);
@@ -109,8 +161,19 @@ unsafe fn sus_filas<'a, T>(base: usize, y0: u32, y1: u32) -> &'a mut [T] {
     unsafe { core::slice::from_raw_parts_mut((base as *mut T).add((y0 * W) as usize), ((y1 - y0) * W) as usize) }
 }
 
+/// **La entrada del proceso.** El kernel entra con la pila ALINEADA a 16 (lo
+/// que pide el ABI de SysV al arrancar un proceso: `USER_STACK_TOP`), y una
+/// funcion de Rust la espera como queda despues de un `call` (8 mas). Con la
+/// coma flotante por SOFTWARE daba igual; con la de hardware (el objetivo
+/// `x86_64-bmo-ring3`), un `movaps` a la pila con ella mal alineada es un #GP.
+/// Aqui se alinea y se LLAMA: lo que hace el `_start` de cualquier sistema.
+#[unsafe(naked)]
 #[no_mangle]
 pub extern "C" fn _start() -> ! {
+    core::arch::naked_asm!("and rsp, -16", "call {inicio}", "ud2", inicio = sym inicio)
+}
+
+extern "C" fn inicio() -> ! {
     let Some(bloque) = bmo::Memoria::request(PARA_MONTON) else {
         say("ESTUDIO: NO -- sin memoria para el monton\n");
         bmo::salir();
@@ -128,6 +191,14 @@ pub extern "C" fn _start() -> ! {
     let mut ojo = base.ojo;
     let mut con_memoria = true;
     let mut completar = true;
+    // ** LA 3060 (VEL2): su bloque, de una vez -- la cabecera y el de VERRANO
+    let la_3060 = bmo::Memoria::request(co::CABECERA + co::Formato { ancho: W, alto: H }.bytes()).map(|b| {
+        let base = b.base() as usize;
+        core::mem::forget(b);
+        base
+    });
+    let mut usar_3060 = la_3060.is_some();
+    let mut guia_en_3060 = false;
     let mut vivo = Vivo::nuevo(W, H, Some(memoria()));
     let mut nuevas: Vec<V3> = vec![[0.0; 3]; (W * H) as usize];
     let mut hojas: Vec<Apunte> = vec![Apunte { p: [0.0; 3], n: [0.0; 3], l: [0.0; 3] }; (W * H) as usize * APUNTES_POR_CAMINO];
@@ -159,6 +230,11 @@ pub extern "C" fn _start() -> ! {
                         say(if completar { "ESTUDIO: COMPLETADA\n" } else { "ESTUDIO: cruda\n" });
                         continue;
                     }
+                    b'g' => {
+                        usar_3060 = !usar_3060 && la_3060.is_some();
+                        say(if usar_3060 { "ESTUDIO: completa la 3060\n" } else { "ESTUDIO: completa la CPU\n" });
+                        continue;
+                    }
                     _ => continue,
                 }
                 movida = true;
@@ -177,6 +253,7 @@ pub extern "C" fn _start() -> ! {
             });
             core::mem::swap(&mut vivo.guia, &mut guia);
             movida = false;
+            guia_en_3060 = false;
         }
         // ** el fotograma, repartido por filas entre los nucleos
         let b = Buferes { nuevas: nuevas.as_mut_ptr() as usize, hojas: hojas.as_mut_ptr() as usize, usadas: [const { AtomicUsize::new(0) }; obreros::MAX as usize] };
@@ -204,7 +281,7 @@ pub extern "C" fn _start() -> ! {
         vivo.cierra();
         // ** COMPLETAR, cada pasada por filas en todos los nucleos (entre
         // una y otra se espera a todos: la siguiente lee las filas vecinas)
-        let pasadas = if completar { PASADAS } else { 0 };
+        let mut tolerancia = vivo.tolerancia();
         {
             let v = &vivo;
             let a = luz_a.as_mut_ptr() as usize;
@@ -214,7 +291,20 @@ pub extern "C" fn _start() -> ! {
                 v.separa(y0, y1, unsafe { sus_filas(a, y0, y1) });
             });
         }
-        let mut tolerancia = vivo.tolerancia();
+        // ** en la 3060, si se puede (VEL2); si no, en la CPU
+        let mut en_3060 = false;
+        if let (true, true, Some(base)) = (completar, usar_3060, la_3060) {
+            match completar_en_la_3060(base, &vivo, &mut luz_a, &mut guia_en_3060, tolerancia) {
+                Ok(()) => en_3060 = true,
+                Err(porque) => {
+                    usar_3060 = false;
+                    say("ESTUDIO: la 3060 no completa: ");
+                    say(porque);
+                    say("; completa la CPU (`g` para volver a probar)\n");
+                }
+            }
+        }
+        let pasadas = if completar && !en_3060 { PASADAS } else { 0 };
         for paso in 0..pasadas {
             let (v, lee, b) = (&vivo, &luz_a[..], luz_b.as_mut_ptr() as usize);
             en_todos(n, &move |k: u32| {
@@ -255,7 +345,7 @@ pub extern "C" fn _start() -> ! {
             say(" partes; fotograma ");
             numero(vivo.fotograma as u64);
             say(if con_memoria { ", con memoria" } else { ", sin memoria" });
-            say(if completar { ", completada\n" } else { ", cruda\n" });
+            say(if !completar { ", cruda\n" } else if usar_3060 { ", completada en la 3060\n" } else { ", completada en la CPU\n" });
             desde = ahora;
         }
     }

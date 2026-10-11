@@ -741,6 +741,15 @@ fn iommu_puerta(arg0: u64, arg1: u64) -> BmoStatus {
             Ok(v) => BmoStatus::ok_value(v),
             Err(m) => BmoStatus::negado(m, 0),
         }
+    } else if arg0 == IOMMU_OP_GPU_COMPLETAR {
+        // ** VEL2 (11-10): la SEGUNDA puerta estrecha -- una app completa SU
+        // imagen con el programa del KERNEL (no manda codigo), en SU bloque,
+        // con el cerrojo del GR de siempre. El guardian `la-3060` (P2) exige
+        // las tres cosas en `completar_de_app`.
+        match crate::ring0::dev::gpu_trabajo::completar_de_app(arg1) {
+            Ok(v) => BmoStatus::ok_value(v),
+            Err(m) => BmoStatus::negado(m, 0),
+        }
     } else {
         iommu_(arg0, arg1)
     };

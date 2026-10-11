@@ -1117,6 +1117,15 @@ pub const IOMMU_OP_GPU_COMPLETA_FORMATO: u64 = 0x4F;
 /// `Ok(v)`: `bmo_gpu_ga10x::completa::empaquetar` sin muestras: lo que salio
 /// lo juzga el que llama.
 pub const IOMMU_OP_GPU_COMPLETA: u64 = 0x50;
+/// VEL2: LA PUERTA ESTRECHA DE COMPLETAR, para una APP (sin `MAQUINA` ni la
+/// pantalla): completa SU imagen en la 3060 con el programa del KERNEL.
+/// `arg1` = la VA de un bloque suyo: una pagina de cabecera (`MAGIA`
+/// "VE5C", ancho, alto, pasadas, tolerancia f32: `bmo_gpu_ga10x::completa::
+/// cabecera`) y detras el bloque de VERRANO (`bmo_verrano::completa`). Las
+/// pasadas, todas en una llamada, desde la luz A. `Ok(v)`:
+/// `bmo_gpu_ga10x::completa::empaquetar` con las pasadas hechas; lo que
+/// salio lo juzga la app (`bmo_verrano::completa::del_bloque`).
+pub const IOMMU_OP_GPU_COMPLETAR: u64 = 0x51;
 /// P1: EL PASE de la GPU, neutro (`bmo_pase_gpu::orden`): ABRIR con la VA del
 /// lienzo (el lienzo prestado para quedarse, `Ok` = la VA del buzon), CERRAR
 /// o ESTADO en los bits 63..60 de `arg1`.

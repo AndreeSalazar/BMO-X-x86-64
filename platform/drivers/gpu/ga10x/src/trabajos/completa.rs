@@ -346,11 +346,57 @@ pub const fn tolerancia_de(bits: u16) -> f32 {
 /// se escribe, las medidas, el paso (`2^paso`), lo lejos (24 / paso, como la
 /// CPU) y la tolerancia. `de_b`: se lee la B y se escribe la A.
 pub fn parametros(f: &Formato, paso: u32, de_b: bool, tolerancia: f32) -> [u32; N_PARAMETROS] {
+    parametros_desde(f, paso, de_b, tolerancia, 0)
+}
+
+/// Los mismos, con el bloque de VERRANO `dentro` bytes pasado el principio
+/// de lo prestado (el de una APP lleva delante su [`CABECERA`]).
+pub fn parametros_desde(f: &Formato, paso: u32, de_b: bool, tolerancia: f32, dentro: u64) -> [u32; N_PARAMETROS] {
     let (lee, escribe) = if de_b { (f.luz_b(), f.luz_a()) } else { (f.luz_a(), f.luz_b()) };
-    let (l, g, e) = (VA + lee, VA + f.guia(), VA + escribe);
+    let base = VA + dentro;
+    let (l, g, e) = (base + lee, base + f.guia(), base + escribe);
     let s = 1u32 << paso;
     let lejos = 24.0 / s as f32;
     [l as u32, (l >> 32) as u32, g as u32, (g >> 32) as u32, e as u32, (e >> 32) as u32, f.ancho, f.alto, s, lejos.to_bits(), tolerancia.to_bits()]
+}
+
+// ---------------------------------------------------------------------------
+// LA PUERTA DE LAS APPS (VEL2, 11-10): el bloque de una app lleva delante
+// una pagina con lo que pide. El programa es SIEMPRE este (el del kernel): la
+// app solo pone datos en su bloque.
+// ---------------------------------------------------------------------------
+
+/// Lo que mide la cabecera del bloque de una app: una pagina.
+pub const CABECERA: u64 = 4096;
+/// La palabra que la abre ("VE5C").
+pub const MAGIA: u32 = 0x4335_4556;
+/// Pasadas por llamada, como mucho (los vecinos hasta `2^(n-1)`).
+pub const MAX_PASADAS: u32 = MAX_PASO + 1;
+
+/// **Lo que pide una app**, leido de las 5 primeras palabras de su
+/// cabecera: `MAGIA`, ancho, alto, pasadas y la tolerancia (f32). Las
+/// pasadas van desde la luz A (A -> B -> A ...), cada una con los vecinos
+/// el doble de lejos y la tolerancia a la mitad, como la CPU.
+/// `None` si no se sostiene, o el bloque entero no cabe en el mapa.
+pub fn cabecera(p: &[u32; 5]) -> Option<(Formato, u32, f32)> {
+    let f = Formato { ancho: p[1], alto: p[2] };
+    let (pasadas, t) = (p[3], f32::from_bits(p[4]));
+    let cabe = f.valido() && (f.paginas() + CABECERA / 4096) * 4096 <= crate::video::MAX_BYTES;
+    (p[0] == MAGIA && cabe && (1..=MAX_PASADAS).contains(&pasadas) && t.is_finite() && t > 0.0).then_some((f, pasadas, t))
+}
+
+/// La pasada `k` de una tanda: su paso, si lee la B y su tolerancia.
+pub fn pasada(k: u32, tolerancia: f32) -> (u32, bool, f32) {
+    let mut t = tolerancia;
+    for _ in 0..k {
+        t *= 0.5;
+    }
+    (k, k % 2 == 1, t)
+}
+
+/// En que luz queda lo ultimo tras `pasadas`: la B si son impares.
+pub const fn acaba_en_b(pasadas: u32) -> bool {
+    pasadas % 2 == 1
 }
 
 /// Si lo de la 3060 vale por lo del juez: cada canal, a [`TOLERANCIA`]
@@ -642,6 +688,27 @@ mod pruebas {
         assert_eq!(((q[0] as u64) | (q[1] as u64) << 32, (q[4] as u64) | (q[5] as u64) << 32), (VA + 48 * 76_800, VA), "de B a A");
         assert_eq!(tolerancia_de(tolerancia_corta(0.75)), 0.75);
         assert!((tolerancia_de(tolerancia_corta(1.414_213_5)) - 1.414_213_5).abs() < 0.01);
+    }
+
+    /// La cabecera de una app: se lee lo que se sostiene, y nada mas.
+    #[test]
+    fn la_cabecera_de_una_app() {
+        let t = 2.0f32.to_bits();
+        assert_eq!(cabecera(&[MAGIA, 320, 240, 3, t]), Some((Formato::ESTUDIO, 3, 2.0)));
+        assert_eq!(cabecera(&[MAGIA + 1, 320, 240, 3, t]), None, "sin la palabra");
+        assert_eq!(cabecera(&[MAGIA, 320, 240, 0, t]), None, "ninguna pasada");
+        assert_eq!(cabecera(&[MAGIA, 320, 240, MAX_PASADAS + 1, t]), None);
+        assert_eq!(cabecera(&[MAGIA, 640, 480, 3, t]), None, "no cabe en el mapa");
+        assert_eq!(cabecera(&[MAGIA, 320, 240, 3, f32::NAN.to_bits()]), None);
+        assert_eq!(cabecera(&[MAGIA, 320, 240, 3, (-1.0f32).to_bits()]), None);
+        // las pasadas, como las de la CPU (`Vivo::completa`)
+        assert_eq!(pasada(0, 2.0), (0, false, 2.0));
+        assert_eq!(pasada(1, 2.0), (1, true, 1.0));
+        assert_eq!(pasada(2, 2.0), (2, false, 0.5));
+        assert!(acaba_en_b(3) && !acaba_en_b(2));
+        // el bloque de VERRANO, detras de la cabecera
+        let p = parametros_desde(&Formato::ESTUDIO, 0, false, 2.0, CABECERA);
+        assert_eq!((p[0] as u64) | (p[1] as u64) << 32, VA + CABECERA);
     }
 
     #[test]

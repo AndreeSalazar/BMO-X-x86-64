@@ -37,7 +37,7 @@ pub use imagen::{imagen, imagen_formato, IOMMU_NO_IMAGEN};
 // VE5: COMPLETAR (el filtro de ESTUDIO VIVO) por la 3060, en un bloque de
 // quien lo pide; lo juzga el, con la cuenta de VERRANO.
 mod completa;
-pub use completa::{completa, completa_formato, IOMMU_NO_COMPLETA};
+pub use completa::{completa, completa_formato, completar_de_app, IOMMU_NO_COMPLETA};
 /// X5: el cubo del estudio D3D por la 3060, en una ventana de la pantalla.
 mod cubo;
 pub use cubo::{cubo, info_receta, pantalla_para, receta};

@@ -1526,6 +1526,12 @@ metal es el 2 (G0).
   - **Como se sabe:** el banco del nivel 11 corrido por la 3060 AL CORRER, con
     las celdas del oraculo; y `olas` (A10) por la 3060, con su huella (la
     prueba de LI2f).
+  - **11-10, una puerta MAS ESTRECHA antes que esta (VEL2 de PLAN_VERRANO):**
+    el propietario pidio la velocidad de ESTUDIO primero. `IOMMU_OP_GPU_
+    COMPLETAR` deja a una app correr UN programa de computo -- el de
+    COMPLETAR, el del kernel, juzgado -- sobre SU bloque; no manda cuerpo.
+    No es LB8 (el cuerpo de la app sigue sin poder entrar), y LB8 sigue
+    bloqueada por lo mismo.
 
 - [ ] **LB9 -- LOS VECINOS POR EL ASA (IL1b).** R7 aprende una lectura que no
   da direccion: por un asa que pone el kernel, acotada por su descriptor

@@ -513,6 +513,10 @@ pub(crate) const IOMMU_OP_GPU_ETERNO: u64 = 0x4E;
 pub(crate) const IOMMU_OP_GPU_COMPLETA_FORMATO: u64 = 0x4F;
 /// VE5: una pasada de COMPLETAR por la 3060 sobre un bloque de quien la pide.
 pub(crate) const IOMMU_OP_GPU_COMPLETA: u64 = 0x50;
+/// VEL2: LA PUERTA ESTRECHA DE COMPLETAR -- una APP (sin `MAQUINA`) completa
+/// SU imagen en la 3060 con el programa del kernel. `arg1` = la VA de su
+/// bloque (cabecera y el de VERRANO). Ver `dev/gpu_trabajo/completa.rs`.
+pub(crate) const IOMMU_OP_GPU_COMPLETAR: u64 = 0x51;
 
 /// **ARMAR Y SONDEAR LA RED desde donde vive el propietario.** `arg0` = `RED_OP_*`.
 ///
@@ -1079,6 +1083,7 @@ pub(crate) fn nombre_iommu(op: u64) -> &'static str {
         IOMMU_OP_GPU_ETERNO => "GPU_ETERNO",
         IOMMU_OP_GPU_COMPLETA_FORMATO => "GPU_COMPLETA_FORMATO",
         IOMMU_OP_GPU_COMPLETA => "GPU_COMPLETA",
+        IOMMU_OP_GPU_COMPLETAR => "GPU_COMPLETAR",
         _ => "?",
     }
 }
