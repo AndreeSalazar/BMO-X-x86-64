@@ -151,7 +151,7 @@ fn con_indices_da_lo_mismo_que_v0() {
                 assert_eq!(sv[0].map(f32::to_bits), t.tris[j].clip[c].map(f32::to_bits), "fotograma {f}, cara {k}, vertice {c}");
             }
         }
-        let dibujo = tuberia::Dibujo { indices: Some(desde as u32), vertices: 24, descarte: tuberia::Descarte::Traseras, antihorario: false, destino: None, z: None, color: None, texturas: 0, cadena: false, pantalla: false, banco: 0, redondeo: bmo_gpu_ga10x::pegamento::Redondeo::NADA, mezcla: bmo_gpu_ga10x::mezcla::Mezcla::NINGUNA };
+        let dibujo = tuberia::Dibujo { indices: Some(desde as u32), vertices: 24, descarte: tuberia::Descarte::Traseras, antihorario: false, destino: None, z: None, color: None, texturas: 0, cadena: false, pantalla: false, banco: 0, redondeo: bmo_gpu_ga10x::pegamento::Redondeo::NADA, mezcla: bmo_gpu_ga10x::mezcla::Mezcla::NINGUNA, registros: 0 };
         let m = tuberia::escribir_paquete_dibujo(&mut caja, 1, &bv, &bp, n, d, dibujo).expect("el paquete VRN1 se sostiene");
         assert_eq!(tuberia::leer(&caja[..m]).unwrap().dibujo, dibujo);
         // P3b4c: el mismo, SIN descarte y CON Z (LESS, se escribe, se limpia
@@ -189,7 +189,7 @@ fn la_receta_pega_lo_mismo_que_el_metal() {
     let (n, total, desde) = tanda::datos_indexados(30, 1280, 720, &mut b).expect("caben");
     let dst = Destino { fila: 5120, ancho: 1280, alto: 720, flotante: bmo_gpu_ga10x::destino::Flotante::No, rgb: false };
     let z = Z { funcion: 2, escribir: true, limpiar: Some(UNO) };
-    let dibujo = tuberia::Dibujo { indices: Some(desde as u32), vertices: 24, descarte: tuberia::Descarte::Ninguna, antihorario: false, destino: Some((0x1000_0000, dst)), z: Some(z), color: None, texturas: 0, cadena: false, pantalla: false, banco: 0, redondeo: bmo_gpu_ga10x::pegamento::Redondeo::NADA, mezcla: bmo_gpu_ga10x::mezcla::Mezcla::NINGUNA };
+    let dibujo = tuberia::Dibujo { indices: Some(desde as u32), vertices: 24, descarte: tuberia::Descarte::Ninguna, antihorario: false, destino: Some((0x1000_0000, dst)), z: Some(z), color: None, texturas: 0, cadena: false, pantalla: false, banco: 0, redondeo: bmo_gpu_ga10x::pegamento::Redondeo::NADA, mezcla: bmo_gpu_ga10x::mezcla::Mezcla::NINGUNA, registros: 0 };
     let mut r = Receta {
         n,
         vs: &cv,
@@ -233,7 +233,9 @@ fn la_receta_pega_lo_mismo_que_el_metal() {
     assert_eq!(&t.vs[..t.bytes_vs], &bytes(&v)[..], "el de vertice: el MISMO que dibujo en el metal");
     assert_eq!(&t.ps[..t.bytes_ps], &bytes(&p)[..], "el de pixel: el MISMO");
     let q = receta::paquete(&leida, &t, 7);
-    assert_eq!((q.ficha, q.n, q.vertices, q.dibujo), (7, n, &b[..total], dibujo));
+    // LI2b (12-10): el kernel pone los registros que midio: los 64 de
+    // siempre (los mismos que dibujo en el metal).
+    assert_eq!((q.ficha, q.n, q.vertices, q.dibujo), (7, n, &b[..total], tuberia::Dibujo { registros: tuberia::REGISTROS, ..dibujo }));
     // La limpieza del destino (el ClearRenderTargetView) viaja en la receta,
     // y VRN1 no la lleva.
     let limpia = Receta { dibujo: tuberia::Dibujo { color: Some(0xFF10_1018), ..dibujo }, ..r };

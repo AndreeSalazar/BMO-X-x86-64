@@ -222,7 +222,7 @@ pub fn leer(b: &[u8]) -> Option<Receta<'_>> {
     let (registros_vs, registros_ps, salidas, posicion) = (regs & 0xFF, regs >> 8 & 0xFF, regs >> 16 & 0xFF, regs >> 24);
     let (filas, n_elementos, n_genericos) = (medidas & 0xFFFF, (medidas >> 16 & 0xFF) as usize, (medidas >> 24) as usize);
     let (n_cargas_vs, n_cargas_ps) = ((cargas & 0xFFFF) as usize, (cargas >> 16) as usize);
-    if registros_vs == 0 || registros_ps == 0 || registros_vs >= tu::REGISTROS || registros_ps >= tu::REGISTROS || salidas == 0 || salidas > 8 || posicion >= salidas {
+    if registros_vs == 0 || registros_ps == 0 || registros_vs >= tu::MAX_REGISTROS || registros_ps >= tu::MAX_REGISTROS || salidas == 0 || salidas > 8 || posicion >= salidas {
         return None;
     }
     if filas > MAX_FILAS || paso % 4 != 0 || n_elementos > MAX_ELEMENTOS || n_genericos > MAX_GENERICOS || n_cargas_vs > MAX_CARGAS || n_cargas_ps > MAX_CARGAS {
@@ -481,6 +481,9 @@ pub struct Taller {
     pub bytes_ps: usize,
     /// Instrucciones que el juez miro, las dos (con el pegamento).
     pub instrucciones: usize,
+    /// LI2b (12-10): los registros que piden los dos programas pegados
+    /// (`tuberia::registros_para`), con los que el juez los juzgo.
+    pub registros: u32,
     /// P3b4c.9 Z3: TODO lo que `pegar` leyo de la ultima receta que el juez
     /// aprobo ([`clave`]), byte a byte; `clave_n` 0 = nada aprobado.
     clave: [u8; MAX_CLAVE],
@@ -492,7 +495,7 @@ pub struct Taller {
 
 impl Taller {
     pub const fn nuevo() -> Self {
-        Taller { cuerpo: [(0, 0); MAX_INSTRUCCIONES], pegado: pegamento::Pegado::VACIO, vs: [0; HUECO], ps: [0; HUECO], bytes_vs: 0, bytes_ps: 0, instrucciones: 0, clave: [0; MAX_CLAVE], clave_n: 0, nueva: [0; MAX_CLAVE] }
+        Taller { cuerpo: [(0, 0); MAX_INSTRUCCIONES], pegado: pegamento::Pegado::VACIO, vs: [0; HUECO], ps: [0; HUECO], bytes_vs: 0, bytes_ps: 0, instrucciones: 0, registros: tu::REGISTROS, clave: [0; MAX_CLAVE], clave_n: 0, nueva: [0; MAX_CLAVE] }
     }
 }
 
@@ -587,13 +590,18 @@ pub fn pegar(r: &Receta, t: &mut Taller) -> Result<(), NoReceta> {
     juez::juzgar_cuerpo_con(cuerpo, r.registros_vs, juez::Permisos { asas: 0, banco }).map_err(|b| NoReceta::Cuerpo("vertice", b))?;
     pegamento::vertice_con_libreta_en(&mut t.pegado, cuerpo, r.registros_vs, r.cargas_vs(), datos, r.salidas, r.posicion, r.termometro_vs).map_err(|e| NoReceta::Pegamento("vertice", e))?;
     t.bytes_vs = t.pegado.bytes(&mut t.vs);
+    let usados_vs = t.pegado.registros;
     let cuerpo = instrucciones(&mut t.cuerpo, r.ps);
     juez::juzgar_cuerpo_con(cuerpo, r.registros_ps, juez::Permisos { asas: pegamento::asas(r.cargas_ps()), banco }).map_err(|b| NoReceta::Cuerpo("pixel", b))?;
     let mezcla = r.dibujo.destino.filter(|_| !r.dibujo.mezcla.trivial()).map(|(va, dst)| (r.dibujo.mezcla, dst, (va % 4096) as u32));
     pegamento::pixel_entero_en(&mut t.pegado, cuerpo, r.registros_ps, r.cargas_ps(), datos, r.genericos(), r.termometro_ps, r.dibujo.redondeo, mezcla).map_err(|e| NoReceta::Pegamento("pixel", e))?;
     t.bytes_ps = t.pegado.bytes(&mut t.ps);
-    let jv = juez::juzgar_programa(&t.vs[..t.bytes_vs], tu::REGISTROS).map_err(|b| NoReceta::Juez("vertice", b))?;
-    let jp = juez::juzgar_programa(&t.ps[..t.bytes_ps], tu::REGISTROS).map_err(|b| NoReceta::Juez("pixel", b))?;
+    // LI2b: los registros de los DOS (las ordenes dan uno para los dos), y
+    // el juez juzga con ese numero: lo que use de mas, BODRIO.
+    let registros = tu::registros_para(usados_vs.max(t.pegado.registros));
+    let jv = juez::juzgar_programa(&t.vs[..t.bytes_vs], registros).map_err(|b| NoReceta::Juez("vertice", b))?;
+    let jp = juez::juzgar_programa(&t.ps[..t.bytes_ps], registros).map_err(|b| NoReceta::Juez("pixel", b))?;
+    t.registros = registros;
     t.instrucciones = jv.instrucciones + jp.instrucciones;
     t.clave_n = clave(r, &mut t.clave);
     Ok(())
@@ -602,7 +610,8 @@ pub fn pegar(r: &Receta, t: &mut Taller) -> Result<(), NoReceta> {
 /// **El paquete** de una receta pegada: los programas del taller, los DATOS
 /// de la receta y su dibujo; la ficha, la del GR que ponga el kernel.
 pub fn paquete<'a>(r: &Receta<'a>, t: &'a Taller, ficha: u32) -> Paquete<'a> {
-    Paquete { ficha, vs: &t.vs[..t.bytes_vs], ps: &t.ps[..t.bytes_ps], vertices: r.datos, n: r.n, limpiar: None, dibujo: r.dibujo }
+    // LI2b: los registros, los que midio el pegado (no los de la app).
+    Paquete { ficha, vs: &t.vs[..t.bytes_vs], ps: &t.ps[..t.bytes_ps], vertices: r.datos, n: r.n, limpiar: None, dibujo: Dibujo { registros: t.registros, ..r.dibujo } }
 }
 
 #[cfg(test)]
@@ -628,6 +637,74 @@ mod pruebas {
     use bmo_sm86::codifica as c;
 
     const ALU_1: u64 = 1 | 1 << 4 | 7 << 5 | 7 << 8;
+
+    /// ** LI2b, los registros (12-10): un cuerpo de pixel que usa R100 pasa
+    /// de los 64 de VERRANO. `pegar` mide lo que usan los dos (con el
+    /// pegamento), el juez juzga con ESO, el paquete lo lleva y las ordenes
+    /// lo dan a los dos programas (`SET_PIPELINE_REGISTER_COUNT`).
+    #[test]
+    fn una_receta_de_mas_de_64_registros() {
+        let bytes = |w: &[(u64, u64)]| w.iter().flat_map(|&(lo, hi)| lo.to_le_bytes().into_iter().chain(hi.to_le_bytes())).collect::<std::vec::Vec<u8>>();
+        let vs = bytes(&[c::mov(0, c::r(0), 1), c::exit(0)]);
+        let ps = bytes(&[c::mov(100, c::r(4), 5), c::mov(0, c::r(100), 5), c::exit(5)]);
+        let datos = std::vec![0u8; 96];
+        let dst = Destino { fila: 5120, ancho: 1280, alto: 720, flotante: crate::destino::Flotante::No, rgb: false };
+        let mut r = Receta {
+            n: 3,
+            vs: &vs,
+            ps: &ps,
+            registros_vs: 8,
+            registros_ps: 101,
+            salidas: 2,
+            posicion: 0,
+            filas: 0,
+            paso: 32,
+            elementos: [NINGUNO; MAX_ELEMENTOS],
+            n_elementos: 2,
+            cargas_vs: [NINGUNA; MAX_CARGAS],
+            n_cargas_vs: 8,
+            cargas_ps: [NINGUNA; MAX_CARGAS],
+            n_cargas_ps: 1,
+            genericos: [None; MAX_GENERICOS],
+            n_genericos: 1,
+            datos: &datos,
+            dibujo: Dibujo { indices: None, vertices: 3, destino: Some((0x1000_0000, dst)), ..Dibujo::default() },
+            texturas: [DeApp::NINGUNA; MAX_TEXTURAS],
+            termometro_vs: None,
+            termometro_ps: None,
+        };
+        r.elementos[0] = Elemento::memoria(0, 4);
+        r.elementos[1] = Elemento::memoria(16, 4);
+        for k in 0..8u8 {
+            r.cargas_vs[k as usize] = Carga::Entrada { elemento: k / 4, componente: k % 4, reg: k };
+        }
+        r.cargas_ps[0] = Carga::Entrada { elemento: 0, componente: 0, reg: 4 };
+        r.genericos[0] = Some(0);
+        let mut caja = std::vec![0u8; MAX_RECETA];
+        let n = escribir(&mut caja, &r).expect("101 registros: la receta se sostiene");
+        let l = leer(&caja[..n]).unwrap();
+        let mut taller = std::boxed::Box::new(Taller::nuevo());
+        pegar(&l, &mut taller).unwrap_or_else(|e| panic!("se pega y el juez la aprueba con SUS registros: {e:?}"));
+        assert!(taller.registros > tu::REGISTROS && taller.registros <= tu::MAX_REGISTROS && taller.registros % 8 == 0, "{}", taller.registros);
+        assert!(juez::juzgar_programa(&taller.ps[..taller.bytes_ps], tu::REGISTROS).is_err(), "con 64, BODRIO");
+        let p = paquete(&l, &taller, 1);
+        assert_eq!(p.dibujo.registros, taller.registros, "lo lleva el paquete, no la app");
+        let gop = crate::pantalla::Pantalla { vram: 0x100_0000, pitch: 1920, ancho: 1920, alto: 1080, rgb: false };
+        let v = crate::cubo::ventana(&gop).unwrap();
+        let o = tu::ordenes_dibujo(&v, 1, true, p.dibujo);
+        for j in [crate::raster::VERTICE, crate::raster::PIXEL] {
+            let cab = crate::copia::cabecera_en(0, crate::raster::set_pipeline_shader(j) + 0x0c, 2);
+            let w = &o.o[..o.n];
+            let i = w.iter().position(|&x| x == cab).unwrap();
+            assert_eq!(w[i + 1], taller.registros, "el programa {j}: sus registros");
+        }
+        // Y una receta de pocos sigue pidiendo 64 (lo de siempre).
+        let ps8 = bytes(&[c::mov(0, c::r(4), 5), c::exit(5)]);
+        let l8 = Receta { ps: &ps8, registros_ps: 8, ..r };
+        let n = escribir(&mut caja, &l8).unwrap();
+        pegar(&leer(&caja[..n]).unwrap(), &mut taller).unwrap();
+        assert_eq!(taller.registros, tu::REGISTROS);
+    }
 
     /// P3b4c.8 T2: una receta con UNA textura, de punta a punta: se escribe,
     /// se relee igual, se pega (el MOV del asa lo pone el pegamento, el TEX

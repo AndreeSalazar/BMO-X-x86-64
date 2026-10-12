@@ -61,7 +61,7 @@ use crate::cubo::{self as cu, con_control, mov, ALU};
 use crate::lienzo::sombreador_va;
 use crate::raster::{bit, SPH};
 use crate::sass::juez::{MAX_INSTRUCCIONES, RESERVADOS};
-use crate::tuberia::{carga, espera, iadd3_acarreo, imad_shl, imad_x, ipa, ldg, sph_pixel as sph_pixel_v0, sph_vertice as sph_vertice_v0, IPA_CONTROL, IPA_ULTIMO, REGISTROS, TABLA};
+use crate::tuberia::{carga, espera, iadd3_acarreo, imad_shl, imad_x, ipa, ldg, sph_pixel as sph_pixel_v0, sph_vertice as sph_vertice_v0, IPA_CONTROL, IPA_ULTIMO, MAX_REGISTROS, TABLA};
 
 /// Lo que el pegamento carga antes del cuerpo (lo que `bmo-proton-x-sm86`
 /// llama `Precarga`, dicho aqui sin nombrarlo: el driver no depende de
@@ -355,7 +355,7 @@ pub const fn generico(salida: u32, posicion: u32) -> Option<u8> {
 pub enum NoPega {
     /// No cabe en `juez::MAX_INSTRUCCIONES`.
     Instrucciones,
-    /// El cuerpo y el pegamento no caben en `tuberia::REGISTROS`.
+    /// El cuerpo y el pegamento no caben en `tuberia::MAX_REGISTROS`.
     Registros,
     /// Una carga fuera de los datos, o que el de pixel no puede recibir (la
     /// posicion, o un generico que no hay).
@@ -500,7 +500,9 @@ const fn al_menos(w: (u64, u64), ciclos: u64) -> (u64, u64) {
 fn propios(registros: u32) -> Result<(u64, u64, u64, u64, u32), NoPega> {
     let a = (registros as u64 + 1) & !1;
     let total = a as u32 + 7;
-    if total + RESERVADOS > REGISTROS {
+    // LI2b (12-10): hasta lo mas que da la tuberia; las ordenes piden lo que
+    // de verdad se usa (`tuberia::registros_para`).
+    if total + RESERVADOS > MAX_REGISTROS {
         return Err(NoPega::Registros);
     }
     Ok((a, a + 2, a + 4, a + 6, total))
@@ -879,6 +881,8 @@ pub const fn sph_vertice(genericos: u32) -> [u32; SPH] {
 
 #[cfg(test)]
 mod pruebas {
+    #[allow(unused_imports)]
+    use crate::tuberia::REGISTROS;
     extern crate std;
 
     use super::*;
@@ -1063,7 +1067,9 @@ mod pruebas {
         let (pv, ev) = emitido("sombras/f3ef42a0.cso");
         let cs = cargas(&ev);
         assert_eq!(vertice(&ev.codigo, ev.registros, &cs, Datos::float4(3, 3), pv.salidas as u32, 0).unwrap_err(), NoPega::Carga);
-        assert_eq!(vertice(&ev.codigo, 60, &cs, DATOS, pv.salidas as u32, 0).unwrap_err(), NoPega::Registros);
+        // LI2b (12-10): 60 ya caben (hasta `tuberia::MAX_REGISTROS`); 241 no.
+        assert!(vertice(&ev.codigo, 60, &cs, DATOS, pv.salidas as u32, 0).is_ok());
+        assert_eq!(vertice(&ev.codigo, 241, &cs, DATOS, pv.salidas as u32, 0).unwrap_err(), NoPega::Registros);
         assert_eq!(vertice(&ev.codigo[..3], ev.registros, &cs, DATOS, 3, 0).unwrap_err(), NoPega::Cuerpo);
         assert_eq!(vertice(&ev.codigo, ev.registros, &cs, DATOS, 3, 3).unwrap_err(), NoPega::Salidas);
         let (_, ep) = emitido("sombras/4d67f5e4.cso");

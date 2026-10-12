@@ -48,8 +48,13 @@ pub use bmo_gpu_ga10x::cubo::{a_pantalla, copia_us, desempaquetar, preparado, ra
 use crate::vivo::{Origen, Recuerdo, Vivos};
 use crate::{emitir_con, Abi};
 
-/// Los registros que se le dan al emisor (los de VERRANO, `tuberia::REGISTROS`).
-const REGISTROS: u32 = 64;
+/// Los registros que se le dan al emisor. ** LI2b (12-10): lo mas que deja
+/// el pegamento -- `tuberia::MAX_REGISTROS` menos los `RESERVADOS` y los 8
+/// del pegamento (a par) --, no los 64 de VERRANO: el censo de Cyberpunk
+/// paraba lotes por "mas registros de los que da la tuberia". El emisor usa
+/// los que necesita (de abajo arriba) y el kernel pide esos
+/// (`tuberia::registros_para`): un programa que cabia en 64 sale igual.
+pub(crate) const REGISTROS: u32 = bmo_gpu_ga10x::tuberia::MAX_REGISTROS - bmo_gpu_ga10x::sass::juez::RESERVADOS - 8;
 
 /// **La Z por la 3060, en la SOMBRA del kernel** (P3b4c.6b). El metal
 /// (28-09 20:31): `gpu verrano bmox12 30 z` dio Xid 69 (error de clase del
@@ -482,7 +487,7 @@ pub fn escribir(c: &Cuerpos, l: &Lote, b: Blanco, limpiar_z: Option<u32>, datos:
         genericos: [None; MAX_GENERICOS],
         n_genericos: c.genericos.len(),
         datos,
-        dibujo: Dibujo { indices: Some(desde as u32), vertices: vertices as u32, descarte, antihorario: r.antihorario, destino: Some((b.va, dst)), z, color: l.limpiar_rt, texturas: c.texturas.len() as u8, cadena: b.cadena, pantalla: false, banco: if c.banco { 16 * c.filas } else { 0 }, redondeo, mezcla: mezcla_de(&l.reglas.mezcla).map_err(String::from)? },
+        dibujo: Dibujo { indices: Some(desde as u32), vertices: vertices as u32, descarte, antihorario: r.antihorario, destino: Some((b.va, dst)), z, color: l.limpiar_rt, texturas: c.texturas.len() as u8, cadena: b.cadena, pantalla: false, banco: if c.banco { 16 * c.filas } else { 0 }, redondeo, mezcla: mezcla_de(&l.reglas.mezcla).map_err(String::from)?, registros: 0 },
         texturas,
         termometro_vs: c.termometro_vs,
         termometro_ps: c.termometro_ps,

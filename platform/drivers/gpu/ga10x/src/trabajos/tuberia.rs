@@ -94,6 +94,26 @@ pub const PROGRAMAS_VA: (u64, u64) = (VS_VA, PS_VA);
 /// entradas y su cbuffer precargados en registros (el de vertice de BMOX-12,
 /// ~52, y el pegamento). A un programa que usa menos no le cambia nada.
 pub const REGISTROS: u32 = 64;
+/// ** LI2b, los registros (12-10): lo mas que se le da a un programa de una
+/// APP. El censo de Cyberpunk: "mas registros de los que da la tuberia" (el
+/// cuerpo y su pegamento no cabian en 64). `REGISTER_COUNT` es de 8 bits y
+/// R255 es RZ: 248, multiplo de 8, por debajo. No se da a todos: cada dibujo
+/// pide lo que usan sus dos programas ([`registros_para`], `Dibujo::registros`)
+/// -- dar 248 a un programa de 40 son cuatro veces menos hilos por SM --, y
+/// el juez juzga con ESE numero.
+pub const MAX_REGISTROS: u32 = 248;
+
+/// Los registros que se le dan a un dibujo cuyos programas usan `usados`
+/// (con su pegamento, sin los `RESERVADOS`): los `RESERVADOS` encima, a
+/// multiplo de 8, y nunca menos de [`REGISTROS`] (lo de siempre).
+pub const fn registros_para(usados: u32) -> u32 {
+    let r = (usados + crate::sass::juez::RESERVADOS + 7) & !7;
+    if r < REGISTROS {
+        REGISTROS
+    } else {
+        r
+    }
+}
 /// Lo mas que mide cada uno: su SPH y su codigo (`juez::MAX_INSTRUCCIONES`:
 /// 128 desde E5, 4096 desde LI2b). Lo que queda de su ultima pagina se pone
 /// a cero ([`escribir_programa`]).
@@ -367,6 +387,21 @@ pub struct Dibujo {
     /// destino en la RAM de la app, sin Z y sin limpieza en el lote; la
     /// receta la lleva en su bloque (+88 bit 2).
     pub mezcla: crate::mezcla::Mezcla,
+    /// ** LI2b (12-10): los registros que pide este dibujo
+    /// ([`registros_para`]); 0 = [`REGISTROS`], lo de siempre. Lo pone el
+    /// KERNEL (`receta::paquete`, con lo que midio el pegamento), no la app.
+    pub registros: u32,
+}
+
+impl Dibujo {
+    /// Los registros que las ordenes dan a sus dos programas.
+    pub const fn registros_dados(&self) -> u32 {
+        if self.registros == 0 {
+            REGISTROS
+        } else {
+            self.registros
+        }
+    }
 }
 
 /// ** E8f: el banco de constantes de una app: el 3, el mismo que el de E3 de
@@ -541,7 +576,7 @@ pub(crate) fn dibujo_de_campos(cabecera: &[u8], n: usize, datos: usize) -> Optio
     };
     let z = z_de(estado).ok()?;
     let redondeo = crate::pegamento::Redondeo::de_numero(bandera >> 8 & 0xFF)?;
-    let d = Dibujo { indices, vertices, descarte, antihorario: estado & 4 != 0, destino, z, color: None, texturas: 0, cadena: false, pantalla: false, banco: 0, redondeo, mezcla: crate::mezcla::Mezcla::NINGUNA };
+    let d = Dibujo { indices, vertices, descarte, antihorario: estado & 4 != 0, destino, z, color: None, texturas: 0, cadena: false, pantalla: false, banco: 0, redondeo, mezcla: crate::mezcla::Mezcla::NINGUNA, registros: 0 };
     cabe(&d).then_some(d)
 }
 
@@ -819,7 +854,7 @@ pub fn ordenes_dibujo(v: &Ventana, n: usize, ligero: bool, d: Dibujo) -> cu::Ord
     // con Z sobre un color pitch: Xid 69 en el metal). La limpieza de la
     // ventana, entonces, en la sombra; y el motor de copia la lleva despues
     // a `v` (el kernel, `sombra::copia`).
-    let mut e = cu::hasta_el_dibujo_de(&v, !ligero, limpiar && d.z.is_none(), None, REGISTROS, PROGRAMAS_VA);
+    let mut e = cu::hasta_el_dibujo_de(&v, !ligero, limpiar && d.z.is_none(), None, d.registros_dados(), PROGRAMAS_VA);
     if d.z.is_some() {
         crate::sombra::al_color(&mut e, &v);
         if limpiar {
@@ -973,7 +1008,7 @@ pub fn huella_fija(v: &Ventana, p: &Paquete, ligero: bool) -> u64 {
     let color = d.color.map_or(0, |c| 1 << 32 | c as u64) | (d.texturas as u64) << 40;
     let dst = d.destino.map_or(Default::default(), |(_, dst)| dst);
     let hay_destino = d.destino.is_some() as u64 | (d.cadena as u64) << 1 | (d.pantalla as u64) << 2;
-    for x in [dibujo, z, color, hay_destino, dst.fila as u64 | (dst.ancho as u64) << 32, dst.alto as u64 | (dst.rgb as u64) << 32 | (dst.flotante.numero() as u64) << 33 | (d.redondeo.numero() as u64) << 40, v.x0 as u64, v.y0 as u64, v.va, v.fila as u64, v.rgb as u64, ligero as u64, d.destino.map_or(0, |(va, _)| va % 4096)] {
+    for x in [dibujo, z, color, hay_destino, dst.fila as u64 | (dst.ancho as u64) << 32, dst.alto as u64 | (dst.rgb as u64) << 32 | (dst.flotante.numero() as u64) << 33 | (d.redondeo.numero() as u64) << 40, v.x0 as u64, v.y0 as u64, v.va, v.fila as u64, v.rgb as u64, ligero as u64, d.destino.map_or(0, |(va, _)| va % 4096), d.registros_dados() as u64] {
         mezclar(&x.to_le_bytes());
     }
     h
@@ -1122,7 +1157,7 @@ mod pruebas {
         for (k, i) in [0u32, 1, 2, 0, 2, 3].iter().enumerate() {
             datos[64 + 4 * k..68 + 4 * k].copy_from_slice(&i.to_le_bytes());
         }
-        let d = Dibujo { indices: Some(64), vertices: 4, descarte: Descarte::Traseras, antihorario: false, destino: None, z: None, color: None, texturas: 0, cadena: false, pantalla: false, banco: 0, redondeo: crate::pegamento::Redondeo::NADA, mezcla: crate::mezcla::Mezcla::NINGUNA };
+        let d = Dibujo { indices: Some(64), vertices: 4, descarte: Descarte::Traseras, antihorario: false, destino: None, z: None, color: None, texturas: 0, cadena: false, pantalla: false, banco: 0, redondeo: crate::pegamento::Redondeo::NADA, mezcla: crate::mezcla::Mezcla::NINGUNA, registros: 0 };
         let mut caja = std::vec![0u8; MAX_PAQUETE];
         let n = escribir_paquete_dibujo(&mut caja, 7, &vs, &ps, 6, &datos, d).unwrap();
         assert_eq!(medida(&caja[..CABECERA_MAX]), Some(n));
@@ -1264,7 +1299,7 @@ mod pruebas {
         let (vs, ps) = (programa_de(&vertice()), programa_de(&pixel()));
         let datos = std::vec![0u8; 96];
         let dst = Destino { fila: 1280 * 4, ancho: 1280, alto: 720, flotante: crate::destino::Flotante::No, rgb: false };
-        let d = Dibujo { indices: None, vertices: 3, descarte: Descarte::Ninguna, antihorario: false, destino: Some((0x1234_5000, dst)), z: None, color: None, texturas: 0, cadena: false, pantalla: false, banco: 0, redondeo: crate::pegamento::Redondeo::NADA, mezcla: crate::mezcla::Mezcla::NINGUNA };
+        let d = Dibujo { indices: None, vertices: 3, descarte: Descarte::Ninguna, antihorario: false, destino: Some((0x1234_5000, dst)), z: None, color: None, texturas: 0, cadena: false, pantalla: false, banco: 0, redondeo: crate::pegamento::Redondeo::NADA, mezcla: crate::mezcla::Mezcla::NINGUNA, registros: 0 };
         let mut caja = std::vec![0u8; MAX_PAQUETE];
         let n = escribir_paquete_dibujo(&mut caja, 7, &vs, &ps, 3, &datos, d).unwrap();
         assert_eq!(leer(&caja[..n]).unwrap().dibujo, d);

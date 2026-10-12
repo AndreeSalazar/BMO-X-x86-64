@@ -227,8 +227,20 @@ y `puerta.rs`; el juez en `platform/drivers/gpu/ga10x/src/sass/juez.rs`):
         en los dos ABI, el pegamento y el juez enteros, y el juez en vivo;
         lo de mas de 4096, por la CPU), `tuberia_vram.rs` (el largo en su
         region, el corto deja su pagina limpia, las ordenes apuntan alli).
-      **Falta:** el metal (Cyberpunk con `smp all` y `personal 3060`); los
-      registros siguen en 64 (lo que pasa de ahi lo dice el emisor); y un
+      **12-10, LOS REGISTROS** (el censo: "mas registros de los que da la
+      tuberia", 2 lotes): `tuberia::MAX_REGISTROS` = 248 (8 bits de
+      `REGISTER_COUNT`, R255 es RZ, a multiplo de 8). El emisor tiene hasta
+      238 (`puerta::REGISTROS`), el pegamento hasta 248, y CADA DIBUJO pide
+      lo que usan sus dos programas (`registros_para`: nunca menos de 64, lo
+      de siempre); el KERNEL lo mide al pegar (`Taller::registros`), el juez
+      juzga con ESE numero y el paquete lo lleva a las ordenes
+      (`Dibujo::registros`; la app no lo elige). Pruebas: lo que cabia en 64
+      sale IGUAL byte a byte (mas de 40 sombreadores del banco), 100 valores
+      vivos van a la 3060 con los bits de la CPU (y con 64 el juez lo para),
+      `una_receta_de_mas_de_64_registros` (las ordenes dan los suyos).
+      *Lo que se mira en el metal:* que la 3060 acepta un `REGISTER_COUNT`
+      de mas de 64 en el pipeline grafico (NVK lo usa; aqui no se probo).
+      **Falta:** el metal (Cyberpunk con `smp all` y `personal 3060`); y un
       programa cambiado se reescribe ENTERO por PRAMIN en cada dibujo frio
       (hasta 64 KiB): si el metal lo dice lento, una cache de programas en
       la VRAM (cada uno subido UNA vez) es la pieza siguiente.
