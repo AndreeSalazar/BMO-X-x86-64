@@ -7,7 +7,7 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   770 casillas ABIERTAS en 71 planes
+   771 casillas ABIERTAS en 71 planes
    605 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
@@ -207,6 +207,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] RS2 -- el pase que se SOSTIENE (Ring 0, chico y con motivo). Un
 - ... y 10 mas
 
+## [`PLAN_AYNI.md`](PLAN_AYNI.md) -- 12 abiertas, 0 hechas
+
+*PLAN AYNI -- que la GPU gaste MENOS, con un cerebro pequeno en la CPU*
+
+- [ ] AY0 -- el contrato, en papel. Que entra (las ~9 de PACHA por
+- [ ] AY1 -- A0, el plazo. Un fotograma por VBlank, empezado tarde.
+- [ ] AY2 -- UMA en el banco. La red, la leccion de las maestras y las
+- ... y 9 mas
+
 ## [`PLAN_EL_COMPAS.md`](PLAN_EL_COMPAS.md) -- 12 abiertas, 4 hechas
 
 *PLAN EL COMPAS -- el quantum se retira, y el turno se CONCEDE*
@@ -224,15 +233,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] LI2b -- programas largos. Hoy el cuerpo cabe en un hueco de 128
 - [ ] LI2c -- texturas (TEX; M3 de PLAN_VERRANO.md). El TIC y el
 - ... y 9 mas
-
-## [`PLAN_AYNI.md`](PLAN_AYNI.md) -- 11 abiertas, 0 hechas
-
-*PLAN AYNI -- que la GPU gaste MENOS, con un cerebro pequeno en la CPU*
-
-- [ ] AY0 -- el contrato, en papel. Que entra (las ~9 de PACHA por
-- [ ] AY1 -- A0, el plazo. Un fotograma por VBlank, empezado tarde.
-- [ ] AY2 -- UMA en el banco. La red, la leccion de las maestras y las
-- ... y 8 mas
 
 ## [`PLAN_LA_PUERTA_SE_PARTE.md`](PLAN_LA_PUERTA_SE_PARTE.md) -- 11 abiertas, 8 hechas
 

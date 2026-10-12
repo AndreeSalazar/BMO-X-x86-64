@@ -166,9 +166,47 @@ sabe hacia donde va el siguiente corte antes de que la GPU lo dibuje:
 
 Cambia **poco y concreto**: un numero mas por baldosa para UMA (la velocidad
 de la entrada y la distancia al centro). No anade input lag: la entrada ya
-estaba leida para el juego. Mas alla de eso (adivinar lo que el jugador hara)
-es especular, y no entra: un fotograma dibujado para un futuro que no llega
-es trabajo tirado, justo lo contrario de AYNI.
+estaba leida para el juego.
+
+**La 5D que predice** (el propietario, despues: *"la CPU ya sabe que quiere
+el jugador ... cuando apunta con el puntero se crea una posibilidad propia,
+neuronal, que acepta o no, y eso ahorra en tiempo real"*). Es la parte
+divertida, y se puede, con una frontera clara:
+
+* **BMO-X ve la entrada ANTES que el juego**: el kernel recibe el raton y el
+  teclado y luego se los da a la app. Eso no es adivinar: es saber primero.
+* **El movimiento corto se predice bien**: la mano tiene inercia. Un puntero
+  que frena sobre un sitio va a parar ahi (en interfaces se llama prediccion
+  del punto final, *endpoint prediction*, y se estudia desde hace anos).
+  Unos pocos fotogramas hacia delante, no segundos.
+* **La decision NO se predice perfecta**: el jugador puede cambiar de idea
+  en el ultimo milisegundo. Por eso cada prediccion lleva su **confianza**
+  (la "posibilidad que acepta o no"): por encima del umbral se usa, por
+  debajo no se hace nada.
+
+**La regla de oro de la 5D: predecir para AHORRAR o PREPARAR, nunca para
+ACTUAR.**
+
+```text
+   si (ahorra o prepara)   menos detalle lejos de donde va el puntero; el
+                           fotograma empezado mas tarde si el raton esta
+                           quieto; la escena quieta a casi cero; preparar
+                           (subir el reloj, tener listo) justo antes del clic
+   no (actuar)             mover el puntero, hacer el clic o apuntar por el
+                           jugador. Eso cambia el JUEGO, no el coste: es
+                           ayuda de punteria, y en un juego en linea
+                           (Warframe) es trampa para su antitrampas
+```
+
+Si la prediccion falla, el fotograma cuesta **lo de siempre** (sin AYNI): la
+5D nunca empeora la imagen, solo ahorra menos. El juego no necesita saber
+nada.
+
+**Los papeles, dichos asi**: la CPU es la cabeza (ve el tiempo y la mano, y
+decide); la GPU es el cuerpo (los pixeles gordos, en paralelo, sin pensar).
+Con una condicion: **la cabeza tiene que ser ligera**. UMA y la 5D juntas
+caben en una fraccion de milisegundo; si la cabeza tardara mas que lo que
+ahorra, el cuerpo la esperaria y el plan no tendria sentido.
 
 ---
 
@@ -304,9 +342,15 @@ corrige un paso. Asi aprende de TU juego, en TU monitor, mientras juegas.
 - [ ] **AY10 -- A5, el reloj, DECISION DEL PROPIETARIO.** Pedir al GSP un
       estado de rendimiento mas bajo cuando sobra tiempo. Riesgo: es el reloj
       de la tarjeta.
+- [ ] **AY11 -- la 5D: la prediccion del puntero.** Con la entrada que el
+      kernel ve primero, predecir donde para el puntero y con que confianza;
+      solo para ahorrar o preparar (seccion 2b). **Como se sabe:** en
+      sesiones grabadas, el acierto de la prediccion a 1, 2 y 4 fotogramas;
+      en vivo, el ahorro con y sin ella; y la prueba del NO: la entrada que
+      llega al juego es identica bit a bit con la 5D encendida y apagada.
 
 **El orden**: AY0 -> AY1 (lo que mas ahorra, sin red) -> AY2 -> AY3 -> AY4
--> AY5 -> AY6 -> AY7 -> AY8 -> AY9 -> AY10. AY2 y AY6 se pueden hacer YA
+-> AY5 -> AY6 -> AY7 -> AY8 -> AY11 -> AY9 -> AY10. AY2 y AY6 se pueden hacer YA
 (la CPU dibuja hoy); AY3 en adelante esperan a que la 3060 dibuje los lotes
 de Cyberpunk (`PLAN_EL_LIBRETO`, LI0..LI6).
 
