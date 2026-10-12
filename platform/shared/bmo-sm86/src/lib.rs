@@ -16,3 +16,7 @@
 #![forbid(unsafe_code)]
 
 pub mod codifica;
+
+/// LI2f (12-10): el computo de una app -- ids, barrera, compartida, global y
+/// atomicos --, con su oro.
+pub mod computo;
