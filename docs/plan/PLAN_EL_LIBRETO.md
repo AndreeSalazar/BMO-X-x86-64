@@ -127,7 +127,7 @@ y `puerta.rs`; el juez en `platform/drivers/gpu/ga10x/src/sass/juez.rs`):
 
 ## 4.0 Medir antes de construir
 
-- [ ] **LI0 -- EL CENSO de la 3060: cuantos PSO de Cyberpunk pasarian, y
+- [~] **LI0 -- EL CENSO de la 3060: cuantos PSO de Cyberpunk pasarian, y
       por que no los demas.** Al crear cada PSO, PROTON-X le pregunta a la
       puerta SIN mandar nada a la tarjeta (la traduccion y el juez, en la
       CPU) y apunta TODAS las puertas que no pasa, no solo la primera. Al
@@ -138,6 +138,12 @@ y `puerta.rs`; el juez en `platform/drivers/gpu/ga10x/src/sass/juez.rs`):
       con un censo conocido (uno que pasa, uno por cada puerta: la prueba
       del NO es que cada puerta se cuente); en el metal, la linea del
       DIARIO de Cyberpunk. **Decide el orden de LI2.**
+      **12-10, HECHO en el anfitrion** (`proton-x-sm86/src/censo.rs`,
+      `pruebas_censo.rs`: la prueba del NO es un PSO con DOS puertas, donde
+      `traducir` dice una y el censo las dos). Cuenta tambien las puertas
+      del LOTE (mezcla, Z, stencil, instancias, UAV, olas, derivadas, mips)
+      y las del destino (HDR, sin pixeles), y "solo por ella". Encendido con
+      el diario. **Falta:** la linea del DIARIO de Cyberpunk en el metal.
 
 ## 4.1 El libreto de los PSO (preparar una vez)
 
@@ -153,7 +159,7 @@ y `puerta.rs`; el juez en `platform/drivers/gpu/ga10x/src/sass/juez.rs`):
 
 ## 4.2 Abrir las puertas (el orden lo pone LI0; este es el probable)
 
-- [ ] **LI2a -- `SV_Position` en el de pixeles** (N5.9). La 3060 la da en
+- [~] **LI2a -- `SV_Position` en el de pixeles** (N5.9). La 3060 la da en
       un atributo de sistema que el pegamento aun no pone. Es la primera
       que toco Cyberpunk y es acotada. **Como se sabe:** `posicion.dxil`
       (de `prueba/`) pasa la puerta y da los mismos bits en el simulador de
@@ -180,6 +186,21 @@ y `puerta.rs`; el juez en `platform/drivers/gpu/ga10x/src/sass/juez.rs`):
       ```
       Instrucciones nuevas para la tarjeta: van al metal con el permiso del
       propietario, como E6.
+      **12-10, LA x Y LA y HECHAS** (con el permiso del propietario: *"empezar
+      con eso"*). Los bits, de la fuente de NVIDIA y no adivinados: la tabla 9
+      de `open-gpu-doc/Shader-Program-Header` pone `ImapSystemValuesB` tras
+      CommonWord0..4 (160 bits) e `ImapSystemValuesA` (24): PositionX..W son
+      los bits **188..191**. `Carga::Posicion` (pegamento, receta tipo 3,
+      validada en Ring 0) pone el IPA de `a[0x70]`/`a[0x74]` y su bit; con el
+      origen arriba y el centro en el medio (`raster.rs`, desplazamiento 0
+      tambien en la pantalla directa) son `columna + 0.5` y `fila + 0.5`, los
+      bits de la CPU. **La z y la w siguen por la CPU** (otro motivo en el
+      censo: `SV_Position.z o .w en el de pixeles`): la w es 1/w en la 3060 y
+      pide la division exacta; la z, su juicio en el metal. Pruebas:
+      `la_x_y_la_y_van_a_la_3060` (el IPA y los bits en el programa pegado, y
+      el juez) y `la_z_y_la_w_siguen_por_la_cpu`; `la_posicion_cruza_la_receta`.
+      **Falta:** el metal (el censo dira cuantos lotes de Cyberpunk solo leian
+      x e y).
 - [ ] **LI2b -- programas largos.** Hoy el cuerpo cabe en un hueco de 128
       instrucciones de la tuberia. Un sombreador de Cyberpunk no. El codigo
       tiene que vivir en su propia region de la VRAM (como hace el driver

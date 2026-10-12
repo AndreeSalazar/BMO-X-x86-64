@@ -72,10 +72,25 @@ impl ParaLa3060 {
 }
 
 pub(crate) fn cargas(e: &Emitido) -> Vec<Carga> {
+    cargas_con_posicion(e, None)
+}
+
+/// **LI2a (12-10): ¿lee el de pixeles la z o la w de SV_Position?** Esas
+/// aun no van a la 3060 (la w es 1/w alli; la z, sin comprobar en el metal).
+pub fn posicion_zw(en: &Enlace) -> bool {
+    en.pos_ps.is_some_and(|p| {
+        en.ps.ops.iter().any(|o| matches!(*o, bmo_proton_x::dxil::programa::Op::Entrada { elemento, componente, .. } if elemento as usize == p && componente >= 2))
+    })
+}
+
+/// [`cargas`] del de pixeles: la entrada `pos` (SV_Position, si la lee) es
+/// la posicion de la pantalla, no un generico (LI2a).
+pub(crate) fn cargas_con_posicion(e: &Emitido, pos: Option<usize>) -> Vec<Carga> {
     let pares = texturas_de(e);
     e.precargas
         .iter()
         .map(|p| match *p {
+            Precarga::Entrada { elemento, componente, reg } if pos == Some(elemento as usize) => Carga::Posicion { componente, reg },
             Precarga::Entrada { elemento, componente, reg } => Carga::Entrada { elemento, componente, reg },
             Precarga::Fila { fila, reg } => Carga::Fila { fila, reg },
             // La pareja (tN, sM) es la textura k de la receta: su puesto.
@@ -149,10 +164,10 @@ pub fn traducir(en: &Enlace, ia: &[ElementoIa], paso: u32) -> Result<ParaLa3060,
     let els = elementos(en, ia)?;
     let filas = en.vs.filas_cb.max(en.ps.filas_cb) as u32;
     let datos = Datos { filas, paso, elementos: &els };
-    // N5.9: el de pixeles que lee SV_Position, por la CPU todavia (la 3060
-    // la da en un atributo de sistema que el pegamento no pone).
-    if en.pos_ps.is_some() {
-        return Err(NoVa::Entrada("SV_Position en el de pixeles"));
+    // ** LI2a (12-10): el de pixeles que lee SV_Position ya va a la 3060 si
+    // lee su x y su y (`Carga::Posicion`); la z y la w, por la CPU todavia.
+    if posicion_zw(en) {
+        return Err(NoVa::Entrada("SV_Position.z o .w en el de pixeles"));
     }
     // N5.8: la 3060 pinta UN render target todavia: el G-buffer, por la CPU.
     if en.objetivos != [0] {
@@ -163,7 +178,7 @@ pub fn traducir(en: &Enlace, ia: &[ElementoIa], paso: u32) -> Result<ParaLa3060,
     pegamento::vertice_con_libreta_en(&mut v, &ev.codigo, ev.registros, &cargas(&ev), datos, en.vs.salidas as u32, posicion, ev.termometro).map_err(|e| NoVa::Pegamento("vertice", e))?;
     let genericos: Vec<Option<u8>> = en.desde_vs.iter().map(|o| o.and_then(|o| pegamento::generico(o as u32, posicion))).collect();
     let mut p = pegamento::Pegado::VACIO;
-    pegamento::pixel_con_libreta_en(&mut p, &ep.codigo, ep.registros, &cargas(&ep), datos, &genericos, ep.termometro).map_err(|e| NoVa::Pegamento("pixel", e))?;
+    pegamento::pixel_con_libreta_en(&mut p, &ep.codigo, ep.registros, &cargas_con_posicion(&ep, en.pos_ps), datos, &genericos, ep.termometro).map_err(|e| NoVa::Pegamento("pixel", e))?;
     let (vs, ps) = (bytes(&v), bytes(&p));
     let juzgar = |cual: &'static str, b: &[u8]| juez::juzgar_programa(b, tuberia::REGISTROS).map_err(|x| NoVa::Juez(cual, alloc::format!("{x}")));
     let instrucciones = juzgar("vertice", &vs)?.instrucciones + juzgar("pixel", &ps)?.instrucciones;

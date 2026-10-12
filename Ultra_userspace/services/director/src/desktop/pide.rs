@@ -182,7 +182,7 @@ pub(crate) fn atender(dsk: &mut Desktop, p: &bmo::Pantalla) {
     match juzgar(l) {
         Que::Diario(ruta) => {
             let mut buf = [0u8; PATH_MAX];
-            match crate::commands::files::linea_censo(ruta, true, &mut buf) {
+            match crate::commands::files::linea_censo(ruta, 1, &mut buf) {
                 Ok(k) => {
                     crate::desktop::keys::editor::antes_de_proton_x(dsk, p, &buf[..k]);
                     crate::scene::abrir::pedir(&[&buf[..k]]);

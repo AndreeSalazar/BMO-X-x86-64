@@ -317,7 +317,7 @@ static mut ULTIMA: ([u8; 96], usize) = ([0; 96], 0);
 /// La ruta se LIMPIA (30-09): sin espacios a los lados, sin comillas, sin
 /// `d:`/`D:` delante y con `\` como `/` (lo que se copia de Windows). Sin
 /// ruta, la ultima. El `Err` es la frase que se le dice al propietario.
-pub(crate) fn linea_censo(ruta: &[u8], diario: bool, buf: &mut [u8; crate::PATH_MAX]) -> Result<usize, &'static [u8]> {
+pub(crate) fn linea_censo(ruta: &[u8], diario: u8, buf: &mut [u8; crate::PATH_MAX]) -> Result<usize, &'static [u8]> {
     let mut r = ruta;
     while let [b' ' | b'"', resto @ ..] = r {
         r = resto;
@@ -350,7 +350,12 @@ pub(crate) fn linea_censo(ruta: &[u8], diario: bool, buf: &mut [u8; crate::PATH_
         &limpia[..r.len()]
     };
     const PROGRAMA: &[u8] = b"sys/proton-x.bex ";
-    let bandera: &[u8] = if diario { b"--diario \"d:" } else { b"--censo \"d:" };
+    // 0 censo, 1 diario, 2 el modo 3060 (12-10; `--3060` trae el diario).
+    let bandera: &[u8] = match diario {
+        0 => b"--censo \"d:",
+        1 => b"--diario \"d:",
+        _ => b"--3060 \"d:",
+    };
     let partes: [&[u8]; 4] = [PROGRAMA, bandera, ruta, b"\""];
     let n: usize = partes.iter().map(|x| x.len()).sum();
     if n > buf.len() || n - PROGRAMA.len() > 96 {

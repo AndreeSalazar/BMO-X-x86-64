@@ -91,6 +91,8 @@ mod saltos;
 pub mod pso;
 /// P3b4c: el lote a la PUERTA de la 3060 (la receta VRN2 que manda la app).
 pub mod puerta;
+/// LI0 (12-10): el censo de la 3060 -- todas las puertas de cada lote, contadas.
+pub mod censo;
 
 // A9 (06-10): el .bsf vivo: generar, comprobar bit a bit y recordar.
 pub mod vivo;
@@ -1082,3 +1084,5 @@ mod pruebas_series;
 mod pruebas_constantes;
 #[cfg(test)]
 mod pruebas_lecturas;
+#[cfg(test)]
+mod pruebas_censo;

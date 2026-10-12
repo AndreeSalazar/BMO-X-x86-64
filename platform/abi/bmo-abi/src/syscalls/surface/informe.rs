@@ -611,6 +611,10 @@ pub const INFO_REINICIO_MCA: u64 = 0xD1;
 /// `smp`: bit 63 = medido; `[0..8)` obreros, `[8..16)` distintos del BSP,
 /// `[16..24)` con la cache apagada (CR0.CD/NW), `[24..32)` sin `CR4.MCE`.
 pub const INFO_SMP_CPU: u64 = 0xD2;
+/// **La 3060 lista para los lotes de una app** (12-10): 1 si el escritorio
+/// la preparo (`gpu verrano`, hasta `lienzo`) y no se despidio; 0 si no. Sin
+/// ella, cada lote de PROTON-X que pasa las puertas recibe un NO.
+pub const INFO_GPU_PUERTA: u64 = 0xD3;
 
 /// -- ** EL METRO DE LA PUERTA -------------------------------------------
 ///

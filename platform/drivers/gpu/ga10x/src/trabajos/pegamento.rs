@@ -76,7 +76,23 @@ pub enum Carga {
     /// en `reg`. La pone el pegamento con un MOV: la app no elige que TIC ni
     /// que TSC lee la 3060. Solo en el de pixel.
     Asa { textura: u8, reg: u8 },
+    /// ** LI2a (12-10): `SV_Position` en el de PIXEL, su componente
+    /// `componente` (0 = x, 1 = y) en `reg`: un IPA de `a[0x70 + 4c]` y su
+    /// bit en la SPH (`ImapPositionX/Y`, bits 188 y 189: la tabla 9 de
+    /// `Shader-Program-Header` de NVIDIA). Con el origen arriba y el centro del
+    /// pixel en el medio (`raster.rs`), x e y son `columna + 0.5` y `fila +
+    /// 0.5`: los MISMOS bits que la CPU. La z y la w, todavia no (la w es 1/w
+    /// en la 3060 y pide la division exacta de la casa).
+    Posicion { componente: u8, reg: u8 },
 }
+
+/// `a[0x70]`, la posicion en el de pixel, en palabras (`IPA` lleva el
+/// atributo en palabras de 4 bytes: `a[4 * atributo]`).
+pub const ATRIBUTO_POSICION: u64 = 0x70 / 4;
+/// `ImapPositionX` en la SPH (tras CommonWord0..4, 160 bits, e
+/// `ImapSystemValuesA`, 24: `ImapSystemValuesB` empieza en el 184 con
+/// PrimitiveId, RtArrayIndex, ViewportIndex, PointSize, PositionX..W).
+pub const BIT_IMAP_POSICION_X: u32 = 188;
 
 /// Los registros que llevan un asa (la mascara que pide el juez R7).
 pub fn asas(cargas: &[Carga]) -> u64 {
@@ -246,6 +262,12 @@ fn cargas_propias(cargas: &[Carga], registros: u32) -> Result<(), NoPega> {
     for c in cargas {
         let (reg, n) = match *c {
             Carga::Entrada { reg, .. } => (reg as u32, 1),
+            Carga::Posicion { componente, reg } => {
+                if componente > 1 {
+                    return Err(NoPega::Carga);
+                }
+                (reg as u32, 1)
+            }
             Carga::Fila { reg, .. } => (reg as u32, 4),
             Carga::Asa { textura, reg } => {
                 if textura as usize >= crate::texturas::MAX_TEXTURAS {
@@ -475,9 +497,17 @@ pub fn pixel_con_libreta_en(g: &mut Pegado, cuerpo: &[(u64, u64)], registros: u3
         }
     }
     // Los IPA; el ultimo con el control largo de T2a.
-    let entradas = cargas.iter().filter(|c| matches!(c, Carga::Entrada { .. })).count();
+    let entradas = cargas.iter().filter(|c| matches!(c, Carga::Entrada { .. } | Carga::Posicion { .. })).count();
     let mut k = 0;
     for c in cargas {
+        // LI2a: la posicion de la pantalla, del atributo de sistema.
+        if let Carga::Posicion { componente, reg } = *c {
+            k += 1;
+            let control = if k == entradas { IPA_ULTIMO } else { IPA_CONTROL };
+            o.p(ipa(reg as u64, ATRIBUTO_POSICION + componente as u64, control));
+            sph[5] |= 1 << (BIT_IMAP_POSICION_X - 160 + componente as u32);
+            continue;
+        }
         if let Carga::Entrada { elemento, componente, reg } = *c {
             let Some(&Some(g)) = genericos.get(elemento as usize) else { return Err(NoPega::Carga) };
             let g = g as u32;

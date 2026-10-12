@@ -81,6 +81,12 @@ struct Estado {
     /// A9: lo dicho de los `.bsf` (traducidos, recordados, cuando y, A9c,
     /// corregidos por el vigia).
     bsf_dicho: (usize, usize, u64, usize),
+    /// ** LI0 (12-10): EL CENSO -- todas las puertas de cada lote, contadas;
+    /// solo con el diario encendido (traducir los PSO que van por la CPU
+    /// cuesta, y es para investigar).
+    censo: bmo_proton_x_sm86::censo::Censo,
+    /// Cuando se dijo el censo por ultima vez (ns) y con cuantos lotes.
+    censo_dicho: (u64, u64),
 }
 
 /// **El recuerdo de los `.bsf` en ESTRATOS** (A9, 06-10): cada PSO, un
@@ -216,7 +222,66 @@ static ESTADO: Celda = Celda(core::cell::UnsafeCell::new(Estado {
     sin_pantalla: false,
     carpeta_bsf: None,
     bsf_dicho: (0, 0, 0, 0),
+    censo: bmo_proton_x_sm86::censo::Censo::nuevo(),
+    censo_dicho: (0, 0),
 }));
+
+/// Cada cuanto se dice el censo (LI0), en la consola y en el DIARIO; en el
+/// modo 3060, mas a menudo.
+const CENSO_CADA_NS: u64 = 30_000_000_000;
+const CENSO_CADA_NS_3060: u64 = 10_000_000_000;
+
+/// ** EL MODO 3060 (12-10, `--3060`).
+static MODO_3060: core::sync::atomic::AtomicBool = core::sync::atomic::AtomicBool::new(false);
+/// Los NO del kernel a un lote de la 3060, en toda la corrida.
+static NO_DEL_KERNEL: core::sync::atomic::AtomicU64 = core::sync::atomic::AtomicU64::new(0);
+
+pub(crate) fn modo_3060() {
+    MODO_3060.store(true, core::sync::atomic::Ordering::Relaxed);
+}
+
+pub(crate) fn en_modo_3060() -> bool {
+    MODO_3060.load(core::sync::atomic::Ordering::Relaxed)
+}
+
+/// **Al arrancar en el modo 3060**: si el escritorio preparo la tarjeta.
+pub(crate) fn decir_si_esta_lista() {
+    let lista = bmo::info(bmo::INFO_GPU_PUERTA) == 1;
+    let s = if lista {
+        "PROTON-X --3060: la 3060 esta LISTA para los lotes del juego; los que pasen sus puertas van a ella (y, a 1280x720, a la pantalla directa)"
+    } else {
+        "PROTON-X --3060: la 3060 NO esta lista (el escritorio no la preparo: `gpu verrano` hasta `lienzo`, o `save mode`). Todo por la CPU; el censo dice igual que pasaria"
+    };
+    bmo::consola(s);
+    bmo::consola("\n");
+    bmo_proton_x_casa::diario::apuntar_y_volcar(s);
+}
+
+/// **El censo de la 3060** a la consola y al DIARIO (LI0, 12-10).
+fn decir_censo(e: &mut Estado, ahora: u64) {
+    e.censo_dicho = (ahora, e.censo.lotes);
+    let mut s = e.censo.resumen(10);
+    // Y lo que paso DE VERDAD (no la cota del censo): lotes que dibujo la
+    // 3060 y NO del kernel.
+    s.push_str(&alloc::format!(
+        "#   de verdad: la 3060 dibujo {} lote(s); el kernel dijo NO a {}{}\n",
+        e.por_la_3060,
+        NO_DEL_KERNEL.load(core::sync::atomic::Ordering::Relaxed),
+        if e.apagada { "; la 3060 se dejo (los lotes, por la CPU)" } else { "" }
+    ));
+    bmo::consola("PROTON-X: el censo de la 3060 (LI0):\n");
+    let n = s.lines().count();
+    for (k, linea) in s.lines().enumerate() {
+        bmo::consola(linea);
+        bmo::consola("\n");
+        // Al disco con la ULTIMA linea: una escritura del diario por censo.
+        if k + 1 == n {
+            bmo_proton_x_casa::diario::apuntar_y_volcar(linea.trim_start_matches("# "));
+        } else {
+            bmo_proton_x_casa::diario::apuntar_arranque(linea.trim_start_matches("# "));
+        }
+    }
+}
 
 /// **P3b4c.9 Z1: soltar la pantalla directa** si se pidio, y no volver a
 /// pedirla: lo que venga va por la RAM y lo compone el escritorio. Un lote
@@ -265,6 +330,23 @@ fn no_pagado(r: u64) -> String {
 pub fn dibujar(l: &Lote, d: &mut Destino) -> Result<Cuenta, NoDibuja> {
     // SAFETY: ver `Celda`.
     let e = unsafe { &mut *ESTADO.0.get() };
+    // ** LI0 (12-10): EL CENSO, antes de decidir nada: TODAS las puertas de
+    // este lote (las del destino, las del lote y las de su PSO), contadas.
+    if bmo_proton_x_casa::diario::encendido() {
+        let mut del_destino: Vec<&'static str> = Vec::new();
+        if d.flotante.is_some() {
+            del_destino.push("un render target de float (HDR, N5.16): la puerta sabe BGRA8 y RGBA8");
+        }
+        if d.pixeles.is_empty() {
+            del_destino.push("un lote sin pixeles (solo profundidad, N5.12)");
+        }
+        e.censo.apuntar(l, &del_destino, puerta::Z_EN_LA_SOMBRA);
+        let ahora = crate::plataforma::ahora_ns();
+        let cada = if en_modo_3060() { CENSO_CADA_NS_3060 } else { CENSO_CADA_NS };
+        if e.censo.lotes != e.censo_dicho.1 && ahora.saturating_sub(e.censo_dicho.0) >= cada {
+            decir_censo(e, ahora);
+        }
+    }
     // N5.12: un lote de solo profundidad (sin pixeles) no tiene back buffer
     // que darle a la puerta: por la CPU.
     // N5.16 (05-10): un render target de FLOAT (HDR) tampoco: la puerta
@@ -347,6 +429,7 @@ pub fn dibujar(l: &Lote, d: &mut Destino) -> Result<Cuenta, NoDibuja> {
                         });
                     }
                     Ok(r) => {
+                        NO_DEL_KERNEL.fetch_add(1, core::sync::atomic::Ordering::Relaxed);
                         // El metal (28-09): cada NO pagado costo 1 s entero
                         // (el tope del kernel) y 0 fps. Un canal GR que no
                         // paga tomo una excepcion (Xid): esta MUERTO hasta
@@ -357,11 +440,13 @@ pub fn dibujar(l: &Lote, d: &mut Destino) -> Result<Cuenta, NoDibuja> {
                         bmo::consola(&no_pagado(r));
                     }
                     Err(m) if m == bmo::IOMMU_NO_CANAL_MUERTO => {
+                        NO_DEL_KERNEL.fetch_add(1, core::sync::atomic::Ordering::Relaxed);
                         p.despues(l, false);
                         e.apagada = true;
                         bmo::consola("PROTON-X: el kernel dice que el canal de GR de la 3060 esta MUERTO (tomo un Xid; el numero, en `cabina`): la 3060 se deja YA; el resto, por la CPU. Reinicia para recuperarla\n");
                     }
                     Err(m) => {
+                        NO_DEL_KERNEL.fetch_add(1, core::sync::atomic::Ordering::Relaxed);
                         p.despues(l, false);
                         e.negados += 1;
                         decir(e, alloc::format!("el kernel dijo que no a la receta (motivo {m}; el porque, en `cabina fallos`)"));

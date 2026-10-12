@@ -722,6 +722,8 @@ pub const INFO_REINICIO_MCA: u64 = 0xD1;
 /// El CR0/CR4 de los obreros: bit 63 medido, obreros `[0..8)`, distintos
 /// `[8..16)`, sin cache `[16..24)`, sin MCE `[24..32)`.
 pub const INFO_SMP_CPU: u64 = 0xD2;
+/// La 3060 lista para los lotes de una app: 1 = el escritorio la preparo.
+pub const INFO_GPU_PUERTA: u64 = 0xD3;
 /// El formato `i` (`INFO_AUDIO_FORMATO | (i << 8)`): alt, canales, bits,
 /// subframe, `wMaxPacketSize`, cuantas frecuencias, si CABE en 1 ms, si es el
 /// elegido y su sincronia. Ver `uaudio::info_formato` en el kernel.

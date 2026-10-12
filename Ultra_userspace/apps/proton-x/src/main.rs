@@ -41,6 +41,11 @@
 //! `informe/diario.txt` cada funcion de Windows que el `.exe` llama por
 //! primera vez, en orden: `run sys/proton-x.bex --diario window/hola.exe`.
 //!
+//! **El modo 3060** (12-10): `--3060 <ruta>` es `--diario` y ademas dice al
+//! arrancar si la 3060 esta lista para los lotes (el escritorio la prepara
+//! con `gpu verrano`), el censo de la 3060 (LI0) cada 10 s y cuantos lotes
+//! dibujo ella. En el escritorio: `personal 3060 <ruta>`.
+//!
 //! **Sin obreros** (07-10): `--sin-obreros` apaga los sub-directores (el
 //! dibujo de la CPU en franjas por los otros nucleos, `obreros.rs`) aunque
 //! haya `smp all`. Va con `--diario` en cualquier orden.
@@ -934,6 +939,12 @@ pub extern "C" fn _start() -> ! {
     loop {
         if let Some(r) = todo.strip_prefix(b"--diario ") {
             (todo, con_diario) = (r, true);
+        } else if let Some(r) = todo.strip_prefix(b"--3060 ") {
+            // ** EL MODO 3060 (12-10): el diario, y la 3060 contada --
+            // si esta lista al arrancar, el censo (LI0) cada 10 s y lo que
+            // dibujo ella. `personal 3060 <ruta>` en el escritorio.
+            (todo, con_diario) = (r, true);
+            la3060::modo_3060();
         } else if let Some(r) = todo.strip_prefix(b"--sin-obreros ") {
             todo = r;
             obreros::apagar();
@@ -981,6 +992,9 @@ pub extern "C" fn _start() -> ! {
     bmo_proton_x_casa::pulso::medir_monton(|| (MONTON.gastado(), MONTON.pico(), MONTON.crecido()));
     if con_diario {
         bmo_proton_x_casa::diario::diario(Some(RUTA_DIARIO));
+    }
+    if la3060::en_modo_3060() {
+        la3060::decir_si_esta_lista();
     }
 
     // -- 2 y 3. El veredicto, la forma, y como se parte: de las cabeceras.
