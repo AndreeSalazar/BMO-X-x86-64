@@ -82,9 +82,11 @@ pub fn dump_to_disk() -> usize {
     // Sin autoref sobre el puntero crudo: se pide el slice explicitamente, que
     // es lo mismo que el compilador iba a hacer pero dicho en voz alta.
     let data = unsafe { core::slice::from_raw_parts(core::ptr::addr_of!(DUMP) as *const u8, n) };
-    match crate::ring0::fsys::fs::create(b"CABINA  LOG", data) {
+    // En `informe/` y REEMPLAZANDO (12-10): era `create` en la raiz, que no
+    // pisa -- la segunda vez daba "ya existe" y la bitacora se perdia.
+    match crate::ring0::fsys::fs::guardar_informe("CABINA.LOG", data) {
         Ok(()) => {
-            info("fs", "bitacora volcada a CABINA.LOG", n as u64);
+            info("fs", "bitacora volcada a informe/CABINA.LOG", n as u64);
             n
         }
         Err(e) => {

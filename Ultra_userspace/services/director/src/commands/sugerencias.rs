@@ -48,11 +48,11 @@ pub(crate) const MAX: usize = 8;
 /// `(linea, que hace)`, de lo que mas se usa a lo que menos.
 const LISTA: &[(&[u8], &[u8])] = &[
     (b"save mode", b"la verificacion total: cada paso de la GPU con su save antes"),
-    (b"save", b"el INFORME MAESTRO en datos/salida.txt"),
+    (b"save", b"el INFORME MAESTRO en informe/salida.txt"),
     (b"save mode off", b"desarma el modo: al arrancar ya no se repite"),
     (b"save auto", b"guardar solo antes de lo arriesgado"),
     (b"save manual", b"guardar solo cuando se teclea"),
-    (b"save siempre", b"guarda solo: al arrancar, cada 30 s mientras corre un programa (datos/vivo.txt) y al acabar; sigue armado tras reiniciar"),
+    (b"save siempre", b"guarda solo: al arrancar, cada 30 s mientras corre un programa (informe/vivo.txt) y al acabar; sigue armado tras reiniciar"),
     (b"save siempre off", b"desarma `save siempre`"),
     (b"gpu", b"la 3060: el rayo, el GSP y cada fila de la verificacion"),
     (b"gpu init", b"corre el secuenciador y arranca el GSP-RM"),
@@ -114,6 +114,7 @@ const LISTA: &[(&[u8], &[u8])] = &[
     (b"apps", b"que programa tiene RAM pedida"),
     (b"disco", b"el aparato, lo que queda y lo devuelto"),
     (b"ls", b"que hay en el disco"),
+    (b"mkdir", b"crea una carpeta (y las de por medio): todo lo escrito vive en informe/"),
     (b"lee", b"que hay DENTRO de un fichero"),
     (b"personal ls", b"que hay en tu disco Personal (D:), solo para mirar"),
     (b"personal lee", b"la medida y los primeros bytes de un fichero de D:"),

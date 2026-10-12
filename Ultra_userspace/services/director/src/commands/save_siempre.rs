@@ -7,13 +7,13 @@
 //!
 //! ```text
 //!    armarlo       `save siempre` (`save siempre off` lo desarma). Queda en
-//!                  datos/siempre.txt y sigue ARMADO tras reiniciar, como
+//!                  informe/estado/siempre.txt y sigue ARMADO tras reiniciar, como
 //!                  `save mode`
-//!    al arrancar   el `save` entero; y si datos/vivo.txt no acaba en
+//!    al arrancar   el `save` entero; y si informe/vivo.txt no acaba en
 //!                  "# ACABO", la vez anterior la maquina se quedo colgada
-//!                  con un programa corriendo: se copia a datos/colgado.txt
+//!                  con un programa corriendo: se copia a informe/colgado.txt
 //!                  y se dice cual era
-//!    corriendo     al lanzar y cada 30 s, datos/vivo.txt: lo que escribio el
+//!    corriendo     al lanzar y cada 30 s, informe/vivo.txt: lo que escribio el
 //!                  programa (cada linea una vez, con su xN) y las filas de
 //!                  CABINA desde que se lanzo. Directo al fichero, sin
 //!                  pintarlo (ver `bmo_registro::vivo`)
@@ -43,11 +43,11 @@ use crate::DEFAULT_DUMP;
 use bmo_registro::vivo;
 
 /// Donde queda armado.
-const ARMADO_EN: &[u8] = b"datos/siempre.txt";
+const ARMADO_EN: &[u8] = b"informe/estado/siempre.txt";
 /// El save vivo.
-const VIVO: &[u8] = b"datos/vivo.txt";
+const VIVO: &[u8] = b"informe/vivo.txt";
 /// El vivo de una vez que se quedo colgada, rescatado al arrancar.
-const COLGADO: &[u8] = b"datos/colgado.txt";
+const COLGADO: &[u8] = b"informe/colgado.txt";
 /// Cada cuanto, mientras corre un programa.
 const CADA_MS: u64 = 30_000;
 
@@ -84,13 +84,13 @@ pub(crate) fn orden(dsk: &mut Desktop, p: &bmo::Pantalla, arg: &[u8]) -> Option<
     let g = &mut dsk.out.grid;
     g.with_ink(if armar { INK_GOOD } else { INK_ECHO });
     g.text(if armar {
-        b"  save SIEMPRE: armado. Guardo solo al arrancar, al lanzar y cada 30 s mientras corre un programa (datos/vivo.txt), y al acabar (el save entero)\n" as &[u8]
+        b"  save SIEMPRE: armado. Guardo solo al arrancar, al lanzar y cada 30 s mientras corre un programa (informe/vivo.txt), y al acabar (el save entero)\n" as &[u8]
     } else {
         b"  save siempre: desarmado. Vuelve a guardar solo cuando lo teclees\n"
     });
     if !escrito {
         g.with_ink(INK_ERR);
-        g.text(b"  (no pude escribir datos/siempre.txt: vale hasta que apagues, no tras reiniciar)\n");
+        g.text(b"  (no pude escribir informe/estado/siempre.txt: vale hasta que apagues, no tras reiniciar)\n");
     }
     g.with_ink(INK_PLAIN);
     paint_status(p, &dsk.run_box, if armar { "save siempre" } else { "save manual" }, INK_DIM);
@@ -166,7 +166,7 @@ fn rescatar_colgado(dsk: &mut Desktop) {
     // Rescatado: el vivo se cierra, para no avisar otra vez al siguiente.
     if copiado {
         if let Ok(v) = bmo::Archivo::create(VIVO) {
-            v.write(b"# save vivo rescatado a datos/colgado.txt al arrancar\r\n");
+            v.write(b"# save vivo rescatado a informe/colgado.txt al arrancar\r\n");
             v.write(vivo::MARCA_FIN);
             v.write(b"\r\n");
             v.close();
@@ -178,9 +178,9 @@ fn rescatar_colgado(dsk: &mut Desktop) {
     g.text(vivo::programa(&cabeza[..k_cabeza]).unwrap_or(b"un programa"));
     g.byte(b'\n');
     g.text(if copiado {
-        b"  su ultimo save vivo esta en datos/colgado.txt (lo que escribio y lo que se tecleo)\n" as &[u8]
+        b"  su ultimo save vivo esta en informe/colgado.txt (lo que escribio y lo que se tecleo)\n" as &[u8]
     } else {
-        b"  su ultimo save vivo sigue en datos/vivo.txt (no pude copiarlo a colgado.txt): copialo antes de lanzar otro\n"
+        b"  su ultimo save vivo sigue en informe/vivo.txt (no pude copiarlo a colgado.txt): copialo antes de lanzar otro\n"
     });
     g.with_ink(INK_PLAIN);
 }

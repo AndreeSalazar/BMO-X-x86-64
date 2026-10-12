@@ -105,7 +105,7 @@ use watch::{watch_run, Run};
 /// solo BMO puede abrir no resuelve el problema para el que se escribio.
 ///
 /// `SALIDA.TXT` es 8.3 -- el driver FAT32 del kernel se niega a recortar.
-pub(crate) const DEFAULT_DUMP: &[u8] = b"datos/salida.txt";
+pub(crate) const DEFAULT_DUMP: &[u8] = b"informe/salida.txt";
 
 /// Monta `data/<programa>.txt` a partir de la ruta que se lanzo.
 ///
@@ -153,16 +153,17 @@ fn dump_name(target: &[u8], dst: &mut [u8; 32]) -> usize {
         None => b"",
     };
     let mut n = 0usize;
-    for &b in b"datos/" {
+    for &b in b"informe/" {
         dst[n] = b;
         n += 1;
     }
-    // Ocho letras y ni una mas: el driver FAT32 del kernel **se niega a
-    // recortar**, asi que un nombre largo no fallaria al crear -- fallaria al
-    // cerrar, que es donde ya sabemos que duele.
+    // ** CON NOMBRE LARGO (12-10): el kernel ya escribe nombres largos, asi
+    // que `cobol/8/cierre.bex` deja `informe/8-cierre.txt` y no `8cierre`.
+    // Veinte letras: lo que cabe en `dst` con la carpeta y el `.txt`.
     let start = n;
-    for &b in folder.iter().chain(stem.iter()) {
-        if n - start >= 8 {
+    let guion: &[u8] = if folder.is_empty() || stem.is_empty() { b"" } else { b"-" };
+    for &b in folder.iter().chain(guion.iter()).chain(stem.iter()) {
+        if n - start >= 20 {
             break;
         }
         dst[n] = b;
@@ -213,7 +214,7 @@ fn save_autopsies(vistos: &mut u64) -> bool {
         return false;
     }
     *vistos = total;
-    let Ok(a) = bmo::Archivo::create(b"datos/fallos.txt") else {
+    let Ok(a) = bmo::Archivo::create(b"informe/fallos.txt") else {
         // Sin fichero no se pierde el informe: sigue en el kernel y `fallo` lo
         // muestra. Se contesta `true` igual porque el fallo SI ocurrio, que es
         // lo que el que mira la pantalla tiene que saber.
@@ -817,7 +818,7 @@ pub extern "C" fn _start() -> ! {
             paint_status(
                 &p,
                 &dsk.run_box,
-                "fallo de Ring 3 guardado en datos/fallos.txt -- escribe `fallo`",
+                "fallo de Ring 3 guardado en informe/fallos.txt -- escribe `fallo`",
                 INK_BAD,
             );
         }

@@ -108,6 +108,7 @@ core::arch::global_asm!(
 .code16
 smp_tramp_ini:
     cli
+    wbinvd
     xor ax, ax
     mov ds, ax
     mov es, ax
@@ -184,6 +185,7 @@ smp_lm64:
     mov rax, 0x9010
     lidt [rax]
     mov rsp, [0x9030]
+    mov [0x9038], rsp
     mov rax, [0x9028]
     jmp rax
 
@@ -292,6 +294,9 @@ pub extern "C" fn smp_ap_entrada() -> ! {
         // puesto: la #MC necesita su IST3 (`tss.rs`).
         if con_tss {
             normalizar_cpu();
+            // ** Y su PAT y sus MTRR, los del BSP (12-10, Linux:
+            // `cache_cpu_init`). Ver `cache.rs`.
+            super::cache::igualar_en_este_nucleo();
         }
     }
     // Y de aqui al bucle de trabajo. Antes esto era `cli; hlt` para siempre: un

@@ -147,6 +147,17 @@ pub struct FatVolume {
     /// donde empezar a buscar clusters libres. [`SIN_PISTA`] hasta la primera
     /// busqueda. Ver `escribir.rs`, `orden_de_busqueda`.
     pista: u32,
+    /// ** LA FECHA DE LO QUE SE ESCRIBE (12-10): `(fecha, hora)` en el formato
+    /// de FAT, la pone quien monta con [`FatVolume::poner_reloj`]. `(0, 0)`
+    /// = sin reloj (Windows lo ensena en blanco, como hasta hoy).
+    sello: (u16, u16),
+    /// ** LOS LIBRES DEL FSINFO, LLEVADOS AL DIA (12-10, como Linux:
+    /// `sbi->free_clusters`). `None` = aun no se leyeron; `Some(u32::MAX)` =
+    /// no se saben (FSInfo ausente o con un numero imposible: entonces no se
+    /// toca, igual que Linux con `-1`).
+    libres_fs: Option<u32>,
+    /// Hay que reescribir el FSInfo (`fat_clusters_flush`).
+    fsinfo_sucio: bool,
 }
 
 /// Aun no se busco hueco: la pista sale del FSInfo (o es 0).
@@ -191,6 +202,12 @@ pub enum WriteError {
     Io,
     /// Crear archivos no esta implementado para este formato.
     Unsupported,
+    /// El archivo pasaria de 4 GiB - 1: el tope de FAT32 (su medida es un
+    /// `u32`). No es una constante de BMO: es el formato.
+    Grande,
+    /// El nombre no se puede escribir en FAT (vacio, mas de 255, o con
+    /// `\ / : * ? " < > |`).
+    Nombre,
 }
 
 impl WriteError {
@@ -202,6 +219,8 @@ impl WriteError {
             WriteError::DirFull => "el directorio esta lleno",
             WriteError::Io => "el disco fallo al leer o escribir",
             WriteError::Unsupported => "crear archivos no soportado en este formato",
+            WriteError::Grande => "FAT32 no guarda archivos de 4 GiB o mas",
+            WriteError::Nombre => "ese nombre no se puede escribir en FAT",
         }
     }
 }
@@ -242,7 +261,7 @@ pub fn mount(dev: &'static dyn BlockDevice, escribible: bool, part_lba: u64) -> 
     // PRIMERA operacion que se haga con el volumen.
     if bpb.root_cluster < 2 || bpb.root_cluster > max_cluster { return None; }
     Some(FatVolume { dev, escribible, part_lba, fs_type: FsType::Fat32, bytes_per_sector: bpb.bytes_per_sector, sectors_per_cluster: spc,
-        num_fats, fat_start, fat_size_sectors, data_start, root_cluster: bpb.root_cluster, max_cluster, fallos_mudos: 0, buf: [0; 512], fat_cache: [0; 512], fat_cache_lba: SIN_CACHE, escrituras: 0, libres_contados: None, fsinfo: bpb.fs_info, pista: SIN_PISTA })
+        num_fats, fat_start, fat_size_sectors, data_start, root_cluster: bpb.root_cluster, max_cluster, fallos_mudos: 0, buf: [0; 512], fat_cache: [0; 512], fat_cache_lba: SIN_CACHE, escrituras: 0, libres_contados: None, fsinfo: bpb.fs_info, pista: SIN_PISTA, sello: (0, 0), libres_fs: None, fsinfo_sucio: false })
 }
 
 fn mount_exfat(dev: &'static dyn BlockDevice, escribible: bool, part_lba: u64, buf: &[u8; 512]) -> Option<FatVolume> {
@@ -278,7 +297,7 @@ fn mount_exfat(dev: &'static dyn BlockDevice, escribible: bool, part_lba: u64, b
     let max_cluster = epb.cluster_count.checked_add(1)?;
     if root_cluster < 2 || root_cluster > max_cluster { return None; }
     Some(FatVolume { dev, escribible, part_lba, fs_type: FsType::ExFat, bytes_per_sector, sectors_per_cluster,
-        num_fats, fat_start, fat_size_sectors, data_start, root_cluster, max_cluster, fallos_mudos: 0, buf: [0; 512], fat_cache: [0; 512], fat_cache_lba: SIN_CACHE, escrituras: 0, libres_contados: None, fsinfo: 0, pista: SIN_PISTA })
+        num_fats, fat_start, fat_size_sectors, data_start, root_cluster, max_cluster, fallos_mudos: 0, buf: [0; 512], fat_cache: [0; 512], fat_cache_lba: SIN_CACHE, escrituras: 0, libres_contados: None, fsinfo: 0, pista: SIN_PISTA, sello: (0, 0), libres_fs: None, fsinfo_sucio: false })
 }
 
 /// **UN CURSOR DENTRO DE UN ARCHIVO.** Sabe por que cluster va y en que byte del
@@ -1146,6 +1165,10 @@ mod buscar;
 /// **Lo unico que MODIFICA el disco.** Junto, para poder leerlo entero antes de
 /// tocarlo -- en esta maquina el volumen de al lado es el Windows del propietario.
 mod escribir;
+/// **NOMBRES LARGOS, CARPETAS Y AÑADIR AL FINAL** (12-10): lo que FAT32 sabia
+/// leer de Windows y no sabia escribir.
+mod largo;
+pub use largo::{nombre_escribible, Hallada, NOMBRE_MAX};
 /// **PLANEAR sin leer**: donde esta el siguiente tramo contiguo, para que el
 /// HILO DEL DISCO mande una orden y duerma mientras el aparato la cumple.
 mod plan;

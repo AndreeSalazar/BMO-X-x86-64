@@ -24,7 +24,7 @@
 //! Los pasos viven en [`PASOS`], en el orden en que hay que darlos. E2 (el
 //! VBLANK por interrupcion) es la tercera fila desde el 2026-09-24.
 //!
-//! Y queda ARMADO en `datos/modo.txt`: se repite solo en cada arranque, sin el
+//! Y queda ARMADO en `informe/estado/modo.txt`: se repite solo en cada arranque, sin el
 //! paso que tumbo la maquina si lo hubo (ver `EL MODO ARMADO`, mas abajo). El
 //! CONSEJERO dice lo siguiente recomendado cada vez que Ctrl+Alt abre la caja.
 
@@ -66,11 +66,11 @@ enum Salio {
 //
 // Peticion del propietario (24-09): *"save mode es para automatizar en caso que
 // la PC se reinicie o kernel fault"*. Asi que `save mode` no solo corre: queda
-// ARMADO en `datos/modo.txt`, y en cada arranque el escritorio lo repite solo.
+// ARMADO en `informe/estado/modo.txt`, y en cada arranque el escritorio lo repite solo.
 //
 // ** Y con MEMORIA, porque repetir a ciegas es un bucle de caidas: si un paso
 // tumba la maquina, el arranque siguiente lo volveria a dar, y el otro, y el
-// otro. Antes de CADA paso se escribe `en curso: <paso>` en `datos/encurso.txt` (y el
+// otro. Antes de CADA paso se escribe `en curso: <paso>` en `informe/estado/encurso.txt` (y el
 // kernel hace FLUSH del disco antes de tocar la IOMMU, asi que llega); al
 // acabar, se borra. Si un arranque encuentra un `en curso`, ese paso TUMBO la
 // maquina la vez anterior: se QUITA solo (`-paso`), se apunta `tumbo: paso` y
@@ -82,7 +82,7 @@ enum Salio {
 // ```
 
 /// Donde vive el modo armado. 8.3, como todo en FAT32.
-const MODO: &[u8] = b"datos/modo.txt";
+const MODO: &[u8] = b"informe/estado/modo.txt";
 /// Donde vive la marca `en curso` / `tumbo`, APARTE (26-09).
 ///
 /// ** Por que aparte: la marca se reescribe dos veces por paso (~100 por
@@ -93,7 +93,7 @@ const MODO: &[u8] = b"datos/modo.txt";
 /// termina lo que empezo", fila `barrier`) podia dejarlo sin la linea `save
 /// mode`: desarmado sin que nadie lo pidiera. Ahora `modo.txt` solo se
 /// escribe cuando se teclea `save mode` (o cuando un paso tumba la maquina).
-const EN_CURSO: &[u8] = b"datos/encurso.txt";
+const EN_CURSO: &[u8] = b"informe/estado/encurso.txt";
 
 /// Por que el ultimo `leer_modo` dijo que NO: 0 si dijo que si; 1 no se
 /// pudo abrir (el codigo << 8); 2 se leyo vacio; 3 sin la linea `save mode`
@@ -138,7 +138,7 @@ pub(crate) fn hecho(nombre: &[u8]) -> bool {
 }
 
 /// **La receta armada**, para el informe: los argumentos de `save mode` en
-/// `datos/modo.txt` (`None` = desarmado). Los `-paso` quitados van aqui.
+/// `informe/estado/modo.txt` (`None` = desarmado). Los `-paso` quitados van aqui.
 pub(crate) fn receta(buf: &mut [u8; 64]) -> Option<usize> {
     let m = leer_modo()?;
     buf[..m.n].copy_from_slice(&m.args[..m.n]);
@@ -148,7 +148,7 @@ pub(crate) fn receta(buf: &mut [u8; 64]) -> Option<usize> {
 /// ** EL ARRANQUE POR DEFECTO (26-09): `init`, SIEMPRE.
 ///
 /// Pedido del propietario: *"que obligue SIEMPRE aparece y que sea gpu init
-/// para que prepare mi GPU"*. Sin `datos/modo.txt`, sin la linea `save mode`
+/// para que prepare mi GPU"*. Sin `informe/estado/modo.txt`, sin la linea `save mode`
 /// o con `save mode off`, el arranque NO se queda sin panel: hace lo de
 /// `save mode init` (despertar la 3060 hasta `init`, y el escritorio). Lo
 /// unico que lo quita es `save mode nunca`: la salida de emergencia, por si
@@ -156,7 +156,7 @@ pub(crate) fn receta(buf: &mut [u8; 64]) -> Option<usize> {
 /// marca `en curso` ya quita sola el paso que tumbo).
 const POR_DEFECTO: &[u8] = b"init";
 
-/// **Lee `datos/modo.txt`.** `None` solo con `save mode nunca`; si no esta
+/// **Lee `informe/estado/modo.txt`.** `None` solo con `save mode nunca`; si no esta
 /// armado, el modo POR DEFECTO (`POR_QUE_NO` dice por que).
 fn leer_modo() -> Option<Modo> {
     let mut buf = [0u8; 256];
@@ -250,7 +250,7 @@ fn desarmar(nunca: bool) -> bool {
 }
 
 /// Los `-paso` de unos argumentos. `Err(t)` con el que no es un paso.
-/// Pasos que ya no existen: un `-nombre` suyo en un `datos/modo.txt` de antes
+/// Pasos que ya no existen: un `-nombre` suyo en un `informe/estado/modo.txt` de antes
 /// se ignora, en vez de desarmar el modo por un nombre desconocido.
 /// `-fuego` y `-frontera`: pasos hasta el 26-09 (EL_0x15.md); la receta
 /// armada con ellos sigue valiendo.
@@ -305,7 +305,7 @@ pub(crate) fn save_mode(dsk: &mut Desktop, p: &bmo::Pantalla, arg: &[u8]) -> Opt
         let g = &mut dsk.out.grid;
         g.with_ink(if ok { INK_GOOD } else { INK_ERR });
         g.text(if !ok {
-            b"  save mode: no se pudo escribir datos/modo.txt\n" as &[u8]
+            b"  save mode: no se pudo escribir informe/estado/modo.txt\n" as &[u8]
         } else if nunca {
             b"  save mode NUNCA: al arrancar, ni panel ni 3060 (`save mode off` vuelve a `init` por defecto)\n"
         } else {
@@ -340,9 +340,9 @@ pub(crate) fn save_mode(dsk: &mut Desktop, p: &bmo::Pantalla, arg: &[u8]) -> Opt
         let g = &mut dsk.out.grid;
         g.with_ink(if armado { INK_GOOD } else { INK_ERR });
         g.text(if armado {
-            b"  save mode ARMADO en datos/modo.txt: al arrancar se repite solo\n" as &[u8]
+            b"  save mode ARMADO en informe/estado/modo.txt: al arrancar se repite solo\n" as &[u8]
         } else {
-            b"  save mode: NO se pudo armar (datos/modo.txt): corre solo esta vez\n"
+            b"  save mode: NO se pudo armar (informe/estado/modo.txt): corre solo esta vez\n"
         });
         g.with_ink(INK_PLAIN);
     }
@@ -462,7 +462,7 @@ pub(crate) fn antes_del_escritorio(p: &bmo::Pantalla) {
         crate::desktop::arranque::empezar(p, total);
     } else {
         // Sin panel tras el gato: POR QUE, al klog y a la fila `receta`.
-        bmo::consola("save mode NUNCA (datos/modo.txt): sin panel ni 3060, a proposito\n");
+        bmo::consola("save mode NUNCA (informe/estado/modo.txt): sin panel ni 3060, a proposito\n");
     }
 }
 
@@ -480,14 +480,14 @@ fn correr(dsk: &mut Desktop, p: &bmo::Pantalla, quitados: &[bool; MAX_PASOS], tu
     let armado = leer_modo().is_some();
     // ** EL SAVE DE EMERGENCIA, ANTES DE TODO (24-09): aunque todos los pasos
     // esten hechos y no se arriesgue nada, lo que la maquina es AHORA queda en
-    // el disco (datos/) desde el primer instante. Los de antes de cada paso
+    // el disco (informe/) desde el primer instante. Los de antes de cada paso
     // vienen despues.
     {
         let ok = super::save_maestro::maestro(dsk, DEFAULT_DUMP, p.rayo()).is_ok();
         let g = &mut dsk.out.grid;
         g.with_ink(if ok { INK_GOOD } else { INK_ERR });
         g.text(if ok {
-            b"  save de emergencia ESCRITO antes de todo: el informe y los datos ya estan en datos/\n" as &[u8]
+            b"  save de emergencia ESCRITO antes de todo: el informe y los datos ya estan en informe/\n" as &[u8]
         } else {
             b"  el save de emergencia NO se pudo escribir: mira `disco` (los pasos lo intentan otra vez)\n"
         });
@@ -731,18 +731,18 @@ fn resumen(dsk: &mut Desktop, salio: &[Salio; MAX_PASOS], tumbo: Option<usize>, 
     }
     g.with_ink(INK_ECHO);
     g.text(if escrito {
-        b"           una linea por paso en datos/pasos.txt: pega ESE fichero, no el informe entero\n" as &[u8]
+        b"           una linea por paso en informe/pasos.txt: pega ESE fichero, no el informe entero\n" as &[u8]
     } else {
-        b"           datos/pasos.txt no se pudo escribir\n"
+        b"           informe/pasos.txt no se pudo escribir\n"
     });
     g.with_ink(INK_PLAIN);
 }
 
-/// **`datos/pasos.txt`** (24-09): una linea por paso -- nombre, que salio,
+/// **`informe/pasos.txt`** (24-09): una linea por paso -- nombre, que salio,
 /// cuanto tardo y el motivo --, para pegarlo entero en vez del informe. Lo
 /// que no cabe en una linea esta en el informe maestro de al lado.
 fn escribir_pasos(salio: &[Salio; MAX_PASOS], tiempo: &[u64; MAX_PASOS], intentos: &[u8; MAX_PASOS], tumbo: Option<usize>) -> bool {
-    let Ok(a) = bmo::Archivo::create(b"datos/pasos.txt") else { return false };
+    let Ok(a) = bmo::Archivo::create(b"informe/pasos.txt") else { return false };
     a.write(b"save mode -- una linea por paso (el detalle, en el informe maestro)\n");
     for (i, paso) in PASOS.iter().enumerate() {
         let mut t = [0u8; 160];

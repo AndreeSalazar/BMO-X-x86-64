@@ -7,7 +7,7 @@
 //! [consumo] NADA      una vez al arrancar, armado; desarmado, un fichero que
 //!                     no esta
 //!
-//! Como `save siempre`: un fichero en el disco de datos (`datos/smp.txt`)
+//! Como `save siempre`: un fichero en el disco de datos (`informe/estado/smp.txt`)
 //! dice si esta armado, y lo lee el escritorio al arrancar, DESPUES del save
 //! del arranque (el que dice por que se reinicio la vez anterior).
 //!
@@ -25,7 +25,7 @@ use crate::scene::output::{INK_ECHO, INK_ERR, INK_GOOD, INK_PLAIN};
 use crate::scene::{paint_status, INK_DIM};
 
 /// Donde se guarda si esta armado (8.3, el disco de datos).
-const ARMADO_EN: &[u8] = b"datos/smp.txt";
+const ARMADO_EN: &[u8] = b"informe/estado/smp.txt";
 
 /// **`smp siempre` / `smp siempre off`**. `None` si `arg` no es suyo.
 pub(crate) fn orden(dsk: &mut Desktop, p: &bmo::Pantalla, arg: &[u8]) -> Option<After> {
@@ -50,7 +50,7 @@ pub(crate) fn orden(dsk: &mut Desktop, p: &bmo::Pantalla, arg: &[u8]) -> Option<
     }
     if !escrito {
         g.with_ink(INK_ERR);
-        g.text(b"  (no pude escribir datos/smp.txt: no vale para el arranque siguiente)\n");
+        g.text(b"  (no pude escribir informe/estado/smp.txt: no vale para el arranque siguiente)\n");
     }
     g.with_ink(INK_PLAIN);
     paint_status(p, &dsk.run_box, if armar { "smp siempre" } else { "smp a mano" }, INK_DIM);

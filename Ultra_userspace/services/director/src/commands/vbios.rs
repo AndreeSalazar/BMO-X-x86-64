@@ -1,6 +1,6 @@
 //! **`gpu vbios`: L0a, LO QUE FWSEC NECESITA, PREGUNTADO.** Lee la VBIOS de la
 //! 3060 entera, encuentra FWSEC dentro, pregunta que firma pide su fusible y
-//! donde ira la WPR2, y guarda la ROM en `datos/vbios.rom`.
+//! donde ira la WPR2, y guarda la ROM en `informe/gpu/vbios.rom`.
 //!
 //! [consumo] NADA      corre cuando el propietario lo teclea: ~130.000
 //!                     preguntas de 8 bytes, un cuarto de segundo
@@ -26,7 +26,7 @@ use crate::scene::output::{Output, INK_ECHO, INK_ERR, INK_GOOD, INK_PLAIN};
 use crate::scene::{paint_status, INK_DIM};
 
 /// Donde se guarda la ROM leida. 8.3.
-const RUTA: &[u8] = b"datos/vbios.rom";
+const RUTA: &[u8] = b"informe/gpu/vbios.rom";
 
 /// Lo que se saco de la ultima lectura.
 #[derive(Clone, Copy)]
@@ -161,7 +161,7 @@ pub(crate) fn fila(s: &mut Output) {
         s.text(b"K)");
     }
     s.with_ink(INK_ECHO);
-    s.text(if r.guardada { b"   -> datos/vbios.rom" as &[u8] } else { b"   (NO se pudo guardar)" });
+    s.text(if r.guardada { b"   -> informe/gpu/vbios.rom" as &[u8] } else { b"   (NO se pudo guardar)" });
     s.with_ink(INK_PLAIN);
     s.byte(b'\n');
 

@@ -219,6 +219,15 @@ fn next(i: usize) -> u64 {
                 Some((name, es_dir, tam)) => {
                     INDICE[i] = n;
                     NAME[i] = name;
+                    // ** Con NOMBRE LARGO (12-10, `datos-componentes`): va
+                    // entero, como los de ESTRATOS. Los 8.3 de siempre, como
+                    // siempre (quien solo sabe de 8.3 no pierde nada).
+                    let nombre = &mut *core::ptr::addr_of_mut!(LARGO[i]);
+                    if let Some(k) = crate::ring0::fsys::fs::nombre_largo_de(ARRANQUE[i], CLUSTER[i], n, nombre) {
+                        NLEN[i] = k;
+                        DE_ESTRATOS[i] = true;
+                        return (1u64 << 63) | ((es_dir as u64) << 62) | DIR_NOMBRE_LARGO | tam as u64;
+                    }
                     DE_ESTRATOS[i] = false;
                     return (1u64 << 63) | ((es_dir as u64) << 62) | tam as u64;
                 }

@@ -219,7 +219,7 @@ pub(crate) fn help(dsk: &mut Desktop, p: &bmo::Pantalla) -> After {
     dsk.out.grid.text(b"    cat <ruta>    que hay DENTRO\n");
     dsk.out.grid.text(b"    write <ruta> <texto>      lo guarda\n");
     dsk.out.grid.text(b"    save [ruta]   el INFORME MAESTRO: la sesion y 7 capitulos de la\n");
-    dsk.out.grid.text(b"                  maquina en un .txt  (por defecto datos/salida.txt)\n");
+    dsk.out.grid.text(b"                  maquina en un .txt  (por defecto informe/salida.txt)\n");
     dsk.out.grid.text(b"    save cpu|mem|consumo|apps|disco|autopsia   un capitulo en SU fichero\n");
     dsk.out.grid.with_ink(INK_ECHO);
     dsk.out.grid.text(b"  EL DISCO ----------------------------------------------------\n");

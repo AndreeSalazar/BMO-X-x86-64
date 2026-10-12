@@ -214,6 +214,15 @@ const CARPETAS: bmo_proton_x_casa::Carpetas = bmo_proton_x_casa::Carpetas {
 };
 
 fn escribir_en_fat32(ruta: &[u8], bytes: &[u8]) -> bool {
+    // ** LO QUE IBA A FAT32 HASTA EL 12-10, Y NADA MAS. Desde ese dia el
+    // kernel crea las carpetas que falten y escribe nombres largos; PROTON-X
+    // NO lo usa aqui: las carpetas que el juego crea viven en ESTRATOS
+    // (`CreateDirectoryW`) y `listar` de FAT32 solo ve 8.3. Si FAT32 se
+    // quedara un fichero cuya carpeta esta en ESTRATOS, o con un nombre que
+    // el listado no ve, el juego no encontraria lo que acaba de escribir.
+    if !fat32_como_antes(ruta) {
+        return false;
+    }
     let Ok(a) = bmo::Archivo::create(ruta) else {
         return false;
     };
@@ -234,6 +243,28 @@ fn escribir_en_fat32(ruta: &[u8], bytes: &[u8]) -> bool {
     };
     let n = if bytes.is_empty() { 0 } else { con_paso(por_paso).unwrap_or_else(|| a.write(bytes)) };
     a.close() && n == bytes.len()
+}
+
+/// **La regla de antes del 12-10**: la carpeta YA existe en FAT32 y el
+/// nombre es 8.3 (hasta 8 letras, un punto, hasta 3). Si no, ESTRATOS.
+fn fat32_como_antes(ruta: &[u8]) -> bool {
+    let corte = ruta.iter().rposition(|&c| c == b'/' || c == b'\\');
+    let (carpeta, nombre) = match corte {
+        Some(k) => (&ruta[..k], &ruta[k + 1..]),
+        None => (&ruta[..0], ruta),
+    };
+    let (base, ext) = match nombre.iter().rposition(|&c| c == b'.') {
+        Some(k) => (&nombre[..k], &nombre[k + 1..]),
+        None => (nombre, &nombre[nombre.len()..]),
+    };
+    let es_8_3 = !base.is_empty()
+        && base.len() <= 8
+        && ext.len() <= 3
+        && nombre.iter().all(|&c| c.is_ascii_alphanumeric() || b"._-~!#$%&'()@^{}`".contains(&c))
+        && nombre.iter().filter(|&&c| c == b'.').count() <= 1;
+    // `datos/...` el kernel lo lleva a `informe/`, que siempre existe.
+    let vieja = carpeta.len() >= 5 && carpeta[..5].eq_ignore_ascii_case(b"datos") && (carpeta.len() == 5 || carpeta[5] == b'/');
+    es_8_3 && (carpeta.is_empty() || vieja || bmo::Directorio::open(carpeta).is_ok())
 }
 
 /// Lo que hay en una carpeta del volumen (P4f3), con el nombre 8.3 como lo

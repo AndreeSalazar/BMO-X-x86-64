@@ -42,7 +42,7 @@ const MINIMO_TEXTO: usize = 6;
 const MIRADO: usize = 2048;
 /// Lo consumido, crudo, a disco: hasta 128 paginas.
 const CRUDO_BYTES: u64 = 128 * PAGINA;
-const RUTA: &[u8] = b"datos/gspnocat.bin";
+const RUTA: &[u8] = b"informe/gpu/gspnocat.bin";
 
 #[derive(Clone, Copy)]
 struct Resumen {
@@ -270,7 +270,7 @@ pub(crate) fn fila(s: &mut Output) {
     }
     if r.consumidos > 0 {
         s.with_ink(INK_ECHO);
-        s.text(if r.guardada { b"   -> datos/gspnocat.bin" as &[u8] } else { b"   (NO se pudo guardar)" });
+        s.text(if r.guardada { b"   -> informe/gpu/gspnocat.bin" as &[u8] } else { b"   (NO se pudo guardar)" });
     }
     s.byte(b'\n');
     // Lo que traian en claro, uno por fila: son nombres largos de registro.

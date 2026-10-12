@@ -8,7 +8,7 @@
 # `.ibx`, la sonda-- y todas predijeron la siguiente. Sacarlo aqui es lo que
 # hace que agregar un lenguaje deje de engordar el fichero que lo orquesta todo.
 #
-# Dentro: el reparto del volumen por categorias (`sys cobol c ada inti datos`),
+# Dentro: el reparto del volumen por categorias (`sys cobol c ada inti datos-componentes informe`),
 # `Compilar-Ejemplos` --un bucle, cuatro lenguajes-- y el empaquetado de recursos dentro del `.bex`.
 #
 # [!] Se carga con punto: corre en el ambito de `build.ps1`, y `$dataBase` se
@@ -26,13 +26,16 @@
 #
 #     sys\     el sistema: lo que arranca solo (d.bex, el DIRECTOR)
 #     cobol\  c\  ada\      los ejemplos, por lenguaje
-#     datos\   lo que los programas LEEN y ESCRIBEN
+#     datos-componentes\   lo que los programas LEEN: validacion y bibliotecas
+#     informe\             TODO lo que se ESCRIBE (12-10: el kernel lo sabe;
+#                          `datos/x` escrito va a `informe/x`, leido busca en
+#                          `datos-componentes/x`)
 #
 # * Y se teclea MENOS que antes: `cobol/banco.bex` es mas corto que
 #   `apps/banco.bex`. Ordenar no ha costado tecleo, lo ha ahorrado.
 #
-# Los nombres de carpeta tambien son 8.3: el driver FAT32 del kernel se NIEGA a
-# recortar, y una carpeta recortada manda a otro sitio igual que un fichero.
+# Desde el 12-10 el FAT32 del kernel lee y escribe NOMBRES LARGOS (y crea sus
+# carpetas): `datos-componentes` es un nombre largo, como lo haria Windows.
 $dataBase = Join-Path $root 'staging\BMO-DATA'
 # `apps\` es para APLICACIONES, no para ejemplos del toolchain, y la distincion
 # no es cosmetica: `c\`, `cobol\` y `ada\` los llena este build desde el repo, y
@@ -45,7 +48,7 @@ $dataBase = Join-Path $root 'staging\BMO-DATA'
 # `window\` es donde van los .exe de WINDOWS que corre PROTON-X (2026-09-27, lo
 # pidio el propietario: "asi entran los .exe, organizado"). Seis letras: 8.3.
 # `titan\` (2026-10-04): los .bex de TITAN++, desde su primer `hola` (T3).
-foreach ($d in @('sys', 'cobol', 'c', 'ada', 'inti', 'titan', 'datos', 'apps', 'informe', 'capturas', 'window')) {
+foreach ($d in @('sys', 'cobol', 'c', 'ada', 'inti', 'titan', 'datos-componentes', 'apps', 'informe', 'capturas', 'window')) {
     New-Item -ItemType Directory -Path (Join-Path $dataBase $d) -Force | Out-Null
 }
 # * Y dentro de cobol\, un nivel por carpeta (ver el bloque de $cobolEjemplos
@@ -902,11 +905,11 @@ try {
     # Se GENERAN y no se copian: un binario en el repo es un fichero que nadie
     # puede leer en un diff. 16x16 las dos, con un degradado que se reconoce a
     # simple vista -- si el conversor invirtiera las filas, se veria.
-    $imgDst = Join-Path $dataBase 'datos'
+    $imgDst = Join-Path $dataBase 'datos-componentes'
     New-Item -ItemType Directory -Force $imgDst | Out-Null
     [System.IO.File]::WriteAllBytes((Join-Path $imgDst 'foto.bmp'), (Nuevo-Bmp))
     [System.IO.File]::WriteAllBytes((Join-Path $imgDst 'foto.qoi'), (Nuevo-Qoi))
-    Write-Host '    [datos] foto.bmp y foto.qoi (16x16, para titan/bico.bex)' -ForegroundColor DarkGray
+    Write-Host '    [datos-componentes] foto.bmp y foto.qoi (16x16, para titan/bico.bex)' -ForegroundColor DarkGray
     # ** Y un PNG y un JPEG de verdad (2026-09-20), para el visor: son los
     # ficheros con los que `bmo-imagen` se prueba en el anfitrion contra
     # Pillow, asi que lo que se ve en el Ryzen es lo que el banco ya juzgo.
@@ -914,17 +917,17 @@ try {
     $imgPruebas = Join-Path $repo 'platform\shared\bmo-imagen\pruebas'
     Copy-Item (Join-Path $imgPruebas 'inti256.png') (Join-Path $imgDst 'inti.png') -Force
     Copy-Item (Join-Path $imgPruebas 'foto.jpg') (Join-Path $imgDst 'arranque.jpg') -Force
-    Write-Host '    [datos] inti.png (256x256 RGBA) y arranque.jpg (640x362 4:2:0), para el visor' -ForegroundColor DarkGray
+    Write-Host '    [datos-componentes] inti.png (256x256 RGBA) y arranque.jpg (640x362 4:2:0), para el visor' -ForegroundColor DarkGray
     # La melodia que `musica.ibx` toca si no le dan otra. Es TEXTO: esta en el
     # repo y se lee en un diff.
     Copy-Item (Join-Path $repo 'toolchain\lang\inti\ejemplos\tema.mus') (Join-Path $imgDst 'tema.mus') -Force
-    Write-Host '    [datos] tema.mus (Vivaldi, para inti/musica.ibx)' -ForegroundColor DarkGray
+    Write-Host '    [datos-componentes] tema.mus (Vivaldi, para inti/musica.ibx)' -ForegroundColor DarkGray
     # La lamina de example.com, la misma que sirve la antena: NAVEGAR la pinta
     # si esta (N2 de PLAN_NAVEGAR). Texto, en el repo, y se lee en un diff.
     # [!] 8.3: el FAT32 de BMO-X busca por nombre corto y se salta las
     # entradas de nombre largo, asi que `ejemplo.lamina` no lo encontraria.
     Copy-Item (Join-Path $repo 'toolchain\tools\antena\ejemplo.lamina') (Join-Path $imgDst 'ejemplo.lam') -Force
-    Write-Host '    [datos] ejemplo.lam (example.com, para apps/navegar.bex)' -ForegroundColor DarkGray
+    Write-Host '    [datos-componentes] ejemplo.lam (example.com, para apps/navegar.bex)' -ForegroundColor DarkGray
     # El aspecto del escritorio: lo lee el DIRECTOR al arrancar. Texto, en el
     # repo, y se edita ahi -- el despliegue pisa el de A:\sys\.
     $sysDst = Join-Path $dataBase 'sys'
@@ -1026,7 +1029,10 @@ try {
     $leeme = @(
         'INFORME -- las hojas que escribe `save` desde el escritorio',
         '',
-        '  ..\datos\salida.txt   el informe ENTERO (7 capitulos), como siempre',
+        '  salida.txt             el informe ENTERO (7 capitulos), como siempre',
+        '  historial\             una copia con fecha de cada save (AAAA-MM-DD_HH-MM.txt)',
+        '  CAIDA.TXT, CAIDAnnn.TXT, CABINA.LOG   lo que el kernel guarda de un arranque caido',
+        '  gpu\, estado\         los volcados de la 3060 y las banderas de save mode / smp siempre',
         '  INDICE.TXT             la cabecera y que hoja es que',
         '  SESION.TXT             1. lo que se tecleo y lo que contesto',
         '  MAQUINA.TXT            2. cpu, caches medidas, extensiones',
@@ -1039,7 +1045,8 @@ try {
         '',
         '  save cpu|mem|consumo|apps|disco|autopsia   un tema suelto, aqui mismo (cpu.txt, ...)',
         '',
-        'Cada `save` REESCRIBE estas hojas. Lo que haya que conservar, se copia fuera.'
+        'Cada `save` REESCRIBE estas hojas; la copia con fecha queda en historial\.',
+        'TODO lo que BMO-X escribe viene aqui. Lo que se LEE esta en ..\datos-componentes\.'
     )
     Set-Content -LiteralPath (Join-Path $dataBase 'informe\LEEME.TXT') -Value $leeme -Encoding ascii
     Write-Host '    [informe] LEEME.TXT (la carpeta de las hojas de save)' -ForegroundColor DarkGray
@@ -1058,9 +1065,9 @@ try {
     Set-Content -LiteralPath (Join-Path $dataBase 'capturas\LEEME.TXT') -Value $leemeCap -Encoding ascii
     Write-Host '    [capturas] LEEME.TXT (la carpeta de Impr Pant)' -ForegroundColor DarkGray
     $datosSrc = Join-Path $repo 'toolchain\lang\cobol\examples\datos'
-    $datosDst = Join-Path $dataBase 'datos'
+    $datosDst = Join-Path $dataBase 'datos-componentes'
     foreach ($d in (Get-ChildItem -LiteralPath $datosSrc -Filter '*.txt')) {
         Copy-Item -LiteralPath $d.FullName -Destination (Join-Path $datosDst $d.Name) -Force
-        Write-Host ('    [datos] ' + $d.Name + ' (' + $d.Length + ' B)') -ForegroundColor DarkGray
+        Write-Host ('    [datos-componentes] ' + $d.Name + ' (' + $d.Length + ' B)') -ForegroundColor DarkGray
     }
 } finally { Pop-Location }

@@ -219,6 +219,20 @@ pub fn dir_de(ruta: &str) -> Option<(bool, u32)> {
         } else {
             (*core::ptr::addr_of_mut!(DATA_VOLUME)).as_mut()?
         };
+        if !arranque {
+            if let Some(r) = de_la_vieja(resto) {
+                // `ls datos` ensena los componentes (si ya estan desplegados),
+                // y si no, lo que se escribio alli (`informe/`).
+                let raiz = v.root_cluster();
+                for base in [COMPONENTES, INFORME] {
+                    if let Some((c, _)) = buscar(v, raiz, base, true) {
+                        if let Some(d) = bajar_desde(v, c, r) {
+                            return Some((false, d));
+                        }
+                    }
+                }
+            }
+        }
         Some((arranque, bajar(v, resto)?))
     }
 }
@@ -233,22 +247,191 @@ pub fn entrada_de(arranque: bool, dir_cluster: u32, n: usize) -> Option<([u8; 11
 
 /// Baja por una ruta de carpetas desde la raiz de `v`. El MISMO recorrido para
 /// los dos volumenes: dos copias acabarian aceptando rutas distintas.
+///
+/// ** Por el nombre LARGO o el 8.3 (12-10): `datos-componentes` y `DATOS-~1`
+/// son la misma carpeta, como en Windows.
 fn bajar(v: &mut FatVolume, ruta: &str) -> Option<u32> {
-    let mut cluster = v.root_cluster();
-    let mut resto = ruta.trim();
-    if resto.len() >= 2 && resto.as_bytes()[1] == b':' { resto = &resto[2..]; }
-    while resto.starts_with('/') || resto.starts_with('\\') { resto = &resto[1..]; }
-    while !resto.is_empty() {
-        let corte = resto.find(['/', '\\']).unwrap_or(resto.len());
-        let (comp, rest) = resto.split_at(corte);
-        if !comp.is_empty() {
-            let name = nombre_8_3(comp)?;
-            cluster = v.find_subdir_in(&name, cluster)?;
-        }
-        resto = rest;
-        while resto.starts_with('/') || resto.starts_with('\\') { resto = &resto[1..]; }
+    bajar_desde(v, v.root_cluster(), limpia(ruta))
+}
+
+fn bajar_desde(v: &mut FatVolume, desde: u32, ruta: &str) -> Option<u32> {
+    let mut cluster = desde;
+    for comp in ruta.split(['/', '\\']).filter(|c| !c.is_empty()) {
+        cluster = buscar(v, cluster, comp, true)?.0;
     }
     Some(cluster)
+}
+
+/// La ruta sin la letra de unidad ni las barras del principio.
+fn limpia(ruta: &str) -> &str {
+    let mut r = ruta.trim();
+    if r.len() >= 2 && r.as_bytes()[1] == b':' {
+        r = &r[2..];
+    }
+    r.trim_start_matches(['/', '\\'])
+}
+
+/// **Un nombre dentro de `dir`**: `(cluster, medida)`. `carpeta` dice que se
+/// busca. Por el nombre largo o el 8.3 (`hallar`); en un exFAT, por el 8.3 de
+/// siempre. El `..` de una carpeta de la raiz apunta al 0: es la raiz.
+fn buscar(v: &mut FatVolume, dir: u32, comp: &str, carpeta: bool) -> Option<(u32, u32)> {
+    if v.fs_type == bmo_fat32::FsType::ExFat {
+        let n = to_8_3(comp).ok()?;
+        return if carpeta { v.find_subdir_in(&n, dir).map(|c| (c, 0)) } else { v.find_file_in(&n, dir) };
+    }
+    let h = v.hallar(dir, comp.as_bytes())?;
+    if h.es_dir != carpeta {
+        return None;
+    }
+    let c = if carpeta && h.entrada.first_cluster == 0 { v.root_cluster() } else { h.entrada.first_cluster };
+    Some((c, h.entrada.size))
+}
+
+// == ** LAS CARPETAS DE LA CASA (12-10) ======================================
+//
+// El propietario: *"es hora de que el informe, esa carpeta, se enfoque: TODOS
+// los que van a escribir van a informe y no a datos; la carpeta datos cambia
+// de nombre a `datos-componentes`: son elementos para validacion y
+// bibliotecas con las que el kernel se pone a chambear. El kernel tiene que
+// saber eso."*
+//
+// ```text
+//    informe/             TODO lo que se ESCRIBE: el save, las caidas, los
+//                         volcados, lo que deja cada programa
+//    datos-componentes/   lo que se LEE: datos de validacion, bibliotecas,
+//                         ficheros de entrada de los ejemplos
+// ```
+//
+// Y la carpeta vieja no rompe a nadie: decenas de programas (los COBOL, los
+// TITAN, las pruebas) dicen `datos/...`. El kernel la traduce aqui, en UN
+// sitio:
+//
+// ```text
+//    escribir datos/x     -> informe/x            (la carpeta se crea sola)
+//    leer     datos/x     -> datos-componentes/x, si no informe/x (lo que
+//                            escribio un programa antes), y si no datos/x
+//                            (un disco aun sin desplegar)
+// ```
+
+/// Donde va todo lo que se escribe.
+pub const INFORME: &str = "informe";
+/// Lo que se lee: validacion y bibliotecas.
+pub const COMPONENTES: &str = "datos-componentes";
+/// El nombre de antes, que se sigue entendiendo.
+pub const VIEJA: &str = "datos";
+
+/// `datos/x` -> `Some("x")` (y `datos` -> `Some("")`). Sin distinguir
+/// mayusculas, como FAT.
+fn de_la_vieja(ruta: &str) -> Option<&str> {
+    let r = limpia(ruta);
+    let corte = r.find(['/', '\\']).unwrap_or(r.len());
+    r[..corte].eq_ignore_ascii_case(VIEJA).then(|| r[corte..].trim_start_matches(['/', '\\']))
+}
+
+/// **Asegura que las dos carpetas de la casa existen** en el volumen de datos
+/// (al montarlo). Un disco recien formateado ya sabe donde va cada cosa.
+fn carpetas_de_la_casa(v: &mut FatVolume) {
+    let raiz = v.root_cluster();
+    for c in [INFORME, COMPONENTES] {
+        match v.crear_carpeta(raiz, c.as_bytes()) {
+            Ok(_) => {}
+            Err(e) => crate::ring0::cabina::warn("fs", e.name(), 0),
+        }
+    }
+}
+
+/// **La carpeta donde ESCRIBIR**, creandola si falta (como `mkdir -p`). Lo
+/// usa `file::create`. `datos/...` va a `informe/...`. Nunca en `efi:`.
+pub fn carpeta_para_escribir(carpeta: &str) -> Result<u32, WriteError> {
+    if sin_volumen(carpeta).0 {
+        return Err(WriteError::ReadOnly);
+    }
+    let v = unsafe { (*core::ptr::addr_of_mut!(DATA_VOLUME)).as_mut() }.ok_or(WriteError::ReadOnly)?;
+    let (mut dir, resto) = match de_la_vieja(carpeta) {
+        Some(resto) => (v.crear_carpeta(v.root_cluster(), INFORME.as_bytes())?, resto),
+        None => (v.root_cluster(), limpia(carpeta)),
+    };
+    sellar(v);
+    for comp in resto.split(['/', '\\']).filter(|c| !c.is_empty()) {
+        dir = match buscar(v, dir, comp, true) {
+            Some((c, _)) => c,
+            None => v.crear_carpeta(dir, comp.as_bytes())?,
+        };
+    }
+    Ok(dir)
+}
+
+/// ¿Se puede escribir un fichero con este nombre? (largo o 8.3)
+pub fn nombre_escribible(n: &str) -> bool {
+    bmo_fat32::nombre_escribible(n.as_bytes())
+}
+
+/// La hora de la placa, para la fecha de lo que se escribe.
+fn sellar(v: &mut FatVolume) {
+    let f = bmo_rtc::desempaquetar(crate::ring0::dev::clock::ahora());
+    v.poner_reloj(f.map(|f| (f.anio, f.mes, f.dia, f.hora, f.minuto, f.segundo)));
+}
+
+/// **Guarda `data` como `nombre` en `dir`** (crea o reemplaza; nombre largo
+/// o 8.3). Es `guardar_en` sin el limite de los 11 bytes.
+pub fn guardar_como(dir: u32, nombre: &[u8], data: &[u8]) -> Result<(), WriteError> {
+    let v = unsafe { (*core::ptr::addr_of_mut!(DATA_VOLUME)).as_mut() }.ok_or(WriteError::ReadOnly)?;
+    let t0 = crate::ring0::task::scheduler::rdtsc();
+    sellar(v);
+    let r = v.guardar_como(dir, nombre, data);
+    apuntar_guardado(t0);
+    if r.is_ok() {
+        disk::vaciar_sin_esperar();
+    }
+    r
+}
+
+/// **Añade `data` al final de `nombre`** en `dir` (lo crea si no esta).
+/// Devuelve la medida nueva. Es lo que deja escribir SIN FINAL: lo escrito
+/// baja al disco a trozos (`obj/file.rs`) y la RAM ya no es el techo.
+pub fn anadir(dir: u32, nombre: &[u8], data: &[u8]) -> Result<u32, WriteError> {
+    let v = unsafe { (*core::ptr::addr_of_mut!(DATA_VOLUME)).as_mut() }.ok_or(WriteError::ReadOnly)?;
+    let t0 = crate::ring0::task::scheduler::rdtsc();
+    sellar(v);
+    let r = v.anadir(dir, nombre, data);
+    apuntar_guardado(t0);
+    if r.is_ok() {
+        disk::vaciar_sin_esperar();
+    }
+    r
+}
+
+/// **Guarda en `informe/`** (lo que escribe el propio kernel: la caida, la
+/// caja negra). `nombre` largo o 8.3.
+pub fn guardar_informe(nombre: &str, data: &[u8]) -> Result<(), WriteError> {
+    let dir = carpeta_para_escribir(INFORME)?;
+    guardar_como(dir, nombre.as_bytes(), data)
+}
+
+/// **El nombre LARGO de la entrada `n`**, si lo tiene y no es solo su 8.3
+/// (para `ls`). Cuantas letras puso en `out`.
+pub fn nombre_largo_de(arranque: bool, dir_cluster: u32, n: usize, out: &mut [u8]) -> Option<usize> {
+    let v = unsafe {
+        if arranque { (*core::ptr::addr_of_mut!(VOLUME)).as_mut()? } else { (*core::ptr::addr_of_mut!(DATA_VOLUME)).as_mut()? }
+    };
+    let (corto, _, _) = v.entry_at(dir_cluster, n)?;
+    let (k, _, _) = v.entrada_larga(dir_cluster, n, out)?;
+    // Si el largo es el 8.3 con otra caja (`salida.txt`), no hay nombre largo.
+    let mut l = [0u8; 12];
+    let mut m = 0;
+    for &b in corto[..8].iter().take_while(|&&b| b != b' ') {
+        l[m] = b;
+        m += 1;
+    }
+    if corto[8] != b' ' {
+        l[m] = b'.';
+        m += 1;
+        for &b in corto[8..].iter().take_while(|&&b| b != b' ') {
+            l[m] = b;
+            m += 1;
+        }
+    }
+    (!out[..k].eq_ignore_ascii_case(&l[..m])).then_some(k)
 }
 
 /// La misma conversion, para quien esta fuera de este modulo.
@@ -351,6 +534,13 @@ pub fn mount_data() {
                 // coincidian por casualidad.
                 disk::fijar_particion_datos(*part);
                 crate::ring0::cabina::info("fs", "volumen de datos montado para ESCRITURA", part.first_lba);
+                // `informe/` y `datos-componentes/`, si faltan (12-10).
+                unsafe {
+                    if let Some(v) = (*core::ptr::addr_of_mut!(DATA_VOLUME)).as_mut() {
+                        sellar(v);
+                        carpetas_de_la_casa(v);
+                    }
+                }
                 crate::ring0::cabina::info("fs", "y es la particion", part.index as u64);
                 return;
             }
@@ -734,14 +924,25 @@ fn resolver(path: &str) -> Result<(u32, u32), LoadError> {
         }
     };
 
-    // Quitar la letra de unidad y las barras iniciales.
-    let mut p = path;
-    if p.len() >= 2 && p.as_bytes()[1] == b':' { p = &p[2..]; }
-    while p.starts_with('/') || p.starts_with('\\') { p = &p[1..]; }
+    let p = limpia(path);
     if p.is_empty() { return Err(LoadError::BadPath); }
+    let raiz = v.root_cluster();
+    // ** `datos/x` (12-10): primero los componentes, despues lo que escribio
+    // un programa (`informe/x`), y al final la carpeta vieja tal cual.
+    if let Some(resto) = de_la_vieja(p) {
+        for base in [COMPONENTES, INFORME] {
+            if let Some((d, _)) = buscar(v, raiz, base, true) {
+                if let Ok(r) = resolver_en(v, d, resto) {
+                    return Ok(r);
+                }
+            }
+        }
+    }
+    resolver_en(v, raiz, p)
+}
 
-    // Bajar por los directorios; el ultimo componente es el archivo.
-    let mut dir = v.root_cluster();
+/// El recorrido de [`resolver`] desde una carpeta ya localizada.
+fn resolver_en(v: &mut FatVolume, mut dir: u32, p: &str) -> Result<(u32, u32), LoadError> {
     let mut rest = p;
     loop {
         let cut = rest.as_bytes().iter().position(|&c| c == b'/' || c == b'\\');
@@ -749,17 +950,15 @@ fn resolver(path: &str) -> Result<(u32, u32), LoadError> {
             Some(i) => {
                 let comp = &rest[..i];
                 if comp.is_empty() { return Err(LoadError::BadPath); }
-                let name = to_8_3(comp)?;
-                dir = v.find_subdir_in(&name, dir).ok_or(LoadError::DirNotFound)?;
+                dir = buscar(v, dir, comp, true).ok_or(LoadError::DirNotFound)?.0;
                 rest = &rest[i + 1..];
                 if rest.is_empty() { return Err(LoadError::BadPath); }
             }
             None => break,
         }
     }
-
-    let name = to_8_3(rest)?;
-    v.find_file_in(&name, dir).ok_or(LoadError::NotFound)
+    if rest.is_empty() { return Err(LoadError::BadPath); }
+    buscar(v, dir, rest, false).ok_or(LoadError::NotFound)
 }
 
 /// Crea un archivo en la raiz del volumen de datos.

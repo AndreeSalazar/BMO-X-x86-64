@@ -280,9 +280,23 @@ static mut BUF_PAGS: [u64; MAX_ABIERTOS] = [0; MAX_ABIERTOS];
 pub(super) static mut LARGO: [usize; MAX_ABIERTOS] = [0; MAX_ABIERTOS];
 /// Por donde va la lectura.
 static mut CURSOR: [usize; MAX_ABIERTOS] = [0; MAX_ABIERTOS];
-/// Nombre 8.3 y directorio destino, para el momento de guardar.
-static mut NAME: [[u8; 11]; MAX_ABIERTOS] = [[b' '; 11]; MAX_ABIERTOS];
+/// El nombre (largo o 8.3, 12-10) y el directorio destino, para guardar.
+static mut NOMBRE: [[u8; bmo_fat32::NOMBRE_MAX]; MAX_ABIERTOS] = [[0; bmo_fat32::NOMBRE_MAX]; MAX_ABIERTOS];
+static mut NOMBRE_N: [usize; MAX_ABIERTOS] = [0; MAX_ABIERTOS];
 static mut DIRECTORIO: [u32; MAX_ABIERTOS] = [0; MAX_ABIERTOS];
+/// ** ESCRIBIR SIN FINAL (12-10): lo que ya bajo al disco de esta ranura. El
+/// bufer no crece mas alla de [`TRAMO_AL_DISCO`]: lleno, se VUELCA (el primer
+/// volcado reemplaza el fichero, los siguientes añaden al final) y vuelve a
+/// empezar vacio. La RAM deja de ser el techo de lo que se escribe.
+static mut EN_DISCO: [u64; MAX_ABIERTOS] = [0; MAX_ABIERTOS];
+/// Un volcado fallo: `close` lo dice (lo de antes del fallo SI esta en el
+/// disco, y su medida es la verdadera: el driver la apunta la ultima).
+static mut VOLCADO_MAL: [bool; MAX_ABIERTOS] = [false; MAX_ABIERTOS];
+
+/// Cuanto junta una ranura de escritura antes de bajarlo al disco. Un MiB:
+/// ~2.000 sectores por volcado, dentro de un syscall (el `save` entero de
+/// hoy cabe en uno solo y se escribe como siempre, de una vez al cerrar).
+pub const TRAMO_AL_DISCO: usize = 1024 * 1024;
 static mut WRITES: [bool; MAX_ABIERTOS] = [false; MAX_ABIERTOS];
 /// Se pidio escribir mas de lo que cabe. `close` lo confiesa en vez de
 /// guardar un archivo corto que parece entero.
@@ -787,16 +801,17 @@ pub fn create(pid: u32, ruta: &str) -> Result<u64, u32> {
     if nombre_txt.is_empty() {
         return Err(ERROR_ARCH_NOMBRE);
     }
-    let name = match crate::ring0::fsys::fs::nombre_8_3_pub(nombre_txt) {
-        Some(n) => n,
-        None => return Err(ERROR_ARCH_NOMBRE),
-    };
-    let dir = match crate::ring0::fsys::fs::dir_datos(carpeta) {
-        Some(c) => c,
-        // La carpeta, no el archivo. `escribe datos/x.txt` cuando no hay
-        // `datos/` tiene que decir que falta la CARPETA: el archivo es
-        // justamente lo que se venia a crear.
-        None => return Err(ERROR_ARCH_CARPETA),
+    // ** Nombre LARGO o 8.3 (12-10): `informe-maestro.txt` ya se puede.
+    if !crate::ring0::fsys::fs::nombre_escribible(nombre_txt) {
+        return Err(ERROR_ARCH_NOMBRE);
+    }
+    // ** Y la carpeta SE CREA si falta (12-10, como `mkdir -p`): organizar el
+    // disco ya no es cosa del build. `datos/...` va a `informe/...` (las
+    // carpetas de la casa, `fsys/fs.rs`). Si no se puede crear, se dice que
+    // falta la CARPETA: el archivo es justamente lo que se venia a crear.
+    let dir = match crate::ring0::fsys::fs::carpeta_para_escribir(carpeta) {
+        Ok(c) => c,
+        Err(_) => return Err(ERROR_ARCH_CARPETA),
     };
 
     let i = match free_slot() {
@@ -811,8 +826,12 @@ pub fn create(pid: u32, ruta: &str) -> Result<u64, u32> {
         }
         LARGO[i] = 0;
         CURSOR[i] = 0;
-        NAME[i] = name;
+        let n = nombre_txt.len().min(bmo_fat32::NOMBRE_MAX);
+        NOMBRE[i][..n].copy_from_slice(&nombre_txt.as_bytes()[..n]);
+        NOMBRE_N[i] = n;
         DIRECTORIO[i] = dir;
+        EN_DISCO[i] = 0;
+        VOLCADO_MAL[i] = false;
         WRITES[i] = true;
         DESBORDO[i] = false;
         OWNER[i] = pid;
@@ -885,6 +904,9 @@ fn write(i: usize, palabra: u64) -> u64 {
             // Sin sitio: se DOBLA el buffer. Antes aqui se levantaba la bandera
             // de desbordado contra un techo de 4 KiB; ahora solo se levanta si
             // de verdad no queda RAM, que es un motivo y no una constante.
+            if LARGO[i] >= TRAMO_AL_DISCO && !volcar(i) {
+                break;
+            }
             if LARGO[i] >= capacity(i) && !grow(i, LARGO[i] + 1) {
                 DESBORDO[i] = true;
                 crate::ring0::cabina::warn(
@@ -920,18 +942,24 @@ fn close(i: usize) -> u64 {
                 // prohibe -- y con razon, porque esconde de donde sale.
                 let fila = buf(i);
                 let datos = &fila[..LARGO[i].min(fila.len())];
-                // `guardar_en` y no `crear_en`: si el archivo ya existe, se
-                // REEMPLAZA. `crear_en` contestaba `Exists` y aqui eso se
-                // convertia en un `warn` a la CABINA y un `0` que casi nadie
-                // miraba -- o sea que un programa que escribia su salida solo
-                // era honesto la primera vez que se corria.
-                match crate::ring0::fsys::fs::guardar_en(DIRECTORIO[i], &NAME[i], datos) {
+                // `guardar_como` y no "crear": si el archivo ya existe, se
+                // REEMPLAZA (un programa que escribe su salida tiene que ser
+                // honesto tambien la segunda vez). Y si ya se volco algun
+                // tramo (12-10), lo que queda se AÑADE detras.
+                let r = if VOLCADO_MAL[i] {
+                    Err(bmo_fat32::WriteError::Io)
+                } else if EN_DISCO[i] > 0 {
+                    crate::ring0::fsys::fs::anadir(DIRECTORIO[i], &NOMBRE[i][..NOMBRE_N[i]], datos).map(|_| ())
+                } else {
+                    crate::ring0::fsys::fs::guardar_como(DIRECTORIO[i], &NOMBRE[i][..NOMBRE_N[i]], datos)
+                };
+                match r {
                     Ok(()) => {
-                        crate::ring0::cabina::info("arch", "archivo guardado", LARGO[i] as u64);
+                        crate::ring0::cabina::info("arch", "archivo guardado", EN_DISCO[i] + LARGO[i] as u64);
                         true
                     }
-                    Err(_) => {
-                        crate::ring0::cabina::warn("arch", "no se pudo guardar", LARGO[i] as u64);
+                    Err(e) => {
+                        crate::ring0::cabina::warn("arch", e.name(), EN_DISCO[i] + LARGO[i] as u64);
                         false
                     }
                 }
@@ -980,6 +1008,9 @@ fn release(i: usize) {
         WRITES[i] = false;
         DESBORDO[i] = false;
         DIRECTORIO[i] = 0;
+        NOMBRE_N[i] = 0;
+        EN_DISCO[i] = 0;
+        VOLCADO_MAL[i] = false;
         // El reflejo tambien se apaga aqui, y en el mismo sitio que todo lo
         // demas: una ranura que se reutiliza con `REFLEJO` puesto y un cursor
         // del archivo anterior leeria **otro fichero** sin que nada avise.
@@ -1026,7 +1057,7 @@ pub fn operation(idx: u64, op: u64, arg0: u64) -> Option<u64> {
         ARCH_OP_LEER_LINEA if !escribe => Some(read_line(i)),
         ARCH_OP_ESCRIBIR if escribe => Some(write(i, arg0)),
         ARCH_OP_MEDIDA => Some(unsafe {
-            if escribe { LARGO[i] as u64 } else { (LARGO[i] - CURSOR[i]) as u64 }
+            if escribe { EN_DISCO[i] + LARGO[i] as u64 } else { (LARGO[i] - CURSOR[i]) as u64 }
         }),
         // * `fseek`. **Sigue costando lo que cuesta poner un numero**, y ahora
         // por otro motivo: el archivo ya no esta en el bufer, pero mover el
@@ -1117,22 +1148,61 @@ pub unsafe fn write_from(idx: u64, src: *const u8, n: usize) -> usize {
         if !WRITES[i] {
             return 0;
         }
-        let necesita = match LARGO[i].checked_add(n) {
-            Some(v) => v,
-            None => return 0,
-        };
-        if necesita > capacity(i) && !grow(i, necesita) {
-            DESBORDO[i] = true;
-            crate::ring0::cabina::warn(
-                "arch",
-                "sin RAM para seguir escribiendo: no se guardara nada",
-                necesita as u64,
-            );
-            return 0;
+        // ** Por TRAMOS (12-10): lo que no quepa en el tramo se vuelca y se
+        // sigue. Un bloque de 300 MiB baja al disco de MiB en MiB y la RAM
+        // contigua deja de ser el techo.
+        let mut puesto = 0usize;
+        while puesto < n {
+            if LARGO[i] >= TRAMO_AL_DISCO && !volcar(i) {
+                return puesto;
+            }
+            let k = (n - puesto).min(TRAMO_AL_DISCO - LARGO[i]);
+            let necesita = LARGO[i] + k;
+            if necesita > capacity(i) && !grow(i, necesita) {
+                DESBORDO[i] = true;
+                crate::ring0::cabina::warn(
+                    "arch",
+                    "sin RAM para seguir escribiendo: no se guardara nada",
+                    necesita as u64,
+                );
+                return puesto;
+            }
+            core::ptr::copy_nonoverlapping(src.add(puesto), buf(i).as_mut_ptr().add(LARGO[i]), k);
+            LARGO[i] = necesita;
+            puesto += k;
         }
-        core::ptr::copy_nonoverlapping(src, buf(i).as_mut_ptr().add(LARGO[i]), n);
-        LARGO[i] = necesita;
         n
+    }
+}
+
+/// **Baja al disco lo juntado en la ranura** y la deja vacia: el primer
+/// volcado REEMPLAZA el fichero (como un `OPEN OUTPUT`), los siguientes
+/// AÑADEN. `false` = el disco no lo acepto (se apunta y `close` lo dice).
+unsafe fn volcar(i: usize) -> bool {
+    unsafe {
+        if VOLCADO_MAL[i] || DESBORDO[i] {
+            return false;
+        }
+        let fila = buf(i);
+        let datos = &fila[..LARGO[i].min(fila.len())];
+        let nombre = &NOMBRE[i][..NOMBRE_N[i]];
+        let r = if EN_DISCO[i] == 0 {
+            crate::ring0::fsys::fs::guardar_como(DIRECTORIO[i], nombre, datos)
+        } else {
+            crate::ring0::fsys::fs::anadir(DIRECTORIO[i], nombre, datos).map(|_| ())
+        };
+        match r {
+            Ok(()) => {
+                EN_DISCO[i] += LARGO[i] as u64;
+                LARGO[i] = 0;
+                true
+            }
+            Err(e) => {
+                crate::ring0::cabina::warn("arch", e.name(), EN_DISCO[i] + LARGO[i] as u64);
+                VOLCADO_MAL[i] = true;
+                false
+            }
+        }
     }
 }
 
@@ -1160,6 +1230,11 @@ pub fn process_died(pid: u32) {
             if OWNER[i] == pid {
                 if WRITES[i] && LARGO[i] > 0 {
                     crate::ring0::cabina::warn("arch", "murio sin cerrar: se descarta", LARGO[i] as u64);
+                }
+                // Lo que YA se habia volcado se queda en el disco, con su
+                // medida verdadera: de un informe sin final, lo escrito vale.
+                if WRITES[i] && EN_DISCO[i] > 0 {
+                    crate::ring0::cabina::warn("arch", "murio sin cerrar: queda en el disco lo volcado", EN_DISCO[i]);
                 }
                 release(i);
             }

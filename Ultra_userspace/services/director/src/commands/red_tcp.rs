@@ -27,7 +27,7 @@
 //! `bmo_antena::Conversacion` (el protocolo) y por su `lamina::Lector` (el
 //! juez), linea a linea, y si la lamina es entera y valida va al bloque del
 //! ANTENISTA (`antenista.rs`, N3: se OFRECE a NAVEGAR al lanzarla, sin el
-//! disco en medio) y ademas a `datos/pagina.lam`, que es lo que NAVEGAR
+//! disco en medio) y ademas a `informe/pagina.lam`, que es lo que NAVEGAR
 //! pinta si arranca sin oferta. La cadena entera es antena -> TCP -> juez ->
 //! bloque -> prestamo -> NAVEGAR, y el disco es el camino de reserva.
 
@@ -61,7 +61,7 @@ const LINEA_MAX: usize = 256;
 /// Lo que cabe de lamina: la de Wikipedia mide 90 KB (L3c).
 const LAMINA_MAX: usize = 256 * 1024;
 /// Donde queda lo que trajo la antena, y de donde NAVEGAR lo pinta. 8.3.
-const RUTA_LAMINA: &[u8] = b"datos/pagina.lam";
+const RUTA_LAMINA: &[u8] = b"informe/pagina.lam";
 
 /// Que se le pide a la antena despues del saludo.
 const GUION_HOLA: u8 = 0;
@@ -348,7 +348,7 @@ fn guardar_linea(t: &mut Saludo, linea: &[u8]) {
     t.lam_lineas += 1;
 }
 
-/// **La lamina, al disco**: `datos/pagina.lam`. Devuelve los bytes escritos.
+/// **La lamina, al disco**: `informe/pagina.lam`. Devuelve los bytes escritos.
 fn guardar_lamina(t: &Saludo) -> usize {
     let lam = unsafe { &*core::ptr::addr_of!(LAMINA) };
     let Ok(f) = bmo::Archivo::create(RUTA_LAMINA) else { return 0 };
@@ -602,10 +602,10 @@ fn contar_lo_que_paso(s: &mut Output, t: &Saludo) {
         }
         let n = guardar_lamina(t);
         if n == t.lam_largo {
-            s.text(b"  [antena] y guardada en datos/pagina.lam\n");
+            s.text(b"  [antena] y guardada en informe/pagina.lam\n");
         } else {
             s.with_ink(INK_ERR);
-            s.text(b"  [antena] NO se pudo guardar en datos/pagina.lam (escritos ");
+            s.text(b"  [antena] NO se pudo guardar en informe/pagina.lam (escritos ");
             s.dec(n as u64);
             s.text(b")\n");
         }

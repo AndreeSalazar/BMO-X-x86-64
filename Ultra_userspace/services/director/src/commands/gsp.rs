@@ -583,9 +583,9 @@ pub(crate) fn fila_libos(s: &mut Output) {
 // Tres ordenes del kernel y tres esperas aqui, cediendo el turno: el GSP se
 // para tras su arranque vacio, el SEC2 se para con el booter hecho, y el
 // RISC-V del GSP se enciende. Salga como salga, lo que el GSP escribio en sus
-// logs se guarda en `datos/gsplog.bin`: si algo falla, ahi dice por que.
+// logs se guarda en `informe/gpu/gsplog.bin`: si algo falla, ahi dice por que.
 
-const RUTA_LOG: &[u8] = b"datos/gsplog.bin";
+const RUTA_LOG: &[u8] = b"informe/gpu/gsplog.bin";
 /// Los tres logs: 3 x 16 paginas.
 const LOGS_BYTES: u64 = 3 * 16 * 4096;
 /// Donde esta, dentro de `INFO_GPU_GSP_MEM`, el `writePtr` de la cola del GSP:
@@ -615,7 +615,7 @@ fn mem(desde: u64) -> u64 {
     bmo::info(bmo::INFO_GPU_GSP_MEM | desde << 8)
 }
 
-/// Los tres logs del GSP, crudos, a `datos/gsplog.bin`. `true` si se guardo.
+/// Los tres logs del GSP, crudos, a `informe/gpu/gsplog.bin`. `true` si se guardo.
 fn guardar_logs() -> bool {
     let Some(bloque) = bmo::Memoria::request(LOGS_BYTES) else { return false };
     // SAFETY: el bloque mide LOGS_BYTES, es de este proceso y se escribe aqui
@@ -696,13 +696,13 @@ pub(crate) fn orden_despertar(dsk: &mut Desktop, p: &bmo::Pantalla) -> After {
     match r {
         Ok(_) => {
             g.with_ink(INK_GOOD);
-            g.text(b"  EL GSP DESPERTO: el RISC-V del GSP de tu 3060 esta ACTIVO; sus logs en datos/gsplog.bin\n");
+            g.text(b"  EL GSP DESPERTO: el RISC-V del GSP de tu 3060 esta ACTIVO; sus logs en informe/gpu/gsplog.bin\n");
         }
         Err(m) => {
             g.with_ink(INK_ERR);
             g.text(b"  NO: ");
             g.text(super::iommu::motivo(m));
-            g.text(b" -- los logs del GSP, en datos/gsplog.bin\n");
+            g.text(b" -- los logs del GSP, en informe/gpu/gsplog.bin\n");
         }
     }
     g.with_ink(INK_PLAIN);
@@ -947,7 +947,7 @@ pub(crate) fn fila_despierto(s: &mut Output) {
     s.text(b" mensajes; MAILBOX0 del GSP 0x");
     s.hex(b & 0xFFFF_FFFF, 8);
     s.with_ink(INK_ECHO);
-    s.text(b"   -> datos/gsplog.bin");
+    s.text(b"   -> informe/gpu/gsplog.bin");
     s.with_ink(INK_PLAIN);
     s.byte(b'\n');
     super::datos::anotar(b"gpu gsp despierto", d, b"");

@@ -78,6 +78,7 @@ pub(crate) fn dispatch(dsk: &mut Desktop, p: &bmo::Pantalla, cmd: Command) -> Af
         Command::NotAProgram(r) => shell::not_a_program(dsk, p, r),
         Command::Unknown => shell::unknown(dsk, p),
         Command::List(dir_path) => files::list(dsk, p, dir_path),
+        Command::MakeDir(ruta) => files::make_dir(dsk, p, ruta),
         Command::Read(file_path) => files::read(dsk, p, file_path),
         Command::PersonalLs(ruta) => files::personal_ls(dsk, p, ruta),
         Command::PersonalLee(ruta) => files::personal_lee(dsk, p, ruta),

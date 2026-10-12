@@ -72,6 +72,18 @@ impl Directorio {
         if st.ok() { Ok(Self { cap: st.value }) } else { Err(st.code) }
     }
 
+    /// **Crea la carpeta** (y las de por medio, como `mkdir -p`) y la abre.
+    /// `datos/...` va a `informe/...`, como todo lo que se escribe (12-10).
+    pub fn crear(ruta: &[u8]) -> Result<Self, u32> {
+        for trozo in ruta.chunks(8) {
+            let mut w = [0u8; 8];
+            w[..trozo.len()].copy_from_slice(trozo);
+            invoke(CURRENT_TASK, OP_RUTA, u64::from_le_bytes(w), 0, 0);
+        }
+        let st = invoke(CURRENT_TASK, OP_DIR_ABRIR, 1, 0, 0);
+        if st.ok() { Ok(Self { cap: st.value }) } else { Err(st.code) }
+    }
+
     /// La siguiente entrada, o `None` cuando se acaba. Solo las de nombre
     /// 8.3 (FAT32): las de ESTRATOS, con nombre largo, se saltan -- quien las
     /// quiera usa [`Directorio::siguiente_todo`].

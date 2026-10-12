@@ -512,14 +512,17 @@ pub struct SmpCenso {
     pub esperados: u32,
     /// Parados por `smp stop`: en pie, sin trabajar.
     pub parados: bool,
-    /// NO se desperto a nadie: ya habia obreros en pie (11-10).
+    /// NO se desperto a nadie: hay una faena de Ring 3 en marcha (12-10).
     pub rehusado: bool,
+    /// Cuantos obreros reciben partes: `smp 3` con todos en pie no despierta
+    /// a nadie, baja este numero (12-10). `u32::MAX` = todos.
+    pub cupo: u32,
 }
 
 /// **`smp N`, con todo lo que contesta**: `0` solo censa, `u32::MAX` todos.
 pub fn smp_pedir(cuantos: u32) -> SmpCenso {
     let v = invoke(CURRENT_TASK, OP_SMP_DESPERTAR, cuantos as u64, 0, 0).value;
-    SmpCenso { vivos: ((v >> 32) as u32) & 0x3FFF_FFFF, esperados: v as u32, parados: v & (1 << 63) != 0, rehusado: v & (1 << 62) != 0 }
+    SmpCenso { vivos: ((v >> 32) as u32) & 0x3FFF_FFFF, esperados: (v & 0xFFFF) as u32, parados: v & (1 << 63) != 0, rehusado: v & (1 << 62) != 0, cupo: match (v >> 16) & 0xFFFF { 0xFFFF => u32::MAX, c => c as u32 } }
 }
 
 /// **Ofrece un trozo de un bloque MIO a otra tarea.** `true` si quedo apuntado.

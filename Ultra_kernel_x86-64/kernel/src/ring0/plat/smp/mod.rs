@@ -73,13 +73,29 @@ pub mod ring3;
 // ** LA FILA DE ESTA CPU (H4.0, 07-10): hermanos SMT, L3 y nucleos grandes o
 // chicos, para repartir primero un nucleo fisico por parte.
 pub mod topologia;
+/// El PAT y los MTRR de cada obrero, los del BSP (12-10, como Linux).
+pub mod cache;
 
-use core::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use core::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
 use map::*;
 
 /// El ultimo `despertar` NO desperto a nadie porque ya habia obreros en pie
 /// (11-10): la caja lo dice en vez de pintar un `12 de 12` en verde.
 static REHUSADO: AtomicBool = AtomicBool::new(false);
+/// **Cuantos obreros reciben partes** (12-10): `u32::MAX` = todos los que
+/// estan en pie. Lo baja `smp N` con N menor que los que ya trabajan, en vez
+/// de despertarlos otra vez. Lo lee `topologia::orden`.
+static CUPO: AtomicU32 = AtomicU32::new(u32::MAX);
+/// El ultimo slot de pila (`PILAS + slot * 0x1000`) entregado: llamando solo
+/// a los que faltan, los de antes siguen en sus pilas.
+static SLOT: AtomicU64 = AtomicU64::new(0);
+/// Hilos que no confirmaron su pila en 10 ms (`OFF_TOMADA`).
+static PILA_SIN_TOMAR: AtomicU32 = AtomicU32::new(0);
+
+/// Cuantos obreros reciben partes (`u32::MAX`: todos los que hay).
+pub fn cupo() -> u32 {
+    CUPO.load(Ordering::SeqCst)
+}
 /// El CR0/CR4 de los obreros contra el BSP (`INFO_SMP_CPU`): bit 63 medido,
 /// obreros `[0..8)`, distintos `[8..16)`, sin cache `[16..24)`, sin MCE
 /// `[24..32)`.
@@ -227,20 +243,47 @@ pub fn despertar(cuantos: u32, aviso: impl Fn(u32)) -> (u32, u32) {
     // comparten TSS, pila de trap y salto, y el `rsp0 = 0` de uno es el
     // triple fallo del otro. Despues de `smp stop` (todos parados) si se
     // puede: para eso es `reanudar`.
-    let en_pie = tramp::VIVOS.load(Ordering::SeqCst);
-    if en_pie > 0 && (!crew::parados() || ring3::activa()) {
-        crate::ring0::cabina::warn("smp", "ya hay obreros en pie: no se despiertan otra vez (reinicia para cambiar cuantos)", en_pie as u64);
-        crate::ring0::core::dashboard::dashboard_log("[smp] ya hay obreros en pie: no se despiertan otra vez");
-        REHUSADO.store(true, Ordering::SeqCst);
-        return (en_pie, esperados);
-    }
-    crew::reanudar();
-
+    //
+    // ** Y YA NO SE MANDA A REINICIAR (12-10). El propietario: *"smp all no
+    // se que me manda a reiniciar sin sentido"*. Con obreros en pie (la `A` de
+    // F7, `smp siempre`, un `smp 3` de antes) la orden contestaba "reinicia
+    // para cambiar cuantos". Ninguna de las dos direcciones lo pide:
+    //
+    //   pedir MENOS   no se despierta a nadie: se baja el CUPO (cuantos
+    //                 obreros reciben partes, `topologia::orden`)
+    //   pedir MAS     se llama SOLO a los hilos que no estan (ni en una ficha
+    //                 ni en la mascara), con pilas e indices NUEVOS: los que
+    //                 ya trabajan no reciben ni un INIT
+    //
+    // Lo unico que espera es una faena de Ring 3 en marcha: se dice "espera a
+    // que acabe", que es un segundo, y no un reinicio.
     // Nunca mas de los que caben en las fichas (`MAX_OBREROS`): uno de mas
     // llegaria sin ficha ni TSS (`tss.rs` no le da) y podria tomar partes.
     let pedidos = cuantos.min(esperados).min(ficha::MAX_OBREROS as u32);
-    tramp::VIVOS.store(0, Ordering::SeqCst);
-    tramp::MASCARA.store(0, Ordering::SeqCst);
+    let en_pie = tramp::VIVOS.load(Ordering::SeqCst);
+    let solo_faltan = en_pie > 0 && !crew::parados();
+    if solo_faltan {
+        if ring3::activa() {
+            crate::ring0::cabina::warn("smp", "hay una faena de Ring 3 en marcha: repite la orden cuando acabe", en_pie as u64);
+            REHUSADO.store(true, Ordering::SeqCst);
+            return (en_pie, esperados);
+        }
+        if pedidos <= en_pie {
+            CUPO.store(pedidos, Ordering::SeqCst);
+            crate::ring0::cabina::info("smp", "ya estaban en pie; los que reciben partes ahora", pedidos as u64);
+            crate::ring0::core::dashboard::dashboard_log("[smp] ya en pie: solo cambia cuantos trabajan");
+            return (en_pie, esperados);
+        }
+        crate::ring0::cabina::info("smp", "en pie de antes; se llama solo a los que faltan", (pedidos - en_pie) as u64);
+    } else {
+        crew::reanudar();
+        tramp::VIVOS.store(0, Ordering::SeqCst);
+        tramp::MASCARA.store(0, Ordering::SeqCst);
+        SLOT.store(0, Ordering::SeqCst);
+    }
+    CUPO.store(u32::MAX, Ordering::SeqCst);
+    // El PAT y los MTRR del BSP, para que cada obrero se iguale al llegar.
+    cache::tomar_del_bsp();
     let yo = tramp::apic_id();
     // Quien es el BSP, para que un fallo sepa de que lado cayo.
     tramp::BSP_APIC.store(yo, Ordering::SeqCst);
@@ -292,8 +335,18 @@ pub fn despertar(cuantos: u32, aviso: impl Fn(u32)) -> (u32, u32) {
         // APIC ID: con la MADT esos IDs pueden ser cualquier cosa (en un x2APIC
         // son numeros grandes y dispersos), y `PILAS + id * 0x1000` se saldria
         // del primer MiB sin avisar. El orden siempre es 0, 1, 2...
-        let mut slot = 0u64;
-        let call = |id: u32, slot: &mut u64| {
+        // El slot SIGUE donde lo dejo el ultimo `despertar` (12-10): llamando
+        // solo a los que faltan, una pila de antes la esta usando un obrero.
+        let mut slot = SLOT.load(Ordering::SeqCst);
+        let mut llamados = 0u32;
+        let faltan = pedidos - if solo_faltan { en_pie } else { 0 };
+        // Ya tiene ficha (o ya contesto): no se le manda nada.
+        let ya_esta = |id: u32| solo_faltan && (ficha::indice_de(id).is_some() || (id < 32 && tramp::MASCARA.load(Ordering::SeqCst) & 1 << id != 0));
+        let mut call = |id: u32, slot: &mut u64| {
+            if id == yo || llamados >= faltan || ya_esta(id) || *slot as usize >= ficha::MAX_OBREROS {
+                return;
+            }
+            llamados += 1;
             *slot += 1;
             core::ptr::write_volatile((DATOS + OFF_PILA) as *mut u64, PILAS + *slot * 0x1000);
             // Se dice ANTES de mandarlo, no despues: si el que cuelga es este,
@@ -303,12 +356,35 @@ pub fn despertar(cuantos: u32, aviso: impl Fn(u32)) -> (u32, u32) {
                 use crate::ring0::cabina::tablero as t;
                 t::marcar(t::SMP_BSP, t::LLAMA_AP, id as u64, *slot);
             }
+            let pila = PILAS + *slot * 0x1000;
+            core::ptr::write_volatile((DATOS + OFF_TOMADA) as *mut u64, 0);
+            let _ = lapic::esr();
             lapic::ipi(id, lapic::INIT);
             lapic::esperar_us(10_000);
             lapic::ipi(id, lapic::SIPI);
             lapic::esperar_us(200);
             lapic::ipi(id, lapic::SIPI);
             lapic::esperar_us(200);
+            // ** ESR (12-10, Linux: `accept_status = apic_read(APIC_ESR) &
+            // 0xEF`): si el APIC dice que la llamada no se entrego, se dice.
+            let esr = lapic::esr() & 0xEF;
+            if esr != 0 {
+                crate::ring0::cabina::warn("smp", "el APIC no entrego el INIT/SIPI (ESR); hilo", id as u64);
+                crate::ring0::cabina::warn("smp", "  ...ESR", esr as u64);
+            }
+            // ** Y NO SE PISA SU PILA hasta que la tome (12-10). Linux espera
+            // a cada AP (`cpu_callin`) antes de llamar al siguiente; aqui la
+            // pila de cada uno pasa por la MISMA casilla (`OFF_PILA`), y antes
+            // se reescribia a los 10 ms la tomara o no. 10 ms mas de tope.
+            let mut esperado = 0u32;
+            while core::ptr::read_volatile((DATOS + OFF_TOMADA) as *const u64) != pila && esperado < 10_000 {
+                lapic::esperar_us(10);
+                esperado += 10;
+            }
+            if core::ptr::read_volatile((DATOS + OFF_TOMADA) as *const u64) != pila {
+                PILA_SIN_TOMAR.fetch_add(1, Ordering::SeqCst);
+                crate::ring0::cabina::warn("smp", "un hilo no tomo su pila a tiempo (se le deja la suya; no se reusa); hilo", id as u64);
+            }
         };
 
         // ** EN EL ORDEN DE LA FILA (11-10), no en el de la MADT: un hilo de
@@ -322,29 +398,24 @@ pub fn despertar(cuantos: u32, aviso: impl Fn(u32)) -> (u32, u32) {
         match censo.as_ref() {
             Some(_) if por_fila > 0 => {
                 for &id in &fila_ids[..por_fila] {
-                    if id != yo && (slot as u32) < pedidos {
-                        call(id, &mut slot);
-                    }
+                    call(id, &mut slot);
                 }
             }
             // * Sin fila, la lista del firmware tal cual. Ni se inventa ni se
             // ordena.
             Some(c) => {
                 for &id in c.ids() {
-                    if id != yo && (slot as u32) < pedidos {
-                        call(id, &mut slot);
-                    }
+                    call(id, &mut slot);
                 }
             }
             // El camino de respaldo, ya avisado mas arriba.
             None => {
                 for id in 0..esperados + 1 {
-                    if id != yo && (slot as u32) < pedidos {
-                        call(id, &mut slot);
-                    }
+                    call(id, &mut slot);
                 }
             }
         }
+        SLOT.store(slot, Ordering::SeqCst);
     }
 
     // 6. Contar, con tope. Un AP que no viene no puede colgar al que pregunta.
@@ -444,6 +515,22 @@ fn decir_estado_cpu(vivos: u32) {
     }
     if sin_mce > 0 {
         warn("smp", "obreros sin CR4.MCE: una #MC alli REINICIA el PC", sin_mce as u64);
+    }
+    // ** EL PAT Y LOS MTRR (12-10): cuantos llegaron distintos del BSP (y se
+    // igualaron, como en Linux). Distintos = el WC del framebuffer era WB en
+    // ese obrero hasta hoy.
+    let (pat, mtrr) = cache::distintos();
+    if pat > 0 {
+        warn("smp", "obreros que llegaron con OTRO PAT que el BSP (igualado, como Linux)", pat as u64);
+    } else {
+        info("smp", "PAT de los obreros = el del BSP", n as u64);
+    }
+    if mtrr > 0 {
+        warn("smp", "obreros que llegaron con OTROS MTRR que el BSP (igualados, como Linux)", mtrr as u64);
+    }
+    let sin_tomar = PILA_SIN_TOMAR.load(Ordering::SeqCst);
+    if sin_tomar > 0 {
+        warn("smp", "hilos que no confirmaron su pila a tiempo", sin_tomar as u64);
     }
     let encendidos = tramp::LLEGARON_SIN_CACHE.load(Ordering::SeqCst);
     if encendidos > 0 {
