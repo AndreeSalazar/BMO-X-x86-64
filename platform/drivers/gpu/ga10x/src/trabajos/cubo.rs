@@ -125,6 +125,8 @@ pub struct Ventana {
     /// Bytes por fila (la del GOP).
     pub fila: u32,
     pub rgb: bool,
+    /// LI2d-HDR: de float (`destino::Flotante`); la pantalla, nunca.
+    pub flotante: crate::destino::Flotante,
     /// Q0a1: su medida, en pixeles.
     pub ancho: u32,
     pub alto: u32,
@@ -138,7 +140,7 @@ pub const fn ventana(p: &Pantalla) -> Option<Ventana> {
     let x0 = ((p.ancho - ANCHO) / 2) & !31;
     let y0 = (p.alto - ALTO) / 2;
     let va = PANTALLA_VA + (y0 as u64 * p.pitch as u64 + x0 as u64) * 4;
-    Some(Ventana { x0, y0, va, fila: p.pitch * 4, rgb: p.rgb, ancho: ANCHO, alto: ALTO })
+    Some(Ventana { x0, y0, va, fila: p.pitch * 4, flotante: crate::destino::Flotante::No, rgb: p.rgb, ancho: ANCHO, alto: ALTO })
 }
 
 /// Un pixel LEIDO de la pantalla (`0xAARRGGBB` si el GOP es BGR, `0xAABBGGRR`
@@ -363,7 +365,7 @@ pub(crate) fn hasta_el_dibujo_de(v: &Ventana, escalera: bool, limpiar: bool, mar
     if let Some(dir) = marca {
         e.marca(dir);
     }
-    let formato = if v.rgb { FORMATO_RGB } else { td::FORMATO };
+    let formato = v.flotante.formato(v.rgb);
     e.m(td::SET_COLOR_TARGET_A0, &[(v.va >> 32) as u32, v.va as u32, v.fila, v.alto, formato, td::MEMORIA_PITCH, 1, 0]);
     e.m(td::SET_CT_SELECT, &[1]);
     e.m(td::SET_SURFACE_CLIP_HORIZONTAL, &[v.ancho << 16, v.alto << 16]);

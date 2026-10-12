@@ -7,7 +7,7 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   767 casillas ABIERTAS en 71 planes
+   768 casillas ABIERTAS en 71 planes
    607 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
@@ -216,14 +216,14 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] E2 -- (C,T) DECLARADOS Y EL AFORO. Cada tarea trae su compas; el kernel
 - ... y 9 mas
 
-## [`PLAN_EL_LIBRETO.md`](PLAN_EL_LIBRETO.md) -- 11 abiertas, 1 hechas
+## [`PLAN_EL_LIBRETO.md`](PLAN_EL_LIBRETO.md) -- 12 abiertas, 1 hechas
 
 *PLAN EL LIBRETO -- Cyberpunk 2077 entra por VERRANO*
 
 - [ ] LI1 -- traducir y juzgar al CREAR, no al dibujar. Es VC1 de
 - [ ] LI2b -- programas largos. Hoy el cuerpo cabe en un hueco de 128
 - [ ] LI2c -- texturas (TEX; M3 de PLAN_VERRANO.md). El TIC y el
-- ... y 8 mas
+- ... y 9 mas
 
 ## [`PLAN_LA_PUERTA_SE_PARTE.md`](PLAN_LA_PUERTA_SE_PARTE.md) -- 11 abiertas, 8 hechas
 

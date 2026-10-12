@@ -350,6 +350,10 @@ pub struct Dibujo {
     /// cbuffer con un LDC (`ConstantesEn`), y el juez R7 lo mira contra esta
     /// misma medida.
     pub banco: u32,
+    /// ** LI2d-HDR (12-10): el redondeo de la salida 0 al formato del render
+    /// target de float (`pegamento::Redondeo`). Solo con un destino de float
+    /// (`destino::Flotante`); la receta lo lleva en la bandera del destino.
+    pub redondeo: crate::pegamento::Redondeo,
 }
 
 /// ** E8f: el banco de constantes de una app: el 3, el mismo que el de E3 de
@@ -496,8 +500,11 @@ pub(crate) fn dibujo_de_campos(cabecera: &[u8], n: usize, datos: usize) -> Optio
     } else {
         let va = u32le(cabecera, 44) as u64 | (u32le(cabecera, 48) as u64) << 32;
         let medidas = u32le(cabecera, 56);
-        let d = crate::destino::Destino { fila: u32le(cabecera, 52), ancho: medidas & 0xFFFF, alto: medidas >> 16, rgb: bandera & 1 != 0 };
-        if bandera & !(HAY_DESTINO | 1) != 0 || !d.valido() || va == 0 || va % 4096 != 0 {
+        // La bandera: el 0 rgb, el 1..3 el float (LI2d-HDR), el 8..16 el
+        // redondeo (abajo); nada mas.
+        let flotante = crate::destino::Flotante::de_numero(bandera >> 1 & 3)?;
+        let d = crate::destino::Destino { fila: u32le(cabecera, 52), ancho: medidas & 0xFFFF, alto: medidas >> 16, flotante, rgb: bandera & 1 != 0 };
+        if bandera & !(HAY_DESTINO | 7 | 0xFF << 8) != 0 || !d.valido() || va == 0 || va % 4096 != 0 {
             return None;
         }
         Some((va, d))
@@ -520,7 +527,8 @@ pub(crate) fn dibujo_de_campos(cabecera: &[u8], n: usize, datos: usize) -> Optio
         Some(desde)
     };
     let z = z_de(estado).ok()?;
-    let d = Dibujo { indices, vertices, descarte, antihorario: estado & 4 != 0, destino, z, color: None, texturas: 0, cadena: false, pantalla: false, banco: 0 };
+    let redondeo = crate::pegamento::Redondeo::de_numero(bandera >> 8 & 0xFF)?;
+    let d = Dibujo { indices, vertices, descarte, antihorario: estado & 4 != 0, destino, z, color: None, texturas: 0, cadena: false, pantalla: false, banco: 0, redondeo };
     cabe(&d).then_some(d)
 }
 
@@ -528,6 +536,19 @@ pub(crate) fn dibujo_de_campos(cabecera: &[u8], n: usize, datos: usize) -> Optio
 /// (`Destino::valido`), salvo con Z: la sombra en bloque (`sombra`) y el
 /// bufer de Z (`profundidad`) miden 1280x720.
 pub const fn cabe(d: &Dibujo) -> bool {
+    // LI2d-HDR: un destino de float, hoy sin Z (la sombra en bloque es de 8
+    // bits por canal), sin limpieza (`color` es un pixel de 8 bits) y fuera
+    // de la pantalla; y el redondeo, solo con el.
+    let flotante = match d.destino {
+        Some((_, dst)) => !matches!(dst.flotante, crate::destino::Flotante::No),
+        None => false,
+    };
+    if flotante && (d.z.is_some() || d.color.is_some() || d.cadena || d.pantalla) {
+        return false;
+    }
+    if !flotante && d.redondeo.numero() != 0 {
+        return false;
+    }
     match (d.z, d.destino) {
         (Some(_), Some((_, dst))) => dst.es_la_de_verrano(),
         _ => true,
@@ -898,7 +919,7 @@ pub fn huella_fija(v: &Ventana, p: &Paquete, ligero: bool) -> u64 {
     let color = d.color.map_or(0, |c| 1 << 32 | c as u64) | (d.texturas as u64) << 40;
     let dst = d.destino.map_or(Default::default(), |(_, dst)| dst);
     let hay_destino = d.destino.is_some() as u64 | (d.cadena as u64) << 1 | (d.pantalla as u64) << 2;
-    for x in [dibujo, z, color, hay_destino, dst.fila as u64 | (dst.ancho as u64) << 32, dst.alto as u64 | (dst.rgb as u64) << 32, v.x0 as u64, v.y0 as u64, v.va, v.fila as u64, v.rgb as u64, ligero as u64] {
+    for x in [dibujo, z, color, hay_destino, dst.fila as u64 | (dst.ancho as u64) << 32, dst.alto as u64 | (dst.rgb as u64) << 32 | (dst.flotante.numero() as u64) << 33 | (d.redondeo.numero() as u64) << 40, v.x0 as u64, v.y0 as u64, v.va, v.fila as u64, v.rgb as u64, ligero as u64] {
         mezclar(&x.to_le_bytes());
     }
     h
@@ -1048,7 +1069,7 @@ mod pruebas {
         for (k, i) in [0u32, 1, 2, 0, 2, 3].iter().enumerate() {
             datos[64 + 4 * k..68 + 4 * k].copy_from_slice(&i.to_le_bytes());
         }
-        let d = Dibujo { indices: Some(64), vertices: 4, descarte: Descarte::Traseras, antihorario: false, destino: None, z: None, color: None, texturas: 0, cadena: false, pantalla: false, banco: 0 };
+        let d = Dibujo { indices: Some(64), vertices: 4, descarte: Descarte::Traseras, antihorario: false, destino: None, z: None, color: None, texturas: 0, cadena: false, pantalla: false, banco: 0, redondeo: crate::pegamento::Redondeo::NADA };
         let mut caja = std::vec![0u8; MAX_PAQUETE];
         let n = escribir_paquete_dibujo(&mut caja, 7, &vs, &ps, 6, &datos, d).unwrap();
         assert_eq!(medida(&caja[..CABECERA_MAX]), Some(n));
@@ -1100,7 +1121,7 @@ mod pruebas {
             w[i + 1..i + 1 + n as usize].to_vec()
         };
         let f = |x: f32| x.to_bits();
-        let dst = Destino { fila: 640 * 4, ancho: 640, alto: 360, rgb: false };
+        let dst = Destino { fila: 640 * 4, ancho: 640, alto: 360, flotante: crate::destino::Flotante::No, rgb: false };
         let d = Dibujo { destino: Some((0x1234_5000, dst)), vertices: 3, ..Dibujo::default() };
         let gop = crate::pantalla::Pantalla { vram: 0x100_0000, pitch: 1920, ancho: 1920, alto: 1080, rgb: false };
         let v = crate::cubo::ventana(&gop).unwrap();
@@ -1124,7 +1145,7 @@ mod pruebas {
         use crate::tresde as td;
         let (vs, ps) = (programa_de(&vertice()), programa_de(&pixel()));
         let datos = std::vec![0u8; 96];
-        let dst = Destino { fila: 640 * 4, ancho: 640, alto: 360, rgb: false };
+        let dst = Destino { fila: 640 * 4, ancho: 640, alto: 360, flotante: crate::destino::Flotante::No, rgb: false };
         let d = Dibujo { vertices: 3, destino: Some((0x1234_5000, dst)), color: Some(0xFF14_1E3C), ..Dibujo::default() };
         let mut caja = std::vec![0u8; MAX_PAQUETE];
         let n = escribir_paquete_dibujo(&mut caja, 7, &vs, &ps, 3, &datos, d).unwrap();
@@ -1168,7 +1189,7 @@ mod pruebas {
                 datos.extend_from_slice(&w.to_le_bytes());
             }
         }
-        let dst = Destino { fila: 640 * 4, ancho: 640, alto: 360, rgb: false };
+        let dst = Destino { fila: 640 * 4, ancho: 640, alto: 360, flotante: crate::destino::Flotante::No, rgb: false };
         let d = Dibujo { vertices: 6, destino: Some((0x7_0000_0000, dst)), color: Some(0x0010_1018), ..Dibujo::default() };
         let (mut a, mut b) = (std::vec![0u8; MAX_PAQUETE], std::vec![0u8; MAX_PAQUETE]);
         let n = escribir_paquete_dibujo_de(&mut a, 7, &vs, &ps, vertices.iter().copied(), d).unwrap();
@@ -1189,8 +1210,8 @@ mod pruebas {
         use crate::tresde as td;
         let (vs, ps) = (programa_de(&vertice()), programa_de(&pixel()));
         let datos = std::vec![0u8; 96];
-        let dst = Destino { fila: 1280 * 4, ancho: 1280, alto: 720, rgb: false };
-        let d = Dibujo { indices: None, vertices: 3, descarte: Descarte::Ninguna, antihorario: false, destino: Some((0x1234_5000, dst)), z: None, color: None, texturas: 0, cadena: false, pantalla: false, banco: 0 };
+        let dst = Destino { fila: 1280 * 4, ancho: 1280, alto: 720, flotante: crate::destino::Flotante::No, rgb: false };
+        let d = Dibujo { indices: None, vertices: 3, descarte: Descarte::Ninguna, antihorario: false, destino: Some((0x1234_5000, dst)), z: None, color: None, texturas: 0, cadena: false, pantalla: false, banco: 0, redondeo: crate::pegamento::Redondeo::NADA };
         let mut caja = std::vec![0u8; MAX_PAQUETE];
         let n = escribir_paquete_dibujo(&mut caja, 7, &vs, &ps, 3, &datos, d).unwrap();
         assert_eq!(leer(&caja[..n]).unwrap().dibujo, d);
@@ -1226,7 +1247,7 @@ mod pruebas {
         use crate::tresde as td;
         let gop = crate::pantalla::Pantalla { vram: 0x100_0000, pitch: 1920, ancho: 1920, alto: 1080, rgb: false };
         let v = crate::cubo::ventana(&gop).unwrap();
-        let dst = crate::destino::Destino { fila: 5120, ancho: 1280, alto: 720, rgb: true };
+        let dst = crate::destino::Destino { fila: 5120, ancho: 1280, alto: 720, flotante: crate::destino::Flotante::No, rgb: true };
         let ct = crate::copia::cabecera_en(0, td::SET_COLOR_TARGET_A0, 8);
         let limpia = crate::copia::cabecera_en(0, td::CLEAR_SURFACE, 1);
         let valor = crate::copia::cabecera_en(0, td::SET_COLOR_CLEAR_VALUE0, 4);
@@ -1256,7 +1277,7 @@ mod pruebas {
         let gop = crate::pantalla::Pantalla { vram: 0x100_0000, pitch: 1920, ancho: 1920, alto: 1080, rgb: false };
         let v = crate::cubo::ventana(&gop).unwrap();
         let z = Some(crate::profundidad::Z { funcion: 2, escribir: true, limpiar: Some(crate::profundidad::UNO) });
-        let dst = crate::destino::Destino { fila: 5120, ancho: 1280, alto: 720, rgb: true };
+        let dst = crate::destino::Destino { fila: 5120, ancho: 1280, alto: 720, flotante: crate::destino::Flotante::No, rgb: true };
         let ct = crate::copia::cabecera_en(0, td::SET_COLOR_TARGET_A0, 8);
         let limpia = crate::copia::cabecera_en(0, td::CLEAR_SURFACE, 1);
         let zt = crate::copia::cabecera_en(0, crate::profundidad::SET_ZT_A, 5);
@@ -1358,7 +1379,7 @@ mod pruebas {
         assert_eq!(h, huella_fija(&v, &p(&a[..3 * BYTES_VERTICE], vs, ps), false), "otra cuenta de triangulos: el caliente reescribe las ordenes");
         // El destino: sus medidas SI (otras ordenes), su direccion NO (los
         // dos back buffers de un juego son la misma receta caliente).
-        let dst = crate::destino::Destino { fila: 5120, ancho: 1280, alto: 720, rgb: true };
+        let dst = crate::destino::Destino { fila: 5120, ancho: 1280, alto: 720, flotante: crate::destino::Flotante::No, rgb: true };
         let con = |va: u64, d: crate::destino::Destino| Paquete { dibujo: crate::tuberia::Dibujo { destino: Some((va, d)), ..Default::default() }, ..p(a, vs, ps) };
         let hd = huella_fija(&v, &con(0x1000_0000, dst), false);
         assert_ne!(h, hd, "con destino no es sin destino");

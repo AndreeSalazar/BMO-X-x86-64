@@ -257,6 +257,15 @@ pub(crate) fn decir_si_esta_lista() {
     bmo_proton_x_casa::diario::apuntar_y_volcar(s);
 }
 
+/// El formato de un destino de float y cuantas palabras guarda la casa por
+/// texel (`trama::Destino::flotante`: 4, o 1 en un R32_FLOAT).
+fn flotante_de(d: &Destino) -> Option<(u32, u32)> {
+    let f = d.flotante?;
+    let texeles = d.ancho as usize * d.alto as usize;
+    let palabras = if texeles == 0 { 0 } else { (d.pixeles.len() / texeles) as u32 };
+    Some((f, palabras))
+}
+
 /// **El censo de la 3060** a la consola y al DIARIO (LI0, 12-10).
 fn decir_censo(e: &mut Estado, ahora: u64) {
     e.censo_dicho = (ahora, e.censo.lotes);
@@ -334,11 +343,23 @@ pub fn dibujar(l: &Lote, d: &mut Destino) -> Result<Cuenta, NoDibuja> {
     // este lote (las del destino, las del lote y las de su PSO), contadas.
     if bmo_proton_x_casa::diario::encendido() {
         let mut del_destino: Vec<&'static str> = Vec::new();
-        if d.flotante.is_some() {
-            del_destino.push("un render target de float (HDR, N5.16): la puerta sabe BGRA8 y RGBA8");
+        // LI2d-HDR (12-10): el render target de float ya va, con su redondeo;
+        // lo que NO va todavia lo dice la misma puerta (`de_flotante`).
+        if let Some(f) = flotante_de(d) {
+            if let Err(m) = puerta::de_flotante(f.0, f.1) {
+                del_destino.push(m);
+            }
+            if l.reglas.profundidad.is_some() {
+                del_destino.push(puerta::Z_CON_FLOAT);
+            }
         }
         if d.pixeles.is_empty() {
             del_destino.push("un lote sin pixeles (solo profundidad, N5.12)");
+        }
+        // Metal 12-10: la puerta dibuja 1280x720 (Q0a1); la ventana de
+        // Cyberpunk media 1738x1064 y el censo no lo decia.
+        if !d.pixeles.is_empty() && (d.ancho, d.alto) != (1280, 720) {
+            del_destino.push("un destino que no mide 1280x720 (la ventana del juego; Q0a1: otra medida, por ver en el metal)");
         }
         e.censo.apuntar(l, &del_destino, puerta::Z_EN_LA_SOMBRA);
         let ahora = crate::plataforma::ahora_ns();
@@ -349,19 +370,18 @@ pub fn dibujar(l: &Lote, d: &mut Destino) -> Result<Cuenta, NoDibuja> {
     }
     // N5.12: un lote de solo profundidad (sin pixeles) no tiene back buffer
     // que darle a la puerta: por la CPU.
-    // N5.16 (05-10): un render target de FLOAT (HDR) tampoco: la puerta
-    // escribe 8 bits por canal, y el lote iria a parar a un sitio que no
-    // tiene esa forma. Por la CPU, y dicho UNA vez.
-    if !e.apagada && d.flotante.is_some() {
-        decir(e, String::from("un render target de float (HDR, N5.16): la puerta de la 3060 solo sabe BGRA8 y RGBA8"));
-    }
-    if !e.apagada && !d.pixeles.is_empty() && d.flotante.is_none() {
+    // ** LI2d-HDR (12-10): un render target de FLOAT tambien va a la puerta,
+    // con su formato y las palabras por texel de la casa: la 3060 escribe
+    // floats de 32 redondeados como la CPU (`puerta::de_flotante`). Lo que no
+    // sabe todavia lo dice la puerta, como cualquier otro porque.
+    if !e.apagada && !d.pixeles.is_empty() {
         let blanco = Blanco {
             va: d.pixeles.as_ptr() as u64,
             ancho: d.ancho,
             alto: d.alto,
             bgra: d.bgra,
             cadena: d.cadena,
+            flotante: flotante_de(d),
         };
         let carpeta = e.carpeta_bsf.clone();
         let p = e.puerta.get_or_insert_with(|| {

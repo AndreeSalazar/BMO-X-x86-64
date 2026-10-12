@@ -29,8 +29,8 @@ use alloc::format;
 use alloc::string::String;
 use alloc::vec::Vec;
 
-use bmo_gpu_ga10x::destino::Destino;
-use bmo_gpu_ga10x::pegamento::{Carga, Elemento};
+use bmo_gpu_ga10x::destino::{Destino, Flotante};
+use bmo_gpu_ga10x::pegamento::{Canal, Carga, Elemento, Redondeo};
 use bmo_gpu_ga10x::profundidad::Z;
 use bmo_gpu_ga10x::texturas::{DeApp, Muestreo, MAX_TEXTURAS};
 use bmo_proton_x::textura::{Clase, Como, Direccion, Filtro, Textura};
@@ -184,7 +184,45 @@ pub struct Blanco {
     /// muestra en `Present`): el kernel puede ponerlo directo en la pantalla
     /// si el escritorio se la dio a esta app.
     pub cadena: bool,
+    /// ** LI2d-HDR (12-10): un render target de FLOAT -- su formato DXGI
+    /// (`trama::Destino::flotante`) y cuantas palabras guarda la casa por
+    /// texel (4, o 1 en un R32_FLOAT) --, o `None`: 8 bits por canal.
+    pub flotante: Option<(u32, u32)>,
 }
+
+/// **Un render target de float, como lo escribe la 3060** (LI2d-HDR, 12-10):
+/// en floats de 32 (`destino::Flotante`), con la salida redondeada canal a
+/// canal a lo que la CPU guarda (`formato_ia::cuantizar`: de 32 bits igual,
+/// de 16 al half, el que no trae a 0 y el alfa que no trae a 1). Lo que la
+/// 3060 no sabe redondear todavia (11 y 10 bits, UNORM, SNORM), su porque.
+pub fn de_flotante(formato: u32, palabras: u32) -> Result<(Flotante, Redondeo), &'static str> {
+    use bmo_proton_x::formato_ia::{forma, Clase};
+    let Some(f) = forma(formato) else { return Err("un render target de float de un formato que la casa no conoce") };
+    if f.clase != Clase::Float {
+        return Err("un render target de UNORM o SNORM de mas de 8 bits (R10G10B10A2, RGBA16_UNORM...): la 3060 redondea floats de 32 y 16 todavia");
+    }
+    match palabras {
+        1 if f.bits == [32, 0, 0, 0] => Ok((Flotante::R32, Redondeo::NADA)),
+        4 => {
+            let mut r = [Canal::Igual; 4];
+            for (c, x) in r.iter_mut().enumerate() {
+                *x = match f.bits[c] {
+                    32 => Canal::Igual,
+                    16 => Canal::Half,
+                    0 if c == 3 => Canal::Uno,
+                    0 => Canal::Cero,
+                    _ => return Err("un render target de float de 11 o 10 bits (R11G11B10_FLOAT): la 3060 redondea a 32 y 16 todavia"),
+                };
+            }
+            Ok((Flotante::Rgba32, Redondeo(r)))
+        }
+        _ => Err("un render target de float que la casa no guarda en 4 palabras por texel (ni es un R32_FLOAT)"),
+    }
+}
+
+/// Un render target de float con prueba de profundidad: la Z de la 3060 va con
+/// la sombra en bloque, y la sombra es de 8 bits por canal todavia.
+pub const Z_CON_FLOAT: &str = "un render target de float con la Z: la sombra en bloque de la 3060 es de 8 bits por canal todavia";
 
 /// **Escribir la receta de un lote** en `caja` (con `datos` de apoyo).
 /// `Err` = por que este lote NO va a la 3060 (va a la CPU, y se dice).
@@ -196,7 +234,21 @@ pub fn escribir(c: &Cuerpos, l: &Lote, b: Blanco, limpiar_z: Option<u32>, datos:
     if n == 0 || n % 3 != 0 {
         return Err(format!("{n} indices: no son triangulos enteros"));
     }
-    let dst = Destino { fila: 4 * b.ancho, ancho: b.ancho, alto: b.alto, rgb: !b.bgra };
+    let (flotante, redondeo) = match b.flotante {
+        None => (Flotante::No, Redondeo::NADA),
+        Some((formato, palabras)) => de_flotante(formato, palabras).map_err(String::from)?,
+    };
+    if flotante != Flotante::No {
+        // LI2d-HDR: lo que un destino de float NO lleva todavia
+        // (`tuberia::cabe`).
+        if l.reglas.profundidad.is_some() {
+            return Err(String::from(Z_CON_FLOAT));
+        }
+        if l.limpiar_rt.is_some() || b.cadena {
+            return Err(String::from("un render target de float que se limpia en el lote o se muestra: la 3060 lo dibuja sin limpiar y fuera de la pantalla todavia"));
+        }
+    }
+    let dst = Destino { fila: flotante.bytes() * b.ancho, ancho: b.ancho, alto: b.alto, flotante, rgb: !b.bgra };
     // ** Q0a1 (EL_FOCO, 10-10): el driver ya dibuja un destino de OTRA medida
     // (`Destino::valido`); la puerta de los juegos se queda en la de VERRANO
     // hasta verlo en el metal -- que el viewport y el recorte de otra medida
@@ -309,7 +361,7 @@ pub fn escribir(c: &Cuerpos, l: &Lote, b: Blanco, limpiar_z: Option<u32>, datos:
         genericos: [None; MAX_GENERICOS],
         n_genericos: c.genericos.len(),
         datos,
-        dibujo: Dibujo { indices: Some(desde as u32), vertices: vertices as u32, descarte, antihorario: r.antihorario, destino: Some((b.va, dst)), z, color: l.limpiar_rt, texturas: c.texturas.len() as u8, cadena: b.cadena, pantalla: false, banco: if c.banco { 16 * c.filas } else { 0 } },
+        dibujo: Dibujo { indices: Some(desde as u32), vertices: vertices as u32, descarte, antihorario: r.antihorario, destino: Some((b.va, dst)), z, color: l.limpiar_rt, texturas: c.texturas.len() as u8, cadena: b.cadena, pantalla: false, banco: if c.banco { 16 * c.filas } else { 0 }, redondeo },
         texturas,
         termometro_vs: c.termometro_vs,
         termometro_ps: c.termometro_ps,
@@ -378,6 +430,11 @@ impl Puerta {
     /// **La receta de este lote**, en `self.caja[..n]`: `Ok(n)`, o por que
     /// no va a la 3060.
     pub fn preparar(&mut self, l: &Lote, b: Blanco) -> Result<usize, String> {
+        // LI2d-HDR: un render target de float con Z, ANTES que las cuentas de
+        // la Z de la 3060 (que dirian otro porque).
+        if b.flotante.is_some() && l.reglas.profundidad.is_some() {
+            return Err(String::from(Z_CON_FLOAT));
+        }
         // E2.7: con una consulta de oclusion abierta hay que CONTAR los
         // pixeles que pasan, y la 3060 aun no los cuenta: por la CPU.
         if l.oclusion {

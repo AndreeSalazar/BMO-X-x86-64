@@ -406,6 +406,24 @@ fn decodificar(lo: u64, hi: u64) -> Option<Instr> {
             i.lee = [reg(s1, n as u8), reg(s2, 1), reg(s0, 1), NADA];
             i.atributo = Some((r(40, 10), n));
         }
+        // ** LI2d-HDR (12-10): el redondeo al half de la salida de un render
+        // target de float (`pegamento::Redondeo`). SOLO las formas de `ptxas`
+        // (sm_86) para `cvt.rn.f16.f32` y `cvt.f32.f16`:
+        //    F2FP.PACK_AB Rd, RZ, Rb        0x723E, Ra = RZ, nada en 40..64,
+        //                                   0xFF en los 41 bits bajos de hi
+        //    HADD2.F32 Rd, -RZ, Rb.H0_H0    0x7230, Ra = RZ, el -RZ (0x20 en
+        //                                   56..64), 0x4100 en hi
+        // Las dos, una fuente (Rb) y del FMA para la latencia.
+        0x03E if forma == 1 && s0 == RZ as u32 && lo >> 40 == 0 && hi & ((1 << 41) - 1) == 0xFF => {
+            i.clase = Clase::Fma;
+            i.escribe = reg(rd, 1);
+            i.lee = [reg(s1, 1), NADA, NADA, NADA];
+        }
+        0x030 if forma == 1 && s0 == RZ as u32 && lo >> 40 == 0x20_0000 && hi & ((1 << 41) - 1) == 0x4100 => {
+            i.clase = Clase::Fma;
+            i.escribe = reg(rd, 1);
+            i.lee = [reg(s1, 1), NADA, NADA, NADA];
+        }
         // IPA: el atributo va en 64..72 (NO es un registro).
         0x126 => {
             i.clase = Clase::Agu;
@@ -1411,6 +1429,35 @@ mod pruebas {
         assert_eq!((b.regla, b.instruccion, b.que), (Regla::R5CabeceraMiente, 6, 14));
         for p in SOSPECHOSOS.iter() {
             assert!(juzgar(p.codigo, &p.contexto()).is_ok(), "{}: {:?}", p.nombre, juzgar(p.codigo, &p.contexto()));
+        }
+    }
+
+    /// ** LI2d-HDR (12-10): el juez conoce el redondeo al half SOLO en las
+    /// formas de `ptxas` (F2FP.PACK_AB y HADD2.F32). La prueba del NO: con
+    /// otra Ra, con un bit de mas o con otro hi, R0.
+    #[test]
+    fn el_redondeo_al_half_solo_en_su_forma() {
+        use crate::pegamento::{f2fp_half, hadd2_f32};
+        use crate::tuberia::espera;
+        let ctx = Contexto { registros: 64, sph: None };
+        let alu = cu::ALU;
+        let bien = [cu::mov(0, 0x3F00_0000), f2fp_half(0, 0, alu), hadd2_f32(0, 0, alu), cu::EXIT];
+        juzgar(&bien, &ctx).unwrap_or_else(|b| panic!("el redondeo, en su forma: {b:?}"));
+        // Las palabras, las de `ptxas` (sm_86): F2FP.PACK_AB R0, RZ, R0 y
+        // HADD2.F32 R5, -RZ, R0.H0_H0.
+        assert_eq!(f2fp_half(0, 0, 0).0, 0x0000_0000_FF00_723E);
+        assert_eq!(hadd2_f32(5, 0, 0).0, 0x2000_0000_FF05_7230);
+        let _ = espera(0);
+        let f = f2fp_half(0, 0, alu);
+        let h = hadd2_f32(0, 0, alu);
+        for (malo, que) in [
+            ((f.0 & !(0xFF << 24) | 3 << 24, f.1), "F2FP con Ra que no es RZ"),
+            ((f.0 | 1 << 40, f.1), "F2FP con un bit de mas"),
+            ((f.0, f.1 | 1 << 8), "F2FP con otro hi"),
+            ((h.0 & !(0xFF << 56), h.1), "HADD2 sin el -RZ"),
+            ((h.0, h.1 ^ 0x100), "HADD2 con otro hi"),
+        ] {
+            assert_eq!(regla(&[cu::mov(0, 0x3F00_0000), malo, cu::EXIT], &ctx), Regla::R0NoSe, "{que}");
         }
     }
 }

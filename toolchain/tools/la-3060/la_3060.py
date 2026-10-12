@@ -92,6 +92,15 @@ las esperas, que es la deuda que se quiere bajar):
                    tengo otra GPU no es lo mismo"; y el 08-10: "TODAS LAS GPU
                    en emisor SON AISLADAS por completo luego el JUEZ procesa
                    cada uno"
+    Z  LA Z Y EL FLOAT (12-10, LI2d-HDR de `PLAN_EL_LIBRETO.md`): la 3060
+                   SI dibuja con Z (con la sombra en bloque), y SI dibuja un
+                   render target de float (sin sombra) -- pero las dos juntas
+                   NO mientras la sombra sea de 8 bits por canal (`sombra.rs`,
+                   `FILA = 4 * ANCHO`). Lo mira en los tres sitios que lo
+                   paran: `tuberia::cabe` (lo que el kernel deja pasar al leer
+                   la receta), `receta::leer` y `escribir` (que lo llaman) y la
+                   puerta de PROTON-X (`Z_CON_FLOAT`, antes de las cuentas de la
+                   Z). El propietario: "un guardian ... que no acepten Z"
 
     --check   lo que corre el build
 """
@@ -145,6 +154,32 @@ def es_de_la_3060(ruta):
     return (re.search(r'/ring0/dev/gpu[^/]*\.rs$', r) is not None
             or '/ring0/dev/gpu_trabajo/' in r
             or r.endswith('/ring0/dev/vblank.rs'))
+
+
+def z_y_float(fallos):
+    """Z: la Z con un render target de float, parada mientras la sombra sea de
+    8 bits por canal (ver el principio)."""
+    trab = os.path.join(RAIZ, 'platform', 'drivers', 'gpu', 'ga10x', 'src', 'trabajos')
+    sombra = leer(os.path.join(trab, 'sombra.rs'))
+    tuberia = sin_comentarios(leer(os.path.join(trab, 'tuberia.rs')))
+    receta = sin_comentarios(leer(os.path.join(trab, 'receta.rs')))
+    puerta_px = sin_comentarios(leer(os.path.join(RAIZ, 'platform', 'shared', 'proton-x-sm86', 'src', 'puerta.rs')))
+    if not sombra or not tuberia or not receta or not puerta_px:
+        fallos.append('Z: no se leen sombra.rs, tuberia.rs, receta.rs o la puerta de PROTON-X: el guardian no mira')
+        return
+    if 'pub const FILA: u32 = 4 * ANCHO;' not in sombra:
+        # La sombra ya no es de 8 bits: la regla puede caer, y lo dice el banco.
+        return
+    m = re.search(r'pub const fn cabe\(d: &Dibujo\) -> bool \{(.*?)\n\}', tuberia, re.S)
+    if not m:
+        fallos.append('Z: no se encuentra `pub const fn cabe` en tuberia.rs: el guardian no mira')
+        return
+    if not re.search(r'flotante\s*&&\s*\(d\.z\.is_some\(\)', m.group(1)):
+        fallos.append('Z: `tuberia::cabe` ya no para la Z con un render target de float, y la sombra sigue siendo de 8 bits por canal (`sombra::FILA = 4 * ANCHO`)')
+    if receta.count('tu::cabe(&') < 2:
+        fallos.append('Z: `receta::leer` y `receta::escribir` tienen que llamar a `tu::cabe` (la Z con float, al leer y al escribir)')
+    if not re.search(r'b\.flotante\.is_some\(\)\s*&&\s*l\.reglas\.profundidad\.is_some\(\)', puerta_px) or 'Z_CON_FLOAT' not in puerta_px:
+        fallos.append('Z: la puerta de PROTON-X ya no dice la Z con float (`Z_CON_FLOAT`) antes de las cuentas de la Z')
 
 
 def puerta(fallos):
@@ -533,6 +568,7 @@ def main():
     n_aon = aon(fallos)
     n_sobre = sobre(fallos)
     n_prometeo = prometeo(fallos)
+    z_y_float(fallos)
     giros = esperas()
     total = sum(giros.values())
     base = linea_base()
@@ -548,7 +584,7 @@ def main():
             print('  ' + f)
         return 1
     extra = '' if base is None or total == base else ' (bajo de %d: baja la linea base en %s)' % (base, rel(BASE))
-    print('clean: la puerta pide MAQUINA; solo la 3060 12G (%s); registros solo en dev/gpu*; %d ordenes y %d motivos iguales en los tres sitios; opt-level 3; el pase NEUTRO en %d ficheros sin NVIDIA; %d ficheros declaran su [estado] y lo que SOBREVIVE tiene un propietario que no escribe; el sobre, la API y VERRANO sin una GPU dentro (%d ficheros) y el juez en la puerta; PROMETEO y TITAN++ sin una tarjeta dentro (%d ficheros); %d esperas girando%s'
+    print('clean: la puerta pide MAQUINA; solo la 3060 12G (%s); registros solo en dev/gpu*; %d ordenes y %d motivos iguales en los tres sitios; opt-level 3; el pase NEUTRO en %d ficheros sin NVIDIA; %d ficheros declaran su [estado] y lo que SOBREVIVE tiene un propietario que no escribe; el sobre, la API y VERRANO sin una GPU dentro (%d ficheros) y el juez en la puerta; PROMETEO y TITAN++ sin una tarjeta dentro (%d ficheros); la Z con float parada en sus tres sitios; %d esperas girando%s'
           % ('/'.join('%04X' % x for x in suyos), n_ordenes, n_motivos, n_neutros, n_aon, n_sobre, n_prometeo, total, extra))
     return 0
 

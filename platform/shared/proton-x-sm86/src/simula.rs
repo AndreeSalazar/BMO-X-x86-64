@@ -269,6 +269,11 @@ pub fn correr(codigo: &[(u64, u64)], m: &mut Maquina) -> Result<usize, NoSimula>
                 suma as u32
             }
             // ** E6c: IMAD (sin negar la tercera), LOP3, SHF, IMNMX, I2F, F2I.
+            // IMAD con el inmediato en la c (forma 2: la b se muda al hueco de
+            // la c, 64..72): Ra * Rb + imm. Con RZ, RZ es el MOV de un
+            // inmediato del pegamento (`cubo::mov`; LI2d-HDR, el 0 y el 1 de los
+            // canales que el formato no trae).
+            0x024 if forma == 2 && hi & ((1 << 41) - 1) & !0xFF == 0x078e_0000 => m.reg(ra).wrapping_mul(m.reg((hi & 0xFF) as usize)).wrapping_add((lo >> 32) as u32),
             0x024 if hi & ((1 << 41) - 1) & !0x3FF == 0x078e_0000 => {
                 let b = entera(m, lo, forma).ok_or(NoSimula::Instruccion(n))?;
                 m.reg(ra).wrapping_mul(b).wrapping_add(m.reg((hi & 0xFF) as usize))
@@ -335,6 +340,18 @@ pub fn correr(codigo: &[(u64, u64)], m: &mut Maquina) -> Result<usize, NoSimula>
                 }
                 pc = (destino / 16) as usize;
                 continue;
+            }
+            // ** LI2d-HDR (12-10): el redondeo de la salida de un render target
+            // de float (`pegamento::Redondeo`), las formas de `ptxas`.
+            // F2FP.PACK_AB Rd, RZ, Rb: el half de Rb al par mas cercano
+            // (`cvt.rn`, la regla de `formato_ia::a_half`) abajo, 0 arriba.
+            0x03E if forma == 1 && ra == RZ && lo >> 40 == 0 && hi & ((1 << 41) - 1) == 0xFF => {
+                bmo_proton_x::formato_ia::a_half(f32::from_bits(m.reg((lo >> 32 & 0xFF) as usize))) as u32
+            }
+            // HADD2.F32 Rd, -RZ, Rb.H0_H0: el half de abajo, en float (exacto;
+            // x + -0 es x para cualquier x, el +0 y el -0 incluidos).
+            0x030 if forma == 1 && ra == RZ && lo >> 40 == 0x20_0000 && hi & ((1 << 41) - 1) == 0x4100 => {
+                (bmo_proton_x::formato_ia::half(m.reg((lo >> 32 & 0xFF) as usize) as u16) + -0.0).to_bits()
             }
             0x021 => sat(f(a()) + f(segunda(2, 3).ok_or(NoSimula::Instruccion(n))?)).to_bits(),
             0x020 => sat(f(a()) * f(segunda(4, 5).ok_or(NoSimula::Instruccion(n))?)).to_bits(),

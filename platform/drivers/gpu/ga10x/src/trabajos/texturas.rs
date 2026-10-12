@@ -504,7 +504,7 @@ mod pruebas {
     #[test]
     fn las_ordenes_de_las_piscinas() {
         use crate::copia::cabecera_en;
-        let mut e = crate::cubo::hasta_el_dibujo_de(&crate::destino::Destino { fila: 5120, ancho: 1280, alto: 720, rgb: false }.ventana(), false, false, None, 64);
+        let mut e = crate::cubo::hasta_el_dibujo_de(&crate::destino::Destino { fila: 5120, ancho: 1280, alto: 720, flotante: crate::destino::Flotante::No, rgb: false }.ventana(), false, false, None, 64);
         let antes = e.n;
         assert!(ordenes(&mut e, 0x2_0001_4000, 1, 0x2_0001_5000, 1));
         let o = &e.o[antes..e.n];
@@ -685,7 +685,7 @@ pub mod prueba {
         // el asa en R6 (la barrera 1), y el EXIT la espera.
         let nv = bytes(&[mov_r(0, 0), exit(0)], &mut vs);
         let np = bytes(&[tex(0, 4, 6, carga(1)), exit(1 << 1)], &mut ps);
-        let dst = Destino { fila: 4 * 1280, ancho: 1280, alto: 720, rgb: true };
+        let dst = Destino { fila: 4 * 1280, ancho: 1280, alto: 720, flotante: crate::destino::Flotante::No, rgb: true };
         let t = DeApp { va: va_textura, ancho: ANCHO, alto: 4, fila: FILA, bgra: false, muestreo: Muestreo { lineal, u: modo, v: modo, borde: BORDE } };
         let mut r = Receta {
             n: VERTICES,

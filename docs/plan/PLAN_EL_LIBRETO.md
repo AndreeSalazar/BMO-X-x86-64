@@ -296,6 +296,33 @@ y `puerta.rs`; el juez en `platform/drivers/gpu/ga10x/src/sass/juez.rs`):
       de BMOX-12 que corre en el metal); el filtrado, con LI2c.
 - [ ] **LI2h -- el sombreador de geometria**, si LI0 dice que Cyberpunk lo
       usa. Si no, se aparca con motivo.
+- [~] **LI2i -- el render target de FLOAT (HDR)** (el censo de Cyberpunk,
+      12-10: 28 lotes de 34). La casa lo guarda en floats de 32 ya
+      redondeados a su formato (`formato_ia::cuantizar`); la 3060 escribe
+      ESO mismo (`RF32_GF32_BF32_AF32` o `RF32`, `destino::Flotante`, el mapa
+      del destino a 16 MiB) y el pegamento del de pixel redondea la salida
+      canal a canal (`pegamento::Redondeo`: igual, al half con F2FP.PACK_AB
+      y HADD2.F32 -- las palabras de `ptxas` --, 0 o 1). El juez del kernel
+      las conoce SOLO en esa forma; el simulador, tambien. *12-10, en el
+      banco:* `el_redondeo_de_la_3060_es_el_de_la_cpu` (6 formatos, 20 000
+      floats, bit a bit con la CPU), `un_cuadro_en_un_rgba16f_va_a_la_3060`
+      (puerta, receta, pegado del kernel con su juez y el vigia),
+      `el_render_target_de_float_cruza_la_receta` y
+      `el_redondeo_al_half_solo_en_su_forma`, con sus pruebas del NO.
+      **Falta:** el metal; la Z con float (la sombra en bloque es de 8 bits:
+      lo para `tuberia::cabe` y lo vigila el guardian `la-3060`, regla Z);
+      R11G11B10 y los UNORM de mas de 8 bits; limpiar un float en el lote;
+      la carga de un NaN (en la 3060 puede salir otro NaN: el juez lo da por
+      bueno). *Lo que se supone y se mira en el metal:* que F2FP.PACK_AB
+      redondea al par mas cercano (es el `cvt.rn` de PTX).
+- [ ] **LI2j -- LA MEDIDA DEL JUEGO** (metal 12-10). La puerta dibuja
+      1280x720 (Q0a1 de `EL_FOCO.md`), y Cyberpunk abrio una VENTANA de
+      1738x1064: todos sus lotes iban a la CPU por eso, y el censo no lo
+      decia (desde el 12-10 si: "un destino que no mide 1280x720"). DOOM pide
+      1280x720 y la 3060 se lleva la pantalla entera. Dos caminos: abrir
+      Q0a1 (otra medida, con filas alineadas a 128 B o por la copia) o que
+      PROTON-X le diga al juego que la pantalla mide 1280x720. **Como se
+      sabe:** el censo sin esa puerta, y la 3060 con lotes de Cyberpunk.
 
 ## 4.3 PROTON-X habla VERRANO
 
