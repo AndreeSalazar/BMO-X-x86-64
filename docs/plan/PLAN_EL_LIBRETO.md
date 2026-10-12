@@ -280,6 +280,11 @@ y `puerta.rs`; el juez en `platform/drivers/gpu/ga10x/src/sass/juez.rs`):
       se promete el mismo bit (DL10) hasta medirlo en el metal. Los floats
       con punto o `Load` serian exactos, pero sus formatos de TIC nunca
       corrieron: van con su banco en el metal (`gpu verrano textura`).
+      - "t0 sin atar": la TEXTURA NULA (`puerta::Nula`): 8x1 a ceros con un
+        muestreador propio de punto, en el monton de la app; la CPU da ceros
+        ahi (el SRV nulo). Solo sin TEXTURA: con textura y sin muestreador,
+        por la CPU (`Load` la leeria). Pruebas:
+        `la_textura_sin_atar_va_a_la_3060_a_ceros`, `la_nula_son_ceros_a_32_b`.
 - [ ] **LI2d -- varios render targets y la profundidad** (N5.8; V2/M1 de
       `PLAN_VERRANO.md`). El G-buffer: hasta 8 destinos y el z-buffer en la
       VRAM. **Como se sabe:** la escena 3D dura (A11) pintada por la 3060

@@ -349,7 +349,32 @@ pub fn medida(b: &Blanco, flotante: Flotante, con_z: bool) -> Result<Destino, No
 
 /// **Escribir la receta de un lote** en `caja` (con `datos` de apoyo).
 /// `Err` = por que este lote NO va a la 3060 (va a la CPU, y se dice).
-pub fn escribir(c: &Cuerpos, l: &Lote, b: Blanco, limpiar_z: Option<u32>, datos: &mut Vec<u8>, caja: &mut [u8]) -> Result<usize, String> {
+/// **LA TEXTURA NULA** (12-10, el censo de Cyberpunk: "t0 sin atar"): lo
+/// que lee la 3060 donde el lote no ata textura o muestreador. La CPU da
+/// CEROS ahi (`Recursos::muestrear`, el SRV nulo de D3D12); la 3060 lee 8x1
+/// texeles a cero (una fila de 32 B, lo que pide su TIC) con un muestreador
+/// PROPIO de punto y repetir -- nunca el del lote: su color de borde no daria
+/// ceros --. `Sample`, `SampleLevel` y `Load` dan (0, 0, 0, 0) en todo punto.
+/// Vive en el monton de la app (la memoria que el kernel sabe prestar).
+#[repr(C, align(32))]
+pub struct Nula([u32; 8]);
+
+impl Nula {
+    pub fn nueva() -> Box<Nula> {
+        Box::new(Nula([0; 8]))
+    }
+
+    pub fn texeles(&self) -> &[u32; 8] {
+        &self.0
+    }
+
+    /// Como viaja en la receta.
+    pub fn de_app(&self) -> DeApp {
+        DeApp { va: self.0.as_ptr() as u64, ancho: 8, alto: 1, fila: 32, bgra: false, muestreo: Muestreo { lineal: false, u: 1, v: 1, borde: [0.0; 4] } }
+    }
+}
+
+pub fn escribir(c: &Cuerpos, l: &Lote, b: Blanco, limpiar_z: Option<u32>, nula: &Nula, datos: &mut Vec<u8>, caja: &mut [u8]) -> Result<usize, String> {
     // ** 12-10: la TIRA, como LISTA -- los triangulos de la CPU
     // (`lote::triangulos`: el impar se da la vuelta, para que su cara sea la
     // misma), con los mismos ids --: la 3060 dibuja listas.
@@ -450,8 +475,15 @@ pub fn escribir(c: &Cuerpos, l: &Lote, b: Blanco, limpiar_z: Option<u32>, datos:
     }
     let mut texturas = [DeApp::NINGUNA; MAX_TEXTURAS];
     for (k, &(tn, sm)) in c.texturas.iter().enumerate() {
-        let (Some(Some(t)), Some(Some(m))) = (l.recursos.texturas.get(tn as usize), l.recursos.muestreadores.get(sm as usize)) else {
-            return Err(format!("el sombreador muestrea t{tn} con s{sm} y el lote no los tiene atados"));
+        // Sin TEXTURA atada: ceros, como la CPU (con `Sample` y con `Load`).
+        // Con textura y sin muestreador, no: `Load` la leeria (no usa
+        // muestreador) y aqui no se sabe cual de las dos es esta pareja.
+        let Some(Some(t)) = l.recursos.texturas.get(tn as usize) else {
+            texturas[k] = nula.de_app();
+            continue;
+        };
+        let Some(Some(m)) = l.recursos.muestreadores.get(sm as usize) else {
+            return Err(format!("el sombreador muestrea t{tn} con s{sm} y el lote no tiene s{sm} atado"));
         };
         // 02-10: la 3060 lee aqui RGBA/BGRA de 8 bits, lineales y con el
         // mapeo de siempre; un BC, un float, un sRGB o un mapeo, en la CPU
@@ -526,6 +558,8 @@ pub struct Puerta {
     pub caja: Vec<u8>,
     datos: Vec<u8>,
     taller: Box<Taller>,
+    /// La textura nula ([`Nula`]): lo que lee la 3060 donde no hay nada atado.
+    nula: Box<Nula>,
     /// La Z de la 3060 tiene lo ultimo (ver la cabecera).
     pub z_viva: bool,
     /// Mandar lotes con Z a la 3060 ([`Z_EN_LA_SOMBRA`]): el kernel los
@@ -560,7 +594,7 @@ impl Default for Puerta {
 
 impl Puerta {
     pub fn nueva() -> Self {
-        Puerta { cuerpos: Vec::new(), probados: Vec::new(), caja: alloc::vec![0; receta::MAX_RECETA], datos: Vec::new(), taller: Box::new(Taller::nuevo()), z_viva: false, z_a_la_3060: Z_EN_LA_SOMBRA, recuerdo: None, traducidos: 0, recordados: 0, vigia_cada: VIGIA_CADA, revisados: 0, corregidos: 0, apuntados: 0, sin_libreta: 0 }
+        Puerta { cuerpos: Vec::new(), probados: Vec::new(), caja: alloc::vec![0; receta::MAX_RECETA], datos: Vec::new(), taller: Box::new(Taller::nuevo()), nula: Nula::nueva(), z_viva: false, z_a_la_3060: Z_EN_LA_SOMBRA, recuerdo: None, traducidos: 0, recordados: 0, vigia_cada: VIGIA_CADA, revisados: 0, corregidos: 0, apuntados: 0, sin_libreta: 0 }
     }
 
     /// **La receta de este lote**, en `self.caja[..n]`: `Ok(n)`, o por que
@@ -666,7 +700,7 @@ impl Puerta {
             Ok((c, _)) => c,
             Err(e) => return Err(format!("el PSO no va a la 3060: {e:?}")),
         };
-        let mut n = escribir(c, l, b, l.limpiar_z, &mut self.datos, &mut self.caja)?;
+        let mut n = escribir(c, l, b, l.limpiar_z, &self.nula, &mut self.datos, &mut self.caja)?;
         let con_libreta = c.termometro_vs.is_some() || c.termometro_ps.is_some();
         // UNA vez por PSO y paso: el pegado de prueba, como lo hara el kernel.
         if !self.probados.iter().any(|p| p.0 == clave && p.1 == l.paso) {
@@ -679,7 +713,7 @@ impl Puerta {
                     self.sin_libreta += 1;
                     self.cuerpos[i].1 = Ok((c2, v2));
                     if let Ok((c2, _)) = &self.cuerpos[i].1 {
-                        n = escribir(c2, l, b, l.limpiar_z, &mut self.datos, &mut self.caja)?;
+                        n = escribir(c2, l, b, l.limpiar_z, &self.nula, &mut self.datos, &mut self.caja)?;
                         prueba = self.pegar_de_prueba(n);
                     }
                 }
