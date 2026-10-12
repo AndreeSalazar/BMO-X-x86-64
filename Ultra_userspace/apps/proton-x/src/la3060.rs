@@ -385,9 +385,16 @@ pub fn dibujar(l: &Lote, d: &mut Destino) -> Result<Cuenta, NoDibuja> {
             del_destino.push("un lote sin pixeles (solo profundidad, N5.12)");
         }
         // Metal 12-10: la puerta dibuja su medida (Q0a1, 1280x720); la
-        // ventana de Cyberpunk media 1738x1064 y el censo no lo decia.
+        // ventana de Cyberpunk media 1738x1064 y el censo no lo decia. Con
+        // LI2j la ventana ya mide eso: lo que queda son los render targets
+        // PROPIOS del juego (tablas de 256x1, 256x256, la mitad...), otra
+        // puerta -- se dicen aparte.
         if !d.pixeles.is_empty() && (d.ancho, d.alto) != puerta::MEDIDA {
-            del_destino.push("un destino que no mide 1280x720 (la ventana del juego; Q0a1: otra medida, por ver en el metal)");
+            del_destino.push(if d.cadena {
+                "la ventana del juego no mide 1280x720 (su cadena: `--pantalla`, o Q0a1)"
+            } else {
+                "un render target del juego de otra medida que 1280x720 (no es la ventana: Q0a1, la puerta de otras medidas)"
+            });
         }
         e.censo.apuntar(l, &del_destino, puerta::Z_EN_LA_SOMBRA);
         let ahora = crate::plataforma::ahora_ns();

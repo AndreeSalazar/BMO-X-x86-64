@@ -525,8 +525,6 @@ pub(crate) fn ahora_ns() -> u64 {
 /// La consola es de lineas: el retorno de carro de Windows pintaria un
 /// caracter de mas. Un `\r` delante de `\n` no se manda.
 fn escribir(bytes: &[u8]) {
-    // 05-10: los avisos de la casa, tambien al cartel rojo de la ventana.
-    super::cartel::oir(bytes);
     let mut desde = 0;
     for (i, &c) in bytes.iter().enumerate() {
         if c == b'\r' && bytes.get(i + 1) == Some(&b'\n') {
@@ -639,11 +637,13 @@ fn mostrar(s: &Superficie) -> bool {
 
 fn presentar(s: &Superficie) {
     // 05-10: si la casa dijo que algo fue mal, el cartel rojo encima, antes
-    // de que el escritorio vea el fotograma.
-    if super::cartel::cuantos() > 0 {
+    // de que el escritorio vea el fotograma (12-10: solo sus AVISOS).
+    let mut ultimo = [0u8; 256];
+    let (cuantos, largo) = bmo_proton_x_casa::lo_que_fue_mal(&mut ultimo);
+    if cuantos > 0 {
         // SAFETY: los pixeles de la superficie: `stride * alto`, nuestros.
         let px = unsafe { core::slice::from_raw_parts_mut(s.pixeles, s.stride as usize * s.alto as usize) };
-        super::cartel::pintar(px, s.ancho, s.alto, s.stride);
+        super::cartel::pintar(px, s.ancho, s.alto, s.stride, cuantos, &ultimo[..largo]);
     }
     let base = base_de(s);
     pon(

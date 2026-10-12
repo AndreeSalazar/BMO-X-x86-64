@@ -346,8 +346,14 @@ y `puerta.rs`; el juez en `platform/drivers/gpu/ga10x/src/sass/juez.rs`):
       pasar 1280x720; la sombra de la Z es de 1280x720 a 8 bits; y un
       destino de float de 1920x1080 son 31.6 MiB, el doble del mapa del
       destino (8 PT = 16 MiB). Es Q0a1 con su sombra y su mapa: otra pieza.
-      **Falta:** verlo en el metal (Cyberpunk con `personal 3060`: que su
-      ventana o su cadena midan 1280x720 y el censo deje de decir la medida).
+      **El metal (12-10, 11:21):** la consola dijo "la pantalla que ve el
+      juego: 1280x720" y la ventana de Cyberpunk salio de 1280x720. Lo que el
+      censo seguia contando como "otra medida" (18 de 34 lotes) son los
+      render targets PROPIOS del juego (256x1, 256x256: sus tablas), no la
+      ventana: desde ahora el censo los dice aparte ("un render target del
+      juego de otra medida"). Abrirlos es Q0a1 (la puerta de otras medidas),
+      no esta casilla. Y el juez en vivo tiraba un PSO por un `Load` (TLD) que
+      el simulador SI sabe: le faltaba la textura nula (arreglado, con prueba).
 
 ## 4.3 PROTON-X habla VERRANO
 
