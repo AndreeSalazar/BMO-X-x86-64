@@ -79,6 +79,29 @@ pub const DATOS_PT: usize = 320;
 /// Donde los ve la GPU.
 pub const DATOS_VA: u64 = TRAMO_VA + DATOS_PT as u64 * 0x1000;
 
+// -- LI2b: EL CODIGO DE LA TUBERIA (12-10) ---------------------------------
+//
+// Hasta hoy cada programa de VERRANO tenia UNA pagina del tramo (VS en la 10,
+// PS en la 11): su SPH y 128 instrucciones. Un sombreador de Cyberpunk mide
+// de 129 a 4096 (el censo del metal del 12-10). Como el driver de NVIDIA, el
+// codigo vive en su PROPIA region: 2 x 17 paginas de VRAM justo detras de los
+// DATOS (libres hasta las tablas de GR), vistas en la PT del tramo detras de
+// las de los DATOS (las entradas 336..369).
+
+/// El codigo, en VRAM.
+pub const CODIGO: u64 = DATOS + DATOS_PAGINAS as u64 * 0x1000;
+/// Paginas de UN programa (su SPH y hasta 4096 instrucciones: 65 616 B).
+pub const CODIGO_PAGINAS_UNO: usize = 17;
+/// Las dos: el de vertice y el de pixel.
+pub const CODIGO_PAGINAS: usize = 2 * CODIGO_PAGINAS_UNO;
+/// Su primera entrada en la PT del tramo.
+pub const CODIGO_PT: usize = DATOS_PT + DATOS_PAGINAS;
+/// Donde lo ve la GPU.
+pub const CODIGO_VA: u64 = TRAMO_VA + CODIGO_PT as u64 * 0x1000;
+/// Lo que se mapea de la VRAM, seguido desde [`TRAMO`]: el tramo, los DATOS y
+/// el CODIGO (lo que el escritorio pregunta si es usable).
+pub const MAPEADO_BYTES: u64 = 0x1000 * (TRAMO_PAGINAS + DATOS_PAGINAS + CODIGO_PAGINAS) as u64;
+
 /// **La ventana para `dir`**: `(valor del registro, desplazamiento en ella)`.
 pub const fn ventana(dir: u64) -> (u32, u32) {
     let base = dir & !(VENTANA_MEDIDA - 1);
@@ -191,12 +214,14 @@ pub fn mapear_tramo<R: Registros>(r: &mut R) -> Option<(u32, u32)> {
     // Y los DATOS de VERRANO (P3b4b): sus PTE, en la misma PT (las PDE son
     // las del tramo, que ya van en `e`).
     let (d, _) = crate::mmu::mapear_tramo(DIRECTORIO, TABLAS, DATOS_VA, DATOS, DATOS_PAGINAS)?;
-    let todas = e[..n].iter().chain(&d[..DATOS_PAGINAS]);
+    // LI2b: y el CODIGO de la tuberia, igual.
+    let (c, _) = crate::mmu::mapear_tramo(DIRECTORIO, TABLAS, CODIGO_VA, CODIGO, CODIGO_PAGINAS)?;
+    let todas = e[..n].iter().chain(&d[..DATOS_PAGINAS]).chain(&c[..CODIGO_PAGINAS]);
     for &(dir, v) in todas.clone() {
         escribir64(r, dir, v);
     }
     let bien = todas.clone().filter(|&&(dir, v)| leer64(r, dir) == v).count() as u32;
-    Some(((n + DATOS_PAGINAS) as u32, bien))
+    Some(((n + DATOS_PAGINAS + CODIGO_PAGINAS) as u32, bien))
 }
 
 /// La prueba cabe en un `u64` para el escritorio: `buenas | devueltas << 16 |
@@ -214,6 +239,10 @@ pub const fn desempaquetar(v: u64) -> (u32, u32, bool, u32) {
 const _: () = assert!(DATOS == TRAMO + 0x1_0000 && DATOS + DATOS_PAGINAS as u64 * 0x1000 <= 0x0430_0000);
 const _: () = assert!(DATOS_PT >= crate::anillo::PT_PRIMERA + crate::anillo::PAGINAS as usize && DATOS_PT + DATOS_PAGINAS <= 512);
 const _: () = assert!(DATOS_PT >= TRAMO_PAGINAS);
+// LI2b: el codigo, detras de los DATOS en la VRAM y en la PT, sin llegar a
+// las tablas de GR ni salirse de la PT (ni de lo que mapea `mapear_tramo`).
+const _: () = assert!(CODIGO + CODIGO_PAGINAS as u64 * 0x1000 <= 0x0430_0000 && TRAMO + MAPEADO_BYTES == CODIGO + CODIGO_PAGINAS as u64 * 0x1000);
+const _: () = assert!(CODIGO_PT + CODIGO_PAGINAS <= 512 && CODIGO_PAGINAS <= crate::mmu::MAX_TRAMO);
 
 #[cfg(test)]
 mod pruebas {
@@ -320,8 +349,13 @@ mod pruebas {
         let vram = std::boxed::Box::leak(std::vec![0u32; 1 << 19].into_boxed_slice());
         let mut g = Grande { ventana: 0xFFF0, vram };
         let (n, bien) = mapear_tramo(&mut g).unwrap();
-        // 16 PTE del tramo + 4 PDE + 16 PTE de los DATOS (P3b4b).
-        assert_eq!((n, bien), (36, 36));
+        // 16 PTE del tramo + 4 PDE + 16 PTE de los DATOS (P3b4b) + 34 del
+        // CODIGO (LI2b).
+        assert_eq!((n, bien), (70, 70));
+        for k in 0..CODIGO_PAGINAS as u64 {
+            assert_eq!(leer64(&mut g, TABLAS[3] + 8 * (CODIGO_PT as u64 + k)), crate::mmu::pte_vram(CODIGO + 4096 * k), "el CODIGO, pagina {k}");
+        }
+        assert_eq!(crate::mmu::indices(CODIGO_VA)[4], CODIGO_PT);
         for k in 0..DATOS_PAGINAS as u64 {
             assert_eq!(leer64(&mut g, TABLAS[3] + 8 * (DATOS_PT as u64 + k)), crate::mmu::pte_vram(DATOS + 4096 * k), "los DATOS, pagina {k}");
         }

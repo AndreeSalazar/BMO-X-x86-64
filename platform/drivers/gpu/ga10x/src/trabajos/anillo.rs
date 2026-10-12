@@ -63,9 +63,9 @@ use crate::copia::{entrada, escribir, leer32, GP_PUT, TIMBRE};
 use crate::cubo::{self as cu, Ventana, CABEN};
 use crate::lienzo::sombreador_va;
 use crate::raster::{ESCALONES, N_ESCALONES, SUSTITUTO};
-use crate::sombreador::{EMPUJE, PROGRAMA, SALIDA, SEMAFOROS};
+use crate::sombreador::{EMPUJE, SEMAFOROS};
 use crate::tresde as td;
-use crate::tuberia::{escribir_bytes, Paquete, BYTES_VERTICE, PS, TABLA, VS};
+use crate::tuberia::{escribir_programa, Paquete, BYTES_VERTICE, PS, TABLA, VS};
 use crate::vram::{a_cero, escribir64, leer64, ventana, TRAMO_VA, VENTANA, VENTANA_REG};
 use crate::Registros;
 
@@ -161,7 +161,7 @@ pub fn ordenes_con(v: &Ventana, k: u32, n: usize, numero: u32, recorte: Option<(
     if n == 0 || n > CABEN || k >= RANURAS || recorte.is_some_and(|(h, v)| !crate::tuberia::recorte_valido(h, v)) {
         return None;
     }
-    let mut e = cu::hasta_el_dibujo_de(v, false, recorte.is_none(), Some(marca(k)), crate::tuberia::REGISTROS);
+    let mut e = cu::hasta_el_dibujo_de(v, false, recorte.is_none(), Some(marca(k)), crate::tuberia::REGISTROS, crate::tuberia::PROGRAMAS_VA);
     e.semaforo(TABLA, vertices_va(k) as u32);
     let cola = match recorte {
         None => {
@@ -212,11 +212,9 @@ pub fn armar<R: Registros>(r: &mut R, e: u32, v: &Ventana, p: &Paquete, numero: 
     let mut bien = escribir(r, SEMAFORO, &[0]) == 1
         && escribir(r, MARCAS, &[0; 8 * RANURAS as usize]) == 8 * RANURAS as usize
         && escribir(r, ESCALONES, &[0; N_ESCALONES as usize]) == N_ESCALONES as usize
-        && a_cero(r, SALIDA) as usize == crate::vram::PALABRAS
-        && a_cero(r, PROGRAMA) as usize == crate::vram::PALABRAS
         && a_cero(r, SUSTITUTO) as usize == crate::vram::PALABRAS
-        && escribir_bytes(r, VS, p.vs)
-        && escribir_bytes(r, PS, p.ps)
+        && escribir_programa(r, VS, p.vs)
+        && escribir_programa(r, PS, p.ps)
         && escribir(r, TABLA, &[va as u32, (va >> 32) as u32]) == 2;
     // Las cuatro, enteras: la cabeza de cada una no se vuelve a escribir.
     // (Una `Ordenes` a la vez: son 4 KiB y esto corre en la pila del

@@ -61,3 +61,12 @@ fn lo_que_la_puerta_no_dibuja_todavia() {
     assert_eq!(medida(&blanco(0, 4), Flotante::No, false), Err(NoMedida::Grande));
     assert!(medida(&blanco(256, 256), Flotante::Rgba32, false).is_ok());
 }
+
+/// ** LI2b: `pso::pegado_vacio` (en el monton, a ceros) ES `Pegado::VACIO`.
+#[test]
+fn el_pegado_vacio_es_ceros() {
+    let v = bmo_gpu_ga10x::pegamento::Pegado::VACIO;
+    let b = crate::pso::pegado_vacio();
+    assert_eq!((b.n, b.registros, b.sph, b.codigo.len()), (v.n, v.registros, v.sph, v.codigo.len()));
+    assert!(b.codigo.iter().zip(v.codigo.iter()).all(|(a, b)| a == b));
+}

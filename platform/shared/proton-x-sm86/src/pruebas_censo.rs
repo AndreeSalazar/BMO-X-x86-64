@@ -108,10 +108,9 @@ fn la_x_y_la_y_van_a_la_3060() {
 #[test]
 fn el_programa_largo_dice_cuanto_mide() {
     use crate::censo::tramo_largo;
-    assert_eq!(tramo_largo(129), "de 129 a 256 instrucciones");
-    assert_eq!(tramo_largo(256), "de 129 a 256 instrucciones");
-    assert_eq!(tramo_largo(257), "de 257 a 512 instrucciones");
-    assert_eq!(tramo_largo(2000), "de 1025 a 2048 instrucciones");
+    // LI2b (12-10): el hueco es de 4096; lo largo empieza en 4097.
+    assert_eq!(tramo_largo(4097), "de 4097 a 8192 instrucciones");
+    assert_eq!(tramo_largo(8192), "de 4097 a 8192 instrucciones");
     assert_eq!(tramo_largo(100_000), "mas de 8192 instrucciones");
 }
 

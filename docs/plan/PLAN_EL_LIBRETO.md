@@ -201,13 +201,37 @@ y `puerta.rs`; el juez en `platform/drivers/gpu/ga10x/src/sass/juez.rs`):
       el juez) y `la_z_y_la_w_siguen_por_la_cpu`; `la_posicion_cruza_la_receta`.
       **Falta:** el metal (el censo dira cuantos lotes de Cyberpunk solo leian
       x e y).
-- [ ] **LI2b -- programas largos.** Hoy el cuerpo cabe en un hueco de 128
+- [~] **LI2b -- programas largos.** Hoy el cuerpo cabe en un hueco de 128
       instrucciones de la tuberia. Un sombreador de Cyberpunk no. El codigo
       tiene que vivir en su propia region de la VRAM (como hace el driver
       de NVIDIA), con el juez leyendo el programa entero, y los registros
       repartidos con un planificador de verdad (hoy 64). **Como se sabe:**
       un programa de 2000 instrucciones del banco da los mismos bits que la
       CPU, juzgado entero.
+      **12-10, hecho en el anfitrion (el censo del metal: el de vertice de
+      129 a 256, el de pixel hasta 4096):**
+      - `vram::CODIGO`: 2 x 17 paginas de VRAM detras de los DATOS (libres
+        hasta las tablas de GR), mapeadas con el tramo en la PT 336..369
+        (`mapear_tramo` las escribe y las relee; el escritorio pregunta si
+        son usables con `vram::MAPEADO_BYTES`).
+      - `juez::MAX_INSTRUCCIONES` = 4096: el kernel juzga el programa
+        ENTERO donde esta. `tuberia::VS/PS` en la region; las ordenes los
+        buscan alli (`cubo::hasta_el_dibujo_de` recibe donde esta cada
+        programa: el cubo de X5 sigue en sus huecos). `escribir_programa`
+        pone a cero solo lo que queda de su ultima pagina.
+      - El taller del kernel (estatico) mide 526 KiB; el fin del kernel
+        queda en ~17,9 MB, dentro de los 32 MiB que mapea el arranque. En
+        PROTON-X el `Pegado` (64 KiB) y el taller van en el monton, y el
+        binario no tiene un marco de pila de mas de 19 KiB (medido).
+      - Pruebas: `pruebas_largos.rs` (2000 instrucciones: los bits de la CPU
+        en los dos ABI, el pegamento y el juez enteros, y el juez en vivo;
+        lo de mas de 4096, por la CPU), `tuberia_vram.rs` (el largo en su
+        region, el corto deja su pagina limpia, las ordenes apuntan alli).
+      **Falta:** el metal (Cyberpunk con `smp all` y `personal 3060`); los
+      registros siguen en 64 (lo que pasa de ahi lo dice el emisor); y un
+      programa cambiado se reescribe ENTERO por PRAMIN en cada dibujo frio
+      (hasta 64 KiB): si el metal lo dice lento, una cache de programas en
+      la VRAM (cada uno subido UNA vez) es la pieza siguiente.
 - [ ] **LI2c -- texturas** (`TEX`; M3 de `PLAN_VERRANO.md`). El TIC y el
       TSC ya se escriben (`muestreo.rs`, T0); falta la instruccion, el pool
       de descriptores en la VRAM y subir la textura. **Como se sabe:** el

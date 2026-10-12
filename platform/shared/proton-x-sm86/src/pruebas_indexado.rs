@@ -191,8 +191,12 @@ fn los_arrays_y_la_puerta_de_128() {
         let n = por_la_puerta(p, &[Some(0)]).unwrap_or_else(|x| panic!("{nombre}: {x:?}"));
         std::eprintln!("{nombre}: {n} instrucciones pegado");
     }
+    // ** LI2b (12-10): `arreglos.hlsl` entero (137 pegado) ya CABE -- el
+    // hueco de 128 era el de una pagina; hoy, 4096 en `vram::CODIGO` -- y el
+    // juez lo da por bueno entero.
     let dxc = bmo_proton_x::dxil::programa::compilar(&bmo_proton_x::dxil::leer(ARREGLOS).unwrap()).unwrap();
-    assert_eq!(por_la_puerta(&dxc, &[None, Some(0), Some(1)]), Err(NoPega::Instrucciones));
+    let n = por_la_puerta(&dxc, &[None, Some(0), Some(1)]).unwrap_or_else(|x: NoPega| panic!("{x:?}"));
+    assert!(n > 128, "{n}: un programa de mas de 128, entero");
 }
 
 /// ** Un array que se sale de los registros del Programa no se emite -- la

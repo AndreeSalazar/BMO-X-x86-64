@@ -350,7 +350,7 @@ pub(crate) fn hasta_el_dibujo(v: &Ventana) -> Ordenes {
 /// `registros`: los que se le dan a cada programa (`REGISTER_COUNT`): los de
 /// X5 ([`ra::REGISTROS`]) o los de VERRANO (`tuberia::REGISTROS`).
 pub(crate) fn hasta_el_dibujo_con(v: &Ventana, escalera: bool, registros: u32) -> Ordenes {
-    hasta_el_dibujo_de(v, escalera, true, None, registros)
+    hasta_el_dibujo_de(v, escalera, true, None, registros, (sombreador_va(vs(0)), sombreador_va(ps(0))))
 }
 
 /// Lo mismo, y `limpiar` = con la limpieza de la ventana al principio. Sin
@@ -358,7 +358,7 @@ pub(crate) fn hasta_el_dibujo_con(v: &Ventana, escalera: bool, registros: u32) -
 /// la cola de cada fotograma, recortada: el color de limpieza SI se pone
 /// aqui. Con `marca` (V1c), justo tras la clase, un informe de cuatro
 /// palabras en esa direccion: el RELOJ de la 3060 al empezar el fotograma.
-pub(crate) fn hasta_el_dibujo_de(v: &Ventana, escalera: bool, limpiar: bool, marca: Option<u64>, registros: u32) -> Ordenes {
+pub(crate) fn hasta_el_dibujo_de(v: &Ventana, escalera: bool, limpiar: bool, marca: Option<u64>, registros: u32, programas: (u64, u64)) -> Ordenes {
     let mut e = Ordenes { o: [0; MAX_ORDENES], n: 0, k: 1, escalera };
     // T1a con este destino: la ventana, del FONDO.
     e.m(td::SET_OBJECT, &[crate::gr::AMPERE_B]);
@@ -414,8 +414,9 @@ pub(crate) fn hasta_el_dibujo_de(v: &Ventana, escalera: bool, limpiar: bool, mar
     let mut j = 0;
     while j < 6 {
         if j == VERTICE || j == PIXEL {
-            let (dir, grupo) = if j == VERTICE { (vs(0), 0) } else { (ps(0), 4) };
-            let d = sombreador_va(dir);
+            // LI2b: donde esta cada programa lo dice quien pide (el cubo,
+            // sus huecos de X5; la tuberia, `vram::CODIGO`).
+            let (d, grupo) = if j == VERTICE { (programas.0, 0) } else { (programas.1, 4) };
             e.m(set_pipeline_shader(j), &[j << 4 | 1]);
             e.m(set_pipeline_shader(j) + 0x14, &[(d >> 32) as u32, d as u32]);
             e.paso(set_pipeline_shader(j) + 0x0c, &[registros, grupo]);

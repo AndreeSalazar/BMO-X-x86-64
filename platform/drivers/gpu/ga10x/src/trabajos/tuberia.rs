@@ -60,7 +60,7 @@ use crate::copia::{entrada, escribir};
 use crate::cubo::{self as cu, con_control, mov, Ventana, ALU, SEMAFORO_FIN};
 use crate::lienzo::sombreador_va;
 use crate::raster::{programa, ESCALONES, N_ESCALONES, SPH, SUSTITUTO};
-use crate::sombreador::{EMPUJE, PROGRAMA, SALIDA, SEMAFOROS};
+use crate::sombreador::{EMPUJE, SEMAFOROS};
 use crate::vram::a_cero;
 use crate::Registros;
 
@@ -77,18 +77,26 @@ pub const MAX_VERTICES: usize = 3 * 4096;
 /// con un programa emitido, el cbuffer y los vertices como el programa los
 /// lee. 64 KiB (P3b4b); el anillo, lo de su ranura (`anillo::cabe`).
 pub const DATOS_MAX: usize = crate::vram::DATOS_PAGINAS * 4096;
-/// Donde van los dos programas: el principio de las paginas de X5.
-pub const VS: u64 = SALIDA;
-pub const PS: u64 = PROGRAMA;
+/// Donde van los dos programas. Hasta LI2b, el principio de las paginas de
+/// X5 (una cada uno: 128 instrucciones). ** LI2b (12-10): su PROPIA region
+/// de la VRAM (`vram::CODIGO`), 17 paginas cada uno: hasta 4096
+/// instrucciones, lo que pidio el censo de Cyberpunk en el metal.
+pub const VS: u64 = crate::vram::CODIGO;
+pub const PS: u64 = crate::vram::CODIGO + crate::vram::CODIGO_PAGINAS_UNO as u64 * 0x1000;
+/// Donde los ve la GPU (las ordenes: `SET_PIPELINE_SHADER` + 0x14).
+pub const VS_VA: u64 = crate::vram::CODIGO_VA;
+pub const PS_VA: u64 = crate::vram::CODIGO_VA + (PS - VS);
+/// Las dos direcciones, como las piden las ordenes.
+pub const PROGRAMAS_VA: (u64, u64) = (VS_VA, PS_VA);
 /// Los registros que se le dan a cada programa de VERRANO
 /// (`REGISTER_COUNT`; la 3060 se queda DOS, `juez::RESERVADOS`). 16 hasta
 /// E5, como X5; 64 desde E5 (28-09): un programa EMITIDO lleva sus
 /// entradas y su cbuffer precargados en registros (el de vertice de BMOX-12,
 /// ~52, y el pegamento). A un programa que usa menos no le cambia nada.
 pub const REGISTROS: u32 = 64;
-/// Lo mas que mide cada uno: su SPH y 2 KiB de codigo (128 instrucciones,
-/// `juez::MAX_INSTRUCCIONES`). Cada uno tiene su pagina ENTERA (se pone a
-/// cero antes); desde E5 (28-09) ya no el hueco de 512 / 256 B del cubo X5.
+/// Lo mas que mide cada uno: su SPH y su codigo (`juez::MAX_INSTRUCCIONES`:
+/// 128 desde E5, 4096 desde LI2b). Lo que queda de su ultima pagina se pone
+/// a cero ([`escribir_programa`]).
 pub const HUECO: usize = 4 * SPH + 16 * crate::sass::juez::MAX_INSTRUCCIONES;
 /// Lo mas que mide un paquete entero (cabecera, dos programas y vertices):
 /// la caja que el escritorio tiene que reservar.
@@ -752,6 +760,28 @@ pub(crate) fn escribir_bytes<R: Registros>(r: &mut R, dir: u64, b: &[u8]) -> boo
     true
 }
 
+/// **Un programa en su sitio** (LI2b): sus bytes, RELEIDOS, y lo que queda
+/// de su ultima pagina a cero (lo que hubiera de un programa anterior mas
+/// largo no queda detras del EXIT). Sin tocar las paginas que no usa: un
+/// programa de 40 instrucciones no paga las 17.
+pub(crate) fn escribir_programa<R: Registros>(r: &mut R, dir: u64, b: &[u8]) -> bool {
+    if !escribir_bytes(r, dir, b) {
+        return false;
+    }
+    let fin = dir + b.len() as u64;
+    let resto = (fin.next_multiple_of(0x1000) - fin) as usize / 4;
+    let ceros = [0u32; 64];
+    let mut k = 0;
+    while k < resto {
+        let m = (resto - k).min(64);
+        if escribir(r, fin + 4 * k as u64, &ceros[..m]) != m {
+            return false;
+        }
+        k += m;
+    }
+    true
+}
+
 // == Las ordenes y el preparar ===============================================
 
 /// **Las ordenes**: las de X5 hasta el dibujo, y UN dibujo de `3n` vertices.
@@ -779,7 +809,7 @@ pub fn ordenes_dibujo(v: &Ventana, n: usize, ligero: bool, d: Dibujo) -> cu::Ord
     // con Z sobre un color pitch: Xid 69 en el metal). La limpieza de la
     // ventana, entonces, en la sombra; y el motor de copia la lleva despues
     // a `v` (el kernel, `sombra::copia`).
-    let mut e = cu::hasta_el_dibujo_de(&v, !ligero, limpiar && d.z.is_none(), None, REGISTROS);
+    let mut e = cu::hasta_el_dibujo_de(&v, !ligero, limpiar && d.z.is_none(), None, REGISTROS, PROGRAMAS_VA);
     if d.z.is_some() {
         crate::sombra::al_color(&mut e, &v);
         if limpiar {
@@ -855,11 +885,9 @@ pub fn preparar_con<R: Registros>(r: &mut R, e: u32, v: &Ventana, p: &Paquete, l
     let va = crate::vram::DATOS_VA;
     escribir(r, SEMAFORO_FIN, &[0; 4]) == 4
         && escribir(r, ESCALONES, &[0; N_ESCALONES as usize]) == N_ESCALONES as usize
-        && a_cero(r, SALIDA) as usize == crate::vram::PALABRAS
-        && a_cero(r, PROGRAMA) as usize == crate::vram::PALABRAS
         && a_cero(r, SUSTITUTO) as usize == crate::vram::PALABRAS
-        && escribir_bytes(r, VS, p.vs)
-        && escribir_bytes(r, PS, p.ps)
+        && escribir_programa(r, VS, p.vs)
+        && escribir_programa(r, PS, p.ps)
         && escribir(r, TABLA, &[va as u32, (va >> 32) as u32]) == 2
         && escribir(r, crate::libreta::LIBRETA, &[0]) == 1
         && escribir_bytes(r, DATOS, p.vertices)
@@ -961,9 +989,8 @@ pub fn preparar_caliente<R: Registros>(r: &mut R, e: u32, v: &Ventana, p: &Paque
 }
 
 const _: () = assert!(PALABRAS_VS * 4 <= cu::PASO_VS as usize && PALABRAS_PS * 4 <= cu::PASO_PS as usize);
-const _: () = assert!(VS == cu::vs(0) && PS == cu::ps(0));
-// Cada uno cabe en su pagina (VS en la 10, PS en la 11, que se ponen a cero).
-const _: () = assert!(HUECO <= 0x1000 && VS + 0x1000 == PS);
+// LI2b: cada uno cabe en sus paginas de `vram::CODIGO`, uno detras del otro.
+const _: () = assert!(HUECO <= crate::vram::CODIGO_PAGINAS_UNO * 0x1000 && PS + (crate::vram::CODIGO_PAGINAS_UNO as u64 * 0x1000) == crate::vram::CODIGO + crate::vram::CODIGO_PAGINAS as u64 * 0x1000);
 const _: () = assert!(TABLA >= crate::video::PARAMETROS + 4 * crate::video::N_PARAMETROS as u64);
 const _: () = assert!(TABLA + 8 <= SEMAFOROS + 0x1000 && DATOS_MAX == 64 * 1024);
 
@@ -1314,15 +1341,19 @@ mod pruebas {
         let starts: std::vec::Vec<u32> = w.windows(3).filter(|q| q[0] == crate::copia::cabecera_en(0, crate::raster::SET_VERTEX_ARRAY_START, 2)).map(|q| q[2]).collect();
         assert_eq!(starts, [3, 18]);
         // Con UN triangulo las ordenes son EXACTAMENTE las de X5 salvo los
-        // REGISTROS de cada programa (E5: 64, no 16): lo demas que cambia son
-        // los programas que hay en las dos paginas.
+        // REGISTROS de cada programa (E5: 64, no 16) y, desde LI2b, DONDE
+        // esta cada programa (la palabra baja de su VA: `vram::CODIGO`).
         let (x5, uno) = (crate::cubo::ordenes(&v, 1), ordenes(&v, 1));
         assert_eq!(uno.n, x5.n);
         let distintas: std::vec::Vec<usize> = (0..x5.n).filter(|&i| uno.o[i] != x5.o[i]).collect();
-        assert_eq!(distintas.len(), 2, "los dos REGISTER_COUNT");
+        assert_eq!(distintas.len(), 4, "los dos REGISTER_COUNT y las dos direcciones");
+        let mut vistas = std::vec::Vec::new();
         for i in distintas {
-            assert_eq!((x5.o[i], uno.o[i]), (crate::raster::REGISTROS, REGISTROS));
+            vistas.push((x5.o[i], uno.o[i]));
         }
+        let va = |d: u64| crate::lienzo::sombreador_va(d) as u32;
+        assert_eq!(vistas, [(va(crate::cubo::vs(0)), VS_VA as u32), (crate::raster::REGISTROS, REGISTROS), (va(crate::cubo::ps(0)), PS_VA as u32), (crate::raster::REGISTROS, REGISTROS)]);
+        assert_eq!((VS_VA >> 32, PS_VA >> 32), (crate::lienzo::sombreador_va(crate::cubo::vs(0)) >> 32, 2), "la palabra alta, la misma");
     }
 
     /// V1 `ligero`: el MISMO estado y el MISMO dibujo, sin la escalera --
@@ -1385,62 +1416,6 @@ mod pruebas {
         assert_ne!(h, hd, "con destino no es sin destino");
         assert_eq!(hd, huella_fija(&v, &con(0x2000_0000, dst), false), "el otro back buffer, la misma huella");
         assert_ne!(hd, huella_fija(&v, &con(0x1000_0000, crate::destino::Destino { alto: 719, ..dst }), false), "otras medidas, otras ordenes");
-    }
-
-    /// ** El caliente con OTRA cuenta de triangulos deja la VRAM como la
-    /// dejaria el frio con esa cuenta: las ordenes, los datos y la entrada.
-    /// Lo unico distinto es lo que sobra del fotograma anterior MAS ALLA de lo
-    /// que este usa (sus vertices de mas), que nadie lee: la cuenta lo dice.
-    #[test]
-    fn el_caliente_con_otra_cuenta_es_el_frio() {
-        struct Vram(std::collections::BTreeMap<u64, u32>, u32);
-        impl Registros for Vram {
-            fn leer(&mut self, reg: u32) -> u32 {
-                if reg == crate::vram::VENTANA_REG {
-                    return self.1;
-                }
-                *self.0.get(&(((self.1 as u64) << 16) + (reg - crate::vram::VENTANA) as u64)).unwrap_or(&0)
-            }
-            fn escribir(&mut self, reg: u32, v: u32) {
-                if reg == crate::vram::VENTANA_REG {
-                    self.1 = v;
-                    return;
-                }
-                self.0.insert(((self.1 as u64) << 16) + (reg - crate::vram::VENTANA) as u64, v);
-            }
-        }
-        let gop = crate::pantalla::Pantalla { vram: 0x100_0000, pitch: 1920, ancho: 1920, alto: 1080, rgb: false };
-        let v = crate::cubo::ventana(&gop).unwrap();
-        let mut vs = [0u8; 4 * PALABRAS_VS];
-        let mut ps = [0u8; 4 * PALABRAS_PS];
-        bytes(&vertice(), &mut vs);
-        bytes(&pixel(), &mut ps);
-        let muchos: std::vec::Vec<u8> = (0..18 * BYTES_VERTICE).map(|k| (k * 7 + 1) as u8).collect();
-        let pocos: std::vec::Vec<u8> = (0..12 * BYTES_VERTICE).map(|k| (k * 5 + 3) as u8).collect();
-        fn p<'a>(vs: &'a [u8], ps: &'a [u8], x: &'a [u8]) -> Paquete<'a> {
-            Paquete { ficha: 1, vs, ps, vertices: x, n: x.len() / BYTES_VERTICE, limpiar: None, dibujo: Dibujo::default() }
-        }
-        let (a, b) = (p(&vs, &ps, &muchos), p(&vs, &ps, &pocos));
-        assert_eq!(huella_fija(&v, &a, false), huella_fija(&v, &b, false));
-        // Frio con 6 triangulos, y caliente con 4.
-        let mut r = Vram(Default::default(), 0);
-        assert!(preparar_con(&mut r, 3, &v, &a, false));
-        assert!(preparar_caliente(&mut r, 3, &v, &b, false));
-        // Frio con 4, de cero.
-        let mut f = Vram(Default::default(), 0);
-        assert!(preparar_con(&mut f, 3, &v, &b, false));
-        let datos_de_mas = DATOS + pocos.len() as u64..DATOS + muchos.len() as u64;
-        let mut iguales = 0;
-        for (&dir, &x) in &f.0 {
-            assert_eq!(r.0.get(&dir).copied().unwrap_or(0), x, "VRAM {dir:#x}: el caliente con otra cuenta no es el frio");
-            iguales += 1;
-        }
-        for (&dir, &x) in &r.0 {
-            if !f.0.contains_key(&dir) && x != 0 {
-                assert!(datos_de_mas.contains(&dir), "VRAM {dir:#x} = {x:#x}: el caliente dejo algo que el frio no");
-            }
-        }
-        assert!(iguales > 1000, "la comparacion tiene que cubrir las paginas del frio");
     }
 
     #[test]

@@ -117,6 +117,13 @@ pub fn texturas_de(e: &Emitido) -> Vec<(u8, u8)> {
     v
 }
 
+/// **Un pegado vacio, en el monton** (LI2b, 12-10): con 4096 instrucciones
+/// un `Pegado` mide 64 KiB, y esto corre en el hilo del JUEGO (su pila es la
+/// que el juego pidio): nunca un `Pegado` en la pila.
+pub(crate) fn pegado_vacio() -> alloc::boxed::Box<pegamento::Pegado> {
+    alloc::boxed::Box::new(pegamento::Pegado::VACIO)
+}
+
 fn bytes(p: &pegamento::Pegado) -> Vec<u8> {
     let mut b = alloc::vec![0u8; tuberia::HUECO];
     let n = p.bytes(&mut b);
@@ -180,10 +187,10 @@ pub fn traducir(en: &Enlace, ia: &[ElementoIa], paso: u32) -> Result<ParaLa3060,
         return Err(NoVa::Entrada("varios render targets (o uno que no es el 0, o SV_Depth)"));
     }
     let posicion = en.posicion as u32;
-    let mut v = pegamento::Pegado::VACIO;
+    let mut v = pegado_vacio();
     pegamento::vertice_con_libreta_en(&mut v, &ev.codigo, ev.registros, &cargas(&ev), datos, en.vs.salidas as u32, posicion, ev.termometro).map_err(|e| NoVa::Pegamento("vertice", e))?;
     let genericos: Vec<Option<u8>> = en.desde_vs.iter().map(|o| o.and_then(|o| pegamento::generico(o as u32, posicion))).collect();
-    let mut p = pegamento::Pegado::VACIO;
+    let mut p = pegado_vacio();
     pegamento::pixel_con_libreta_en(&mut p, &ep.codigo, ep.registros, &cargas_con_posicion(&ep, en.pos_ps), datos, &genericos, ep.termometro).map_err(|e| NoVa::Pegamento("pixel", e))?;
     let (vs, ps) = (bytes(&v), bytes(&p));
     let juzgar = |cual: &'static str, b: &[u8]| juez::juzgar_programa(b, tuberia::REGISTROS).map_err(|x| NoVa::Juez(cual, alloc::format!("{x}")));
