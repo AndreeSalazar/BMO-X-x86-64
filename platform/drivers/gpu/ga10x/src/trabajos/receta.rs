@@ -51,7 +51,8 @@
 //!         bit 1 (E8f, 09-10): los cuerpos leen su cbuffer con un LDC
 //!         (`ConstantesEn`): el kernel ata el banco `tuberia::BANCO_APP` a
 //!         sus `16 x filas` primeros bytes de los DATOS, y el juez R7 los
-//!         deja leer ESE banco y nada mas alla de esa medida
+//!         deja leer ESE banco y nada mas alla de esa medida; bit 2 (12-10):
+//!         trae la MEZCLA (`mezcla::Mezcla`, 24 B detras de las texturas)
 //!    +92  9d, LA LIBRETA: el registro del TERMOMETRO del de vertice + 1
 //!         (0 = sin libreta) | el del de pixel + 1 << 8; cada uno, de SU
 //!         cuerpo. Los 16 de arriba, a 0. Ver `libreta`
@@ -62,7 +63,7 @@
 //! `1, fila baja, fila alta, reg` o `2, textura, 0, reg` -- el ASA, solo en
 //! el de pixel), los genericos (1 B cada uno, 0xFF la posicion), las
 //! texturas (48 B cada una, `texturas::DeApp`: SU memoria, sus medidas y su
-//! muestreador), relleno hasta 16, y los DATOS.
+//! muestreador), la mezcla si la trae (24 B), relleno hasta 16, y los DATOS.
 
 use crate::pegamento::{self, Carga, Datos, Elemento, NoPega, Sistema};
 use crate::sass::juez::{self, Bodrio, MAX_INSTRUCCIONES};
@@ -79,7 +80,7 @@ pub const MAX_GENERICOS: usize = 16;
 /// Un cuerpo: 128 instrucciones de 16 bytes.
 pub const MAX_CUERPO: usize = 16 * MAX_INSTRUCCIONES;
 /// Lo mas que mide una receta: la caja que la app reserva.
-pub const MAX_RECETA: usize = CABECERA_2 + 2 * MAX_CUERPO + 8 * MAX_ELEMENTOS + 4 * 2 * MAX_CARGAS + MAX_GENERICOS + BYTES_DE_APP * MAX_TEXTURAS + 16 + DATOS_MAX;
+pub const MAX_RECETA: usize = CABECERA_2 + 2 * MAX_CUERPO + 8 * MAX_ELEMENTOS + 4 * 2 * MAX_CARGAS + MAX_GENERICOS + BYTES_DE_APP * MAX_TEXTURAS + crate::mezcla::BYTES + 16 + DATOS_MAX;
 /// Un generico que no hay (la entrada es la posicion).
 const SIN_GENERICO: u8 = 0xFF;
 /// Lo mas que se acepta de filas del cbuffer (64 KiB de DATOS / 16).
@@ -151,7 +152,7 @@ impl<'a> Receta<'a> {
     }
     /// Lo que ocupa detras de la cabecera, hasta los DATOS (con el relleno).
     fn medio(&self) -> usize {
-        (self.vs.len() + self.ps.len() + 8 * self.n_elementos + 4 * (self.n_cargas_vs + self.n_cargas_ps) + self.n_genericos + BYTES_DE_APP * self.texturas().len()).next_multiple_of(16)
+        (self.vs.len() + self.ps.len() + 8 * self.n_elementos + 4 * (self.n_cargas_vs + self.n_cargas_ps) + self.n_genericos + BYTES_DE_APP * self.texturas().len() + if self.dibujo.mezcla.trivial() { 0 } else { crate::mezcla::BYTES }).next_multiple_of(16)
     }
     /// Lo que mide la receta entera.
     pub fn medida(&self) -> usize {
@@ -199,7 +200,8 @@ pub fn medida(cabecera: &[u8]) -> Option<usize> {
     if !cuerpo_valido(bvs) || !cuerpo_valido(bps) || bdatos > DATOS_MAX || n_elementos > MAX_ELEMENTOS || n_genericos > MAX_GENERICOS || cv > MAX_CARGAS || cp > MAX_CARGAS || n_texturas > MAX_TEXTURAS {
         return None;
     }
-    Some(CABECERA_2 + (bvs + bps + 8 * n_elementos + 4 * (cv + cp) + n_genericos + BYTES_DE_APP * n_texturas).next_multiple_of(16) + bdatos)
+    let mezcla = if u32le(cabecera, 88) & 4 != 0 { crate::mezcla::BYTES } else { 0 };
+    Some(CABECERA_2 + (bvs + bps + 8 * n_elementos + 4 * (cv + cp) + n_genericos + BYTES_DE_APP * n_texturas + mezcla).next_multiple_of(16) + bdatos)
 }
 
 /// **Leer una receta**, comprobandolo todo lo que se puede sin pegar: las
@@ -207,7 +209,7 @@ pub fn medida(cabecera: &[u8]) -> Option<usize> {
 /// cada carga dentro de lo que hay, los DATOS con todos los vertices dentro
 /// y cada indice de un vertice que esta. `None` si algo no se sostiene.
 pub fn leer(b: &[u8]) -> Option<Receta<'_>> {
-    if b.len() < CABECERA_2 || u32le(b, 0) != MAGIA_2 || u32le(b, 4) != 0 || u32le(b, 20) > 1 || (u32le(b, 20) == 0 && u32le(b, 24) != 0) || u32le(b, 84) as usize > MAX_TEXTURAS || u32le(b, 88) > 3 || u32le(b, 92) >> 16 != 0 {
+    if b.len() < CABECERA_2 || u32le(b, 0) != MAGIA_2 || u32le(b, 4) != 0 || u32le(b, 20) > 1 || (u32le(b, 20) == 0 && u32le(b, 24) != 0) || u32le(b, 84) as usize > MAX_TEXTURAS || u32le(b, 88) > 7 || u32le(b, 92) >> 16 != 0 {
         return None;
     }
     let n_texturas = u32le(b, 84) as usize;
@@ -282,6 +284,18 @@ pub fn leer(b: &[u8]) -> Option<Receta<'_>> {
         *t = DeApp::leer(b.get(i..i + BYTES_DE_APP)?)?;
         i += BYTES_DE_APP;
     }
+    // 12-10: la mezcla, si la trae: una que la 3060 sabe, y que no sea la de
+    // no hacer nada (esa no viaja).
+    let mezcla = if u32le(b, 88) & 4 != 0 {
+        let m = crate::mezcla::Mezcla::de_bytes(b.get(i..i + crate::mezcla::BYTES)?)?;
+        i += crate::mezcla::BYTES;
+        if m.trivial() {
+            return None;
+        }
+        m
+    } else {
+        crate::mezcla::Mezcla::NINGUNA
+    };
     // El relleno, a cero, hasta 16; y los DATOS, justo hasta el final.
     let desde_datos = i.next_multiple_of(16);
     if b.get(i..desde_datos)?.iter().any(|&x| x != 0) || b.len() != desde_datos + bdatos {
@@ -296,8 +310,10 @@ pub fn leer(b: &[u8]) -> Option<Receta<'_>> {
     dibujo.color = (u32le(b, 20) == 1).then(|| u32le(b, 24));
     dibujo.texturas = n_texturas as u8;
     dibujo.cadena = u32le(b, 88) & 1 == 1;
+    dibujo.mezcla = mezcla;
     // LI2d-HDR: con el color y la cadena ya puestos, lo que admite un destino
-    // de float (sin Z, sin limpieza, fuera de la pantalla).
+    // de float (sin Z, sin limpieza, fuera de la pantalla); y la mezcla (sin
+    // Z ni limpieza).
     if !tu::cabe(&dibujo) {
         return None;
     }
@@ -416,7 +432,7 @@ pub fn escribir(out: &mut [u8], r: &Receta) -> Option<usize> {
         r.n_cargas_vs as u32 | (r.n_cargas_ps as u32) << 16,
         d.z.and_then(|z| z.limpiar).unwrap_or(0),
         d.texturas as u32,
-        d.cadena as u32 | ((d.banco != 0) as u32) << 1,
+        d.cadena as u32 | ((d.banco != 0) as u32) << 1 | (!d.mezcla.trivial() as u32) << 2,
         r.termometro_vs.map_or(0, |t| t as u32 + 1) | r.termometro_ps.map_or(0, |t| t as u32 + 1) << 8,
     ];
     out[..total].fill(0);
@@ -444,6 +460,9 @@ pub fn escribir(out: &mut [u8], r: &Receta) -> Option<usize> {
         let mut b = [0u8; BYTES_DE_APP];
         t.escribir(&mut b);
         poner(&b);
+    }
+    if !d.mezcla.trivial() {
+        poner(&d.mezcla.a_bytes());
     }
     let desde_datos = i.next_multiple_of(16);
     out[desde_datos..total].copy_from_slice(r.datos);
@@ -492,7 +511,7 @@ impl Taller {
 
 /// Lo mas que mide una [`clave`]: 14 numeros, los dos cuerpos, los
 /// elementos, las cargas y los genericos.
-pub const MAX_CLAVE: usize = 4 * 14 + 2 * MAX_CUERPO + 8 * MAX_ELEMENTOS + 4 * 2 * MAX_CARGAS + 2 * MAX_GENERICOS;
+pub const MAX_CLAVE: usize = 4 * 15 + crate::mezcla::BYTES + 8 + 2 * MAX_CUERPO + 8 * MAX_ELEMENTOS + 4 * 2 * MAX_CARGAS + 2 * MAX_GENERICOS;
 
 /// **Todo lo que `pegar` lee de `r`** (9d: tambien sus termometros), en bytes y sin ambiguedad (cada
 /// trozo lleva su medida delante): dos recetas con la misma clave se pegan
@@ -509,6 +528,12 @@ pub fn clave(r: &Receta, out: &mut [u8; MAX_CLAVE]) -> usize {
     for x in [r.registros_vs, r.registros_ps, r.salidas, r.posicion, r.filas, r.paso, r.vs.len() as u32, r.ps.len() as u32, r.n_elementos as u32, r.n_cargas_vs as u32, r.n_cargas_ps as u32, r.n_genericos as u32, termometros, r.dibujo.banco, r.dibujo.redondeo.numero()] {
         poner(&x.to_le_bytes());
     }
+    // 12-10: la mezcla cambia el pegado del de pixel (y el destino, su
+    // medida y su formato: lo que lee).
+    poner(&r.dibujo.mezcla.a_bytes());
+    let dst = r.dibujo.destino.map_or(crate::destino::Destino::default(), |(_, d)| d);
+    poner(&dst.fila.to_le_bytes());
+    poner(&(dst.flotante.numero() | (dst.rgb as u32) << 8).to_le_bytes());
     poner(r.vs);
     poner(r.ps);
     for e in r.elementos() {
@@ -563,7 +588,8 @@ pub fn pegar(r: &Receta, t: &mut Taller) -> Result<(), NoReceta> {
     t.bytes_vs = t.pegado.bytes(&mut t.vs);
     let cuerpo = instrucciones(&mut t.cuerpo, r.ps);
     juez::juzgar_cuerpo_con(cuerpo, r.registros_ps, juez::Permisos { asas: pegamento::asas(r.cargas_ps()), banco }).map_err(|b| NoReceta::Cuerpo("pixel", b))?;
-    pegamento::pixel_entero_en(&mut t.pegado, cuerpo, r.registros_ps, r.cargas_ps(), datos, r.genericos(), r.termometro_ps, r.dibujo.redondeo).map_err(|e| NoReceta::Pegamento("pixel", e))?;
+    let mezcla = r.dibujo.destino.filter(|_| !r.dibujo.mezcla.trivial()).map(|(_, dst)| (r.dibujo.mezcla, dst));
+    pegamento::pixel_entero_en(&mut t.pegado, cuerpo, r.registros_ps, r.cargas_ps(), datos, r.genericos(), r.termometro_ps, r.dibujo.redondeo, mezcla).map_err(|e| NoReceta::Pegamento("pixel", e))?;
     t.bytes_ps = t.pegado.bytes(&mut t.ps);
     let jv = juez::juzgar_programa(&t.vs[..t.bytes_vs], tu::REGISTROS).map_err(|b| NoReceta::Juez("vertice", b))?;
     let jp = juez::juzgar_programa(&t.ps[..t.bytes_ps], tu::REGISTROS).map_err(|b| NoReceta::Juez("pixel", b))?;

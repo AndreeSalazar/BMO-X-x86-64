@@ -362,6 +362,11 @@ pub struct Dibujo {
     /// target de float (`pegamento::Redondeo`). Solo con un destino de float
     /// (`destino::Flotante`); la receta lo lleva en la bandera del destino.
     pub redondeo: crate::pegamento::Redondeo,
+    /// ** 12-10: la MEZCLA del render target 0, en el sombreador
+    /// (`mezcla`): el pegamento lee lo que ya esta en el destino. Solo con un
+    /// destino en la RAM de la app, sin Z y sin limpieza en el lote; la
+    /// receta la lleva en su bloque (+88 bit 2).
+    pub mezcla: crate::mezcla::Mezcla,
 }
 
 /// ** E8f: el banco de constantes de una app: el 3, el mismo que el de E3 de
@@ -536,7 +541,7 @@ pub(crate) fn dibujo_de_campos(cabecera: &[u8], n: usize, datos: usize) -> Optio
     };
     let z = z_de(estado).ok()?;
     let redondeo = crate::pegamento::Redondeo::de_numero(bandera >> 8 & 0xFF)?;
-    let d = Dibujo { indices, vertices, descarte, antihorario: estado & 4 != 0, destino, z, color: None, texturas: 0, cadena: false, pantalla: false, banco: 0, redondeo };
+    let d = Dibujo { indices, vertices, descarte, antihorario: estado & 4 != 0, destino, z, color: None, texturas: 0, cadena: false, pantalla: false, banco: 0, redondeo, mezcla: crate::mezcla::Mezcla::NINGUNA };
     cabe(&d).then_some(d)
 }
 
@@ -555,6 +560,11 @@ pub const fn cabe(d: &Dibujo) -> bool {
         return false;
     }
     if !flotante && d.redondeo.numero() != 0 {
+        return false;
+    }
+    // La mezcla lee el DESTINO de la app: sin Z (el color iria a la sombra),
+    // sin limpieza en el lote y nunca a la pantalla.
+    if !d.mezcla.trivial() && (d.destino.is_none() || d.z.is_some() || d.color.is_some() || d.pantalla || d.mezcla.valida().is_err()) {
         return false;
     }
     match (d.z, d.destino) {
@@ -1096,7 +1106,7 @@ mod pruebas {
         for (k, i) in [0u32, 1, 2, 0, 2, 3].iter().enumerate() {
             datos[64 + 4 * k..68 + 4 * k].copy_from_slice(&i.to_le_bytes());
         }
-        let d = Dibujo { indices: Some(64), vertices: 4, descarte: Descarte::Traseras, antihorario: false, destino: None, z: None, color: None, texturas: 0, cadena: false, pantalla: false, banco: 0, redondeo: crate::pegamento::Redondeo::NADA };
+        let d = Dibujo { indices: Some(64), vertices: 4, descarte: Descarte::Traseras, antihorario: false, destino: None, z: None, color: None, texturas: 0, cadena: false, pantalla: false, banco: 0, redondeo: crate::pegamento::Redondeo::NADA, mezcla: crate::mezcla::Mezcla::NINGUNA };
         let mut caja = std::vec![0u8; MAX_PAQUETE];
         let n = escribir_paquete_dibujo(&mut caja, 7, &vs, &ps, 6, &datos, d).unwrap();
         assert_eq!(medida(&caja[..CABECERA_MAX]), Some(n));
@@ -1238,7 +1248,7 @@ mod pruebas {
         let (vs, ps) = (programa_de(&vertice()), programa_de(&pixel()));
         let datos = std::vec![0u8; 96];
         let dst = Destino { fila: 1280 * 4, ancho: 1280, alto: 720, flotante: crate::destino::Flotante::No, rgb: false };
-        let d = Dibujo { indices: None, vertices: 3, descarte: Descarte::Ninguna, antihorario: false, destino: Some((0x1234_5000, dst)), z: None, color: None, texturas: 0, cadena: false, pantalla: false, banco: 0, redondeo: crate::pegamento::Redondeo::NADA };
+        let d = Dibujo { indices: None, vertices: 3, descarte: Descarte::Ninguna, antihorario: false, destino: Some((0x1234_5000, dst)), z: None, color: None, texturas: 0, cadena: false, pantalla: false, banco: 0, redondeo: crate::pegamento::Redondeo::NADA, mezcla: crate::mezcla::Mezcla::NINGUNA };
         let mut caja = std::vec![0u8; MAX_PAQUETE];
         let n = escribir_paquete_dibujo(&mut caja, 7, &vs, &ps, 3, &datos, d).unwrap();
         assert_eq!(leer(&caja[..n]).unwrap().dibujo, d);

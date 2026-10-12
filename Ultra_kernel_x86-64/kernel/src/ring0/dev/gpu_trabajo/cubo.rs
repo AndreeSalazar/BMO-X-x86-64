@@ -421,6 +421,8 @@ pub fn pantalla_para(tid: u64) -> Result<u64, u32> {
 fn a_la_pantalla(pid: u32, d: &bmo_gpu_ga10x::tuberia::Dibujo) -> bool {
     pid != 0
         && d.cadena
+        // 12-10: la mezcla lee la RAM de la app: el dibujo va alli.
+        && d.mezcla.trivial()
         && PANTALLA_PID.load(Ordering::Acquire) == pid
         && d.destino.is_some_and(|(_, dst)| dst.ancho == cu::ANCHO && dst.alto == cu::ALTO)
 }

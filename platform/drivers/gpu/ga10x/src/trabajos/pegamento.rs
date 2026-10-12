@@ -726,13 +726,16 @@ pub fn pixel_en(g: &mut Pegado, cuerpo: &[(u64, u64)], registros: u32, cargas: &
 /// [`pixel_en`] con la LIBRETA (9d): el apunte va antes del EXIT del
 /// cuerpo, que espera ademas su lectura.
 pub fn pixel_con_libreta_en(g: &mut Pegado, cuerpo: &[(u64, u64)], registros: u32, cargas: &[Carga], datos: Datos, genericos: &[Option<u8>], termometro: Option<u8>) -> Result<(), NoPega> {
-    pixel_entero_en(g, cuerpo, registros, cargas, datos, genericos, termometro, Redondeo::NADA)
+    pixel_entero_en(g, cuerpo, registros, cargas, datos, genericos, termometro, Redondeo::NADA, None)
 }
 
 /// [`pixel_con_libreta_en`] con el REDONDEO de la salida 0 al formato del
 /// render target (LI2d-HDR): detras del cuerpo, antes de su EXIT.
 #[allow(clippy::too_many_arguments)]
-pub fn pixel_entero_en(g: &mut Pegado, cuerpo: &[(u64, u64)], registros: u32, cargas: &[Carga], datos: Datos, genericos: &[Option<u8>], termometro: Option<u8>, redondeo: Redondeo) -> Result<(), NoPega> {
+///
+/// ** 12-10: con `mezcla` (no trivial), tras el cuerpo, lo que ya esta en
+/// ESE destino mezclado con el pixel nuevo (`mezcla`), antes del redondeo.
+pub fn pixel_entero_en(g: &mut Pegado, cuerpo: &[(u64, u64)], registros: u32, cargas: &[Carga], datos: Datos, genericos: &[Option<u8>], termometro: Option<u8>, redondeo: Redondeo, mezcla: Option<(crate::mezcla::Mezcla, crate::destino::Destino)>) -> Result<(), NoPega> {
     g.n = 0;
     let (resto, exit) = partir(cuerpo)?;
     cargas_propias(cargas, registros)?;
@@ -783,18 +786,44 @@ pub fn pixel_entero_en(g: &mut Pegado, cuerpo: &[(u64, u64)], registros: u32, ca
         sph[0] |= crate::raster::LEE_O_ESCRIBE;
     }
     let mascara = if entradas > 0 { 1 << 0 } else { 0 } | if filas { 1 << B_CARGAS } else { 0 };
+    let mezcla = mezcla.filter(|(m, _)| !m.trivial());
+    if let Some((m, _)) = mezcla {
+        if m.valida().is_err() {
+            return Err(NoPega::Carga);
+        }
+    }
+    // La mezcla (12-10): tras el cuerpo, con a..a+8 de trabajo (las filas ya
+    // se leyeron; el apunte de la libreta pone los suyos).
+    let mezclar = |o: &mut Poner, sph: &mut [u32; SPH]| {
+        let Some((m, dst)) = mezcla else { return };
+        o.p(ipa(a, ATRIBUTO_POSICION, IPA_CONTROL));
+        o.p(ipa(a + 1, ATRIBUTO_POSICION + 1, IPA_ULTIMO));
+        sph[5] |= 0b11 << (BIT_IMAP_POSICION_X - 160);
+        sph[0] |= crate::raster::LEE_O_ESCRIBE;
+        let mut primera = true;
+        crate::mezcla::leer_destino(&dst, a, &mut |w| {
+            o.p(if primera { esperando(w, 1 << 0) } else { w });
+            primera = false;
+        });
+        let mut primera = true;
+        crate::mezcla::mezclar(&m, &dst, a, &mut |w| {
+            o.p(if primera { esperando(w, 1 << crate::mezcla::B_LEER) } else { w });
+            primera = false;
+        });
+    };
     match termometro {
-        None if redondeo == Redondeo::NADA => {
+        None if redondeo == Redondeo::NADA && mezcla.is_none() => {
             for (k, &w) in cuerpo.iter().enumerate() {
                 o.p(if k == 0 { esperando(w, mascara) } else { w });
             }
         }
-        // LI2d-HDR: el cuerpo sin su EXIT, el redondeo y el EXIT.
+        // LI2d-HDR: el cuerpo sin su EXIT, la mezcla, el redondeo y el EXIT.
         None => {
             for (k, &w) in resto.iter().enumerate() {
                 let w = if k == 0 { esperando(w, mascara) } else { w };
                 o.p(if k + 1 == resto.len() { al_menos(w, 6) } else { w });
             }
+            mezclar(&mut o, &mut sph);
             redondear(&mut o, redondeo);
             o.p(exit);
         }
@@ -805,6 +834,7 @@ pub fn pixel_entero_en(g: &mut Pegado, cuerpo: &[(u64, u64)], registros: u32, ca
                 let w = if k == 0 { esperando(w, mascara) } else { w };
                 o.p(if k + 1 == resto.len() { al_menos(w, 6) } else { w });
             }
+            mezclar(&mut o, &mut sph);
             redondear(&mut o, redondeo);
             for w in crate::libreta::apunte(t as u64, a, v) {
                 o.p(w);

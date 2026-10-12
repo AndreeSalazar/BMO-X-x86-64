@@ -40,6 +40,8 @@ pub mod pegamento;
 /// LI2e: los FORMATOS de vertice que lee el pegamento (UNORM, SNORM, half,
 /// enteros), con los bits de la CPU (2026-10-12).
 pub mod formatos;
+/// La MEZCLA en el sombreador, con los bits de la CPU (2026-10-12).
+pub mod mezcla;
 /// P3b4b: el destino de la app -- la 3060 dibuja en la RAM de un proceso
 /// (su back buffer), prestada por la IOMMU (2026-09-28).
 pub mod destino;

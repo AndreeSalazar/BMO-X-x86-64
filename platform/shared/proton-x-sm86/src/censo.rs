@@ -177,8 +177,9 @@ pub fn del_lote(l: &Lote, z_a_la_3060: bool) -> Vec<&'static str> {
     if l.instancias != 1 || l.entradas.iter().any(|e| e.por_instancia.is_some()) {
         v.push("varias instancias o datos por instancia");
     }
-    if !l.reglas.mezcla.trivial() {
-        v.push("la mezcla (o escribir solo algunos canales)");
+    // 12-10: la mezcla ya va (en el sombreador); lo que no, por su nombre.
+    if let Err(m) = crate::puerta::mezcla_puede(l) {
+        v.push(m);
     }
     if l.reglas.stencil.is_some() {
         v.push("el STENCIL");

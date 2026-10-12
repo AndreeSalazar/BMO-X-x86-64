@@ -274,6 +274,34 @@ y `puerta.rs`; el juez en `platform/drivers/gpu/ga10x/src/sass/juez.rs`):
       **Falta la mitad de la 3060:** varios destinos en la tuberia
       (`pso.rs` aun dice "varios render targets") y su mezcla en el ROP,
       con la regla 4 del juez (el redondeo de la 3060) en el metal.
+      **12-10, la MEZCLA por la 3060, EXACTA y en el SOMBREADOR** (el censo
+      de Cyberpunk: 12 lotes de 34). El ROP mezcla con su aritmetica y a 8
+      bits nadie dice con cuanta precision; la regla es "los bits de la CPU"
+      (DL10). Asi que el pegamento del de pixel, tras el cuerpo, lee lo que
+      ya esta en el destino (la posicion por IPA y su entero EXACTO, la
+      direccion, un LDG.STRONG.SYS), lo pasa a float como la CPU (byte/255,
+      la conversion de `formatos`) y mezcla con FMUL, FMUL y FADD, cada uno
+      con su redondeo -- lo que hace `Mezcla::aplicar` --; el alfa el ultimo
+      y la mascara deja lo de antes. Despues, el redondeo de su formato.
+      `ga10x/src/trabajos/mezcla.rs` (la libreria de la 3060): los 14
+      factores de los juegos, sumar y las dos restas, la mascara y el factor
+      de `OMSetBlendFactor`; la receta la lleva en 24 B (+88 bit 2). Probado:
+      **mas de 20.000 mezclas** (cada factor de origen y de destino, las tres
+      operaciones, mascaras, RGBA8, BGRA8, RGBA y R32 de float, pixeles
+      negativos, de mas de 1 y -0) dan los bits de la CPU; saboteada (la
+      resta al reves) cae hasta en el signo de un cero. **Lo que pide:** que
+      ningun pixel se pinte dos veces en el lote (el sombreador lee lo de
+      ANTES del lote; el ROP ordena, el sombreador no): `proton-x-sm86
+      solape.rs` lo mira con las posiciones del de vertice de la CPU -- un
+      triangulo, cajas que no se tocan, o dos que comparten un lado a sus
+      dos lados (el cuadro de pantalla completa, los de la interfaz) --; sin
+      Z (el color iria a la sombra) ni limpieza en el lote; y el kernel no la
+      manda a la pantalla directa (Z1). MIN, MAX y `SRC_ALPHA_SAT` se quedan
+      en la CPU: usan un minimo, y el signo del cero de un minimo no se
+      promete igual. De punta a punta: el cuadro con transparencia, a 8 bits
+      y en RGBA16F, por la puerta, la receta y el pegado del kernel con su
+      juez; y cada NO con su porque. **Falta:** el metal; las particulas y
+      lo que se pisa (el ROP, medido en el metal, o por la CPU).
 - [~] **LI2e -- la entrada de vertices de verdad**: formatos de 8 y 16 bits
       (UNORM, SNORM, half) y `SV_VertexID` / `SV_InstanceID`. **Como se
       sabe:** las instancias de N5.19 por la 3060, con su huella.

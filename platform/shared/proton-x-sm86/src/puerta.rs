@@ -226,6 +226,36 @@ pub fn de_flotante(formato: u32, palabras: u32) -> Result<(Flotante, Redondeo), 
 /// la sombra en bloque, y la sombra es de 8 bits por canal todavia.
 pub const Z_CON_FLOAT: &str = "un render target de float con la Z: la sombra en bloque de la 3060 es de 8 bits por canal todavia";
 
+/// **La mezcla de un lote, como la lleva la 3060** (12-10): la del render
+/// target 0 (la 3060 pinta UNO) y el factor de `OMSetBlendFactor`; o por que
+/// no la sabe (MIN, MAX, `SRC_ALPHA_SAT`, dos fuentes).
+pub fn mezcla_de(m: &bmo_proton_x::mezcla::Mezclas) -> Result<bmo_gpu_ga10x::mezcla::Mezcla, &'static str> {
+    let r = m.rt[0];
+    let x = bmo_gpu_ga10x::mezcla::Mezcla { encendida: r.encendida, origen: r.origen, destino: r.destino, op: r.op, origen_a: r.origen_a, destino_a: r.destino_a, op_a: r.op_a, mascara: r.mascara & 0xF, factor: m.factor.map(f32::to_bits) };
+    x.valida()?;
+    Ok(x)
+}
+
+/// La Z con mezcla: el color iria a la sombra en bloque, no al destino.
+pub const MEZCLA_CON_Z: &str = "la mezcla con la Z: la 3060 la hace leyendo el destino de la app, y con Z el color va a la sombra en bloque";
+pub const MEZCLA_CON_LIMPIEZA: &str = "la mezcla con la limpieza del render target en el mismo lote";
+
+/// **Si la mezcla de este lote va a la 3060**, o por que no (lo mira la
+/// puerta y lo cuenta el censo).
+pub fn mezcla_puede(l: &Lote) -> Result<(), &'static str> {
+    let m = mezcla_de(&l.reglas.mezcla)?;
+    if m.trivial() {
+        return Ok(());
+    }
+    if l.reglas.profundidad.is_some() {
+        return Err(MEZCLA_CON_Z);
+    }
+    if l.limpiar_rt.is_some() {
+        return Err(MEZCLA_CON_LIMPIEZA);
+    }
+    crate::solape::sin_solape(l)
+}
+
 /// **La medida de VERRANO** (1280x720): la de la Z y la sombra en bloque de
 /// la 3060 (`Destino::es_la_de_verrano`) y la de la pantalla directa (Z1).
 /// PROTON-X, con `--3060`, se la da al juego como su pantalla (LI2j, 12-10):
@@ -417,7 +447,7 @@ pub fn escribir(c: &Cuerpos, l: &Lote, b: Blanco, limpiar_z: Option<u32>, datos:
         genericos: [None; MAX_GENERICOS],
         n_genericos: c.genericos.len(),
         datos,
-        dibujo: Dibujo { indices: Some(desde as u32), vertices: vertices as u32, descarte, antihorario: r.antihorario, destino: Some((b.va, dst)), z, color: l.limpiar_rt, texturas: c.texturas.len() as u8, cadena: b.cadena, pantalla: false, banco: if c.banco { 16 * c.filas } else { 0 }, redondeo },
+        dibujo: Dibujo { indices: Some(desde as u32), vertices: vertices as u32, descarte, antihorario: r.antihorario, destino: Some((b.va, dst)), z, color: l.limpiar_rt, texturas: c.texturas.len() as u8, cadena: b.cadena, pantalla: false, banco: if c.banco { 16 * c.filas } else { 0 }, redondeo, mezcla: mezcla_de(&l.reglas.mezcla).map_err(String::from)? },
         texturas,
         termometro_vs: c.termometro_vs,
         termometro_ps: c.termometro_ps,
@@ -527,9 +557,11 @@ impl Puerta {
         if l.instancias != 1 || l.entradas.iter().any(|e| e.por_instancia.is_some()) {
             return Err(String::from("el lote dibuja varias instancias o lee datos por instancia: la 3060 no lo sabe todavia"));
         }
-        // N5.11: la 3060 aun no mezcla (ni enmascara): ese lote, por la CPU.
-        if !l.reglas.mezcla.trivial() {
-            return Err(String::from("el lote mezcla (o escribe solo algunos canales): la 3060 no lo sabe todavia"));
+        // N5.11 / 12-10: la mezcla del render target 0, en el sombreador
+        // (`bmo_gpu_ga10x::mezcla`), con los bits de la CPU: si la 3060 la
+        // sabe, sin la Z, sin limpieza en el lote y sin solape (`solape`).
+        if let Err(m) = mezcla_puede(l) {
+            return Err(String::from(m));
         }
         // 05-10: el stencil vive en la RAM de la casa (un byte por texel del
         // DSV) y la receta no lo lleva: ese lote, por la CPU (y `despues`
