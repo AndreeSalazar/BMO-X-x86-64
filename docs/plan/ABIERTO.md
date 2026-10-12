@@ -1,13 +1,13 @@
 <!-- GENERADO por toolchain/tools/planes. No se edita a mano. -->
 
-# LO QUE FALTA -- las casillas abiertas de los 80 planes
+# LO QUE FALTA -- las casillas abiertas de los 81 planes
 
 > Generado por `toolchain/tools/planes`. **El build comprueba que
 > este fichero y los planes dicen lo mismo**, asi que no puede
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   766 casillas ABIERTAS en 71 planes
+   770 casillas ABIERTAS en 72 planes
    607 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
@@ -529,6 +529,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] Paso 0b -- el lanzador que inyecta en el juego
 - [ ] Paso 1 -- las DLL del juego y las que llegan tarde
 - [ ] Paso 2 -- las vigiladas, con sus datos
+- ... y 1 mas
+
+## [`PLAN_LA_LENTE.md`](PLAN_LA_LENTE.md) -- 4 abiertas, 0 hechas
+
+*PLAN -- LA LENTE: BMO-X lee cada programa y dice que es y por que*
+
+- [ ] LE0 -- las reglas, escritas. La lista cerrada, cada una con su
+- [ ] LE1 -- la lectura de un PE/ELF, en texto. Un lector puro en Ring 3
+- [ ] LE2 -- el veredicto, en la puerta. Lanzar un programa pasa por la
 - ... y 1 mas
 
 ## [`PLAN_LA_RAM_SALE_DEL_KERNEL.md`](PLAN_LA_RAM_SALE_DEL_KERNEL.md) -- 4 abiertas, 3 hechas

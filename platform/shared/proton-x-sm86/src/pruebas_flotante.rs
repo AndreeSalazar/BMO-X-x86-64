@@ -117,3 +117,17 @@ fn un_cuadro_en_un_rgba16f_va_a_la_3060() {
     assert!(Puerta::nueva().preparar(&Lote { limpiar_rt: Some(0), ..l }, b).is_err());
     assert!(Puerta::nueva().preparar(&l, Blanco { cadena: true, ..b }).is_err());
 }
+
+/// ** Metal 12-10: el censo decia "un formato que la casa no conoce (DXGI
+/// 32571392)": era la MARCA de la casa (`bufer::CUATRO_FLOATS`) con la vista
+/// arriba. Desempaquetada: un RGBA16F guardado en cuatro floats VA; uno visto
+/// con otro formato lo dice por su nombre.
+#[test]
+fn la_marca_de_cuatro_floats_se_desempaqueta() {
+    use bmo_proton_x::bufer::{con_vista, CUATRO_FLOATS};
+    let (f, _) = crate::puerta::de_flotante(10 | CUATRO_FLOATS, 4).expect("RGBA16F en cuatro floats");
+    assert_eq!(f, bmo_gpu_ga10x::destino::Flotante::Rgba32);
+    assert_eq!(32571392 & CUATRO_FLOATS, CUATRO_FLOATS, "la del metal");
+    assert_eq!(crate::puerta::de_flotante(32571392, 4).unwrap_err(), crate::puerta::FLOTANTE_OTRA_VISTA);
+    assert_eq!(crate::puerta::de_flotante(con_vista(10, 34), 4).unwrap_err(), crate::puerta::FLOTANTE_OTRA_VISTA);
+}

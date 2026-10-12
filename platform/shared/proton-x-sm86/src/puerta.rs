@@ -196,6 +196,11 @@ pub struct Blanco {
 /// censo le pone su numero DXGI).
 pub const FLOTANTE_DESCONOCIDO: &str = "un render target de float de un formato que la casa no conoce";
 
+/// Uno que el juego ve con OTRO formato que el guardado (D2.7: un SNORM8
+/// sobre un TYPELESS, el truco de los posprocesos): la CPU pasa los floats a
+/// los bytes de la vista y de vuelta; la 3060 todavia no.
+pub const FLOTANTE_OTRA_VISTA: &str = "un render target de float que el juego ve con OTRO formato (una vista sobre un TYPELESS): la CPU lo traduce, la 3060 todavia no";
+
 /// **Un render target de float, como lo escribe la 3060** (LI2d-HDR, 12-10):
 /// en floats de 32 (`destino::Flotante`), con la salida redondeada canal a
 /// canal a lo que la CPU guarda (`formato_ia::cuantizar`: de 32 bits igual,
@@ -203,6 +208,18 @@ pub const FLOTANTE_DESCONOCIDO: &str = "un render target de float de un formato 
 /// 3060 no sabe redondear todavia (11 y 10 bits, UNORM, SNORM), su porque.
 pub fn de_flotante(formato: u32, palabras: u32) -> Result<(Flotante, Redondeo), &'static str> {
     use bmo_proton_x::formato_ia::{forma, Clase};
+    // ** Metal 12-10: la casa guarda un render target de float como CUATRO
+    // floats con su marca (`bufer::CUATRO_FLOATS`) y, si se ve con otro
+    // formato, el de la vista arriba (`bufer::con_vista`). Sin desempaquetar,
+    // el censo decia "DXGI 32571392": era la marca, no un formato.
+    let formato = if formato & bmo_proton_x::bufer::CUATRO_FLOATS != 0 {
+        match bmo_proton_x::bufer::guardado_y_vista(formato) {
+            (g, None) => g,
+            (_, Some(_)) => return Err(FLOTANTE_OTRA_VISTA),
+        }
+    } else {
+        formato
+    };
     let Some(f) = forma(formato) else { return Err(FLOTANTE_DESCONOCIDO) };
     if f.clase != Clase::Float {
         return Err("un render target de UNORM o SNORM de mas de 8 bits (R10G10B10A2, RGBA16_UNORM...): la 3060 redondea floats de 32 y 16 todavia");
