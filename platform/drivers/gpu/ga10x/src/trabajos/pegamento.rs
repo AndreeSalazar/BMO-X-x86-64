@@ -103,18 +103,73 @@ pub fn asas(cargas: &[Carga]) -> u64 {
 }
 
 /// Donde esta un elemento de entrada dentro de un vertice (del input layout
-/// del juego).
+/// del juego), o de que valor de SISTEMA sale.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Elemento {
     /// Su byte dentro del vertice.
     pub desde: u32,
     /// Cuantos float trae (1..4).
     pub componentes: u8,
+    /// De la memoria del vertice, o un valor de sistema.
+    pub sistema: Sistema,
+}
+
+/// **Los valores de sistema del de vertice** (LI2e, 12-10: el censo de
+/// Cyberpunk, 16 lotes de 34). Lo que valen lo dice la CPU
+/// (`bmo_proton_x::lote::entrada`, la referencia); aqui, como los da la 3060:
+///
+/// ```text
+///    Vertice     SV_VertexID: el `vid` que el ALD ya trae (el indice que
+///                escribe la puerta). La puerta escribe el indice SIN el
+///                vertice base y copia los vertices DESDE el base: el mismo
+///                `vid` es el SV_VertexID de la CPU y la direccion de la
+///                memoria no cambia. Un entero en x; y, z y w a 0
+///    Instancia   SV_InstanceID: 0. La 3060 dibuja hoy UNA instancia (la
+///                puerta de "varias instancias" sigue), y D3D12 lo cuenta
+///                desde 0, sin StartInstanceLocation
+/// ```
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Sistema {
+    No,
+    Vertice,
+    Instancia,
+}
+
+impl Sistema {
+    /// Su numero en la receta (los bits 8..10 de `componentes`).
+    pub const fn numero(self) -> u32 {
+        match self {
+            Sistema::No => 0,
+            Sistema::Vertice => 1,
+            Sistema::Instancia => 2,
+        }
+    }
+
+    pub const fn de_numero(n: u32) -> Option<Sistema> {
+        match n {
+            0 => Some(Sistema::No),
+            1 => Some(Sistema::Vertice),
+            2 => Some(Sistema::Instancia),
+            _ => None,
+        }
+    }
+}
+
+impl Elemento {
+    /// De la memoria del vertice.
+    pub const fn memoria(desde: u32, componentes: u8) -> Self {
+        Elemento { desde, componentes, sistema: Sistema::No }
+    }
+
+    /// Un valor de sistema (un entero, en x).
+    pub const fn de_sistema(sistema: Sistema) -> Self {
+        Elemento { desde: 0, componentes: 1, sistema }
+    }
 }
 
 /// float4 seguidos: el vertice de E5 (`bmo_cubo::tanda::datos`).
 const FLOAT4: [Elemento; 8] = {
-    let mut e = [Elemento { desde: 0, componentes: 4 }; 8];
+    let mut e = [Elemento::memoria(0, 4); 8];
     let mut k = 0;
     while k < 8 {
         e[k].desde = 16 * k as u32;
@@ -391,8 +446,17 @@ pub fn vertice_con_libreta_en(g: &mut Pegado, cuerpo: &[(u64, u64)], registros: 
     // V = vid * paso: un IMAD.SHL por cada bit del paso (48 = 32 + 16), en
     // V y V+1, y sumados. El primero espera el ALD.
     let paso = datos.paso;
+    // Sin paso no hay vertices en la memoria: solo valores de sistema (un
+    // cuadro de pantalla completa con SV_VertexID). V vale 0 y no se lee.
+    let de_memoria = cargas.iter().any(|c| match *c {
+        Carga::Entrada { elemento, .. } => datos.elementos.get(elemento as usize).is_none_or(|e| e.sistema == Sistema::No),
+        _ => false,
+    });
     if paso == 0 {
-        return Err(NoPega::Carga);
+        if de_memoria {
+            return Err(NoPega::Carga);
+        }
+        o.p(mov(v, 0));
     }
     let mut primero = true;
     for b in 0..32u32 {
@@ -419,7 +483,23 @@ pub fn vertice_con_libreta_en(g: &mut Pegado, cuerpo: &[(u64, u64)], registros: 
     for c in cargas {
         if let Carga::Entrada { elemento, componente, reg } = *c {
             let Some(el) = datos.elementos.get(elemento as usize) else { return Err(NoPega::Carga) };
-            if componente > 3 || el.componentes == 0 || el.componentes > 4 || el.desde + 4 * el.componentes as u32 > paso {
+            if componente > 3 {
+                return Err(NoPega::Carga);
+            }
+            match el.sistema {
+                // SV_VertexID: el `vid` en x (un IMAD.SHL por 1, que espera
+                // al ALD como el primero de la direccion); lo demas, 0.
+                Sistema::Vertice if componente == 0 => {
+                    o.p(imad_shl(reg as u64, vid, 1, espera(1 << B_ALD)));
+                    continue;
+                }
+                Sistema::Vertice | Sistema::Instancia => {
+                    o.p(mov(reg as u64, 0));
+                    continue;
+                }
+                Sistema::No => {}
+            }
+            if el.componentes == 0 || el.componentes > 4 || el.desde + 4 * el.componentes as u32 > paso {
                 return Err(NoPega::Carga);
             }
             if componente < el.componentes {
@@ -431,11 +511,20 @@ pub fn vertice_con_libreta_en(g: &mut Pegado, cuerpo: &[(u64, u64)], registros: 
         }
     }
     las_filas(&mut o, cargas, datos, d, false)?;
+    // Si hubo cargas de la memoria (LDG): las de un elemento del vertice y
+    // las filas del cbuffer. Un cuadro de SV_VertexID sin cbuffer no lee
+    // nada, y esperar su barrera seria esperar una que nadie enciende (el
+    // juez, R3: lo cazo el banco de LI2e el 12-10).
+    let leyo = cargas.iter().any(|c| match *c {
+        Carga::Fila { .. } => true,
+        Carga::Entrada { elemento, componente, .. } => datos.elementos.get(elemento as usize).is_some_and(|e| e.sistema == Sistema::No && componente < e.componentes),
+        _ => false,
+    });
     // El cuerpo: su primera espera las cargas; la ultima, lo que tarde en
     // estar lo que escribio (el planificador la calculo para el EXIT, y
     // detras vienen los AST: 6 ciclos, lo mas largo de la tabla del juez).
     for (k, &w) in resto.iter().enumerate() {
-        let w = if k == 0 { esperando(w, 1 << B_CARGAS) } else { w };
+        let w = if k == 0 && leyo { esperando(w, 1 << B_CARGAS) } else { w };
         o.p(if k + 1 == resto.len() { al_menos(w, 6) } else { w });
     }
     // 9d: el apunte de la libreta (A y V ya no los usa nadie).
@@ -729,7 +818,7 @@ mod pruebas {
     /// trae es el de D3D (w de la posicion = 1, un MOV). Y el juez: PERFECTO.
     #[test]
     fn el_vertice_del_juego_tal_cual() {
-        const JUEGO: [Elemento; 3] = [Elemento { desde: 0, componentes: 3 }, Elemento { desde: 12, componentes: 3 }, Elemento { desde: 24, componentes: 4 }];
+        const JUEGO: [Elemento; 3] = [Elemento::memoria(0, 3), Elemento::memoria(12, 3), Elemento::memoria(24, 4)];
         let datos = Datos { filas: 9, paso: 40, elementos: &JUEGO };
         let (pv, ev) = emitido("sombras/f3ef42a0.cso");
         let cs = cargas(&ev);
@@ -751,7 +840,7 @@ mod pruebas {
         // El paso 40 = 32 + 8: dos IMAD.SHL.
         assert_eq!(v.codigo().iter().filter(|w| w.0 & 0xFFFF == 0x7824 && w.1 & 0xFFFF_FFFF == 0x078E_00FF).count(), 2);
         // Un elemento que se sale del vertice, no.
-        let malo = [Elemento { desde: 0, componentes: 3 }, Elemento { desde: 12, componentes: 3 }, Elemento { desde: 32, componentes: 4 }];
+        let malo = [Elemento::memoria(0, 3), Elemento::memoria(12, 3), Elemento::memoria(32, 4)];
         assert_eq!(vertice(&ev.codigo, ev.registros, &cs, Datos { filas: 9, paso: 40, elementos: &malo }, pv.salidas as u32, 0).unwrap_err(), NoPega::Carga);
     }
 
@@ -772,5 +861,25 @@ mod pruebas {
         assert_eq!(vertice(&ev.codigo, ev.registros, &cs, DATOS, 3, 3).unwrap_err(), NoPega::Salidas);
         let (_, ep) = emitido("sombras/4d67f5e4.cso");
         assert_eq!(pixel(&ep.codigo, ep.registros, &cargas(&ep), DATOS, &[None, None, Some(1)]).unwrap_err(), NoPega::Carga);
+    }
+
+    /// ** LI2e (12-10): SV_VertexID es el `vid` del ALD (un IMAD.SHL por 1
+    /// que espera su barrera) y lo demas del elemento, 0; sin paso, ni una
+    /// carga de la memoria -- y el cuerpo no espera una barrera que nadie
+    /// enciende (el juez lo aprueba). La prueba del NO: un elemento de la
+    /// memoria sin paso no se pega.
+    #[test]
+    fn sv_vertexid_sale_del_vid() {
+        let cuerpo = [mov(0, 0x3F80_0000), mov(1, 0), mov(2, 0), mov(3, 0x3F80_0000), cu::EXIT];
+        let cargas = [Carga::Entrada { elemento: 0, componente: 0, reg: 4 }, Carga::Entrada { elemento: 0, componente: 1, reg: 5 }];
+        let els = [Elemento::de_sistema(Sistema::Vertice)];
+        let v = vertice(&cuerpo, 8, &cargas, Datos { filas: 0, paso: 0, elementos: &els }, 1, 0).expect("se pega");
+        let c = v.codigo();
+        assert_eq!(c.iter().filter(|w| w.0 & 0xFFFF == 0x7981).count(), 2, "solo los dos LDG de la tabla: ni un vertice de la memoria");
+        let (_, _, _, vid, _) = propios(8).unwrap();
+        assert!(c.iter().any(|w| w.0 & 0xFFFF == 0x7824 && w.0 >> 16 & 0xFF == 4 && w.0 >> 24 & 0xFF == vid && w.0 >> 32 == 1), "IMAD.SHL R4, vid, 1");
+        assert!(c.iter().any(|w| w.0 & 0xFFFF == 0x7424 && w.0 >> 16 & 0xFF == 5 && w.0 >> 32 == 0), "MOV R5, 0");
+        let malo = [Elemento::memoria(0, 4)];
+        assert_eq!(vertice(&cuerpo, 8, &cargas, Datos { filas: 0, paso: 0, elementos: &malo }, 1, 0).unwrap_err(), NoPega::Carga);
     }
 }

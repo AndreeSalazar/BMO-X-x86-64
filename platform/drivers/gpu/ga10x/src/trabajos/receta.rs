@@ -64,7 +64,7 @@
 //! texturas (48 B cada una, `texturas::DeApp`: SU memoria, sus medidas y su
 //! muestreador), relleno hasta 16, y los DATOS.
 
-use crate::pegamento::{self, Carga, Datos, Elemento, NoPega};
+use crate::pegamento::{self, Carga, Datos, Elemento, NoPega, Sistema};
 use crate::sass::juez::{self, Bodrio, MAX_INSTRUCCIONES};
 use crate::texturas::{DeApp, BYTES_DE_APP, MAX_TEXTURAS};
 use crate::tuberia::{self as tu, u32le, Dibujo, Paquete, DATOS_MAX, HUECO, MAX_VERTICES, SIN_INDICES};
@@ -118,7 +118,7 @@ pub struct Receta<'a> {
 
 /// Un hueco de carga (para los arreglos a medio llenar).
 pub const NINGUNA: Carga = Carga::Fila { fila: 0, reg: 0 };
-pub const NINGUNO: Elemento = Elemento { desde: 0, componentes: 0 };
+pub const NINGUNO: Elemento = Elemento::memoria(0, 0);
 
 /// Por que una receta no dibuja.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -223,7 +223,7 @@ pub fn leer(b: &[u8]) -> Option<Receta<'_>> {
     if registros_vs == 0 || registros_ps == 0 || registros_vs >= tu::REGISTROS || registros_ps >= tu::REGISTROS || salidas == 0 || salidas > 8 || posicion >= salidas {
         return None;
     }
-    if filas > MAX_FILAS || paso == 0 || paso % 4 != 0 || n_elementos > MAX_ELEMENTOS || n_genericos > MAX_GENERICOS || n_cargas_vs > MAX_CARGAS || n_cargas_ps > MAX_CARGAS {
+    if filas > MAX_FILAS || paso % 4 != 0 || n_elementos > MAX_ELEMENTOS || n_genericos > MAX_GENERICOS || n_cargas_vs > MAX_CARGAS || n_cargas_ps > MAX_CARGAS {
         return None;
     }
     // Las piezas de detras de la cabecera.
@@ -235,11 +235,24 @@ pub fn leer(b: &[u8]) -> Option<Receta<'_>> {
     let mut elementos = [NINGUNO; MAX_ELEMENTOS];
     for e in elementos.iter_mut().take(n_elementos) {
         let x = b.get(i..i + 8)?;
-        *e = Elemento { desde: u32le(x, 0), componentes: u32le(x, 4) as u8 };
-        if u32le(x, 4) == 0 || u32le(x, 4) > 4 || e.desde % 4 != 0 || e.desde as u64 + 4 * u32le(x, 4) as u64 > paso as u64 {
+        // `componentes`: los bits 0..8 cuantos, los 8..10 de que sistema
+        // (LI2e, `pegamento::Sistema`); el resto, a 0.
+        let (cuantos, sistema) = (u32le(x, 4) & 0xFF, u32le(x, 4) >> 8);
+        let sistema = Sistema::de_numero(sistema)?;
+        *e = Elemento { desde: u32le(x, 0), componentes: cuantos as u8, sistema };
+        let mal = match sistema {
+            // Un valor de sistema es un entero en x, y no lee la memoria.
+            Sistema::Vertice | Sistema::Instancia => cuantos != 1 || e.desde != 0,
+            Sistema::No => cuantos == 0 || cuantos > 4 || e.desde % 4 != 0 || e.desde as u64 + 4 * cuantos as u64 > paso as u64,
+        };
+        if mal {
             return None;
         }
         i += 8;
+    }
+    // Sin paso, ningun elemento de la memoria (un cuadro de SV_VertexID).
+    if paso == 0 && elementos.iter().take(n_elementos).any(|e| e.sistema == Sistema::No) {
+        return None;
     }
     let mut leer_cargas = |cuantas: usize| -> Option<[Carga; MAX_CARGAS]> {
         let mut c = [NINGUNA; MAX_CARGAS];
@@ -407,7 +420,7 @@ pub fn escribir(out: &mut [u8], r: &Receta) -> Option<usize> {
     poner(r.ps);
     for e in r.elementos() {
         poner(&e.desde.to_le_bytes());
-        poner(&(e.componentes as u32).to_le_bytes());
+        poner(&(e.componentes as u32 | e.sistema.numero() << 8).to_le_bytes());
     }
     for c in r.cargas_vs().iter().chain(r.cargas_ps()) {
         poner(&carga_a(*c));
@@ -488,7 +501,7 @@ pub fn clave(r: &Receta, out: &mut [u8; MAX_CLAVE]) -> usize {
     poner(r.ps);
     for e in r.elementos() {
         poner(&e.desde.to_le_bytes());
-        poner(&(e.componentes as u32).to_le_bytes());
+        poner(&(e.componentes as u32 | e.sistema.numero() << 8).to_le_bytes());
     }
     for c in r.cargas_vs().iter().chain(r.cargas_ps()) {
         poner(&carga_a(*c));
@@ -621,8 +634,8 @@ mod pruebas {
             termometro_vs: None,
             termometro_ps: None,
         };
-        r.elementos[0] = Elemento { desde: 0, componentes: 4 };
-        r.elementos[1] = Elemento { desde: 16, componentes: 4 };
+        r.elementos[0] = Elemento::memoria(0, 4);
+        r.elementos[1] = Elemento::memoria(16, 4);
         for k in 0..8u8 {
             r.cargas_vs[k as usize] = Carga::Entrada { elemento: k / 4, componente: k % 4, reg: k };
         }
@@ -698,8 +711,8 @@ mod pruebas {
             termometro_vs: None,
             termometro_ps: None,
         };
-        r.elementos[0] = Elemento { desde: 0, componentes: 4 };
-        r.elementos[1] = Elemento { desde: 16, componentes: 4 };
+        r.elementos[0] = Elemento::memoria(0, 4);
+        r.elementos[1] = Elemento::memoria(16, 4);
         for k in 0..8u8 {
             r.cargas_vs[k as usize] = Carga::Entrada { elemento: k / 4, componente: k % 4, reg: k };
         }
@@ -777,5 +790,63 @@ mod pruebas {
         caja[93] = 3;
         let l = leer(&caja[..n]).unwrap();
         assert_eq!((l.termometro_vs, l.termometro_ps), (Some(7), Some(2)));
+    }
+
+    /// ** LI2e (12-10): un elemento de SISTEMA (SV_VertexID) cruza la receta
+    /// en los bits 8..10 de `componentes`; sin paso, solo con elementos de
+    /// sistema. Y la prueba del NO: lo que no es un sistema conocido, un
+    /// sistema de mas de un componente o un elemento de memoria sin paso, no
+    /// se lee.
+    #[test]
+    fn el_valor_de_sistema_cruza_la_receta() {
+        let bytes = |w: &[(u64, u64)]| w.iter().flat_map(|&(lo, hi)| lo.to_le_bytes().into_iter().chain(hi.to_le_bytes())).collect::<std::vec::Vec<u8>>();
+        let vs = bytes(&[c::mov(0, c::r(0), 1), c::exit(0)]);
+        let ps = bytes(&[c::exit(0)]);
+        let datos = std::vec![0u8; 16];
+        let dst = Destino { fila: 5120, ancho: 1280, alto: 720, rgb: false };
+        let mut r = Receta {
+            n: 3,
+            vs: &vs,
+            ps: &ps,
+            registros_vs: 8,
+            registros_ps: 8,
+            salidas: 1,
+            posicion: 0,
+            filas: 0,
+            paso: 0,
+            elementos: [NINGUNO; MAX_ELEMENTOS],
+            n_elementos: 2,
+            cargas_vs: [NINGUNA; MAX_CARGAS],
+            n_cargas_vs: 2,
+            cargas_ps: [NINGUNA; MAX_CARGAS],
+            n_cargas_ps: 0,
+            genericos: [None; MAX_GENERICOS],
+            n_genericos: 0,
+            datos: &datos,
+            dibujo: Dibujo { indices: None, vertices: 3, destino: Some((0x1000_0000, dst)), ..Dibujo::default() },
+            texturas: [DeApp::NINGUNA; MAX_TEXTURAS],
+            termometro_vs: None,
+            termometro_ps: None,
+        };
+        r.elementos[0] = Elemento::de_sistema(Sistema::Vertice);
+        r.elementos[1] = Elemento::de_sistema(Sistema::Instancia);
+        r.cargas_vs[0] = Carga::Entrada { elemento: 0, componente: 0, reg: 0 };
+        r.cargas_vs[1] = Carga::Entrada { elemento: 1, componente: 0, reg: 1 };
+        let mut caja = std::vec![0u8; MAX_RECETA];
+        let n = escribir(&mut caja, &r).expect("se escribe");
+        let l = leer(&caja[..n]).expect("se lee sin paso: solo valores de sistema");
+        assert_eq!(l.paso, 0);
+        assert_eq!(l.elementos(), &[Elemento::de_sistema(Sistema::Vertice), Elemento::de_sistema(Sistema::Instancia)]);
+        // Donde va la palabra `componentes` del primer elemento.
+        let e0 = CABECERA_2 + vs.len() + ps.len() + 4;
+        assert_eq!(u32le(&caja, e0), 1 | 1 << 8);
+        let con = |k: usize, v: u32| {
+            let mut c2 = caja.clone();
+            c2[k..k + 4].copy_from_slice(&v.to_le_bytes());
+            leer(&c2[..n]).is_some()
+        };
+        assert!(!con(e0, 1 | 3 << 8), "un sistema que no existe");
+        assert!(!con(e0, 2 | 1 << 8), "SV_VertexID es UN entero");
+        assert!(!con(e0, 1), "un elemento de memoria sin paso");
     }
 }

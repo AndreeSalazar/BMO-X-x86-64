@@ -217,7 +217,8 @@ pub fn del_pso(en: &Enlace, ia: &[ElementoIa], paso: u32) -> Vec<String> {
                     }
                 }
             }
-            _ => poner!("un valor de sistema en el de vertice (SV_VertexID, SV_InstanceID)".into()),
+            // LI2e (12-10): SV_VertexID y SV_InstanceID, de la 3060.
+            Fuente::Vertice | Fuente::Instancia => {}
         }
     }
     if pso::posicion_zw(en) {

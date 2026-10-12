@@ -225,17 +225,29 @@ pub fn escribir(c: &Cuerpos, l: &Lote, b: Blanco, limpiar_z: Option<u32>, datos:
     }
     // Los DATOS: el cbuffer (a ceros lo que no traiga), los vertices que se
     // piden TAL CUAL (hasta el mayor indice) y detras los indices, en u32.
+    // LI2e (12-10): la 3060 lee el vertice `vid` y su SV_VertexID ES `vid`.
+    // Por eso los indices van SIN el vertice base y los vertices se copian
+    // DESDE el base: la direccion de cada vertice no cambia, y el `vid` es el
+    // SV_VertexID de la CPU (`lote::entrada`: el id menos el base). Sin paso,
+    // solo valores de sistema (un cuadro de pantalla completa).
     let paso = l.paso;
-    if paso == 0 || paso % 4 != 0 {
+    let de_memoria = c.elementos.iter().any(|e| e.sistema == bmo_gpu_ga10x::pegamento::Sistema::No);
+    if paso % 4 != 0 || (paso == 0 && de_memoria) {
         return Err(format!("un paso de vertice de {paso} bytes"));
     }
-    let hay = l.vertices.len() / paso;
-    let mayor = *l.ids.iter().max().unwrap_or(&0) as usize;
-    if mayor >= hay {
-        return Err(format!("el indice {mayor} pasa de los {hay} vertices del bufer"));
+    let base = l.base_vertice as usize;
+    if l.ids.iter().any(|&id| (id as usize) < base) {
+        return Err(format!("un indice por debajo del vertice base ({base}): un BaseVertexLocation negativo"));
+    }
+    let mayor = *l.ids.iter().max().unwrap_or(&(base as u32)) as usize;
+    if paso != 0 {
+        let hay = l.vertices.len() / paso;
+        if mayor >= hay {
+            return Err(format!("el indice {mayor} pasa de los {hay} vertices del bufer"));
+        }
     }
     let cb = 16 * c.filas as usize;
-    let vertices = mayor + 1;
+    let vertices = mayor + 1 - base;
     let desde = (cb + vertices * paso).next_multiple_of(4);
     let total = (desde + 4 * n).next_multiple_of(16);
     if total > DATOS_MAX {
@@ -245,9 +257,9 @@ pub fn escribir(c: &Cuerpos, l: &Lote, b: Blanco, limpiar_z: Option<u32>, datos:
     datos.resize(total, 0);
     let k = l.cb.len().min(cb);
     datos[..k].copy_from_slice(&l.cb[..k]);
-    datos[cb..cb + vertices * paso].copy_from_slice(&l.vertices[..vertices * paso]);
+    datos[cb..cb + vertices * paso].copy_from_slice(&l.vertices[base * paso..(base + vertices) * paso]);
     for (i, &id) in l.ids.iter().enumerate() {
-        datos[desde + 4 * i..desde + 4 * i + 4].copy_from_slice(&id.to_le_bytes());
+        datos[desde + 4 * i..desde + 4 * i + 4].copy_from_slice(&(id - base as u32).to_le_bytes());
     }
     if c.elementos.len() > MAX_ELEMENTOS || c.cargas_vs.len() > MAX_CARGAS || c.cargas_ps.len() > MAX_CARGAS || c.genericos.len() > MAX_GENERICOS {
         return Err(String::from("el PSO trae mas entradas o cargas de las que caben en una receta"));

@@ -250,9 +250,22 @@ y `puerta.rs`; el juez en `platform/drivers/gpu/ga10x/src/sass/juez.rs`):
       **Falta la mitad de la 3060:** varios destinos en la tuberia
       (`pso.rs` aun dice "varios render targets") y su mezcla en el ROP,
       con la regla 4 del juez (el redondeo de la 3060) en el metal.
-- [ ] **LI2e -- la entrada de vertices de verdad**: formatos de 8 y 16 bits
+- [~] **LI2e -- la entrada de vertices de verdad**: formatos de 8 y 16 bits
       (UNORM, SNORM, half) y `SV_VertexID` / `SV_InstanceID`. **Como se
       sabe:** las instancias de N5.19 por la 3060, con su huella.
+      *12-10, la mitad de los valores de sistema* (el censo de Cyberpunk: 16
+      lotes de 34): `pegamento::Sistema` en la receta (bits 8..10 de
+      `componentes`); SV_VertexID es el `vid` del ALD (IMAD.SHL por 1) y la
+      puerta escribe los indices SIN el vertice base y copia los vertices
+      DESDE el: el `vid` es el de la CPU (`lote::entrada`) y la memoria no se
+      mueve. SV_InstanceID, 0 (una instancia). Sin paso, un cuadro sin bufer
+      de vertices. Lo probo el banco: `el_cuadro_de_sv_vertexid_va_a_la_3060`
+      y `con_vertice_base_el_vid_es_el_de_la_cpu` (puerta, receta, pegado de
+      prueba con su juez y el vigia contra la CPU), `sv_vertexid_sale_del_vid`
+      y `el_valor_de_sistema_cruza_la_receta`, con sus pruebas del NO. El
+      juez cazo un fallo del primer intento (R3: el cuerpo esperaba la
+      barrera de unas cargas que no habia). **Falta:** el metal, los formatos
+      de 8 y 16 bits y varias instancias.
 - [ ] **LI2f -- el computo del juego en la 3060.** Un PSO de computo al QMD
       (la 3060 ya corre computo fijo: `trabajos/blur.rs`), con UAV. **Como
       se sabe:** `olas` (A10) por la 3060, con su huella.

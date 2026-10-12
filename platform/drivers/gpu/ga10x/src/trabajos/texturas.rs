@@ -711,8 +711,8 @@ pub mod prueba {
             termometro_vs: None,
             termometro_ps: None,
         };
-        r.elementos[0] = Elemento { desde: 0, componentes: 4 };
-        r.elementos[1] = Elemento { desde: 16, componentes: 4 };
+        r.elementos[0] = Elemento::memoria(0, 4);
+        r.elementos[1] = Elemento::memoria(16, 4);
         for k in 0..8u8 {
             r.cargas_vs[k as usize] = Carga::Entrada { elemento: k / 4, componente: k % 4, reg: k };
         }

@@ -1067,6 +1067,8 @@ mod pruebas;
 #[cfg(test)]
 mod pruebas_saltos;
 #[cfg(test)]
+mod pruebas_sistema;
+#[cfg(test)]
 mod pruebas_vivo;
 #[cfg(test)]
 mod pruebas_libreta;
