@@ -25,7 +25,7 @@ const FORMATOS: [u32; 6] = [2, 6, 10, 16, 34, 54];
 fn epilogo(r: Redondeo) -> Vec<(u64, u64)> {
     let cuerpo = [bmo_gpu_ga10x::cubo::mov(5, 0), bmo_gpu_ga10x::cubo::EXIT];
     let mut g = pegamento::Pegado::VACIO;
-    pegamento::pixel_entero_en(&mut g, &cuerpo, 8, &[], Datos { filas: 0, paso: 0, elementos: &[] }, &[], None, r).expect("se pega");
+    pegamento::pixel_entero_en(&mut g, &cuerpo, 8, &[], Datos { filas: 0, paso: 0, elementos: &[] }, &[], None, r, None).expect("se pega");
     let mut v: Vec<(u64, u64)> = g
         .codigo()
         .iter()

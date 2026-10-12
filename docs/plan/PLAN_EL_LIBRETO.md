@@ -201,13 +201,37 @@ y `puerta.rs`; el juez en `platform/drivers/gpu/ga10x/src/sass/juez.rs`):
       el juez) y `la_z_y_la_w_siguen_por_la_cpu`; `la_posicion_cruza_la_receta`.
       **Falta:** el metal (el censo dira cuantos lotes de Cyberpunk solo leian
       x e y).
-- [ ] **LI2b -- programas largos.** Hoy el cuerpo cabe en un hueco de 128
+- [~] **LI2b -- programas largos.** Hoy el cuerpo cabe en un hueco de 128
       instrucciones de la tuberia. Un sombreador de Cyberpunk no. El codigo
       tiene que vivir en su propia region de la VRAM (como hace el driver
       de NVIDIA), con el juez leyendo el programa entero, y los registros
       repartidos con un planificador de verdad (hoy 64). **Como se sabe:**
       un programa de 2000 instrucciones del banco da los mismos bits que la
       CPU, juzgado entero.
+      **12-10, hecho en el anfitrion (el censo del metal: el de vertice de
+      129 a 256, el de pixel hasta 4096):**
+      - `vram::CODIGO`: 2 x 17 paginas de VRAM detras de los DATOS (libres
+        hasta las tablas de GR), mapeadas con el tramo en la PT 336..369
+        (`mapear_tramo` las escribe y las relee; el escritorio pregunta si
+        son usables con `vram::MAPEADO_BYTES`).
+      - `juez::MAX_INSTRUCCIONES` = 4096: el kernel juzga el programa
+        ENTERO donde esta. `tuberia::VS/PS` en la region; las ordenes los
+        buscan alli (`cubo::hasta_el_dibujo_de` recibe donde esta cada
+        programa: el cubo de X5 sigue en sus huecos). `escribir_programa`
+        pone a cero solo lo que queda de su ultima pagina.
+      - El taller del kernel (estatico) mide 526 KiB; el fin del kernel
+        queda en ~17,9 MB, dentro de los 32 MiB que mapea el arranque. En
+        PROTON-X el `Pegado` (64 KiB) y el taller van en el monton, y el
+        binario no tiene un marco de pila de mas de 19 KiB (medido).
+      - Pruebas: `pruebas_largos.rs` (2000 instrucciones: los bits de la CPU
+        en los dos ABI, el pegamento y el juez enteros, y el juez en vivo;
+        lo de mas de 4096, por la CPU), `tuberia_vram.rs` (el largo en su
+        region, el corto deja su pagina limpia, las ordenes apuntan alli).
+      **Falta:** el metal (Cyberpunk con `smp all` y `personal 3060`); los
+      registros siguen en 64 (lo que pasa de ahi lo dice el emisor); y un
+      programa cambiado se reescribe ENTERO por PRAMIN en cada dibujo frio
+      (hasta 64 KiB): si el metal lo dice lento, una cache de programas en
+      la VRAM (cada uno subido UNA vez) es la pieza siguiente.
 - [ ] **LI2c -- texturas** (`TEX`; M3 de `PLAN_VERRANO.md`). El TIC y el
       TSC ya se escriben (`muestreo.rs`, T0); falta la instruccion, el pool
       de descriptores en la VRAM y subir la textura. **Como se sabe:** el
@@ -250,6 +274,34 @@ y `puerta.rs`; el juez en `platform/drivers/gpu/ga10x/src/sass/juez.rs`):
       **Falta la mitad de la 3060:** varios destinos en la tuberia
       (`pso.rs` aun dice "varios render targets") y su mezcla en el ROP,
       con la regla 4 del juez (el redondeo de la 3060) en el metal.
+      **12-10, la MEZCLA por la 3060, EXACTA y en el SOMBREADOR** (el censo
+      de Cyberpunk: 12 lotes de 34). El ROP mezcla con su aritmetica y a 8
+      bits nadie dice con cuanta precision; la regla es "los bits de la CPU"
+      (DL10). Asi que el pegamento del de pixel, tras el cuerpo, lee lo que
+      ya esta en el destino (la posicion por IPA y su entero EXACTO, la
+      direccion, un LDG.STRONG.SYS), lo pasa a float como la CPU (byte/255,
+      la conversion de `formatos`) y mezcla con FMUL, FMUL y FADD, cada uno
+      con su redondeo -- lo que hace `Mezcla::aplicar` --; el alfa el ultimo
+      y la mascara deja lo de antes. Despues, el redondeo de su formato.
+      `ga10x/src/trabajos/mezcla.rs` (la libreria de la 3060): los 14
+      factores de los juegos, sumar y las dos restas, la mascara y el factor
+      de `OMSetBlendFactor`; la receta la lleva en 24 B (+88 bit 2). Probado:
+      **mas de 20.000 mezclas** (cada factor de origen y de destino, las tres
+      operaciones, mascaras, RGBA8, BGRA8, RGBA y R32 de float, pixeles
+      negativos, de mas de 1 y -0) dan los bits de la CPU; saboteada (la
+      resta al reves) cae hasta en el signo de un cero. **Lo que pide:** que
+      ningun pixel se pinte dos veces en el lote (el sombreador lee lo de
+      ANTES del lote; el ROP ordena, el sombreador no): `proton-x-sm86
+      solape.rs` lo mira con las posiciones del de vertice de la CPU -- un
+      triangulo, cajas que no se tocan, o dos que comparten un lado a sus
+      dos lados (el cuadro de pantalla completa, los de la interfaz) --; sin
+      Z (el color iria a la sombra) ni limpieza en el lote; y el kernel no la
+      manda a la pantalla directa (Z1). MIN, MAX y `SRC_ALPHA_SAT` se quedan
+      en la CPU: usan un minimo, y el signo del cero de un minimo no se
+      promete igual. De punta a punta: el cuadro con transparencia, a 8 bits
+      y en RGBA16F, por la puerta, la receta y el pegado del kernel con su
+      juez; y cada NO con su porque. **Falta:** el metal; las particulas y
+      lo que se pisa (el ROP, medido en el metal, o por la CPU).
 - [~] **LI2e -- la entrada de vertices de verdad**: formatos de 8 y 16 bits
       (UNORM, SNORM, half) y `SV_VertexID` / `SV_InstanceID`. **Como se
       sabe:** las instancias de N5.19 por la 3060, con su huella.
@@ -266,6 +318,24 @@ y `puerta.rs`; el juez en `platform/drivers/gpu/ga10x/src/sass/juez.rs`):
       juez cazo un fallo del primer intento (R3: el cuerpo esperaba la
       barrera de unas cargas que no habia). **Falta:** el metal, los formatos
       de 8 y 16 bits y varias instancias.
+      *12-10, los FORMATOS* (el censo de Cyberpunk: 12 lotes de 34):
+      `ga10x/src/trabajos/formatos.rs` -- UNORM, SNORM, half, enteros de 8,
+      16 y 32, R10G10B10A2 y B8G8R8A8, en la libreria de la 3060 --. El
+      pegamento carga la palabra que lleva cada componente y la convierte
+      con instrucciones de latencia FIJA: sus bits abajo (SHF), el entero
+      EXACTO como float por la suma magica (0x4B000000, sin I2F) y la
+      division de IEEE por el cociente corregido (q = n/D aproximado, e = n -
+      q*D con una FFMA, q + e/D), y max(-1) en SNORM. **Los mismos bits que
+      la CPU (`formato_ia::leer`) en TODO el dominio**: los 256 valores de 8
+      bits, los 65 536 de 16, los de 10 y 2, con basura alrededor -- mas de
+      un millon --; saboteado (sin la correccion del cociente) cae en el
+      0x101 de UNORM16. El formato viaja en los bits 16..24 de `componentes`
+      de la receta; el vigia le da al simulador lo que lee la CPU. De punta
+      a punta: el cubo con su NORMAL en SNORM16 o half y su COLOR en RGBA8 o
+      BGRA8 cruza la puerta, la receta, el pegado del kernel (con sus
+      conversiones) y su juez, y el vigia lo da igual a la CPU.
+      **Falta:** R11G11B10_FLOAT (lo dice el censo), varias instancias y el
+      metal.
 - [ ] **LI2f -- el computo del juego en la 3060.** Un PSO de computo al QMD
       (la 3060 ya corre computo fijo: `trabajos/blur.rs`), con UAV. **Como
       se sabe:** `olas` (A10) por la 3060, con su huella.
@@ -346,8 +416,14 @@ y `puerta.rs`; el juez en `platform/drivers/gpu/ga10x/src/sass/juez.rs`):
       pasar 1280x720; la sombra de la Z es de 1280x720 a 8 bits; y un
       destino de float de 1920x1080 son 31.6 MiB, el doble del mapa del
       destino (8 PT = 16 MiB). Es Q0a1 con su sombra y su mapa: otra pieza.
-      **Falta:** verlo en el metal (Cyberpunk con `personal 3060`: que su
-      ventana o su cadena midan 1280x720 y el censo deje de decir la medida).
+      **El metal (12-10, 11:21):** la consola dijo "la pantalla que ve el
+      juego: 1280x720" y la ventana de Cyberpunk salio de 1280x720. Lo que el
+      censo seguia contando como "otra medida" (18 de 34 lotes) son los
+      render targets PROPIOS del juego (256x1, 256x256: sus tablas), no la
+      ventana: desde ahora el censo los dice aparte ("un render target del
+      juego de otra medida"). Abrirlos es Q0a1 (la puerta de otras medidas),
+      no esta casilla. Y el juez en vivo tiraba un PSO por un `Load` (TLD) que
+      el simulador SI sabe: le faltaba la textura nula (arreglado, con prueba).
 
 ## 4.3 PROTON-X habla VERRANO
 

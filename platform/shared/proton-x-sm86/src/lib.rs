@@ -91,6 +91,9 @@ mod saltos;
 pub mod pso;
 /// P3b4c: el lote a la PUERTA de la 3060 (la receta VRN2 que manda la app).
 pub mod puerta;
+/// 12-10: SIN SOLAPE -- la mezcla en el sombreador pide que ningun pixel se
+/// pinte dos veces en el lote.
+pub mod solape;
 /// LI0 (12-10): el censo de la 3060 -- todas las puertas de cada lote, contadas.
 pub mod censo;
 
@@ -1068,6 +1071,12 @@ mod pruebas;
 mod pruebas_saltos;
 #[cfg(test)]
 mod pruebas_sistema;
+#[cfg(test)]
+mod pruebas_medida;
+#[cfg(test)]
+mod pruebas_largos;
+#[cfg(test)]
+mod pruebas_mezcla;
 #[cfg(test)]
 mod pruebas_flotante;
 #[cfg(test)]

@@ -367,7 +367,15 @@ struct Estado {
     avisos: u32,
     /// La huella de cada aviso ya dicho (02-10): uno repetido no gasta sitio.
     dichos: Vec<u64>,
+    /// El ULTIMO aviso (12-10), para el cartel rojo de quien carga: solo lo
+    /// que fue mal, no las notas del diario. Sus bytes, cuantos y su huella.
+    ultimo: [u8; ULTIMO],
+    largo: usize,
+    huella: u64,
 }
+
+/// Lo que se guarda del ultimo aviso.
+const ULTIMO: usize = 256;
 
 struct Global(UnsafeCell<Estado>);
 
@@ -383,6 +391,9 @@ static ESTADO: Global = Global(UnsafeCell::new(Estado {
     cola: Cola::nueva(),
     avisos: 0,
     dichos: Vec::new(),
+    ultimo: [0; ULTIMO],
+    largo: 0,
+    huella: 0,
 }));
 
 /// **El estado, un momento.** Nunca se llama a la `WndProc` desde dentro:
@@ -427,6 +438,7 @@ pub unsafe fn empezar(p: Plataforma) {
         e.cola = Cola::nueva();
         e.avisos = 0;
         e.dichos.clear();
+        (e.largo, e.huella) = (0, 0);
     });
     hilos::reiniciar();
     expropiar::reiniciar();
@@ -512,6 +524,15 @@ pub fn aviso(texto: &str) {
         if nuevo {
             e.dichos.push(huella);
         }
+        // El ultimo, para el cartel (aunque se repita: es lo de ahora).
+        if e.huella != huella {
+            let mut n = texto.len().min(ULTIMO);
+            while !texto.is_char_boundary(n) {
+                n -= 1;
+            }
+            e.ultimo[..n].copy_from_slice(&texto.as_bytes()[..n]);
+            (e.largo, e.huella) = (n, huella);
+        }
         (e.plataforma, nuevo)
     });
     if let Some(p) = p {
@@ -521,6 +542,19 @@ pub fn aviso(texto: &str) {
             (p.escribir)(b"\n");
         }
     }
+}
+
+/// **Lo que fue mal** (12-10), para el cartel rojo de quien carga: cuantos
+/// avisos distintos (hasta [`AVISOS`]; 0: ninguno) y el ultimo, copiado en
+/// `sale` (devuelve cuantos bytes). Solo los AVISOS -- lo que la casa no supo
+/// hacer --: las notas del diario (`GetCurrentDirectoryW: ...`, las rutas
+/// que no estan) se dicen por la consola pero no son fallos.
+pub fn lo_que_fue_mal(sale: &mut [u8]) -> (u32, usize) {
+    con(|e| {
+        let n = e.largo.min(sale.len());
+        sale[..n].copy_from_slice(&e.ultimo[..n]);
+        (e.dichos.len() as u32, n)
+    })
 }
 
 /// **LA TABLA DE LA CASA**: la direccion de cada funcion que existe, tal

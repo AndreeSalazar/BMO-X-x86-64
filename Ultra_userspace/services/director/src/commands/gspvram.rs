@@ -287,8 +287,9 @@ pub(crate) const NO_TRAMO_MAL: u32 = 0x128;
 
 /// **Mapear el tramo** (L1d1): el kernel pone las tablas y relee.
 pub(crate) fn mapear_tramo() -> Result<u64, u32> {
-    // El tramo y, detras, los DATOS de VERRANO (P3b4b): se mapean juntos.
-    let r = match super::gsprpc::usable(vram::TRAMO, 4096 * (vram::TRAMO_PAGINAS + vram::DATOS_PAGINAS) as u64) {
+    // El tramo y, detras, los DATOS de VERRANO (P3b4b) y el CODIGO de la
+    // tuberia (LI2b): se mapean juntos.
+    let r = match super::gsprpc::usable(vram::TRAMO, vram::MAPEADO_BYTES) {
         None => Err(NO_VRAM_SIN_REGIONES),
         Some(false) => Err(NO_VRAM_NO_USABLE),
         Some(true) => bmo::iommu_orden(bmo::IOMMU_OP_GPU_TRAMO),
@@ -314,7 +315,7 @@ pub(crate) fn orden_tramo(dsk: &mut Desktop, p: &bmo::Pantalla) -> After {
     let g = &mut dsk.out.grid;
     if r.is_ok() {
         g.with_ink(INK_GOOD);
-        g.text(b"  LA GPU YA VE 64 KiB DE TU VRAM POR DIRECCION VIRTUAL: tablas escritas y releidas\n");
+        g.text(b"  LA GPU YA VE 264 KiB DE TU VRAM POR DIRECCION VIRTUAL (el tramo, los DATOS y el CODIGO de la tuberia): tablas escritas y releidas\n");
     } else {
         g.with_ink(INK_ERR);
         g.text(b"  el tramo no quedo mapeado: mira la fila `tramo`\n");

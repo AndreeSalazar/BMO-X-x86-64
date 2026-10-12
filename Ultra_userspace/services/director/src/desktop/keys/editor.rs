@@ -553,6 +553,15 @@ pub(crate) fn antes_de_proton_x(dsk: &mut Desktop, p: &bmo::Pantalla, target: &[
     if target.windows(8).any(|w| w == b"--censo ") {
         return;
     }
+    // ** El metal del 12-10: Cyberpunk corrio sin `smp all` (38 s por
+    // fotograma, todo en el BSP) y nadie lo dijo hasta leer el informe. Lo
+    // que la 3060 no dibuja lo pinta la CPU, y sin los APs, en UN nucleo.
+    if bmo::info(bmo::INFO_SMP_VIVOS) == 0 {
+        let g = &mut dsk.out.grid;
+        g.with_ink(INK_ECHO);
+        g.text(b"  sin `smp all`: lo que la 3060 no dibuje lo pinta la CPU en UN nucleo (escribe `smp all` antes, y se reparte en todos)\n");
+        g.with_ink(INK_PLAIN);
+    }
     if !crate::commands::verificar::hecho(b"init") {
         let g = &mut dsk.out.grid;
         g.with_ink(INK_ECHO);

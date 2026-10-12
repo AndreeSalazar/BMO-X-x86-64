@@ -207,10 +207,13 @@ pub fn asas(cargas: &[Carga]) -> u64 {
 pub struct Elemento {
     /// Su byte dentro del vertice.
     pub desde: u32,
-    /// Cuantos float trae (1..4).
+    /// Cuantos componentes trae (1..4).
     pub componentes: u8,
     /// De la memoria del vertice, o un valor de sistema.
     pub sistema: Sistema,
+    /// ** LI2e (12-10): su `DXGI_FORMAT` (`formatos::forma`), o 0: floats de
+    /// 32 bits (`componentes` de ellos), lo de siempre.
+    pub formato: u8,
 }
 
 /// **Los valores de sistema del de vertice** (LI2e, 12-10: el censo de
@@ -257,12 +260,44 @@ impl Sistema {
 impl Elemento {
     /// De la memoria del vertice.
     pub const fn memoria(desde: u32, componentes: u8) -> Self {
-        Elemento { desde, componentes, sistema: Sistema::No }
+        Elemento { desde, componentes, sistema: Sistema::No, formato: 0 }
+    }
+
+    /// ** LI2e (12-10): de la memoria, en el `DXGI_FORMAT` `formato`, si la
+    /// 3060 lo lee (`formatos::forma`); los floats de 32, como [`Self::memoria`].
+    pub const fn con_formato(desde: u32, formato: u32) -> Option<Self> {
+        match crate::formatos::forma(formato) {
+            Some(f) if f.es_float32() => Some(Elemento::memoria(desde, f.componentes())),
+            Some(f) => Some(Elemento { desde, componentes: f.componentes(), sistema: Sistema::No, formato: formato as u8 }),
+            None => None,
+        }
     }
 
     /// Un valor de sistema (un entero, en x).
     pub const fn de_sistema(sistema: Sistema) -> Self {
-        Elemento { desde: 0, componentes: 1, sistema }
+        Elemento { desde: 0, componentes: 1, sistema, formato: 0 }
+    }
+
+    /// Su forma (la de los floats de 32 si no dice otra).
+    pub const fn forma(&self) -> Option<crate::formatos::Forma> {
+        match self.formato {
+            0 => crate::formatos::forma(match self.componentes {
+                1 => 41,
+                2 => 16,
+                3 => 6,
+                4 => 2,
+                _ => return None,
+            }),
+            f => crate::formatos::forma(f as u32),
+        }
+    }
+
+    /// Los bytes que lee de la memoria del vertice.
+    pub const fn bytes(&self) -> u32 {
+        match self.forma() {
+            Some(f) => f.bytes(),
+            None => 0,
+        }
     }
 }
 
@@ -579,6 +614,9 @@ pub fn vertice_con_libreta_en(g: &mut Pegado, cuerpo: &[(u64, u64)], registros: 
     // V:V+1 = D:D+1 + V (espera la tabla).
     o.p(iadd3_acarreo(v, 0, d, v, espera(1 << B_TABLA)));
     o.p(imad_x(v + 1, d + 1, 0xFF, 0, ALU));
+    // LI2e: los componentes que hay que convertir, tras sus cargas.
+    let mut convertir = [(crate::formatos::forma(41).unwrap(), 0u64, 0u32, 0u32); 64];
+    let mut convertir_n = 0;
     for c in cargas {
         if let Carga::Entrada { elemento, componente, reg } = *c {
             let Some(el) = datos.elementos.get(elemento as usize) else { return Err(NoPega::Carga) };
@@ -598,25 +636,48 @@ pub fn vertice_con_libreta_en(g: &mut Pegado, cuerpo: &[(u64, u64)], registros: 
                 }
                 Sistema::No => {}
             }
-            if el.componentes == 0 || el.componentes > 4 || el.desde + 4 * el.componentes as u32 > paso {
+            let Some(f) = el.forma() else { return Err(NoPega::Carga) };
+            if el.componentes == 0 || el.componentes > 4 || el.desde % 4 != 0 || el.desde + el.bytes() > paso {
                 return Err(NoPega::Carga);
             }
-            if componente < el.componentes {
-                o.p(ldg(reg as u64, v, el.desde + 4 * componente as u32, carga(B_CARGAS)));
-            } else {
-                // El que no trae: 0, y 1 en w (D3D).
-                o.p(mov(reg as u64, if componente == 3 { 0x3F80_0000 } else { 0 }));
+            match f.lugar(componente) {
+                // LI2e: la palabra que lo lleva; si no es un float o un
+                // entero de 32, se convierte detras (`formatos`).
+                Some((palabra, desplazamiento, bits)) => {
+                    o.p(ldg(reg as u64, v, el.desde + 4 * palabra, carga(B_CARGAS)));
+                    if bits < 32 || !matches!(f.clase, crate::formatos::Clase::Float | crate::formatos::Clase::Uint | crate::formatos::Clase::Sint) {
+                        if convertir_n == convertir.len() {
+                            return Err(NoPega::Carga);
+                        }
+                        convertir[convertir_n] = (f, reg as u64, desplazamiento, bits);
+                        convertir_n += 1;
+                    }
+                }
+                // El que no trae: 0, y 1 en w (D3D; entero en UINT/SINT).
+                None => o.p(mov(reg as u64, f.falta(componente))),
             }
         }
     }
     las_filas(&mut o, cargas, datos, d, false)?;
+    // ** LI2e: las conversiones, con TODAS las cargas ya en sus registros (la
+    // primera espera la barrera); V y V+1, que ya no hacen falta, de trabajo.
+    let mut primera = true;
+    for &(f, r, desplazamiento, bits) in &convertir[..convertir_n] {
+        let mut w = [(0, 0); crate::formatos::MAX_CONVERSION];
+        let n = crate::formatos::conversion(&f, r, v, desplazamiento, bits, &mut w);
+        for &x in &w[..n] {
+            o.p(if primera { esperando(x, 1 << B_CARGAS) } else { x });
+            primera = false;
+        }
+    }
     // Si hubo cargas de la memoria (LDG): las de un elemento del vertice y
     // las filas del cbuffer. Un cuadro de SV_VertexID sin cbuffer no lee
     // nada, y esperar su barrera seria esperar una que nadie enciende (el
-    // juez, R3: lo cazo el banco de LI2e el 12-10).
-    let leyo = cargas.iter().any(|c| match *c {
+    // juez, R3: lo cazo el banco de LI2e el 12-10). Si ya la espero una
+    // conversion, el cuerpo no la vuelve a esperar.
+    let leyo = primera && cargas.iter().any(|c| match *c {
         Carga::Fila { .. } => true,
-        Carga::Entrada { elemento, componente, .. } => datos.elementos.get(elemento as usize).is_some_and(|e| e.sistema == Sistema::No && componente < e.componentes),
+        Carga::Entrada { elemento, componente, .. } => datos.elementos.get(elemento as usize).is_some_and(|e| e.sistema == Sistema::No && e.forma().is_some_and(|f| f.lugar(componente).is_some())),
         _ => false,
     });
     // El cuerpo: su primera espera las cargas; la ultima, lo que tarde en
@@ -665,13 +726,16 @@ pub fn pixel_en(g: &mut Pegado, cuerpo: &[(u64, u64)], registros: u32, cargas: &
 /// [`pixel_en`] con la LIBRETA (9d): el apunte va antes del EXIT del
 /// cuerpo, que espera ademas su lectura.
 pub fn pixel_con_libreta_en(g: &mut Pegado, cuerpo: &[(u64, u64)], registros: u32, cargas: &[Carga], datos: Datos, genericos: &[Option<u8>], termometro: Option<u8>) -> Result<(), NoPega> {
-    pixel_entero_en(g, cuerpo, registros, cargas, datos, genericos, termometro, Redondeo::NADA)
+    pixel_entero_en(g, cuerpo, registros, cargas, datos, genericos, termometro, Redondeo::NADA, None)
 }
 
 /// [`pixel_con_libreta_en`] con el REDONDEO de la salida 0 al formato del
 /// render target (LI2d-HDR): detras del cuerpo, antes de su EXIT.
 #[allow(clippy::too_many_arguments)]
-pub fn pixel_entero_en(g: &mut Pegado, cuerpo: &[(u64, u64)], registros: u32, cargas: &[Carga], datos: Datos, genericos: &[Option<u8>], termometro: Option<u8>, redondeo: Redondeo) -> Result<(), NoPega> {
+///
+/// ** 12-10: con `mezcla` (no trivial), tras el cuerpo, lo que ya esta en
+/// ESE destino mezclado con el pixel nuevo (`mezcla`), antes del redondeo.
+pub fn pixel_entero_en(g: &mut Pegado, cuerpo: &[(u64, u64)], registros: u32, cargas: &[Carga], datos: Datos, genericos: &[Option<u8>], termometro: Option<u8>, redondeo: Redondeo, mezcla: Option<(crate::mezcla::Mezcla, crate::destino::Destino)>) -> Result<(), NoPega> {
     g.n = 0;
     let (resto, exit) = partir(cuerpo)?;
     cargas_propias(cargas, registros)?;
@@ -722,18 +786,44 @@ pub fn pixel_entero_en(g: &mut Pegado, cuerpo: &[(u64, u64)], registros: u32, ca
         sph[0] |= crate::raster::LEE_O_ESCRIBE;
     }
     let mascara = if entradas > 0 { 1 << 0 } else { 0 } | if filas { 1 << B_CARGAS } else { 0 };
+    let mezcla = mezcla.filter(|(m, _)| !m.trivial());
+    if let Some((m, _)) = mezcla {
+        if m.valida().is_err() {
+            return Err(NoPega::Carga);
+        }
+    }
+    // La mezcla (12-10): tras el cuerpo, con a..a+8 de trabajo (las filas ya
+    // se leyeron; el apunte de la libreta pone los suyos).
+    let mezclar = |o: &mut Poner, sph: &mut [u32; SPH]| {
+        let Some((m, dst)) = mezcla else { return };
+        o.p(ipa(a, ATRIBUTO_POSICION, IPA_CONTROL));
+        o.p(ipa(a + 1, ATRIBUTO_POSICION + 1, IPA_ULTIMO));
+        sph[5] |= 0b11 << (BIT_IMAP_POSICION_X - 160);
+        sph[0] |= crate::raster::LEE_O_ESCRIBE;
+        let mut primera = true;
+        crate::mezcla::leer_destino(&dst, a, &mut |w| {
+            o.p(if primera { esperando(w, 1 << 0) } else { w });
+            primera = false;
+        });
+        let mut primera = true;
+        crate::mezcla::mezclar(&m, &dst, a, &mut |w| {
+            o.p(if primera { esperando(w, 1 << crate::mezcla::B_LEER) } else { w });
+            primera = false;
+        });
+    };
     match termometro {
-        None if redondeo == Redondeo::NADA => {
+        None if redondeo == Redondeo::NADA && mezcla.is_none() => {
             for (k, &w) in cuerpo.iter().enumerate() {
                 o.p(if k == 0 { esperando(w, mascara) } else { w });
             }
         }
-        // LI2d-HDR: el cuerpo sin su EXIT, el redondeo y el EXIT.
+        // LI2d-HDR: el cuerpo sin su EXIT, la mezcla, el redondeo y el EXIT.
         None => {
             for (k, &w) in resto.iter().enumerate() {
                 let w = if k == 0 { esperando(w, mascara) } else { w };
                 o.p(if k + 1 == resto.len() { al_menos(w, 6) } else { w });
             }
+            mezclar(&mut o, &mut sph);
             redondear(&mut o, redondeo);
             o.p(exit);
         }
@@ -744,6 +834,7 @@ pub fn pixel_entero_en(g: &mut Pegado, cuerpo: &[(u64, u64)], registros: u32, ca
                 let w = if k == 0 { esperando(w, mascara) } else { w };
                 o.p(if k + 1 == resto.len() { al_menos(w, 6) } else { w });
             }
+            mezclar(&mut o, &mut sph);
             redondear(&mut o, redondeo);
             for w in crate::libreta::apunte(t as u64, a, v) {
                 o.p(w);

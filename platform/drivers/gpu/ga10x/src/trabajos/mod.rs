@@ -29,12 +29,19 @@ pub mod cubo;
 /// VERRANO V0: la tuberia FIJA -- dos programas que no cambian y los datos
 /// en un buffer (2026-09-25).
 pub mod tuberia;
+#[cfg(test)]
+mod tuberia_vram;
 /// VERRANO V1b: el anillo -- la CPU prepara el fotograma N+1 mientras la
 /// 3060 dibuja el N (2026-09-26).
 pub mod anillo;
 /// VERRANO E5: el pegamento de los programas EMITIDOS (lo que rodea al
 /// cuerpo que sale de PROTON-X: cargas, salidas y su SPH; 2026-09-28).
 pub mod pegamento;
+/// LI2e: los FORMATOS de vertice que lee el pegamento (UNORM, SNORM, half,
+/// enteros), con los bits de la CPU (2026-10-12).
+pub mod formatos;
+/// La MEZCLA en el sombreador, con los bits de la CPU (2026-10-12).
+pub mod mezcla;
 /// P3b4b: el destino de la app -- la 3060 dibuja en la RAM de un proceso
 /// (su back buffer), prestada por la IOMMU (2026-09-28).
 pub mod destino;

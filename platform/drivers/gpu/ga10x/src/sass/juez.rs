@@ -1017,10 +1017,14 @@ fn juzgar_con(n: usize, palabra: impl Fn(usize) -> (u64, u64), ctx: &Contexto, d
 }
 
 /// Cuantas instrucciones caben en un programa que se juzga en bytes: las de
-/// un hueco de VERRANO (`tuberia::HUECO`, 2 KiB de codigo tras su SPH). 128
+/// un hueco de VERRANO (`tuberia::HUECO`: su SPH y 64 KiB de codigo). 128
 /// desde E5 (28-09, dicho que si): lo que PROTON-X emite para BMOX-12, con
-/// su pegamento, no cabia en 64. El kernel lo juzga donde esta, sin copia.
-pub const MAX_INSTRUCCIONES: usize = 128;
+/// su pegamento, no cabia en 64. ** LI2b (12-10): 4096 -- el censo de
+/// Cyberpunk en el metal pedia de 129 a 4096 (el de vertice, de 129 a 256;
+/// el de pixel, hasta 4096), y el codigo vive ya en su propia region de la
+/// VRAM (`vram::CODIGO`, 17 paginas por programa). El kernel lo juzga donde
+/// esta, sin copia, entero.
+pub const MAX_INSTRUCCIONES: usize = 4096;
 
 /// **JUZGAR UN PROGRAMA TAL COMO VIAJA** -- la cabecera SPH (128 B) y
 /// detras las instrucciones, en bytes: lo que guarda el BSF (`kind` SM86) y lo
@@ -1130,11 +1134,11 @@ mod pruebas {
         assert_eq!(r7(&[(lo & !(7 << 9) | 3 << 9, hi), fin], 4).que, 3);
     }
 
-    /// E5: la puerta del kernel acepta 128 instrucciones (un HUECO de
-    /// VERRANO entero) y ni una mas; y el paquete con los dos huecos llenos
-    /// se sostiene y cabe en la caja del escritorio.
+    /// E5: la puerta del kernel acepta [`MAX_INSTRUCCIONES`] (un HUECO de
+    /// VERRANO entero; 4096 desde LI2b) y ni una mas; y el paquete con los
+    /// dos huecos llenos se sostiene y cabe en la caja del escritorio.
     #[test]
-    fn la_puerta_de_128_y_su_hueco() {
+    fn la_puerta_de_su_hueco() {
         extern crate std;
         use std::vec::Vec;
         let bytes = |n: usize| -> Vec<u8> {
@@ -1145,8 +1149,8 @@ mod pruebas {
         assert!(juzgar_programa(&bytes(MAX_INSTRUCCIONES), raster::REGISTROS).is_ok());
         let b = juzgar_programa(&bytes(MAX_INSTRUCCIONES + 1), raster::REGISTROS).unwrap_err();
         assert_eq!((b.regla, b.que), (Regla::R5CabeceraMiente, MAX_INSTRUCCIONES as u32 + 1));
-        assert_eq!(MAX_INSTRUCCIONES, 128);
-        assert_eq!(tu::HUECO, 128 + 2048);
+        assert_eq!(MAX_INSTRUCCIONES, 4096);
+        assert_eq!(tu::HUECO, 4 * SPH + 16 * 4096);
         let ps: Vec<u8> = {
             let mut b: Vec<u8> = tu::pixel().iter().flat_map(|w| w.to_le_bytes()).collect();
             b.resize(tu::HUECO, 0);

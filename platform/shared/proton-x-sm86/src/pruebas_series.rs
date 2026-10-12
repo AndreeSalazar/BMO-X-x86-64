@@ -200,6 +200,8 @@ fn cada_serie_por_la_puerta() {
         let n = por_la_puerta(&crate::pruebas_mates::una(f), &[Some(0)]).unwrap_or_else(|x| panic!("{:?}: {:?}", f, x));
         std::eprintln!("{:?}: {} instrucciones pegado", f, n);
     }
+    // ** LI2b (12-10): `mates.hlsl` entero ya CABE (4096 en `vram::CODIGO`).
     let p = bmo_proton_x::dxil::programa::compilar(&bmo_proton_x::dxil::leer(MATES).unwrap()).unwrap();
-    assert_eq!(por_la_puerta(&p, &[None, Some(0), Some(1)]), Err(NoPega::Instrucciones));
+    let n = por_la_puerta(&p, &[None, Some(0), Some(1)]).unwrap_or_else(|x: NoPega| panic!("{x:?}"));
+    assert!(n > 128, "{n}: mates.hlsl, entero");
 }

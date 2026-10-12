@@ -240,13 +240,20 @@ fn prueba(t: usize, a: usize, b: usize) -> f32 {
 /// compararon.
 pub fn comprobar(p: &Programa, e: &Emitido, que: &str) -> Result<usize, String> {
     let escritas: Vec<(usize, usize)> = p.ops.iter().filter_map(|o| if let Op::Salida { elemento, componente, .. } = *o { Some((elemento as usize, componente as usize & 3)) } else { None }).collect();
+    // La textura NULA: lo que la CPU lee sin texturas (`Recursos::NINGUNO`:
+    // un SRV nulo da ceros) en CUALQUIER forma -- TEX y TLD, 2D, 3D, cubo,
+    // array, con nivel o sin el (E8g). Hasta el 12-10 solo habia `muestrear`
+    // (el TEX 2D de nivel 0) y un `Load` de Cyberpunk tiraba el PSO entero:
+    // "op 0x167 forma 1", un TLD.SCR.B.LL.CL que el simulador SI sabe correr.
     let cero = |_: u32, _: f32, _: f32| [0.0f32; 4];
+    let nula = |_: &crate::simula::LecturaTex| [0u32; 4];
     let (mut regs, mut n) = (Vec::new(), 0usize);
     for t in 0..4 {
         let ent: Vec<[f32; 4]> = (0..p.entradas.max(1)).map(|el| core::array::from_fn(|k| prueba(t, el, k))).collect();
         let cb: Vec<u8> = (0..16 * p.filas_cb as usize / 4).flat_map(|k| prueba(t + 1, k / 4, k % 4).to_bits().to_le_bytes()).collect();
         let mut m = Maquina::nueva([&[]; 8]);
         m.muestrear = Some(&cero);
+        m.leer_textura = Some(&nula);
         for (i, r) in m.r.iter_mut().enumerate() {
             *r = 0x7FC0_0000 | i as u32;
         }
@@ -356,6 +363,8 @@ pub const VERTICES_REVISADOS: usize = 8;
 pub fn revisar(en: &Enlace, els: &[bmo_gpu_ga10x::pegamento::Elemento], vs: &Emitido, ps: &Emitido, l: &bmo_proton_x::lote::Lote) -> Result<usize, String> {
     let palabra = |b: &[u8], o: usize| b.get(o..o + 4).map_or(0, |x| u32::from_le_bytes([x[0], x[1], x[2], x[3]]));
     let cero = |_: u32, _: f32, _: f32| [0.0f32; 4];
+    // La textura nula en cualquier forma (ver `comprobar`).
+    let nula = |_: &crate::simula::LecturaTex| [0u32; 4];
     let mut ids: Vec<u32> = l.ids.to_vec();
     ids.sort_unstable();
     ids.dedup();
@@ -398,12 +407,16 @@ pub fn revisar(en: &Enlace, els: &[bmo_gpu_ga10x::pegamento::Elemento], vs: &Emi
         let leer_vertice = |el: usize, k: usize| match els.get(el) {
             Some(x) if x.sistema == bmo_gpu_ga10x::pegamento::Sistema::Vertice => if k == 0 { id.wrapping_sub(l.base_vertice) } else { 0 },
             Some(x) if x.sistema == bmo_gpu_ga10x::pegamento::Sistema::Instancia => 0,
+            // LI2e: lo que deja el pegamento es lo que lee la CPU (su
+            // conversion la prueba el banco valor a valor: `formatos`).
+            Some(x) if x.formato != 0 => l.vertices.get(v + x.desde as usize..).map_or(0, |b| bmo_proton_x::formato_ia::leer(x.formato as u32, b)[k].to_bits()),
             Some(x) if k < x.componentes as usize => palabra(l.vertices, v + x.desde as usize + 4 * k),
             Some(_) if k == 3 => 1.0f32.to_bits(),
             _ => 0,
         };
         let mut m = maquina(vs, &leer_vertice);
         m.muestrear = Some(&cero);
+        m.leer_textura = Some(&nula);
         correr(&vs.codigo, &mut m).map_err(|x| format!("el de vertice: el simulador no sabe correrlo ({x:?})"))?;
         let ent: Vec<[f32; 4]> = en.desde_ia.iter().map(|&f| bmo_proton_x::lote::entrada(l, f, id, 0)).collect();
         let mut casa = vec![[0f32; 4]; en.vs.salidas.max(1)];
@@ -414,6 +427,7 @@ pub fn revisar(en: &Enlace, els: &[bmo_gpu_ga10x::pegamento::Elemento], vs: &Emi
         let leer_pixel = |el: usize, k: usize| ent_ps.get(el).map_or(0, |x| x[k].to_bits());
         let mut m = maquina(ps, &leer_pixel);
         m.muestrear = Some(&cero);
+        m.leer_textura = Some(&nula);
         correr(&ps.codigo, &mut m).map_err(|x| format!("el de pixel: el simulador no sabe correrlo ({x:?})"))?;
         let mut casa_ps = vec![[0f32; 4]; en.ps.salidas.max(1)];
         en.ps.correr(&ent_ps, l.cb, &mut casa_ps, &mut regs);

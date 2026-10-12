@@ -504,7 +504,7 @@ mod pruebas {
     #[test]
     fn las_ordenes_de_las_piscinas() {
         use crate::copia::cabecera_en;
-        let mut e = crate::cubo::hasta_el_dibujo_de(&crate::destino::Destino { fila: 5120, ancho: 1280, alto: 720, flotante: crate::destino::Flotante::No, rgb: false }.ventana(), false, false, None, 64);
+        let mut e = crate::cubo::hasta_el_dibujo_de(&crate::destino::Destino { fila: 5120, ancho: 1280, alto: 720, flotante: crate::destino::Flotante::No, rgb: false }.ventana(), false, false, None, 64, crate::tuberia::PROGRAMAS_VA);
         let antes = e.n;
         assert!(ordenes(&mut e, 0x2_0001_4000, 1, 0x2_0001_5000, 1));
         let o = &e.o[antes..e.n];

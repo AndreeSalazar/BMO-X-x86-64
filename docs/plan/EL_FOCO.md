@@ -425,6 +425,14 @@ y 4b). Lo que la regla 1b pide despues, leido en el DIRECTOR:
       de la receta. La puerta de los juegos (PROTON-X) se queda en 1280x720
       HASTA VERLO en el metal, y lo dice. Falta el aparato del DIRECTOR (con
       Q0a2, que es quien lo usa) y el metal.
+      **12-10, la PUERTA DE LOS JUEGOS, abierta:** el metal de Cyberpunk (con
+      su ventana ya en 1280x720, LI2j) dijo que 18 de 34 lotes los paraba la
+      medida, y eran sus render targets propios (256x1, 256x256).
+      `puerta::medida` (proton-x-sm86) deja pasar cualquier medida que el
+      destino sepa -- filas de 128 en 128 B, dentro del mapa, desde una
+      pagina -- y con la Z solo 1280x720; el censo dice cada NO por su
+      nombre (`NoMedida`). Pruebas: `pruebas_medida.rs` (256x1, 256x256,
+      640x360, 1920x1080 por la receta, y los NO). **Falta el metal.**
 - [ ] **Q0a2 -- el destino EN RAM para la lamina** (como `enram` de
       `bmox12`): la 3060 dibuja en un bloque, no en la pantalla, sin leer de
       vuelta. **Como se sabe:** `gpu verrano banco inti enram` IGUAL al juez.

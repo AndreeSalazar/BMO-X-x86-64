@@ -357,3 +357,19 @@ fn igual_tres(p: &Programa, e: &Emitido, rec: &Recursos, entradas: &[[f32; 4]; 3
         assert!(crate::pruebas::mismos(m.r[k], casa[0][k]), "canal {k} con {entradas:?}: la 3060 {:#x} y la casa {:#x}", m.r[k], casa[0][k].to_bits());
     }
 }
+
+/// ** El metal del 12-10: el juez EN VIVO (`vivo::comprobar`, la
+/// comprobacion contra la CPU de cada PSO del juego) corre con la textura
+/// NULA, y tiene que saber CADA forma que el emisor pone -- un `Load` de
+/// Cyberpunk (TLD.SCR.B.LL.CL 2D) tiraba el PSO entero con "op 0x167 forma
+/// 1": el simulador solo tenia el TEX 2D de nivel 0 --. Sin texturas, la CPU
+/// lee ceros (un SRV nulo), y la 3060 de mentira tambien.
+#[test]
+fn el_juez_en_vivo_sabe_cada_forma() {
+    for (como, especie) in [(Lectura::Nivel, 2), (Lectura::Nivel, 4), (Lectura::Nivel, 7), (Lectura::Carga { enteros: false }, 2), (Lectura::Carga { enteros: false }, 7)] {
+        let p = programa(como, especie);
+        let e = emitido(&p);
+        let n = crate::vivo::comprobar(&p, &e, "de pixel").unwrap_or_else(|x| panic!("{como:?} especie {especie}: {x}"));
+        assert_eq!(n, 4 * 4, "cuatro tandas, cuatro salidas");
+    }
+}

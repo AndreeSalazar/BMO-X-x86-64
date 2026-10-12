@@ -29,7 +29,9 @@ use alloc::format;
 use alloc::string::String;
 use alloc::vec::Vec;
 
-use bmo_gpu_ga10x::destino::{Destino, Flotante};
+use bmo_gpu_ga10x::destino::Destino;
+/// Como guarda el destino cada pixel (la app la nombra por aqui: Q0a1).
+pub use bmo_gpu_ga10x::destino::Flotante;
 use bmo_gpu_ga10x::pegamento::{Canal, Carga, Elemento, Redondeo};
 use bmo_gpu_ga10x::profundidad::Z;
 use bmo_gpu_ga10x::texturas::{DeApp, Muestreo, MAX_TEXTURAS};
@@ -190,6 +192,10 @@ pub struct Blanco {
     pub flotante: Option<(u32, u32)>,
 }
 
+/// Un render target de float de un formato que `formato_ia` no sabe leer (el
+/// censo le pone su numero DXGI).
+pub const FLOTANTE_DESCONOCIDO: &str = "un render target de float de un formato que la casa no conoce";
+
 /// **Un render target de float, como lo escribe la 3060** (LI2d-HDR, 12-10):
 /// en floats de 32 (`destino::Flotante`), con la salida redondeada canal a
 /// canal a lo que la CPU guarda (`formato_ia::cuantizar`: de 32 bits igual,
@@ -197,7 +203,7 @@ pub struct Blanco {
 /// 3060 no sabe redondear todavia (11 y 10 bits, UNORM, SNORM), su porque.
 pub fn de_flotante(formato: u32, palabras: u32) -> Result<(Flotante, Redondeo), &'static str> {
     use bmo_proton_x::formato_ia::{forma, Clase};
-    let Some(f) = forma(formato) else { return Err("un render target de float de un formato que la casa no conoce") };
+    let Some(f) = forma(formato) else { return Err(FLOTANTE_DESCONOCIDO) };
     if f.clase != Clase::Float {
         return Err("un render target de UNORM o SNORM de mas de 8 bits (R10G10B10A2, RGBA16_UNORM...): la 3060 redondea floats de 32 y 16 todavia");
     }
@@ -224,18 +230,112 @@ pub fn de_flotante(formato: u32, palabras: u32) -> Result<(Flotante, Redondeo), 
 /// la sombra en bloque, y la sombra es de 8 bits por canal todavia.
 pub const Z_CON_FLOAT: &str = "un render target de float con la Z: la sombra en bloque de la 3060 es de 8 bits por canal todavia";
 
-/// **La medida que la puerta dibuja** (Q0a1): la de VERRANO, la unica que
-/// `Destino::es_la_de_verrano` deja pasar. PROTON-X, con `--3060`, se la da
-/// al juego como su pantalla (LI2j, 12-10): el juego elige de lo que ve.
+/// **La mezcla de un lote, como la lleva la 3060** (12-10): la del render
+/// target 0 (la 3060 pinta UNO) y el factor de `OMSetBlendFactor`; o por que
+/// no la sabe (MIN, MAX, `SRC_ALPHA_SAT`, dos fuentes).
+pub fn mezcla_de(m: &bmo_proton_x::mezcla::Mezclas) -> Result<bmo_gpu_ga10x::mezcla::Mezcla, &'static str> {
+    let r = m.rt[0];
+    let x = bmo_gpu_ga10x::mezcla::Mezcla { encendida: r.encendida, origen: r.origen, destino: r.destino, op: r.op, origen_a: r.origen_a, destino_a: r.destino_a, op_a: r.op_a, mascara: r.mascara & 0xF, factor: m.factor.map(f32::to_bits) };
+    x.valida()?;
+    Ok(x)
+}
+
+/// La Z con mezcla: el color iria a la sombra en bloque, no al destino.
+pub const MEZCLA_CON_Z: &str = "la mezcla con la Z: la 3060 la hace leyendo el destino de la app, y con Z el color va a la sombra en bloque";
+pub const MEZCLA_CON_LIMPIEZA: &str = "la mezcla con la limpieza del render target en el mismo lote";
+
+/// **Si la mezcla de este lote va a la 3060**, o por que no (lo mira la
+/// puerta y lo cuenta el censo).
+pub fn mezcla_puede(l: &Lote) -> Result<(), &'static str> {
+    let m = mezcla_de(&l.reglas.mezcla)?;
+    if m.trivial() {
+        return Ok(());
+    }
+    if l.reglas.profundidad.is_some() {
+        return Err(MEZCLA_CON_Z);
+    }
+    if l.limpiar_rt.is_some() {
+        return Err(MEZCLA_CON_LIMPIEZA);
+    }
+    crate::solape::sin_solape(l)
+}
+
+/// **La medida de VERRANO** (1280x720): la de la Z y la sombra en bloque de
+/// la 3060 (`Destino::es_la_de_verrano`) y la de la pantalla directa (Z1).
+/// PROTON-X, con `--3060`, se la da al juego como su pantalla (LI2j, 12-10):
+/// el juego elige de lo que ve. Sin Z, la puerta dibuja OTRAS medidas
+/// ([`medida`], Q0a1).
 pub const MEDIDA: (u32, u32) = (bmo_gpu_ga10x::cubo::ANCHO, bmo_gpu_ga10x::cubo::ALTO);
+
+/// **Por que un destino no es de la medida que la puerta dibuja** (Q0a1).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum NoMedida {
+    /// Sus filas (la casa las guarda juntas: `bytes * ancho`) no van de 128
+    /// en 128 B, lo que escribe el destino de color de la 3060.
+    Filas,
+    /// No cabe en el mapa del destino (`destino::MAX_BYTES`), o un lado pasa
+    /// de `destino::MAX_LADO`.
+    Grande,
+    /// Sus pixeles no empiezan en pagina (la IOMMU presta paginas).
+    Pagina,
+    /// Con la Z: la Z y la sombra en bloque miden 1280x720.
+    ConZ,
+}
+
+impl NoMedida {
+    /// Para el censo (fijo: agrupa lotes).
+    pub const fn motivo(self) -> &'static str {
+        match self {
+            NoMedida::Filas => "un render target cuyas filas no van de 128 en 128 B (la casa las guarda juntas; la 3060 escribe filas de 128 B)",
+            NoMedida::Grande => "un render target que no cabe en el mapa del destino de la 3060 (16 MiB, 4096 por lado)",
+            NoMedida::Pagina => "un render target que no empieza en pagina (la IOMMU presta paginas enteras)",
+            NoMedida::ConZ => "un render target de otra medida que 1280x720 con la Z (la Z y la sombra de la 3060 miden 1280x720)",
+        }
+    }
+}
+
+/// **El destino de un blanco, si la puerta sabe dibujarlo** (Q0a1, 12-10).
+/// Hasta hoy, solo 1280x720; el driver dibuja CUALQUIER medida que quepa
+/// (`Destino::valido`: el viewport y el recorte salen de ella, el banco lo
+/// probo con 640x360 igual a la CPU) y el metal del 12-10 dijo que lo que
+/// paraba a Cyberpunk eran sus render targets propios (256x1, 256x256).
+/// Con la Z, sigue en 1280x720 (`tuberia::cabe`).
+pub fn medida(b: &Blanco, flotante: Flotante, con_z: bool) -> Result<Destino, NoMedida> {
+    use bmo_gpu_ga10x::destino::{MAX_BYTES, MAX_LADO};
+    let fila = flotante.bytes() as u64 * b.ancho as u64;
+    if b.ancho == 0 || b.alto == 0 || b.ancho > MAX_LADO || b.alto > MAX_LADO || fila * b.alto as u64 > MAX_BYTES {
+        return Err(NoMedida::Grande);
+    }
+    let dst = Destino { fila: fila as u32, ancho: b.ancho, alto: b.alto, flotante, rgb: !b.bgra };
+    if dst.fila % 128 != 0 {
+        return Err(NoMedida::Filas);
+    }
+    if b.va % 4096 != 0 {
+        return Err(NoMedida::Pagina);
+    }
+    if con_z && !dst.es_la_de_verrano() {
+        return Err(NoMedida::ConZ);
+    }
+    debug_assert!(dst.valido());
+    Ok(dst)
+}
 
 /// **Escribir la receta de un lote** en `caja` (con `datos` de apoyo).
 /// `Err` = por que este lote NO va a la 3060 (va a la CPU, y se dice).
 pub fn escribir(c: &Cuerpos, l: &Lote, b: Blanco, limpiar_z: Option<u32>, datos: &mut Vec<u8>, caja: &mut [u8]) -> Result<usize, String> {
-    if l.topologia != Topologia::Lista {
-        return Err(String::from("una TIRA de triangulos: la 3060 dibuja listas todavia"));
-    }
-    let n = l.ids.len();
+    // ** 12-10: la TIRA, como LISTA -- los triangulos de la CPU
+    // (`lote::triangulos`: el impar se da la vuelta, para que su cara sea la
+    // misma), con los mismos ids --: la 3060 dibuja listas.
+    let lista: Vec<u32>;
+    let ids: &[u32] = match l.topologia {
+        Topologia::Lista => l.ids,
+        Topologia::Tira => {
+            lista = bmo_proton_x::lote::triangulos(l.ids, Topologia::Tira).concat();
+            &lista
+        }
+        _ => return Err(String::from("puntos, lineas o adyacencia: la 3060 dibuja triangulos")),
+    };
+    let n = ids.len();
     if n == 0 || n % 3 != 0 {
         return Err(format!("{n} indices: no son triangulos enteros"));
     }
@@ -253,14 +353,8 @@ pub fn escribir(c: &Cuerpos, l: &Lote, b: Blanco, limpiar_z: Option<u32>, datos:
             return Err(String::from("un render target de float que se limpia en el lote o se muestra: la 3060 lo dibuja sin limpiar y fuera de la pantalla todavia"));
         }
     }
-    let dst = Destino { fila: flotante.bytes() * b.ancho, ancho: b.ancho, alto: b.alto, flotante, rgb: !b.bgra };
-    // ** Q0a1 (EL_FOCO, 10-10): el driver ya dibuja un destino de OTRA medida
-    // (`Destino::valido`); la puerta de los juegos se queda en la de VERRANO
-    // hasta verlo en el metal -- que el viewport y el recorte de otra medida
-    // dan los bits de la casa --, y entonces se abre aqui.
-    if !dst.valido() || !dst.es_la_de_verrano() || b.va % 4096 != 0 {
-        return Err(format!("el back buffer de {}x{} (VA {:#x}): la puerta dibuja 1280x720 desde una pagina, todavia (otra medida: Q0a1, por ver en el metal)", b.ancho, b.alto, b.va));
-    }
+    // ** Q0a1 (12-10): cualquier medida que el destino de la 3060 sepa.
+    let dst = medida(&b, flotante, l.reglas.profundidad.is_some()).map_err(|m| format!("el render target de {}x{} (VA {:#x}): {}", b.ancho, b.alto, b.va, m.motivo()))?;
     let r = &l.reglas;
     if r.viewport != [0.0, 0.0, b.ancho as f32, b.alto as f32, 0.0, 1.0] {
         return Err(format!("un viewport que no es el back buffer entero ({:?})", r.viewport));
@@ -293,10 +387,10 @@ pub fn escribir(c: &Cuerpos, l: &Lote, b: Blanco, limpiar_z: Option<u32>, datos:
         return Err(format!("un paso de vertice de {paso} bytes"));
     }
     let base = l.base_vertice as usize;
-    if l.ids.iter().any(|&id| (id as usize) < base) {
+    if ids.iter().any(|&id| (id as usize) < base) {
         return Err(format!("un indice por debajo del vertice base ({base}): un BaseVertexLocation negativo"));
     }
-    let mayor = *l.ids.iter().max().unwrap_or(&(base as u32)) as usize;
+    let mayor = *ids.iter().max().unwrap_or(&(base as u32)) as usize;
     if paso != 0 {
         let hay = l.vertices.len() / paso;
         if mayor >= hay {
@@ -315,7 +409,7 @@ pub fn escribir(c: &Cuerpos, l: &Lote, b: Blanco, limpiar_z: Option<u32>, datos:
     let k = l.cb.len().min(cb);
     datos[..k].copy_from_slice(&l.cb[..k]);
     datos[cb..cb + vertices * paso].copy_from_slice(&l.vertices[base * paso..(base + vertices) * paso]);
-    for (i, &id) in l.ids.iter().enumerate() {
+    for (i, &id) in ids.iter().enumerate() {
         datos[desde + 4 * i..desde + 4 * i + 4].copy_from_slice(&(id - base as u32).to_le_bytes());
     }
     if c.elementos.len() > MAX_ELEMENTOS || c.cargas_vs.len() > MAX_CARGAS || c.cargas_ps.len() > MAX_CARGAS || c.genericos.len() > MAX_GENERICOS {
@@ -366,7 +460,7 @@ pub fn escribir(c: &Cuerpos, l: &Lote, b: Blanco, limpiar_z: Option<u32>, datos:
         genericos: [None; MAX_GENERICOS],
         n_genericos: c.genericos.len(),
         datos,
-        dibujo: Dibujo { indices: Some(desde as u32), vertices: vertices as u32, descarte, antihorario: r.antihorario, destino: Some((b.va, dst)), z, color: l.limpiar_rt, texturas: c.texturas.len() as u8, cadena: b.cadena, pantalla: false, banco: if c.banco { 16 * c.filas } else { 0 }, redondeo },
+        dibujo: Dibujo { indices: Some(desde as u32), vertices: vertices as u32, descarte, antihorario: r.antihorario, destino: Some((b.va, dst)), z, color: l.limpiar_rt, texturas: c.texturas.len() as u8, cadena: b.cadena, pantalla: false, banco: if c.banco { 16 * c.filas } else { 0 }, redondeo, mezcla: mezcla_de(&l.reglas.mezcla).map_err(String::from)? },
         texturas,
         termometro_vs: c.termometro_vs,
         termometro_ps: c.termometro_ps,
@@ -476,9 +570,11 @@ impl Puerta {
         if l.instancias != 1 || l.entradas.iter().any(|e| e.por_instancia.is_some()) {
             return Err(String::from("el lote dibuja varias instancias o lee datos por instancia: la 3060 no lo sabe todavia"));
         }
-        // N5.11: la 3060 aun no mezcla (ni enmascara): ese lote, por la CPU.
-        if !l.reglas.mezcla.trivial() {
-            return Err(String::from("el lote mezcla (o escribe solo algunos canales): la 3060 no lo sabe todavia"));
+        // N5.11 / 12-10: la mezcla del render target 0, en el sombreador
+        // (`bmo_gpu_ga10x::mezcla`), con los bits de la CPU: si la 3060 la
+        // sabe, sin la Z, sin limpieza en el lote y sin solape (`solape`).
+        if let Err(m) = mezcla_puede(l) {
+            return Err(String::from(m));
         }
         // 05-10: el stencil vive en la RAM de la casa (un byte por texel del
         // DSV) y la receta no lo lleva: ese lote, por la CPU (y `despues`
