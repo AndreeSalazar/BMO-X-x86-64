@@ -164,6 +164,8 @@ fn carga_de(b: &[u8]) -> Option<Carga> {
         0 => Some(Carga::Entrada { elemento: b[1], componente: b[2], reg: b[3] }),
         1 => Some(Carga::Fila { fila: b[1] as u16 | (b[2] as u16) << 8, reg: b[3] }),
         2 if b[2] == 0 => Some(Carga::Asa { textura: b[1], reg: b[3] }),
+        // LI2a (12-10): la posicion de la pantalla, x o y.
+        3 if b[1] == 0 && b[2] < 2 => Some(Carga::Posicion { componente: b[2], reg: b[3] }),
         _ => None,
     }
 }
@@ -173,6 +175,7 @@ fn carga_a(c: Carga) -> [u8; 4] {
         Carga::Entrada { elemento, componente, reg } => [0, elemento, componente, reg],
         Carga::Fila { fila, reg } => [1, fila as u8, (fila >> 8) as u8, reg],
         Carga::Asa { textura, reg } => [2, textura, 0, reg],
+        Carga::Posicion { componente, reg } => [3, 0, componente, reg],
     }
 }
 
@@ -329,6 +332,8 @@ pub fn leer(b: &[u8]) -> Option<Receta<'_>> {
             Carga::Fila { fila, .. } if fila_ok(fila) => {}
             // El asa de una textura que la receta TRAE.
             Carga::Asa { textura, .. } if (textura as usize) < n_texturas => {}
+            // LI2a: x o y de SV_Position (solo en el de pixel).
+            Carga::Posicion { componente, .. } if componente < 2 => {}
             _ => return None,
         }
     }
@@ -550,6 +555,19 @@ pub fn paquete<'a>(r: &Receta<'a>, t: &'a Taller, ficha: u32) -> Paquete<'a> {
 
 #[cfg(test)]
 mod pruebas {
+    /// ** LI2a (12-10): la posicion de la pantalla cruza la receta, x e y;
+    /// la z y la w (o una basura en el byte 1) NO se leen como posicion.
+    #[test]
+    fn la_posicion_cruza_la_receta() {
+        use super::{carga_a, carga_de, Carga};
+        for c in [Carga::Posicion { componente: 0, reg: 7 }, Carga::Posicion { componente: 1, reg: 9 }] {
+            assert_eq!(carga_de(&carga_a(c)), Some(c));
+        }
+        assert_eq!(carga_de(&[3, 0, 2, 7]), None, "la z, todavia no");
+        assert_eq!(carga_de(&[3, 0, 3, 7]), None, "la w, todavia no");
+        assert_eq!(carga_de(&[3, 1, 0, 7]), None);
+    }
+
     extern crate std;
 
     use super::*;

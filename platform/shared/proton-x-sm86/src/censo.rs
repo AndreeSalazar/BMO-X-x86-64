@@ -189,8 +189,8 @@ pub fn del_pso(en: &Enlace, ia: &[ElementoIa], paso: u32) -> Vec<String> {
             _ => poner!("un valor de sistema en el de vertice (SV_VertexID, SV_InstanceID)".into()),
         }
     }
-    if en.pos_ps.is_some() {
-        poner!("SV_Position en el de pixeles".into());
+    if pso::posicion_zw(en) {
+        poner!("SV_Position.z o .w en el de pixeles".into());
     }
     if en.objetivos != [0] {
         poner!("varios render targets (o uno que no es el 0, o SV_Depth)".into());

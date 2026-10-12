@@ -115,10 +115,10 @@ pub fn cuerpos_con_libreta(en: &Enlace, ia: &[ElementoIa], recuerdo: Option<&mut
     if en.gs.is_some() {
         return Err(NoVa::Entrada("un sombreador de geometria"));
     }
-    // N5.9: el de pixeles que lee SV_Position, por la CPU todavia (la 3060
-    // la da en un atributo de sistema que el pegamento no pone).
-    if en.pos_ps.is_some() {
-        return Err(NoVa::Entrada("SV_Position en el de pixeles"));
+    // ** LI2a (12-10): el de pixeles que lee SV_Position ya va a la 3060 si
+    // lee su x y su y (`Carga::Posicion`); la z y la w, por la CPU todavia.
+    if crate::pso::posicion_zw(en) {
+        return Err(NoVa::Entrada("SV_Position.z o .w en el de pixeles"));
     }
     // N5.8: la 3060 pinta UN render target todavia: el G-buffer, por la CPU.
     if en.objetivos != [0] {
@@ -150,7 +150,7 @@ pub fn cuerpos_con_libreta(en: &Enlace, ia: &[ElementoIa], recuerdo: Option<&mut
         filas: en.vs.filas_cb.max(en.ps.filas_cb) as u32,
         elementos: elementos(en, ia)?,
         cargas_vs: cargas(ev),
-        cargas_ps: cargas(ep),
+        cargas_ps: crate::pso::cargas_con_posicion(ep, en.pos_ps),
         genericos,
         texturas: crate::pso::texturas_de(ep),
         termometro_vs: ev.termometro,
