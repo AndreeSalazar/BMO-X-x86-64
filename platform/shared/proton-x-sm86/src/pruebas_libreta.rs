@@ -189,3 +189,39 @@ fn sample_level_de_varias_mips_va_por_la_cpu() {
         assert_eq!(r.as_ref().err().is_some_and(|x| x.contains("SampleLevel")), dice, "{mips} mips: {r:?}");
     }
 }
+
+/// ** LI2c (12-10): la vista de la mip 1 de una 2D de dos mips (el censo de
+/// Cyberpunk: "una vista que no es la mip 0") va a la 3060 como una 2D de
+/// SUS medidas, desde SU primer texel: el plano que lee la CPU.
+#[test]
+fn la_vista_de_otra_mip_va_a_la_3060() {
+    use bmo_proton_x::textura::{Clase, Como, Direccion, Filtro, Lod, Muestreador, Recursos, Textura};
+    let en = textura();
+    let ia = std::vec![e("POSITION", 6, 0), e("TEXCOORD", 16, 12)];
+    // 16x16 y 8x8 (320 palabras), empezando a 32 B.
+    let todo = std::vec![0x8040_2010u32; 320 + 8];
+    let a = todo.as_ptr().align_offset(32);
+    let texeles = &todo[a..a + 320];
+    let m = Muestreador { filtro: Filtro::Punto, u: Direccion::Repetir, v: Direccion::Repetir, borde: [0.0; 4], comparacion: 0, lod: Lod { min: Some(Filtro::Punto), mip: Filtro::Punto, sesgo: 0.0, minimo: 0.0, maximo: f32::MAX } };
+    let ms = [Some(m)];
+    let paso = 20usize;
+    let vertices: Vec<u8> = (0..3 * paso / 4).flat_map(|k| (k as f32 * 0.125).to_bits().to_le_bytes()).collect();
+    let cb = std::vec![0u8; 16 * en.vs.filas_cb.max(en.ps.filas_cb).max(1) as usize];
+    let reglas = bmo_proton_x::trama::Reglas { viewport: [0.0, 0.0, 1280.0, 720.0, 0.0, 1.0], tijera: [0, 0, 1280, 720], descarte: 1, antihorario: false, profundidad: None, mezcla: bmo_proton_x::mezcla::Mezclas::NINGUNA, z_del_sombreador: false, stencil: None };
+    let b = Blanco { va: 0x4000_0000, ancho: 1280, alto: 720, bgra: false, cadena: false, flotante: None };
+    let tx = [Some(Textura { texeles, ancho: 16, alto: 16, como: Como::Rgba8, srgb: false, mapeo: Textura::MAPEO, mips: 2, capas: 1, hondo: 1, clase: Clase::Plana, mip: 1, capa: 0, niveles: 1, lod_min: 0.0, vista: None })];
+    let recursos = Recursos { texturas: &tx, muestreadores: &ms, buferes: &[], dinamicas: None };
+    let l = Lote { enlace: &en, entradas: &ia, vertices: &vertices, paso, ids: &[0, 1, 2], topologia: Topologia::Lista, cb: &cb, reglas, limpiar_z: None, limpiar_rt: None, recursos, oclusion: false, otros: &[], instancias: 1, primera_instancia: 0, base_vertice: 0, uavs: None };
+    let mut p = Puerta::nueva();
+    let n = p.preparar(&l, b).unwrap_or_else(|x| panic!("{x}"));
+    let r = bmo_gpu_ga10x::receta::leer(&p.caja[..n]).expect("el kernel la lee");
+    let t = r.texturas()[0];
+    assert_eq!((t.va, t.ancho, t.alto, t.fila), (texeles[256..].as_ptr() as u64, 8, 8, 32), "la mip 1: tras los 256 texeles de la 0");
+    // La vista de la mip 0 de la MISMA textura: desde el principio, 16x16.
+    let tx0 = [Some(Textura { mip: 0, ..tx[0].unwrap() })];
+    let l0 = Lote { recursos: Recursos { texturas: &tx0, ..recursos }, ..l };
+    let mut q = Puerta::nueva();
+    let n = q.preparar(&l0, b).unwrap_or_else(|x| panic!("{x}"));
+    let t = bmo_gpu_ga10x::receta::leer(&q.caja[..n]).unwrap().texturas()[0];
+    assert_eq!((t.va, t.ancho), (texeles.as_ptr() as u64, 16));
+}

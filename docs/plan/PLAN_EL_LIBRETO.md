@@ -267,6 +267,19 @@ y `puerta.rs`; el juez en `platform/drivers/gpu/ga10x/src/sass/juez.rs`):
       punto y borde: 0 pixeles distintos --; saboteado (la uv lineal en la
       pantalla, el lineal como punto): cae. La huella de BMOX-12 no se
       movio.
+      **12-10, lo del censo de Cyberpunk que es EXACTO sin el metal:**
+      - Las RANURAS de 1 MiB a **16 MiB** (`texturas::RANURA`): la de
+        1920x1088 que paro el censo (8 MiB) cabe; 32 tablas mas de la IOMMU,
+        dentro de sus 128. Y la RAM de la reserva se presta (LI2k).
+      - La vista de OTRA mip de una 2D: el plano que lee la CPU
+        (`Textura::plano_visto` de prometeo), con SUS medidas y desde su
+        primer texel; con una sola mip en la vista. Prueba:
+        `la_vista_de_otra_mip_va_a_la_3060`.
+      **Lo que se queda en la CPU, y por que:** sRGB y BC los decodifica la
+      casa con SUS tablas (`SRGB_A_LINEAL`, `bc`) y la 3060 con las suyas: no
+      se promete el mismo bit (DL10) hasta medirlo en el metal. Los floats
+      con punto o `Load` serian exactos, pero sus formatos de TIC nunca
+      corrieron: van con su banco en el metal (`gpu verrano textura`).
 - [ ] **LI2d -- varios render targets y la profundidad** (N5.8; V2/M1 de
       `PLAN_VERRANO.md`). El G-buffer: hasta 8 destinos y el z-buffer en la
       VRAM. **Como se sabe:** la escena 3D dura (A11) pintada por la 3060

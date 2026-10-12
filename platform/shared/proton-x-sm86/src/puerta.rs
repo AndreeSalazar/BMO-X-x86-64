@@ -454,16 +454,26 @@ pub fn escribir(c: &Cuerpos, l: &Lote, b: Blanco, limpiar_z: Option<u32>, datos:
             return Err(format!("el sombreador muestrea t{tn} con s{sm} y el lote no los tiene atados"));
         };
         // 02-10: la 3060 lee aqui RGBA/BGRA de 8 bits, lineales y con el
-        // mapeo de siempre; un BC, un float, un sRGB o un mapeo, en la CPU.
-        if !matches!(t.como, Como::Rgba8 | Como::Bgra8) || t.srgb || t.mapeo & 0xFFF != Textura::MAPEO & 0xFFF || t.clase != Clase::Plana || (t.mip, t.capa) != (0, 0) {
-            return Err(format!("la textura t{tn} es BC, float, sRGB, con otro mapeo o una vista que no es la mip 0 de una 2D: la 3060 todavia lee solo eso"));
+        // mapeo de siempre; un BC, un float, un sRGB o un mapeo, en la CPU
+        // (la casa los decodifica con SUS tablas: la 3060, con las suyas, no
+        // se promete igual hasta medirlo -- DL10 --).
+        if !matches!(t.como, Como::Rgba8 | Como::Bgra8) || t.srgb || t.mapeo & 0xFFF != Textura::MAPEO & 0xFFF || t.clase != Clase::Plana {
+            return Err(format!("la textura t{tn} es BC, float, sRGB, con otro mapeo o no es una 2D: la 3060 todavia lee solo RGBA/BGRA de 8 bits"));
         }
+        // ** 12-10: la vista de OTRA mip de una 2D (el censo de Cyberpunk):
+        // el plano que ella mira, como lo lee la CPU (`plano_visto`), es una
+        // 2D mas -- su direccion y sus medidas --; con una sola mip en la
+        // vista (eso ya lo mira `mip_importa`, abajo).
+        let Some((plano, ancho, alto)) = t.plano_visto() else {
+            return Err(format!("la textura t{tn}: su mip {} no esta en la memoria que dio la casa", t.mip));
+        };
         let muestreo = Muestreo { lineal: m.filtro == Filtro::Lineal, u: d3d(m.u), v: d3d(m.v), borde: m.borde };
-        let d = DeApp { va: t.texeles.as_ptr() as u64, ancho: t.ancho, alto: t.alto, fila: 4 * t.ancho, bgra: t.bgra(), muestreo };
-        if t.texeles.len() < (t.ancho * t.alto) as usize || !d.valida() {
+        let d = DeApp { va: plano.as_ptr() as u64, ancho, alto, fila: 4 * ancho, bgra: t.bgra(), muestreo };
+        if plano.len() < (ancho * alto) as usize || !d.valida() {
             return Err(format!(
-                "la textura t{tn} ({}x{}, VA {:#x}): la 3060 la lee con filas de 32 B, desde 32 B y en 1 MiB; esta no",
-                t.ancho, t.alto, d.va
+                "la textura t{tn} ({ancho}x{alto}, VA {:#x}): la 3060 la lee con filas de 32 B, desde 32 B y en {} MiB; esta no",
+                d.va,
+                bmo_gpu_ga10x::texturas::RANURA >> 20
             ));
         }
         texturas[k] = d;

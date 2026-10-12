@@ -235,13 +235,14 @@ pub const fn asa(tic: u32, tsc: u32) -> u32 {
 //    TEXELES  la RAM de la APP (sus texturas, como las guarda la casa: pitch,
 //             filas de 4 x ancho), prestada a la 3060 SOLO LECTURA y solo
 //             mientras dibuja, como el destino: IOVA 0x5900_0000, una RANURA
-//             de 1 MiB por textura (hasta [`MAX_TEXTURAS`])
+//             de 16 MiB por textura (hasta [`MAX_TEXTURAS`]; era de 1 MiB
+//             hasta el 12-10: el censo de Cyberpunk paro una de 1920x1088)
 //    VA       0xA_0000_0000 (la PD1 del tramo; tras la sombra, 0x9): las
 //             ranuras con PTE de SISTEMA hacia su IOVA, y detras la pagina
 //             de las PISCINAS
 //    PISCINAS una pagina de VRAM (0x04A0_4000): los TIC en +0, los TSC en
 //             +0x800; la textura k usa el TIC k y el TSC k (su asa, `asa(k, k)`)
-//    TABLAS   la PD0 y las 3 PT en VRAM 0x04A0_0000 (tras las de la sombra)
+//    TABLAS   la PD0 y las 33 PT en VRAM 0x04A0_0000 (tras las de la sombra)
 // ```
 
 /// Donde ve la 3060 los texeles y las piscinas.
@@ -252,12 +253,15 @@ pub const IOVA: u64 = 0x5900_0000;
 pub const TABLAS: u64 = 0x04A0_0000;
 /// Las texturas de un dibujo, y lo que mide la ranura de cada una.
 pub const MAX_TEXTURAS: usize = 4;
-pub const RANURA: u64 = 1 << 20;
-/// Las PT: dos para las ranuras (4 MiB) y una para la pagina de las piscinas.
-pub const PTS: usize = 3;
+/// 12-10: 16 MiB -- una de 8 bits hasta 2048x2048, la de 1920x1088 que paro
+/// el censo de Cyberpunk (8 MiB) --. El dominio de la IOMMU pone una tabla
+/// por cada 2 MiB prestados: 32 mas, dentro de sus 128 (`iommu::AREA_PAGINAS`).
+pub const RANURA: u64 = 16 << 20;
+/// Las PT: las de las ranuras (2 MiB cada una) y una para las piscinas.
+pub const PTS: usize = (MAX_TEXTURAS as u64 * RANURA / (2 << 20)) as usize + 1;
 /// La pagina de las piscinas: en VRAM, y donde la ve la 3060.
 pub const PISCINAS: u64 = TABLAS + (1 + PTS as u64) * 0x1000;
-pub const PISCINAS_VA: u64 = VA + 2 * (2 << 20);
+pub const PISCINAS_VA: u64 = VA + MAX_TEXTURAS as u64 * RANURA;
 /// Los TSC, detras de los TIC.
 pub const TSC_DESDE: u64 = 0x800;
 const PAGINA: u64 = 0x1000;
@@ -356,7 +360,7 @@ pub fn mapear<R: Registros>(r: &mut R) -> Option<(u32, u32)> {
     for q in 0..MAX_TEXTURAS as u64 * RANURA / PAGINA {
         poner(r, pt((q / 512) as usize) + 8 * (q % 512), pte_sistema(IOVA + q * PAGINA));
     }
-    poner(r, pt(2), pte_vram(PISCINAS));
+    poner(r, pt(PTS - 1), pte_vram(PISCINAS));
     let i0 = indices(VA)[3] as u64;
     for k in 0..PTS {
         poner(r, TABLAS + 16 * (i0 + k as u64) + 8, pde_vram(pt(k)));
@@ -423,10 +427,10 @@ pub fn ordenes(e: &mut Ordenes, tics: u64, n_tic: u32, tscs: u64, n_tsc: u32) ->
 
 // Nada se pisa: su entrada de la PD1, su IOVA, sus tablas y su pagina.
 const _: () = assert!(VA % (2 << 20) == 0 && indices(VA)[2] != indices(crate::sombra::VA)[2] && indices(VA)[2] != indices(crate::destino::VA)[2]);
-const _: () = assert!(IOVA >= crate::destino::IOVA + crate::destino::MAX_BYTES && MAX_TEXTURAS as u64 * RANURA == 2 * (2 << 20));
+const _: () = assert!(IOVA >= crate::destino::IOVA + crate::destino::MAX_BYTES && MAX_TEXTURAS as u64 * RANURA == (PTS as u64 - 1) * (2 << 20));
 const _: () = assert!(TABLAS >= crate::sombra::TABLAS + (1 + crate::sombra::PTS as u64) * PAGINA && PISCINAS + PAGINA <= 0x0800_0000);
 const _: () = assert!(TSC_DESDE >= (MAX_TEXTURAS * BYTES) as u64 && TSC_DESDE + (MAX_TEXTURAS * BYTES) as u64 <= PAGINA);
-const _: () = assert!(indices(PISCINAS_VA)[3] == indices(VA)[3] + 2 && indices(PISCINAS_VA)[4] == 0);
+const _: () = assert!(indices(PISCINAS_VA)[3] == indices(VA)[3] + PTS - 1 && indices(PISCINAS_VA)[4] == 0);
 
 #[cfg(test)]
 mod pruebas {
