@@ -123,6 +123,9 @@ members = [
     "platform/shared/bmo-cubo",
     "platform/shared/verrano",
     "platform/shared/verrano-trama",
+    # AYNI (12-10, PLAN_AYNI): que la GPU gaste MENOS. UMA, la red diminuta de
+    # la CPU, reparte el sombreado por baldosas; probado aqui, sin GPU.
+    "platform/shared/verrano-ayni",
     "platform/shared/proton-x",
     "platform/shared/proton-x-casa",
     # LA LENGUA DE LA 3060, pura: el codificador de SASS (E2) fuera del driver,

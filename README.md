@@ -374,6 +374,80 @@ step with its date and its result on the metal:
 
 ---
 
+## AYNI: the CPU is the head, the GPU draws the fat pixels
+
+**Why this exists.** The owner did not ask for more FPS -- FSR already
+upscales, and it is open. He asked for the GPU to **cost less**. Look at what
+DLSS really does and it is a saving: draw fewer pixels, guess the rest. And
+FSR and DLSS are both *directed by the CPU*: the game picks the jitter, the
+resolution and when to call them; the card only does the arithmetic. In
+BMO-X the one directing is not the game but the kernel, through PROTON-X and
+VERRANO, and **it sees every draw**: its triangles, its shaders, which batch
+is the HUD. So the question stops being "how do we guess the missing pixels"
+and becomes **"where do we not spend at all"** -- and that is a question the
+CPU can answer, cheaply, before the card starts.
+
+The RTX 3060 already obeys such an answer in hardware: AMPERE_B has a
+*shading-rate image* (`clc797.h`, `SET_SHADING_RATE_INDEX_SURFACE_*`), one
+cell per 16x16 tile saying "shade every pixel", "once per 2x2", "once per
+4x4" or "not at all", and a `PS_INVOCATIONS` counter that measures the
+saving instead of estimating it. **AYNI** (Quechua: mutual help) writes that
+map. Its head is **UMA**, a neural network small enough to be honest about:
+8 inputs, 16 neurons, 4 outputs, 192 multiplications per tile, on the CPU,
+zero on the GPU. It does not predict colors, it predicts the **error** each
+coarse rate would cause, and learns it from the game itself: a few *master
+tiles* per frame are always shaded in full, and the difference is the
+lesson. Rules the network cannot break sit on top: the HUD is always full,
+a geometry edge only coarsens along itself, no tile stays coarse for more
+than 30 frames.
+
+**Why the dimensions.** The owner's picture was "the 3D is orchestrated by a
+4D, and the CPU guides it". That is literally how it is built: the GPU draws
+one *slice* (3D); the CPU sees the *series* of slices (4D, time -- **PACHA**)
+and the hand that chooses the next one (5D, where the pointer is heading).
+And when he asked whether to go on to 10D, the geometry answered with a
+warning of its own:
+
+![The n-cube from 0D to 10D, each seen along its most symmetric axis: the outline becomes a 2n-gon that approaches a circle, 86.6 % round at 3D and 98.8 % at 10D](docs/arte/dimensiones-hipercubos.png)
+
+Each vertex of that projection is a **sum of n independent directions**, so
+as n grows the cube becomes a round, dense cloud -- the central limit
+theorem, the same reason heights and measurement errors form a bell. It is
+also why more dimensions are not free: in high dimensions everything crowds
+the middle and things become hard to tell apart, and a small network like
+UMA needs more examples for every input it is given. **A new axis enters
+BMO-X only when the master tiles prove it helps.**
+
+![The parallel dimensions of BMO-X, with real data from the AYNI bench: 1D a pixel over time, 2D UMA's map (62 % of the shading work), 3D the slice the GPU draws, 4D the series of slices, 5D the pointer's braking and where it will stop](docs/arte/dimensiones-bmo-x.png)
+
+**The rule of the fifth dimension: predict to SAVE or PREPARE, never to
+ACT.** BMO-X sees the mouse before the game does, and the braking of a hand
+says where it will stop (`v²/2a`). That buys detail where the eye is going
+and less where it is not. It never moves the pointer, clicks or aims: that
+would change the game, not the cost -- aim assist, and cheating in an online
+game. `mano::predecir` takes the input borrowed and immutable, and a test
+checks it comes out bit-identical.
+
+**Where it stands, honestly.** It runs on the **bench** only
+([`platform/shared/verrano-ayni`](platform/shared/verrano-ayni/src/lib.rs),
+15 tests): 62 % of the shading work on a synthetic scene with the worst
+error inside the threshold, 4 640 instead of 5 120 invocations with the
+5D on. The freshly born UMA *underestimates* steep gradients (0.015 predicted,
+0.026 real), which is exactly why the master tiles tighten the threshold on
+their own. It has **not** touched the card, and the card has not drawn the game yet:
+the first `personal 3060` run on the metal (2026-10-12) never reached
+Cyberpunk -- PROTON-X itself fell first, a panic inside its own panic until
+the stack ran out (the 3060 mode flushed its log before the loader had a
+platform to write it with; fixed the same day). The 3060 drawing the game's
+batches comes first
+([`PLAN_EL_LIBRETO`](docs/plan/PLAN_EL_LIBRETO.md)). The whole plan, with the
+kernel stepping aside while a game runs (Linux's `nohz_full`, read and
+mapped onto this house's own checkboxes):
+**[PLAN_AYNI.md](docs/plan/PLAN_AYNI.md)**, and the log of the day:
+**[METAL_2026-10-12.md](docs/metal/METAL_2026-10-12.md)**.
+
+---
+
 ## ESTRATOS, TITAN++ and the TALLER
 
 Three pieces that grew together in September and October. Each one is stated
