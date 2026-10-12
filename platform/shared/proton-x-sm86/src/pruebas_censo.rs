@@ -104,3 +104,46 @@ fn la_x_y_la_y_van_a_la_3060() {
         .collect();
     assert!(ipas.contains(&ATRIBUTO_POSICION) && ipas.contains(&(ATRIBUTO_POSICION + 1)), "IPA de la posicion: {ipas:x?}");
 }
+
+#[test]
+fn el_programa_largo_dice_cuanto_mide() {
+    use crate::censo::tramo_largo;
+    assert_eq!(tramo_largo(129), "de 129 a 256 instrucciones");
+    assert_eq!(tramo_largo(256), "de 129 a 256 instrucciones");
+    assert_eq!(tramo_largo(257), "de 257 a 512 instrucciones");
+    assert_eq!(tramo_largo(2000), "de 1025 a 2048 instrucciones");
+    assert_eq!(tramo_largo(100_000), "mas de 8192 instrucciones");
+}
+
+#[test]
+fn el_simulador_dice_que_palabra_no_sabe() {
+    use crate::simula::{decir, NoSimula};
+    let codigo = [(0u64, 0u64), (0x0000_0000_0000_0b5e, 0x0000_0000_0000_7000)];
+    let s = decir(&codigo, NoSimula::Instruccion(1));
+    assert!(s.contains("la instruccion 1 de 2") && s.contains("op 0x15e") && s.contains("forma 5"), "{s}");
+    assert!(decir(&codigo, NoSimula::Instruccion(9)).contains("fuera del programa"));
+    assert_eq!(decir(&codigo, NoSimula::SinExit), "SinExit");
+}
+
+/// Metal 12-10: casi ningun lote de Cyberpunk lo para UNA puerta. El censo
+/// dice tambien las combinaciones, por el numero de cada puerta.
+#[test]
+fn el_censo_dice_las_puertas_juntas() {
+    use alloc::string::String;
+    let mut c = crate::censo::Censo::nuevo();
+    let p = |v: &[&str]| v.iter().map(|s| String::from(*s)).collect::<Vec<_>>();
+    for _ in 0..3 {
+        c.contar(p(&["hdr", "largo"]));
+    }
+    c.contar(p(&["largo", "hdr"]));
+    c.contar(p(&["largo"]));
+    c.contar(p(&[]));
+    let j = c.juntas_que_mas(5);
+    assert_eq!(j[0].0, 4, "el orden no cuenta: {j:?}");
+    assert_eq!(j[0].1, &p(&["hdr", "largo"]));
+    assert_eq!((j[1].0, j[1].1.len()), (1, 1));
+    let r = c.resumen(10);
+    // `largo` para 5 lotes ([1]) y `hdr` 4 ([2]): la combinacion, por numero.
+    assert!(r.contains("juntas: 4 lotes se abren con [1] + [2]"), "{r}");
+    assert!(r.contains("de 6 lotes, 1 irian"), "{r}");
+}

@@ -45,6 +45,20 @@ pub enum NoSimula {
     SinFin,
 }
 
+/// **El motivo con la palabra** (metal 12-10: `Instruccion(11)` decia DONDE
+/// pero no QUE). La operacion (los 9 bits bajos), su forma y las dos mitades
+/// de la palabra de 128 bits: con eso se sabe que le falta al simulador sin
+/// tener el sombreador del juego delante.
+pub fn decir(codigo: &[(u64, u64)], x: NoSimula) -> alloc::string::String {
+    match x {
+        NoSimula::Instruccion(n) => match codigo.get(n) {
+            Some(&(lo, hi)) => alloc::format!("la instruccion {n} de {}: op {:#05x} forma {} -- {lo:#018x} {hi:#018x}", codigo.len(), lo & 0x1FF, lo >> 9 & 7),
+            None => alloc::format!("la instruccion {n}, fuera del programa de {}", codigo.len()),
+        },
+        otro => alloc::format!("{otro:?}"),
+    }
+}
+
 /// Lo que corre como mucho un programa en el simulador.
 pub const PASOS_MAXIMOS: usize = 1 << 22;
 

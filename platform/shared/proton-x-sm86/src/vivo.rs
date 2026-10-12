@@ -263,7 +263,7 @@ pub fn comprobar(p: &Programa, e: &Emitido, que: &str) -> Result<usize, String> 
                 Precarga::Asa { reg, .. } | Precarga::AsaPar { reg, .. } => m.r[reg as usize] = 0,
             }
         }
-        correr(&e.codigo, &mut m).map_err(|x| format!("el {que}: el simulador de la 3060 no sabe correr lo emitido ({x:?})"))?;
+        correr(&e.codigo, &mut m).map_err(|x| format!("el {que}: el simulador de la 3060 no sabe correr lo emitido ({})", crate::simula::decir(&e.codigo, x)))?;
         let mut casa = vec![[0f32; 4]; p.salidas.max(1)];
         p.correr(&ent, &cb, &mut casa, &mut regs);
         for &(el, k) in &escritas {
