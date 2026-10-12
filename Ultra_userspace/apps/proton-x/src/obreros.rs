@@ -62,8 +62,10 @@ static SANOS: AtomicU32 = AtomicU32::new(0);
 static PREGUNTAS: AtomicU32 = AtomicU32::new(0);
 /// El MXCSR de quien reparte, para las partes.
 static MXCSR: AtomicU32 = AtomicU32::new(0x1F80);
-/// Para decirlo una vez.
-static DICHO: AtomicBool = AtomicBool::new(false);
+/// Las mas partes de un reparto hasta ahora: se dice cada vez que sube
+/// (metal 12-10: decirlo solo en el PRIMERO decia "4 partes", las de un
+/// dibujo de 256x256, y parecia que 8 de los 12 hilos no trabajaban).
+static MAS_PARTES: AtomicU32 = AtomicU32::new(0);
 static REPARTOS: AtomicU64 = AtomicU64::new(0);
 static REHECHAS: AtomicU64 = AtomicU64::new(0);
 
@@ -183,8 +185,12 @@ pub fn repartir(n: u32, f: &(dyn Fn(u32) + Sync)) -> u64 {
     }
     REPARTOS.fetch_add(1, Relaxed);
     REHECHAS.fetch_add(mal.count_ones() as u64, Relaxed);
-    if !DICHO.swap(true, Relaxed) {
-        bmo::consola(&alloc::format!("PROTON-X: los sub-directores pintan en franjas: {n} partes (este nucleo y {} obreros en Ring 3) (H4.3)\n", n - 1));
+    if MAS_PARTES.fetch_max(n, Relaxed) < n {
+        bmo::consola(&alloc::format!(
+            "PROTON-X: los sub-directores pintan en franjas: hasta {n} partes (este nucleo y {} obreros en Ring 3, de {} sanos; un dibujo chico usa menos) (H4.3)\n",
+            n - 1,
+            SANOS.load(Relaxed)
+        ));
     }
     mal
 }

@@ -263,7 +263,7 @@ pub fn comprobar(p: &Programa, e: &Emitido, que: &str) -> Result<usize, String> 
                 Precarga::Asa { reg, .. } | Precarga::AsaPar { reg, .. } => m.r[reg as usize] = 0,
             }
         }
-        correr(&e.codigo, &mut m).map_err(|x| format!("el {que}: el simulador de la 3060 no sabe correr lo emitido ({x:?})"))?;
+        correr(&e.codigo, &mut m).map_err(|x| format!("el {que}: el simulador de la 3060 no sabe correr lo emitido ({})", crate::simula::decir(&e.codigo, x)))?;
         let mut casa = vec![[0f32; 4]; p.salidas.max(1)];
         p.correr(&ent, &cb, &mut casa, &mut regs);
         for &(el, k) in &escritas {
@@ -393,7 +393,11 @@ pub fn revisar(en: &Enlace, els: &[bmo_gpu_ga10x::pegamento::Elemento], vs: &Emi
     };
     for id in ids {
         let v = id as usize * l.paso;
+        // Como la 3060 (`pegamento::Sistema`): el `vid` que le da la puerta
+        // es el indice SIN el vertice base; la instancia, 0.
         let leer_vertice = |el: usize, k: usize| match els.get(el) {
+            Some(x) if x.sistema == bmo_gpu_ga10x::pegamento::Sistema::Vertice => if k == 0 { id.wrapping_sub(l.base_vertice) } else { 0 },
+            Some(x) if x.sistema == bmo_gpu_ga10x::pegamento::Sistema::Instancia => 0,
             Some(x) if k < x.componentes as usize => palabra(l.vertices, v + x.desde as usize + 4 * k),
             Some(_) if k == 3 => 1.0f32.to_bits(),
             _ => 0,

@@ -12,7 +12,7 @@
 //! La autopsia del kernel conoce el `.bex` y no el `.exe`: dice "salto a 0
 //! desde 0x1001d4c6cf" y los bytes de antes (`ff 15 ..`). PROTON-X si conoce
 //! el `.exe`, y al arrancar de nuevo tiene ese mismo informe en el disco
-//! (el director lo deja en `datos/fallos.txt`). Aqui se junta todo:
+//! (el director lo deja en `informe/fallos.txt`). Aqui se junta todo:
 //!
 //! ```text
 //!    la casilla      que modulo, que RVA, que seccion
@@ -35,7 +35,7 @@ use crate::cargador::Modulo;
 use crate::di_y_diario as di;
 
 /// Donde deja el director las autopsias (`services/director/src/main.rs`).
-const FALLOS: &[u8] = b"datos/fallos.txt";
+const FALLOS: &[u8] = b"informe/fallos.txt";
 
 /// Un informe de autopsias son cuatro fallos de una docena de renglones.
 const TOPE: u64 = 64 << 10;
@@ -88,15 +88,15 @@ pub(crate) fn mirar(modulos: &[Modulo]) {
         None => match del_disco() {
             Err(c) => {
                 di(&format!(
-                    "PROTON-X: el lector del nulo (N4.4): datos/fallos.txt no se abre (codigo {c}) y el kernel no tiene un salto a 0 de este arranque\n"
+                    "PROTON-X: el lector del nulo (N4.4): informe/fallos.txt no se abre (codigo {c}) y el kernel no tiene un salto a 0 de este arranque\n"
                 ));
                 return;
             }
             Ok(t) => match nulo::del_informe(&t) {
-                Some(s) => (s, "datos/fallos.txt"),
+                Some(s) => (s, "informe/fallos.txt"),
                 None => {
                     di(&format!(
-                        "PROTON-X: el lector del nulo (N4.4): datos/fallos.txt ({} B) no acaba en un salto a 0 por `call [rip+..]`\n",
+                        "PROTON-X: el lector del nulo (N4.4): informe/fallos.txt ({} B) no acaba en un salto a 0 por `call [rip+..]`\n",
                         t.len()
                     ));
                     return;

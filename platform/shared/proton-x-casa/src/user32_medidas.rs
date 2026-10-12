@@ -17,11 +17,10 @@
 //!                 MapWindowPoints GetDesktopWindow
 //! ```
 //!
-//! **UN monitor, dicho:** la casa no sabe todavia la medida de la pantalla
-//! de BMO-X (la plataforma no la da), asi que tiene UNO fijo:
-//! [`PANTALLA`], 1920x1080 a 96 DPI y 60 Hz, con 40 pixeles de barra de
-//! tareas abajo (el area de trabajo). Todo lo de aqui sale de ahi: cuando la
-//! plataforma la diga, se cambia en un sitio. Las medidas del marco (barras,
+//! **UN monitor, dicho:** a 96 DPI y 60 Hz, de la medida que dice
+//! [`crate::pantalla`] (LI2j, 12-10: la pone quien carga; sin decir nada,
+//! 1920x1080 con 40 pixeles de barra de tareas abajo, el area de trabajo).
+//! Todo lo de aqui sale de ahi. Las medidas del marco (barras,
 //! bordes, titulo) son las de Windows 10 a 96 DPI.
 //!
 //! **Las ventanas, dicho:** el marco lo pinta el escritorio de BMO-X, asi que
@@ -33,11 +32,9 @@ use crate::{dir, kernel32, user32};
 const ERROR_INVALID_PARAMETER: u32 = 87;
 const ERROR_INVALID_WINDOW_HANDLE: u32 = 1400;
 
-/// La pantalla de la casa: ancho, alto, DPI, hercios y la barra de tareas.
-pub(crate) const PANTALLA: (i32, i32) = (1920, 1080);
+/// Los DPI y los hercios del monitor (la medida y la barra: [`crate::pantalla`]).
 const DPI: u32 = 96;
 pub(crate) const HERCIOS: u32 = 60;
-const BARRA: i32 = 40;
 /// El HMONITOR del unico monitor y el HWND del escritorio.
 pub(crate) const MONITOR: u64 = 0x5B00_0001;
 pub(crate) const ESCRITORIO: u64 = 0x0001_0000;
@@ -190,18 +187,18 @@ fn medida_96(i: i32) -> Option<i32> {
 /// `GetSystemMetricsForDpi`: las de medida, a esos DPI; las de la pantalla,
 /// tal cual.
 extern "win64" fn get_system_metrics_for_dpi(i: i32, dpi: u32) -> i32 {
-    let (w, h) = PANTALLA;
+    let ((w, h), barra) = (pantalla(), crate::pantalla::barra());
     if let Some(v) = medida_96(i) {
         return (v as u32 * dpi.max(1)).div_ceil(DPI) as i32;
     }
     match i {
         0 | 16 | 78 => w,
         1 | 79 => h,
-        17 => h - BARRA - 23,
+        17 => h - barra - 23,
         59 => w + 22,
         60 => h + 22,
         61 => w + 16,
-        62 => h - BARRA + 16,
+        62 => h - barra + 16,
         // SM_MOUSEPRESENT, SM_MOUSEWHEELPRESENT, SM_CMONITORS,
         // SM_SAMEDISPLAYFORMAT; tres botones.
         19 | 75 | 80 | 81 => 1,
@@ -214,8 +211,20 @@ extern "win64" fn get_system_metrics(i: i32) -> i32 {
     get_system_metrics_for_dpi(i, DPI)
 }
 
-fn area_de_trabajo() -> Rect {
-    [0, 0, PANTALLA.0, PANTALLA.1 - BARRA]
+/// `GetSystemMetrics`, para las pruebas de [`crate::pantalla`].
+#[cfg(test)]
+pub(crate) fn metrica(i: i32) -> i32 {
+    get_system_metrics(i)
+}
+
+/// Ancho y alto de la pantalla (la de [`crate::pantalla`]).
+pub(crate) fn pantalla() -> (i32, i32) {
+    crate::pantalla::medida()
+}
+
+pub(crate) fn area_de_trabajo() -> Rect {
+    let (w, h) = pantalla();
+    [0, 0, w, h - crate::pantalla::barra()]
 }
 
 /// `SystemParametersInfoW/A`: lo que un juego pregunta (el area de trabajo,
@@ -366,7 +375,8 @@ fn monitor_info(m: u64, i: *mut u8, ancho: bool) -> i32 {
             kernel32::poner_error(ERROR_INVALID_PARAMETER);
             return 0;
         }
-        poner(i.add(4) as *mut i32, [0, 0, PANTALLA.0, PANTALLA.1]);
+        let (w, h) = pantalla();
+        poner(i.add(4) as *mut i32, [0, 0, w, h]);
         poner(i.add(20) as *mut i32, area_de_trabajo());
         // MONITORINFOF_PRIMARY
         (i.add(36) as *mut u32).write_unaligned(1);
@@ -414,7 +424,8 @@ extern "win64" fn enum_display_monitors(hdc: u64, _recorte: *const i32, f: u64, 
         kernel32::poner_error(ERROR_INVALID_PARAMETER);
         return 0;
     }
-    let r: Rect = [0, 0, PANTALLA.0, PANTALLA.1];
+    let (w, h) = pantalla();
+    let r: Rect = [0, 0, w, h];
     type Cada = extern "win64" fn(u64, u64, *const i32, u64) -> i32;
     // SAFETY: el MONITORENUMPROC del `.exe`.
     let f: Cada = unsafe { core::mem::transmute(f as usize) };
@@ -422,16 +433,16 @@ extern "win64" fn enum_display_monitors(hdc: u64, _recorte: *const i32, f: u64, 
     1
 }
 
-/// Los modos que se ofrecen (el ultimo, el de la pantalla), a 32 bits.
-const MODOS: [(u32, u32); 6] = [(640, 480), (800, 600), (1024, 768), (1280, 720), (1600, 900), (1920, 1080)];
-
 /// `EnumDisplaySettings(Ex)W/A`: el modo actual (ENUM_CURRENT_SETTINGS o
-/// ENUM_REGISTRY_SETTINGS) o el `n` de la lista, en un DEVMODE (220 B la W,
-/// 156 la A).
+/// ENUM_REGISTRY_SETTINGS) o el `n` de la lista ([`crate::pantalla::modos`],
+/// de menor a mayor: el ultimo, la pantalla), a 32 bits, en un DEVMODE (220
+/// B la W, 156 la A).
 fn display_settings(modo: u32, d: *mut u8, ancho: bool) -> i32 {
+    let mut modos = [(0, 0); crate::pantalla::MAX_MODOS];
+    let cuantos = crate::pantalla::modos(&mut modos);
     let (w, h) = match modo {
-        0xFFFF_FFFF | 0xFFFF_FFFE => (PANTALLA.0 as u32, PANTALLA.1 as u32),
-        n if (n as usize) < MODOS.len() => MODOS[n as usize],
+        0xFFFF_FFFF | 0xFFFF_FFFE => modos[cuantos - 1],
+        n if (n as usize) < cuantos => modos[n as usize],
         _ => return 0,
     };
     if d.is_null() {
@@ -505,7 +516,8 @@ extern "win64" fn enum_display_devices_a(disp: *const u8, n: u32, d: *mut u8, _b
 
 fn cliente(h: u64) -> Option<Rect> {
     if h == ESCRITORIO {
-        return Some([0, 0, PANTALLA.0, PANTALLA.1]);
+        let (w, al) = pantalla();
+        return Some([0, 0, w, al]);
     }
     user32::superficie_de(h).map(|s| [0, 0, s.ancho as i32, s.alto as i32])
 }

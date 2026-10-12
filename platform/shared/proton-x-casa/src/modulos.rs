@@ -460,7 +460,17 @@ fn no_estaba(dll: &str, nombre: &str, con_trampa: bool) {
     let clave = alloc::format!("{dll}!{nombre}");
     if crate::trampas::es_del_sistema(dll) {
         if v.len() < 256 && !v.contains(&clave) {
-            crate::diario::nota(&alloc::format!("GetProcAddress({dll}, \"{nombre}\"): del sistema y la casa no la tiene; el .exe recibe NULL (deberia mirarlo)"));
+            // Metal 12-10: Cyberpunk pide `GetFileInformationByHandleExW` y
+            // `SetFileInformationByHandleW`, que Windows tampoco exporta (son
+            // sin W). Si la casa tiene la de sin W, el NULL es el MISMO que da
+            // Windows: no es un hueco de la casa, y se dice asi.
+            let sin_sufijo = nombre.strip_suffix('W').or_else(|| nombre.strip_suffix('A'));
+            let como_windows = sin_sufijo.is_some_and(|b| crate::tabla_casa(dll, &Funcion::Nombre(b.into())).is_some());
+            if como_windows {
+                crate::diario::nota(&alloc::format!("GetProcAddress({dll}, \"{nombre}\"): Windows tampoco la exporta (la de verdad es sin la ultima letra, y la casa la tiene); NULL, como en Windows"));
+            } else {
+                crate::diario::nota(&alloc::format!("GetProcAddress({dll}, \"{nombre}\"): del sistema y la casa no la tiene; el .exe recibe NULL (deberia mirarlo)"));
+            }
             v.push(clave);
         }
         return;

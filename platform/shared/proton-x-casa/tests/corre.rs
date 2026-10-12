@@ -1174,7 +1174,7 @@ fn comprobar_la_3060(b: &mut La3060, l: &lote::Lote) {
     // leida y pegada como la pega el kernel, sube a la 3060 los MISMOS dos
     // programas (byte a byte) que `pso::traducir` -- los del metal.
     use bmo_gpu_ga10x::receta;
-    let blanco = bmo_proton_x_sm86::puerta::Blanco { va: 0x7000_0000, ancho: 1280, alto: 720, bgra: true, cadena: true };
+    let blanco = bmo_proton_x_sm86::puerta::Blanco { va: 0x7000_0000, ancho: 1280, alto: 720, bgra: true, cadena: true, flotante: None };
     b.z_limpias += l.limpiar_z.is_some() as usize;
     b.rt_limpios += l.limpiar_rt.is_some() as usize;
     // La puerta de la APP (la de siempre) SI manda un lote con Z: el kernel

@@ -244,6 +244,34 @@ pub(crate) fn en_modo_3060() -> bool {
     MODO_3060.load(core::sync::atomic::Ordering::Relaxed)
 }
 
+/// **La pantalla que ve el juego** (LI2j, 12-10): BMO-X le da UNA y el juego
+/// elige de ella (su ventana, su cadena, sus modos). Con `--3060`, la medida
+/// que la puerta dibuja ([`puerta::MEDIDA`]) y sin barra de tareas, para que
+/// lo que el juego QUIERE sea lo que la 3060 puede; sin `--3060`, la de
+/// siempre (1920x1080). Si el dueno dijo `--pantalla WxH`, manda el: se
+/// queda la suya, y si no es la de la puerta se le dice que va por la CPU.
+pub(crate) fn poner_pantalla() {
+    use bmo_proton_x_casa::pantalla::{self, Pantalla};
+    let p = pantalla::actual();
+    let (w, h) = puerta::MEDIDA;
+    let s = if pantalla::del_dueno() {
+        if en_modo_3060() && (p.ancho, p.alto) != puerta::MEDIDA {
+            alloc::format!("PROTON-X: la pantalla que ve el juego: {}x{} (la del dueno, --pantalla); la puerta de la 3060 dibuja {w}x{h}: lo de otra medida va por la CPU", p.ancho, p.alto)
+        } else {
+            alloc::format!("PROTON-X: la pantalla que ve el juego: {}x{} (la del dueno, --pantalla)", p.ancho, p.alto)
+        }
+    } else if en_modo_3060() {
+        // MEDIDA esta entre 640x480 y 8K, y sin barra: siempre vale.
+        let _ = pantalla::poner(Pantalla { ancho: w, alto: h, barra: 0 }, false);
+        alloc::format!("PROTON-X --3060: la pantalla que ve el juego: {w}x{h} (la que dibuja la puerta de la 3060); `--pantalla WxH` la cambia")
+    } else {
+        return;
+    };
+    bmo::consola(&s);
+    bmo::consola("\n");
+    bmo_proton_x_casa::diario::apuntar_arranque(&s);
+}
+
 /// **Al arrancar en el modo 3060**: si el escritorio preparo la tarjeta.
 pub(crate) fn decir_si_esta_lista() {
     let lista = bmo::info(bmo::INFO_GPU_PUERTA) == 1;
@@ -255,6 +283,15 @@ pub(crate) fn decir_si_esta_lista() {
     bmo::consola(s);
     bmo::consola("\n");
     bmo_proton_x_casa::diario::apuntar_y_volcar(s);
+}
+
+/// El formato de un destino de float y cuantas palabras guarda la casa por
+/// texel (`trama::Destino::flotante`: 4, o 1 en un R32_FLOAT).
+fn flotante_de(d: &Destino) -> Option<(u32, u32)> {
+    let f = d.flotante?;
+    let texeles = d.ancho as usize * d.alto as usize;
+    let palabras = if texeles == 0 { 0 } else { (d.pixeles.len() / texeles) as u32 };
+    Some((f, palabras))
 }
 
 /// **El censo de la 3060** a la consola y al DIARIO (LI0, 12-10).
@@ -334,11 +371,23 @@ pub fn dibujar(l: &Lote, d: &mut Destino) -> Result<Cuenta, NoDibuja> {
     // este lote (las del destino, las del lote y las de su PSO), contadas.
     if bmo_proton_x_casa::diario::encendido() {
         let mut del_destino: Vec<&'static str> = Vec::new();
-        if d.flotante.is_some() {
-            del_destino.push("un render target de float (HDR, N5.16): la puerta sabe BGRA8 y RGBA8");
+        // LI2d-HDR (12-10): el render target de float ya va, con su redondeo;
+        // lo que NO va todavia lo dice la misma puerta (`de_flotante`).
+        if let Some(f) = flotante_de(d) {
+            if let Err(m) = puerta::de_flotante(f.0, f.1) {
+                del_destino.push(m);
+            }
+            if l.reglas.profundidad.is_some() {
+                del_destino.push(puerta::Z_CON_FLOAT);
+            }
         }
         if d.pixeles.is_empty() {
             del_destino.push("un lote sin pixeles (solo profundidad, N5.12)");
+        }
+        // Metal 12-10: la puerta dibuja su medida (Q0a1, 1280x720); la
+        // ventana de Cyberpunk media 1738x1064 y el censo no lo decia.
+        if !d.pixeles.is_empty() && (d.ancho, d.alto) != puerta::MEDIDA {
+            del_destino.push("un destino que no mide 1280x720 (la ventana del juego; Q0a1: otra medida, por ver en el metal)");
         }
         e.censo.apuntar(l, &del_destino, puerta::Z_EN_LA_SOMBRA);
         let ahora = crate::plataforma::ahora_ns();
@@ -349,19 +398,18 @@ pub fn dibujar(l: &Lote, d: &mut Destino) -> Result<Cuenta, NoDibuja> {
     }
     // N5.12: un lote de solo profundidad (sin pixeles) no tiene back buffer
     // que darle a la puerta: por la CPU.
-    // N5.16 (05-10): un render target de FLOAT (HDR) tampoco: la puerta
-    // escribe 8 bits por canal, y el lote iria a parar a un sitio que no
-    // tiene esa forma. Por la CPU, y dicho UNA vez.
-    if !e.apagada && d.flotante.is_some() {
-        decir(e, String::from("un render target de float (HDR, N5.16): la puerta de la 3060 solo sabe BGRA8 y RGBA8"));
-    }
-    if !e.apagada && !d.pixeles.is_empty() && d.flotante.is_none() {
+    // ** LI2d-HDR (12-10): un render target de FLOAT tambien va a la puerta,
+    // con su formato y las palabras por texel de la casa: la 3060 escribe
+    // floats de 32 redondeados como la CPU (`puerta::de_flotante`). Lo que no
+    // sabe todavia lo dice la puerta, como cualquier otro porque.
+    if !e.apagada && !d.pixeles.is_empty() {
         let blanco = Blanco {
             va: d.pixeles.as_ptr() as u64,
             ancho: d.ancho,
             alto: d.alto,
             bgra: d.bgra,
             cadena: d.cadena,
+            flotante: flotante_de(d),
         };
         let carpeta = e.carpeta_bsf.clone();
         let p = e.puerta.get_or_insert_with(|| {
@@ -415,7 +463,7 @@ pub fn dibujar(l: &Lote, d: &mut Destino) -> Result<Cuenta, NoDibuja> {
                         if d.cadena
                             && !e.pantalla_pedida
                             && !e.sin_pantalla
-                            && (d.ancho, d.alto) == (1280, 720)
+                            && (d.ancho, d.alto) == puerta::MEDIDA
                         {
                             crate::plataforma::pedir_pantalla(true);
                             e.pantalla_pedida = true;

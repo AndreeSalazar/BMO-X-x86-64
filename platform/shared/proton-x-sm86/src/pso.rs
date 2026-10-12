@@ -18,7 +18,7 @@
 use alloc::string::String;
 use alloc::vec::Vec;
 
-use bmo_gpu_ga10x::pegamento::{self, Carga, Datos, Elemento, NoPega};
+use bmo_gpu_ga10x::pegamento::{self, Carga, Datos, Elemento, NoPega, Sistema};
 use bmo_gpu_ga10x::sass::juez;
 use bmo_gpu_ga10x::tuberia;
 use bmo_proton_x::lote::{componentes, ElementoIa, Enlace, Fuente};
@@ -60,7 +60,9 @@ impl ParaLa3060 {
     pub fn datos(&self, cb: &[u8], vertices: &[u8], out: &mut [u8]) -> Option<usize> {
         let c = 16 * self.filas as usize;
         let n = c + vertices.len();
-        if self.paso == 0 || vertices.len() % self.paso as usize != 0 || n > out.len() {
+        // Sin paso (LI2e: solo valores de sistema), sin vertices.
+        let enteros = if self.paso == 0 { vertices.is_empty() } else { vertices.len() % self.paso as usize == 0 };
+        if !enteros || n > out.len() {
             return None;
         }
         let k = cb.len().min(c);
@@ -128,10 +130,14 @@ pub fn elementos(en: &Enlace, ia: &[ElementoIa]) -> Result<Vec<Elemento>, NoVa> 
     en.desde_ia
         .iter()
         .map(|&f| {
-            // 03-10: el numero de vertice o de instancia, y los formatos que
-            // no son floats de 32 bits, los lee la CPU (`lote::entrada`):
-            // aqui se dice que no, y el dibujo va por ella.
-            let Fuente::Ia(i) = f else { return Err(NoVa::Entrada("un valor de sistema (SV_VertexID o SV_InstanceID)")) };
+            // LI2e (12-10): el numero de vertice y el de instancia, de la
+            // 3060 (`pegamento::Sistema`; lo que valen, `lote::entrada`). Los
+            // formatos que no son floats de 32 bits, todavia la CPU.
+            let i = match f {
+                Fuente::Ia(i) => i,
+                Fuente::Vertice => return Ok(Elemento::de_sistema(Sistema::Vertice)),
+                Fuente::Instancia => return Ok(Elemento::de_sistema(Sistema::Instancia)),
+            };
             let e = &ia[i];
             if e.ranura != 0 {
                 return Err(NoVa::Ranura(e.ranura));
@@ -139,7 +145,7 @@ pub fn elementos(en: &Enlace, ia: &[ElementoIa]) -> Result<Vec<Elemento>, NoVa> 
             if !bmo_proton_x::formato_ia::es_float32(e.formato) {
                 return Err(NoVa::Entrada("un formato de vertice que no es float de 32 bits"));
             }
-            Ok(Elemento { desde: e.desde, componentes: componentes(e.formato) as u8 })
+            Ok(Elemento::memoria(e.desde, componentes(e.formato) as u8))
         })
         .collect()
 }

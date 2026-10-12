@@ -143,6 +143,7 @@ pub mod cripto;
 pub mod sistema;
 pub mod texto;
 pub mod tuberia;
+pub mod pantalla;
 pub mod user32;
 pub mod user32_entrada;
 pub mod user32_medidas;

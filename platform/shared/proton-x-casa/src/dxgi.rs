@@ -388,10 +388,11 @@ extern "win64" fn quitar_aviso(_this: u64, _galleta: u32) {}
 //
 // Cyberpunk, con el dispositivo ya hecho, pregunta al adaptador "que monitores
 // tienes" (EnumOutputs) y sale si no hay respuesta. La casa tiene uno: la
-// pantalla de user32 (1920x1080 a 60 Hz, el mismo HMONITOR y el mismo nombre
-// que GetMonitorInfoW), asi que DXGI y user32 dicen lo mismo.
+// pantalla de user32 (la de `crate::pantalla`, a 60 Hz, el mismo HMONITOR y
+// el mismo nombre que GetMonitorInfoW), asi que DXGI y user32 dicen lo mismo:
+// los mismos modos, de menor a mayor (como los da Windows).
 
-use crate::user32_medidas::{HERCIOS, MONITOR, NOMBRE_PANTALLA, PANTALLA};
+use crate::user32_medidas::{pantalla, HERCIOS, MONITOR, NOMBRE_PANTALLA};
 
 const DXGI_ERROR_MORE_DATA: i32 = 0x887A_0003_u32 as i32;
 const DXGI_ERROR_UNSUPPORTED: i32 = 0x887A_0004_u32 as i32;
@@ -400,8 +401,6 @@ const DXGI_MODE_SCALING_UNSPECIFIED: u32 = 0;
 const DXGI_MODE_SCANLINE_ORDER_PROGRESSIVE: u32 = 1;
 /// DXGI_COLOR_SPACE_RGB_FULL_G22_NONE_P709: SDR de toda la vida.
 const COLOR_SRGB: u32 = 0;
-/// Las medidas que se ofrecen, de la mayor (la pantalla) a la menor.
-const MODOS: [(u32, u32); 4] = [(PANTALLA.0 as u32, PANTALLA.1 as u32), (1600, 900), (1280, 720), (1024, 768)];
 /// Los formatos que la casa presenta (Present copia de estos dos).
 const FORMATOS: [u32; 2] = [DXGI_FORMAT_R8G8B8A8_UNORM, DXGI_FORMAT_B8G8R8A8_UNORM];
 
@@ -463,7 +462,8 @@ fn escribir_desc_salida(d: *mut u8, n: usize) {
         for (k, c) in NOMBRE_PANTALLA.encode_utf16().enumerate() {
             (d.add(2 * k) as *mut u16).write_unaligned(c);
         }
-        (d.add(64) as *mut [i32; 4]).write_unaligned([0, 0, PANTALLA.0, PANTALLA.1]);
+        let (w, h) = pantalla();
+        (d.add(64) as *mut [i32; 4]).write_unaligned([0, 0, w, h]);
         (d.add(80) as *mut u32).write_unaligned(1);
         (d.add(84) as *mut u32).write_unaligned(DXGI_MODE_ROTATION_IDENTITY);
         (d.add(88) as *mut u64).write_unaligned(MONITOR);
@@ -511,7 +511,9 @@ fn lista_de_modos(formato: u32, n: *mut u32, lista: *mut u8, paso: usize) -> i32
     if n.is_null() {
         return E_INVALIDARG;
     }
-    let total = if FORMATOS.contains(&formato) { MODOS.len() as u32 } else { 0 };
+    let mut modos = [(0, 0); crate::pantalla::MAX_MODOS];
+    let cuantos = crate::pantalla::modos(&mut modos);
+    let total = if FORMATOS.contains(&formato) { cuantos as u32 } else { 0 };
     // SAFETY: `n` es del `.exe`; `lista`, si no es nula, tiene `*n` modos.
     unsafe {
         if lista.is_null() {
@@ -519,7 +521,7 @@ fn lista_de_modos(formato: u32, n: *mut u32, lista: *mut u8, paso: usize) -> i32
             return S_OK;
         }
         let cabe = n.read_unaligned().min(total);
-        for (k, &(w, h)) in MODOS.iter().take(cabe as usize).enumerate() {
+        for (k, &(w, h)) in modos.iter().take(cabe as usize).enumerate() {
             let m = lista.add(k * paso);
             core::ptr::write_bytes(m, 0, paso);
             (m as *mut [u32; 7]).write_unaligned(modo(w, h, formato));
@@ -548,10 +550,13 @@ fn mas_cercano(pedido: *const u32, sale: *mut u8, paso: usize) -> i32 {
     unsafe {
         let p = (pedido as *const [u32; 7]).read_unaligned();
         let formato = if FORMATOS.contains(&p[4]) { p[4] } else { DXGI_FORMAT_R8G8B8A8_UNORM };
+        let mut modos = [(0, 0); crate::pantalla::MAX_MODOS];
+        let cuantos = crate::pantalla::modos(&mut modos);
+        let la_pantalla = modos[cuantos - 1];
         let (w, h) = if p[0] == 0 || p[1] == 0 {
-            MODOS[0]
+            la_pantalla
         } else {
-            *MODOS.iter().min_by_key(|&&(w, h)| w.abs_diff(p[0]) as u64 + h.abs_diff(p[1]) as u64).unwrap_or(&MODOS[0])
+            *modos[..cuantos].iter().min_by_key(|&&(w, h)| w.abs_diff(p[0]) as u64 + h.abs_diff(p[1]) as u64).unwrap_or(&la_pantalla)
         };
         core::ptr::write_bytes(sale, 0, paso);
         (sale as *mut [u32; 7]).write_unaligned(modo(w, h, formato));

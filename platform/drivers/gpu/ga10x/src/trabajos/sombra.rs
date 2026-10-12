@@ -265,7 +265,7 @@ mod pruebas {
 
     #[test]
     fn la_copia_de_la_sombra_a_la_ventana() {
-        let v = crate::destino::Destino { fila: 5120, ancho: 1280, alto: 720, rgb: false }.ventana();
+        let v = crate::destino::Destino { fila: 5120, ancho: 1280, alto: 720, flotante: crate::destino::Flotante::No, rgb: false }.ventana();
         let o = copia(&v, false);
         assert_eq!(o[2], cabecera_en(4, OFFSET_IN_UPPER, 8));
         assert_eq!((o[3] as u64) << 32 | o[4] as u64, VA);
@@ -285,8 +285,8 @@ mod pruebas {
     #[test]
     fn el_plan_de_un_dibujo() {
         use crate::tuberia::Dibujo;
-        let pantalla = Ventana { x0: 320, y0: 180, va: 0x4_0000_1000, fila: 7680, rgb: false, ancho: 1280, alto: 720 };
-        let dst = crate::destino::Destino { fila: 5120, ancho: 1280, alto: 720, rgb: true };
+        let pantalla = Ventana { x0: 320, y0: 180, va: 0x4_0000_1000, fila: 7680, flotante: crate::destino::Flotante::No, rgb: false, ancho: 1280, alto: 720 };
+        let dst = crate::destino::Destino { fila: 5120, ancho: 1280, alto: 720, flotante: crate::destino::Flotante::No, rgb: true };
         let z = Some(crate::profundidad::Z { funcion: 2, escribir: true, limpiar: None });
         assert_eq!(plan(&pantalla, &Dibujo::default()), None, "sin Z, sin sombra");
         assert_eq!(plan(&pantalla, &Dibujo { z, ..Dibujo::default() }), Some((pantalla, false)), "la pantalla: se limpia, no se carga");
@@ -302,7 +302,7 @@ mod pruebas {
 
     #[test]
     fn la_copia_de_la_ventana_a_la_sombra() {
-        let v = Ventana { x0: 10, y0: 20, va: 0x4_0001_0000, fila: 7680, rgb: true, ancho: 1280, alto: 720 };
+        let v = Ventana { x0: 10, y0: 20, va: 0x4_0001_0000, fila: 7680, flotante: crate::destino::Flotante::No, rgb: true, ancho: 1280, alto: 720 };
         let o = copia(&v, true);
         assert_eq!((o[3] as u64) << 32 | o[4] as u64, v.va);
         assert_eq!((o[5] as u64) << 32 | o[6] as u64, VA);

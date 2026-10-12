@@ -177,7 +177,12 @@ pub(crate) fn crear(clase: Result<Vec<u16>, u16>, titulo: Vec<u16>, mut cs: Crea
         return 0;
     };
     let medida = |v: i32, por_defecto| if v == CW_USEDEFAULT || v <= 0 { por_defecto } else { v as u32 };
-    let (w, h) = (medida(cs.cx, ANCHO_POR_DEFECTO), medida(cs.cy, ALTO_POR_DEFECTO));
+    let (mut w, mut h) = (medida(cs.cx, ANCHO_POR_DEFECTO), medida(cs.cy, ALTO_POR_DEFECTO));
+    // LI2j (12-10): una de arriba con marco no pasa de la pantalla (Windows
+    // la recorta a SM_CXMAXTRACK). El metal: Cyberpunk pidio 1738x1064.
+    if cs.estilo as u32 & WS_CHILD == 0 && cs.estilo as u32 & (WS_CAPTION | WS_THICKFRAME) != 0 {
+        (w, h) = crate::pantalla::recortar_ventana(w, h);
+    }
     let Some(sup) = (plataforma().superficie)(w, h) else {
         aviso("CreateWindowExW: el escritorio no dio superficie");
         return 0;
@@ -223,6 +228,8 @@ pub(crate) fn crear(clase: Result<Vec<u16>, u16>, titulo: Vec<u16>, mut cs: Crea
 }
 
 const WS_CHILD: u32 = 0x4000_0000;
+const WS_CAPTION: u32 = 0x00C0_0000;
+const WS_THICKFRAME: u32 = 0x0004_0000;
 const WS_DISABLED: u32 = 0x0800_0000;
 const WS_VISIBLE: u32 = 0x1000_0000;
 const SW_SHOW: i32 = 5;

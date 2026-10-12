@@ -1,7 +1,8 @@
-//! **Las opciones de delante de la ruta**, en cualquier orden. Salio de
+//! **Las opciones de delante de la ruta**, en cualquier orden: `--diario`,
+//! `--3060`, `--pantalla WxH` (LI2j) y `--sin-obreros`. Salio de
 //! `_start` (`main.rs`) por L6a moviendo texto: el bucle es el mismo.
 
-use crate::{la3060, obreros};
+use crate::{bmo, la3060, obreros};
 
 /// Quita las opciones de delante de `todo` y devuelve lo que queda y si va
 /// con diario.
@@ -27,6 +28,24 @@ pub fn leer(todo: &[u8]) -> (&[u8], bool) {
             // dibujo ella. `personal 3060 <ruta>` en el escritorio.
             (todo, con_diario) = (r, true);
             la3060::modo_3060();
+        } else if let Some(r) = todo.strip_prefix(b"--pantalla ") {
+            // ** LA PANTALLA DEL DUENO (LI2j, 12-10): `--pantalla 1920x1080`
+            // -- la que ve el juego, la elige el dueno (sin ella: 1920x1080,
+            // o con `--3060` la que dibuja la puerta). Sin barra de tareas si
+            // es la de la 3060; si no, la de Windows (40).
+            let k = r.iter().position(|&c| c == b' ').unwrap_or(r.len());
+            let Some((ancho, alto)) = bmo_proton_x_casa::pantalla::leer(&r[..k]) else {
+                crate::di("PROTON-X: NO -- `--pantalla` quiere ancho x alto (`--pantalla 1920x1080`)\n");
+                bmo::salir();
+            };
+            let barra = if (ancho, alto) == bmo_proton_x_sm86::puerta::MEDIDA { 0 } else { 40 };
+            if let Err(m) = bmo_proton_x_casa::pantalla::poner(bmo_proton_x_casa::pantalla::Pantalla { ancho, alto, barra }, true) {
+                crate::di("PROTON-X: NO -- `--pantalla`: ");
+                crate::di(m);
+                crate::di("\n");
+                bmo::salir();
+            }
+            todo = r.get(k + 1..).unwrap_or(&[]);
         } else if let Some(r) = todo.strip_prefix(b"--sin-obreros ") {
             todo = r;
             obreros::apagar();

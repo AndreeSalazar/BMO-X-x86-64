@@ -250,9 +250,22 @@ y `puerta.rs`; el juez en `platform/drivers/gpu/ga10x/src/sass/juez.rs`):
       **Falta la mitad de la 3060:** varios destinos en la tuberia
       (`pso.rs` aun dice "varios render targets") y su mezcla en el ROP,
       con la regla 4 del juez (el redondeo de la 3060) en el metal.
-- [ ] **LI2e -- la entrada de vertices de verdad**: formatos de 8 y 16 bits
+- [~] **LI2e -- la entrada de vertices de verdad**: formatos de 8 y 16 bits
       (UNORM, SNORM, half) y `SV_VertexID` / `SV_InstanceID`. **Como se
       sabe:** las instancias de N5.19 por la 3060, con su huella.
+      *12-10, la mitad de los valores de sistema* (el censo de Cyberpunk: 16
+      lotes de 34): `pegamento::Sistema` en la receta (bits 8..10 de
+      `componentes`); SV_VertexID es el `vid` del ALD (IMAD.SHL por 1) y la
+      puerta escribe los indices SIN el vertice base y copia los vertices
+      DESDE el: el `vid` es el de la CPU (`lote::entrada`) y la memoria no se
+      mueve. SV_InstanceID, 0 (una instancia). Sin paso, un cuadro sin bufer
+      de vertices. Lo probo el banco: `el_cuadro_de_sv_vertexid_va_a_la_3060`
+      y `con_vertice_base_el_vid_es_el_de_la_cpu` (puerta, receta, pegado de
+      prueba con su juez y el vigia contra la CPU), `sv_vertexid_sale_del_vid`
+      y `el_valor_de_sistema_cruza_la_receta`, con sus pruebas del NO. El
+      juez cazo un fallo del primer intento (R3: el cuerpo esperaba la
+      barrera de unas cargas que no habia). **Falta:** el metal, los formatos
+      de 8 y 16 bits y varias instancias.
 - [ ] **LI2f -- el computo del juego en la 3060.** Un PSO de computo al QMD
       (la 3060 ya corre computo fijo: `trabajos/blur.rs`), con UAV. **Como
       se sabe:** `olas` (A10) por la 3060, con su huella.
@@ -283,6 +296,58 @@ y `puerta.rs`; el juez en `platform/drivers/gpu/ga10x/src/sass/juez.rs`):
       de BMOX-12 que corre en el metal); el filtrado, con LI2c.
 - [ ] **LI2h -- el sombreador de geometria**, si LI0 dice que Cyberpunk lo
       usa. Si no, se aparca con motivo.
+- [~] **LI2i -- el render target de FLOAT (HDR)** (el censo de Cyberpunk,
+      12-10: 28 lotes de 34). La casa lo guarda en floats de 32 ya
+      redondeados a su formato (`formato_ia::cuantizar`); la 3060 escribe
+      ESO mismo (`RF32_GF32_BF32_AF32` o `RF32`, `destino::Flotante`, el mapa
+      del destino a 16 MiB) y el pegamento del de pixel redondea la salida
+      canal a canal (`pegamento::Redondeo`: igual, al half con F2FP.PACK_AB
+      y HADD2.F32 -- las palabras de `ptxas` --, 0 o 1). El juez del kernel
+      las conoce SOLO en esa forma; el simulador, tambien. *12-10, en el
+      banco:* `el_redondeo_de_la_3060_es_el_de_la_cpu` (6 formatos, 20 000
+      floats, bit a bit con la CPU), `un_cuadro_en_un_rgba16f_va_a_la_3060`
+      (puerta, receta, pegado del kernel con su juez y el vigia),
+      `el_render_target_de_float_cruza_la_receta` y
+      `el_redondeo_al_half_solo_en_su_forma`, con sus pruebas del NO.
+      **Falta:** el metal; la Z con float (la sombra en bloque es de 8 bits:
+      lo para `tuberia::cabe` y lo vigila el guardian `la-3060`, regla Z);
+      R11G11B10 y los UNORM de mas de 8 bits; limpiar un float en el lote;
+      la carga de un NaN (en la 3060 puede salir otro NaN: el juez lo da por
+      bueno). *Lo que se supone y se mira en el metal:* que F2FP.PACK_AB
+      redondea al par mas cercano (es el `cvt.rn` de PTX).
+- [~] **LI2j -- LA MEDIDA DEL JUEGO** (metal 12-10). La puerta dibuja
+      1280x720 (Q0a1 de `EL_FOCO.md`), y Cyberpunk abrio una VENTANA de
+      1738x1064: todos sus lotes iban a la CPU por eso, y el censo no lo
+      decia (desde el 12-10 si: "un destino que no mide 1280x720"). DOOM pide
+      1280x720 y la 3060 se lleva la pantalla entera. Dos caminos: abrir
+      Q0a1 (otra medida, con filas alineadas a 128 B o por la copia) o que
+      PROTON-X le diga al juego que la pantalla mide 1280x720. **Como se
+      sabe:** el censo sin esa puerta, y la 3060 con lotes de Cyberpunk.
+      **Hecho el segundo camino (12-10), como pieza:** "BMO-X le da lo que
+      el juego quiere, y luego el dueno toma el control".
+      - `proton-x-casa/src/pantalla.rs`: la pantalla que ve el juego deja de
+        ser una constante (`PANTALLA = 1920x1080`) y la pone QUIEN CARGA.
+        user32 (GetSystemMetrics, el area de trabajo, GetMonitorInfo,
+        EnumDisplaySettings, el cursor, ClipCursor) y DXGI (la salida, sus
+        modos, FindClosestMatchingMode) leen de alli: los mismos modos, de
+        menor a mayor, las medidas comunes que CABEN y la pantalla la ultima.
+      - Una ventana de arriba con marco no pasa de la pantalla
+        (CreateWindowEx la recorta, como Windows a SM_CXMAXTRACK).
+      - `puerta::MEDIDA` (proton-x-sm86): la medida que la puerta dibuja, de
+        `cubo::ANCHO/ALTO` de ga10x. Con `--3060`, PROTON-X le da esa al
+        juego, sin barra de tareas; sin `--3060`, Full HD como siempre.
+      - El dueno manda: `--pantalla WxH` (cualquier orden con las otras) se
+        queda aunque haya `--3060`, y la consola dice si es otra medida que
+        la de la puerta (lo de otra medida va por la CPU). Y dentro del
+        juego, su menu elige entre los modos que la casa ofrece.
+      - Guardian `la-3060` regla MD: la medida sale de la GPU, y la3060.rs no
+        escribe `(1280, 720)` a mano.
+      **Por que no Full HD en la 3060 todavia:** la puerta (Q0a1) solo deja
+      pasar 1280x720; la sombra de la Z es de 1280x720 a 8 bits; y un
+      destino de float de 1920x1080 son 31.6 MiB, el doble del mapa del
+      destino (8 PT = 16 MiB). Es Q0a1 con su sombra y su mapa: otra pieza.
+      **Falta:** verlo en el metal (Cyberpunk con `personal 3060`: que su
+      ventana o su cadena midan 1280x720 y el censo deje de decir la medida).
 
 ## 4.3 PROTON-X habla VERRANO
 

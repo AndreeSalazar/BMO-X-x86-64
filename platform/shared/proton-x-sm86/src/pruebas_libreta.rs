@@ -143,7 +143,7 @@ fn lo_apuntado_se_revisa_en_el_siguiente_lote() {
     let cb = std::vec![0u8; 16 * en.vs.filas_cb.max(en.ps.filas_cb) as usize];
     let reglas = bmo_proton_x::trama::Reglas { viewport: [0.0, 0.0, 1280.0, 720.0, 0.0, 1.0], tijera: [0, 0, 1280, 720], descarte: 1, antihorario: false, profundidad: None, mezcla: bmo_proton_x::mezcla::Mezclas::NINGUNA, z_del_sombreador: false, stencil: None };
     let l = Lote { enlace: &en, entradas: &ia, vertices: &vertices, paso, ids: &[0, 1, 2], topologia: Topologia::Lista, cb: &cb, reglas, limpiar_z: None, limpiar_rt: None, recursos: bmo_proton_x::textura::Recursos::NINGUNO, oclusion: false, otros: &[], instancias: 1, primera_instancia: 0, base_vertice: 0, uavs: None };
-    let b = Blanco { va: 0x4000_0000, ancho: 1280, alto: 720, bgra: false, cadena: false };
+    let b = Blanco { va: 0x4000_0000, ancho: 1280, alto: 720, bgra: false, cadena: false, flotante: None };
     let mut p = Puerta::nueva();
     let n = p.preparar(&l, b).expect("el cubo va a la 3060");
     let r = bmo_gpu_ga10x::receta::leer(&p.caja[..n]).unwrap();
@@ -180,7 +180,7 @@ fn sample_level_de_varias_mips_va_por_la_cpu() {
     let vertices: Vec<u8> = (0..3 * paso / 4).flat_map(|k| (k as f32 * 0.125).to_bits().to_le_bytes()).collect();
     let cb = std::vec![0u8; 16 * en.vs.filas_cb.max(en.ps.filas_cb) as usize];
     let reglas = bmo_proton_x::trama::Reglas { viewport: [0.0, 0.0, 1280.0, 720.0, 0.0, 1.0], tijera: [0, 0, 1280, 720], descarte: 1, antihorario: false, profundidad: None, mezcla: bmo_proton_x::mezcla::Mezclas::NINGUNA, z_del_sombreador: false, stencil: None };
-    let b = Blanco { va: 0x4000_0000, ancho: 1280, alto: 720, bgra: false, cadena: false };
+    let b = Blanco { va: 0x4000_0000, ancho: 1280, alto: 720, bgra: false, cadena: false, flotante: None };
     for (mips, dice) in [(2u32, true), (1, false)] {
         let tx = [Some(Textura { texeles: &texeles, ancho: 16, alto: 16, como: Como::Rgba8, srgb: false, mapeo: Textura::MAPEO, mips, capas: 1, hondo: 1, clase: Clase::Plana, mip: 0, capa: 0, niveles: u32::MAX, lod_min: 0.0, vista: None })];
         let recursos = Recursos { texturas: &tx, muestreadores: &ms, buferes: &[], dinamicas: None };

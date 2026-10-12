@@ -53,17 +53,20 @@ pub struct Censo {
     puertas: BTreeMap<String, Cuenta>,
     /// Los PSO con mas lotes, con su primera puerta.
     pesos: BTreeMap<usize, u64>,
+    /// **Las puertas JUNTAS** de cada lote (metal 12-10): casi ningun lote de
+    /// Cyberpunk lo para una sola, asi que "cuantos solo por ella" no dice que
+    /// abrir. Esto si: cada combinacion y sus lotes.
+    juntas: BTreeMap<Vec<String>, u64>,
 }
 
 impl Censo {
     pub const fn nuevo() -> Self {
-        Censo { lotes: 0, lotes_3060: 0, psos: BTreeMap::new(), psos_3060: 0, puertas: BTreeMap::new(), pesos: BTreeMap::new() }
+        Censo { lotes: 0, lotes_3060: 0, psos: BTreeMap::new(), psos_3060: 0, puertas: BTreeMap::new(), pesos: BTreeMap::new(), juntas: BTreeMap::new() }
     }
 
     /// **Apunta un lote.** `del_destino`: lo que el que dibuja ya sabe que no
     /// pasa (un render target de float, un lote sin pixeles).
     pub fn apuntar(&mut self, l: &Lote, del_destino: &[&'static str], z_a_la_3060: bool) {
-        self.lotes += 1;
         let clave = l.enlace as *const Enlace as usize;
         if !self.psos.contains_key(&clave) {
             let m = del_pso(l.enlace, l.entradas, l.paso as u32);
@@ -79,12 +82,21 @@ impl Censo {
         let mut todas: Vec<String> = del_destino.iter().map(|s| String::from(*s)).collect();
         todas.extend(del_lote(l, z_a_la_3060).into_iter().map(String::from));
         todas.extend(self.psos[&clave].iter().cloned());
+        self.contar(todas);
+    }
+
+    /// Un lote con TODAS sus puertas (las del destino, del lote y del PSO).
+    pub(crate) fn contar(&mut self, mut todas: Vec<String>) {
+        self.lotes += 1;
         todas.sort();
         todas.dedup();
         if todas.is_empty() {
             self.lotes_3060 += 1;
         }
         let solo = todas.len() == 1;
+        if !todas.is_empty() {
+            *self.juntas.entry(todas.clone()).or_default() += 1;
+        }
         for p in todas {
             let c = self.puertas.entry(p).or_default();
             c.lotes += 1;
@@ -112,8 +124,17 @@ impl Censo {
             self.lotes_3060,
             if self.lotes == 0 { 0 } else { self.lotes_3060 * 100 / self.lotes }
         );
-        for (p, c) in self.puertas().into_iter().take(n) {
-            s.push_str(&format!("#   {:>7} lotes ({:>4} PSO), {:>6} solo por ella: {p}\n", c.lotes, c.psos, c.solo));
+        let puertas = self.puertas();
+        for (i, (p, c)) in puertas.iter().take(n).enumerate() {
+            s.push_str(&format!("#   [{}] {:>7} lotes ({:>4} PSO), {:>6} solo por ella: {p}\n", i + 1, c.lotes, c.psos, c.solo));
+        }
+        // Las combinaciones, por los numeros de arriba ([+] = una de mas abajo).
+        for (lotes, nombres) in self.juntas_que_mas(5) {
+            // Por numero (las de mas abajo, `usize::MAX`, al final).
+            let mut pos: Vec<usize> = nombres.iter().map(|q| puertas.iter().take(n).position(|(p, _)| *p == q.as_str()).unwrap_or(usize::MAX)).collect();
+            pos.sort();
+            let idx: Vec<String> = pos.iter().map(|&i| if i == usize::MAX { String::from("[+]") } else { format!("[{}]", i + 1) }).collect();
+            s.push_str(&format!("#   juntas: {lotes} lotes se abren con {}\n", idx.join(" + ")));
         }
         let mut pesados: Vec<(&usize, &u64)> = self.pesos.iter().collect();
         pesados.sort_by(|a, b| b.1.cmp(a.1));
@@ -122,6 +143,16 @@ impl Censo {
             s.push_str(&format!("#   PSO de {lotes} lotes: {primera}\n"));
         }
         s
+    }
+}
+
+impl Censo {
+    /// Las `n` combinaciones de puertas que mas lotes paran.
+    pub fn juntas_que_mas(&self, n: usize) -> Vec<(u64, &Vec<String>)> {
+        let mut v: Vec<(u64, &Vec<String>)> = self.juntas.iter().map(|(k, l)| (*l, k)).collect();
+        v.sort_by(|a, b| b.0.cmp(&a.0).then(a.1.len().cmp(&b.1.len())));
+        v.truncate(n);
+        v
     }
 }
 
@@ -186,7 +217,8 @@ pub fn del_pso(en: &Enlace, ia: &[ElementoIa], paso: u32) -> Vec<String> {
                     }
                 }
             }
-            _ => poner!("un valor de sistema en el de vertice (SV_VertexID, SV_InstanceID)".into()),
+            // LI2e (12-10): SV_VertexID y SV_InstanceID, de la 3060.
+            Fuente::Vertice | Fuente::Instancia => {}
         }
     }
     if pso::posicion_zw(en) {
@@ -205,7 +237,7 @@ pub fn del_pso(en: &Enlace, ia: &[ElementoIa], paso: u32) -> Vec<String> {
         match r {
             Ok(e) => {
                 if e.codigo.len() > bmo_gpu_ga10x::sass::juez::MAX_INSTRUCCIONES {
-                    poner!(format!("un programa largo (mas de {} instrucciones; el de {que})", bmo_gpu_ga10x::sass::juez::MAX_INSTRUCCIONES));
+                    poner!(format!("un programa largo ({}; el de {que})", tramo_largo(e.codigo.len())));
                 }
             }
             Err(e) => {
@@ -226,6 +258,22 @@ pub fn del_pso(en: &Enlace, ia: &[ElementoIa], paso: u32) -> Vec<String> {
         }
     }
     v
+}
+
+/// **Cuanto mide un programa largo**, por tramos (metal 12-10: el censo decia
+/// "mas de 128" y no si con 256 bastaba o hacian falta miles). Es lo que
+/// decide el tamano del hueco de LI2b.
+pub fn tramo_largo(n: usize) -> String {
+    let max = bmo_gpu_ga10x::sass::juez::MAX_INSTRUCCIONES;
+    let mut techo = max * 2;
+    while techo < n && techo < 8192 {
+        techo *= 2;
+    }
+    if n > techo {
+        format!("mas de {techo} instrucciones")
+    } else {
+        format!("de {} a {techo} instrucciones", techo / 2 + 1)
+    }
 }
 
 /// El motivo del emisor con NOMBRE: la operacion que no sabe, no su indice.
