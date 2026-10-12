@@ -969,6 +969,8 @@ pub extern "C" fn _start() -> ! {
     if con_diario {
         bmo_proton_x_casa::diario::diario(Some(RUTA_DIARIO));
     }
+    // LI2j (12-10): la pantalla que ve el juego, antes de que pregunte.
+    la3060::poner_pantalla();
     if la3060::en_modo_3060() {
         la3060::decir_si_esta_lista();
     }

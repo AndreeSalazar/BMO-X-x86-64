@@ -244,6 +244,34 @@ pub(crate) fn en_modo_3060() -> bool {
     MODO_3060.load(core::sync::atomic::Ordering::Relaxed)
 }
 
+/// **La pantalla que ve el juego** (LI2j, 12-10): BMO-X le da UNA y el juego
+/// elige de ella (su ventana, su cadena, sus modos). Con `--3060`, la medida
+/// que la puerta dibuja ([`puerta::MEDIDA`]) y sin barra de tareas, para que
+/// lo que el juego QUIERE sea lo que la 3060 puede; sin `--3060`, la de
+/// siempre (1920x1080). Si el dueno dijo `--pantalla WxH`, manda el: se
+/// queda la suya, y si no es la de la puerta se le dice que va por la CPU.
+pub(crate) fn poner_pantalla() {
+    use bmo_proton_x_casa::pantalla::{self, Pantalla};
+    let p = pantalla::actual();
+    let (w, h) = puerta::MEDIDA;
+    let s = if pantalla::del_dueno() {
+        if en_modo_3060() && (p.ancho, p.alto) != puerta::MEDIDA {
+            alloc::format!("PROTON-X: la pantalla que ve el juego: {}x{} (la del dueno, --pantalla); la puerta de la 3060 dibuja {w}x{h}: lo de otra medida va por la CPU", p.ancho, p.alto)
+        } else {
+            alloc::format!("PROTON-X: la pantalla que ve el juego: {}x{} (la del dueno, --pantalla)", p.ancho, p.alto)
+        }
+    } else if en_modo_3060() {
+        // MEDIDA esta entre 640x480 y 8K, y sin barra: siempre vale.
+        let _ = pantalla::poner(Pantalla { ancho: w, alto: h, barra: 0 }, false);
+        alloc::format!("PROTON-X --3060: la pantalla que ve el juego: {w}x{h} (la que dibuja la puerta de la 3060); `--pantalla WxH` la cambia")
+    } else {
+        return;
+    };
+    bmo::consola(&s);
+    bmo::consola("\n");
+    bmo_proton_x_casa::diario::apuntar_arranque(&s);
+}
+
 /// **Al arrancar en el modo 3060**: si el escritorio preparo la tarjeta.
 pub(crate) fn decir_si_esta_lista() {
     let lista = bmo::info(bmo::INFO_GPU_PUERTA) == 1;
@@ -356,9 +384,9 @@ pub fn dibujar(l: &Lote, d: &mut Destino) -> Result<Cuenta, NoDibuja> {
         if d.pixeles.is_empty() {
             del_destino.push("un lote sin pixeles (solo profundidad, N5.12)");
         }
-        // Metal 12-10: la puerta dibuja 1280x720 (Q0a1); la ventana de
-        // Cyberpunk media 1738x1064 y el censo no lo decia.
-        if !d.pixeles.is_empty() && (d.ancho, d.alto) != (1280, 720) {
+        // Metal 12-10: la puerta dibuja su medida (Q0a1, 1280x720); la
+        // ventana de Cyberpunk media 1738x1064 y el censo no lo decia.
+        if !d.pixeles.is_empty() && (d.ancho, d.alto) != puerta::MEDIDA {
             del_destino.push("un destino que no mide 1280x720 (la ventana del juego; Q0a1: otra medida, por ver en el metal)");
         }
         e.censo.apuntar(l, &del_destino, puerta::Z_EN_LA_SOMBRA);
@@ -435,7 +463,7 @@ pub fn dibujar(l: &Lote, d: &mut Destino) -> Result<Cuenta, NoDibuja> {
                         if d.cadena
                             && !e.pantalla_pedida
                             && !e.sin_pantalla
-                            && (d.ancho, d.alto) == (1280, 720)
+                            && (d.ancho, d.alto) == puerta::MEDIDA
                         {
                             crate::plataforma::pedir_pantalla(true);
                             e.pantalla_pedida = true;

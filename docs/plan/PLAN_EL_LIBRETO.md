@@ -315,7 +315,7 @@ y `puerta.rs`; el juez en `platform/drivers/gpu/ga10x/src/sass/juez.rs`):
       la carga de un NaN (en la 3060 puede salir otro NaN: el juez lo da por
       bueno). *Lo que se supone y se mira en el metal:* que F2FP.PACK_AB
       redondea al par mas cercano (es el `cvt.rn` de PTX).
-- [ ] **LI2j -- LA MEDIDA DEL JUEGO** (metal 12-10). La puerta dibuja
+- [~] **LI2j -- LA MEDIDA DEL JUEGO** (metal 12-10). La puerta dibuja
       1280x720 (Q0a1 de `EL_FOCO.md`), y Cyberpunk abrio una VENTANA de
       1738x1064: todos sus lotes iban a la CPU por eso, y el censo no lo
       decia (desde el 12-10 si: "un destino que no mide 1280x720"). DOOM pide
@@ -323,6 +323,31 @@ y `puerta.rs`; el juez en `platform/drivers/gpu/ga10x/src/sass/juez.rs`):
       Q0a1 (otra medida, con filas alineadas a 128 B o por la copia) o que
       PROTON-X le diga al juego que la pantalla mide 1280x720. **Como se
       sabe:** el censo sin esa puerta, y la 3060 con lotes de Cyberpunk.
+      **Hecho el segundo camino (12-10), como pieza:** "BMO-X le da lo que
+      el juego quiere, y luego el dueno toma el control".
+      - `proton-x-casa/src/pantalla.rs`: la pantalla que ve el juego deja de
+        ser una constante (`PANTALLA = 1920x1080`) y la pone QUIEN CARGA.
+        user32 (GetSystemMetrics, el area de trabajo, GetMonitorInfo,
+        EnumDisplaySettings, el cursor, ClipCursor) y DXGI (la salida, sus
+        modos, FindClosestMatchingMode) leen de alli: los mismos modos, de
+        menor a mayor, las medidas comunes que CABEN y la pantalla la ultima.
+      - Una ventana de arriba con marco no pasa de la pantalla
+        (CreateWindowEx la recorta, como Windows a SM_CXMAXTRACK).
+      - `puerta::MEDIDA` (proton-x-sm86): la medida que la puerta dibuja, de
+        `cubo::ANCHO/ALTO` de ga10x. Con `--3060`, PROTON-X le da esa al
+        juego, sin barra de tareas; sin `--3060`, Full HD como siempre.
+      - El dueno manda: `--pantalla WxH` (cualquier orden con las otras) se
+        queda aunque haya `--3060`, y la consola dice si es otra medida que
+        la de la puerta (lo de otra medida va por la CPU). Y dentro del
+        juego, su menu elige entre los modos que la casa ofrece.
+      - Guardian `la-3060` regla MD: la medida sale de la GPU, y la3060.rs no
+        escribe `(1280, 720)` a mano.
+      **Por que no Full HD en la 3060 todavia:** la puerta (Q0a1) solo deja
+      pasar 1280x720; la sombra de la Z es de 1280x720 a 8 bits; y un
+      destino de float de 1920x1080 son 31.6 MiB, el doble del mapa del
+      destino (8 PT = 16 MiB). Es Q0a1 con su sombra y su mapa: otra pieza.
+      **Falta:** verlo en el metal (Cyberpunk con `personal 3060`: que su
+      ventana o su cadena midan 1280x720 y el censo deje de decir la medida).
 
 ## 4.3 PROTON-X habla VERRANO
 

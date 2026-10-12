@@ -32,7 +32,7 @@ use core::cell::UnsafeCell;
 
 use bmo_proton_x::ventanas::{de_evento, vk_de_scancode, Msg, WM_KEYDOWN, WM_KEYUP, WM_LBUTTONDOWN, WM_LBUTTONUP, WM_RBUTTONDOWN, WM_RBUTTONUP};
 
-use crate::user32_medidas::PANTALLA;
+use crate::user32_medidas::pantalla;
 use crate::user32_ventanas::copiar_texto;
 use crate::{con, dir, kernel32};
 
@@ -198,7 +198,8 @@ pub(crate) fn reiniciar() {
     e.sincronas = Teclas::nuevas();
     e.asincronas = Teclas::nuevas();
     e.pulsadas = [false; 256];
-    e.cursor = (PANTALLA.0 / 2, PANTALLA.1 / 2);
+    let (w, h) = pantalla();
+    e.cursor = (w / 2, h / 2);
     e.raton = None;
     e.visibles = 0;
     e.forma = cursor_de(32512);
@@ -557,7 +558,8 @@ extern "win64" fn set_cursor_pos(x: i32, y: i32) -> i32 {
 }
 
 fn recorte() -> [i32; 4] {
-    estado().recorte.unwrap_or([0, 0, PANTALLA.0, PANTALLA.1])
+    let (w, h) = pantalla();
+    estado().recorte.unwrap_or([0, 0, w, h])
 }
 
 /// `GetCursorInfo`: CURSORINFO (cbSize 24, flags, hCursor +8, pt +16).
@@ -617,8 +619,8 @@ extern "win64" fn clip_cursor(r: *const i32) -> i32 {
     } else {
         // SAFETY: un RECT suyo.
         let r = unsafe { [r.read(), r.add(1).read(), r.add(2).read(), r.add(3).read()] };
-        let (x0, y0) = (r[0].max(0), r[1].max(0));
-        Some([x0, y0, r[2].min(PANTALLA.0).max(x0 + 1), r[3].min(PANTALLA.1).max(y0 + 1)])
+        let ((w, h), (x0, y0)) = (pantalla(), (r[0].max(0), r[1].max(0)));
+        Some([x0, y0, r[2].min(w).max(x0 + 1), r[3].min(h).max(y0 + 1)])
     };
     let (x, y) = e.cursor;
     set_cursor_pos(x, y)
@@ -706,7 +708,8 @@ fn teclear(vk: u16, sc: u16, banderas: u32) {
 fn mover(dx: i32, dy: i32, banderas: u32) {
     if banderas & 1 != 0 {
         let (x, y) = if banderas & 0x8000 != 0 {
-            ((dx as i64 * PANTALLA.0 as i64 / 65536) as i32, (dy as i64 * PANTALLA.1 as i64 / 65536) as i32)
+            let (w, h) = pantalla();
+            ((dx as i64 * w as i64 / 65536) as i32, (dy as i64 * h as i64 / 65536) as i32)
         } else {
             let c = estado().cursor;
             (c.0 + dx, c.1 + dy)

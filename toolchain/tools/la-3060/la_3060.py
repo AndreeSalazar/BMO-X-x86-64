@@ -101,6 +101,13 @@ las esperas, que es la deuda que se quiere bajar):
                    la receta), `receta::leer` y `escribir` (que lo llaman) y la
                    puerta de PROTON-X (`Z_CON_FLOAT`, antes de las cuentas de la
                    Z). El propietario: "un guardian ... que no acepten Z"
+    MD LA MEDIDA (12-10, LI2j de `PLAN_EL_LIBRETO.md`): la medida que la
+                   puerta dibuja es UNA y la dice la GPU: `puerta::MEDIDA` de
+                   proton-x-sm86 sale de `cubo::ANCHO`/`cubo::ALTO` de ga10x
+                   (lo que `es_la_de_verrano` deja pasar). PROTON-X (la3060.rs)
+                   no escribe `(1280, 720)` a mano: la pantalla que le da al
+                   juego con `--3060` y el censo usan `puerta::MEDIDA`, para
+                   que cuando Q0a1 abra otra medida no se queden atras
 
     --check   lo que corre el build
 """
@@ -180,6 +187,22 @@ def z_y_float(fallos):
         fallos.append('Z: `receta::leer` y `receta::escribir` tienen que llamar a `tu::cabe` (la Z con float, al leer y al escribir)')
     if not re.search(r'b\.flotante\.is_some\(\)\s*&&\s*l\.reglas\.profundidad\.is_some\(\)', puerta_px) or 'Z_CON_FLOAT' not in puerta_px:
         fallos.append('Z: la puerta de PROTON-X ya no dice la Z con float (`Z_CON_FLOAT`) antes de las cuentas de la Z')
+
+
+def medida(fallos):
+    """MD: la medida de la puerta, de la GPU y en un sitio (ver el principio)."""
+    puerta_px = sin_comentarios(leer(os.path.join(RAIZ, 'platform', 'shared', 'proton-x-sm86', 'src', 'puerta.rs')))
+    app = sin_comentarios(leer(os.path.join(RAIZ, 'Ultra_userspace', 'apps', 'proton-x', 'src', 'la3060.rs')))
+    if not puerta_px or not app:
+        fallos.append('MD: no se leen la puerta de PROTON-X o la3060.rs: el guardian no mira')
+        return
+    if not re.search(r'pub const MEDIDA: \(u32, u32\) = \(bmo_gpu_ga10x::cubo::ANCHO, bmo_gpu_ga10x::cubo::ALTO\);', puerta_px):
+        fallos.append('MD: `puerta::MEDIDA` ya no sale de `cubo::ANCHO`/`cubo::ALTO` de ga10x: la medida de la puerta la dice la GPU')
+    if re.search(r'\(\s*1280\s*,\s*720\s*\)', app):
+        fallos.append('MD: la3060.rs escribe `(1280, 720)` a mano: es `puerta::MEDIDA`')
+    m = re.search(r'fn poner_pantalla\(\) \{(.*?)\n\}', app, re.S)
+    if not m or 'puerta::MEDIDA' not in m.group(1) or 'pantalla::poner(' not in m.group(1):
+        fallos.append('MD: `la3060::poner_pantalla` ya no le da al juego `puerta::MEDIDA` con `--3060`')
 
 
 def puerta(fallos):
@@ -569,6 +592,7 @@ def main():
     n_sobre = sobre(fallos)
     n_prometeo = prometeo(fallos)
     z_y_float(fallos)
+    medida(fallos)
     giros = esperas()
     total = sum(giros.values())
     base = linea_base()
@@ -584,7 +608,7 @@ def main():
             print('  ' + f)
         return 1
     extra = '' if base is None or total == base else ' (bajo de %d: baja la linea base en %s)' % (base, rel(BASE))
-    print('clean: la puerta pide MAQUINA; solo la 3060 12G (%s); registros solo en dev/gpu*; %d ordenes y %d motivos iguales en los tres sitios; opt-level 3; el pase NEUTRO en %d ficheros sin NVIDIA; %d ficheros declaran su [estado] y lo que SOBREVIVE tiene un propietario que no escribe; el sobre, la API y VERRANO sin una GPU dentro (%d ficheros) y el juez en la puerta; PROMETEO y TITAN++ sin una tarjeta dentro (%d ficheros); la Z con float parada en sus tres sitios; %d esperas girando%s'
+    print('clean: la puerta pide MAQUINA; solo la 3060 12G (%s); registros solo en dev/gpu*; %d ordenes y %d motivos iguales en los tres sitios; opt-level 3; el pase NEUTRO en %d ficheros sin NVIDIA; %d ficheros declaran su [estado] y lo que SOBREVIVE tiene un propietario que no escribe; el sobre, la API y VERRANO sin una GPU dentro (%d ficheros) y el juez en la puerta; PROMETEO y TITAN++ sin una tarjeta dentro (%d ficheros); la Z con float parada en sus tres sitios; la medida de la puerta, de la GPU (`puerta::MEDIDA`); %d esperas girando%s'
           % ('/'.join('%04X' % x for x in suyos), n_ordenes, n_motivos, n_neutros, n_aon, n_sobre, n_prometeo, total, extra))
     return 0
 

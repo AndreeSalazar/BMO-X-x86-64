@@ -224,6 +224,11 @@ pub fn de_flotante(formato: u32, palabras: u32) -> Result<(Flotante, Redondeo), 
 /// la sombra en bloque, y la sombra es de 8 bits por canal todavia.
 pub const Z_CON_FLOAT: &str = "un render target de float con la Z: la sombra en bloque de la 3060 es de 8 bits por canal todavia";
 
+/// **La medida que la puerta dibuja** (Q0a1): la de VERRANO, la unica que
+/// `Destino::es_la_de_verrano` deja pasar. PROTON-X, con `--3060`, se la da
+/// al juego como su pantalla (LI2j, 12-10): el juego elige de lo que ve.
+pub const MEDIDA: (u32, u32) = (bmo_gpu_ga10x::cubo::ANCHO, bmo_gpu_ga10x::cubo::ALTO);
+
 /// **Escribir la receta de un lote** en `caja` (con `datos` de apoyo).
 /// `Err` = por que este lote NO va a la 3060 (va a la CPU, y se dice).
 pub fn escribir(c: &Cuerpos, l: &Lote, b: Blanco, limpiar_z: Option<u32>, datos: &mut Vec<u8>, caja: &mut [u8]) -> Result<usize, String> {
