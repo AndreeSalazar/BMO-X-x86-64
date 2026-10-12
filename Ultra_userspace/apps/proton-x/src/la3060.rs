@@ -81,6 +81,12 @@ struct Estado {
     /// A9: lo dicho de los `.bsf` (traducidos, recordados, cuando y, A9c,
     /// corregidos por el vigia).
     bsf_dicho: (usize, usize, u64, usize),
+    /// ** LI0 (12-10): EL CENSO -- todas las puertas de cada lote, contadas;
+    /// solo con el diario encendido (traducir los PSO que van por la CPU
+    /// cuesta, y es para investigar).
+    censo: bmo_proton_x_sm86::censo::Censo,
+    /// Cuando se dijo el censo por ultima vez (ns) y con cuantos lotes.
+    censo_dicho: (u64, u64),
 }
 
 /// **El recuerdo de los `.bsf` en ESTRATOS** (A9, 06-10): cada PSO, un
@@ -216,7 +222,30 @@ static ESTADO: Celda = Celda(core::cell::UnsafeCell::new(Estado {
     sin_pantalla: false,
     carpeta_bsf: None,
     bsf_dicho: (0, 0, 0, 0),
+    censo: bmo_proton_x_sm86::censo::Censo::nuevo(),
+    censo_dicho: (0, 0),
 }));
+
+/// Cada cuanto se dice el censo (LI0), en la consola y en el DIARIO.
+const CENSO_CADA_NS: u64 = 30_000_000_000;
+
+/// **El censo de la 3060** a la consola y al DIARIO (LI0, 12-10).
+fn decir_censo(e: &mut Estado, ahora: u64) {
+    e.censo_dicho = (ahora, e.censo.lotes);
+    let s = e.censo.resumen(10);
+    bmo::consola("PROTON-X: el censo de la 3060 (LI0):\n");
+    let n = s.lines().count();
+    for (k, linea) in s.lines().enumerate() {
+        bmo::consola(linea);
+        bmo::consola("\n");
+        // Al disco con la ULTIMA linea: una escritura del diario por censo.
+        if k + 1 == n {
+            bmo_proton_x_casa::diario::apuntar_y_volcar(linea.trim_start_matches("# "));
+        } else {
+            bmo_proton_x_casa::diario::apuntar_arranque(linea.trim_start_matches("# "));
+        }
+    }
+}
 
 /// **P3b4c.9 Z1: soltar la pantalla directa** si se pidio, y no volver a
 /// pedirla: lo que venga va por la RAM y lo compone el escritorio. Un lote
@@ -265,6 +294,22 @@ fn no_pagado(r: u64) -> String {
 pub fn dibujar(l: &Lote, d: &mut Destino) -> Result<Cuenta, NoDibuja> {
     // SAFETY: ver `Celda`.
     let e = unsafe { &mut *ESTADO.0.get() };
+    // ** LI0 (12-10): EL CENSO, antes de decidir nada: TODAS las puertas de
+    // este lote (las del destino, las del lote y las de su PSO), contadas.
+    if bmo_proton_x_casa::diario::encendido() {
+        let mut del_destino: Vec<&'static str> = Vec::new();
+        if d.flotante.is_some() {
+            del_destino.push("un render target de float (HDR, N5.16): la puerta sabe BGRA8 y RGBA8");
+        }
+        if d.pixeles.is_empty() {
+            del_destino.push("un lote sin pixeles (solo profundidad, N5.12)");
+        }
+        e.censo.apuntar(l, &del_destino, puerta::Z_EN_LA_SOMBRA);
+        let ahora = crate::plataforma::ahora_ns();
+        if e.censo.lotes != e.censo_dicho.1 && ahora.saturating_sub(e.censo_dicho.0) >= CENSO_CADA_NS {
+            decir_censo(e, ahora);
+        }
+    }
     // N5.12: un lote de solo profundidad (sin pixeles) no tiene back buffer
     // que darle a la puerta: por la CPU.
     // N5.16 (05-10): un render target de FLOAT (HDR) tampoco: la puerta

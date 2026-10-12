@@ -127,7 +127,7 @@ y `puerta.rs`; el juez en `platform/drivers/gpu/ga10x/src/sass/juez.rs`):
 
 ## 4.0 Medir antes de construir
 
-- [ ] **LI0 -- EL CENSO de la 3060: cuantos PSO de Cyberpunk pasarian, y
+- [~] **LI0 -- EL CENSO de la 3060: cuantos PSO de Cyberpunk pasarian, y
       por que no los demas.** Al crear cada PSO, PROTON-X le pregunta a la
       puerta SIN mandar nada a la tarjeta (la traduccion y el juez, en la
       CPU) y apunta TODAS las puertas que no pasa, no solo la primera. Al
@@ -138,6 +138,12 @@ y `puerta.rs`; el juez en `platform/drivers/gpu/ga10x/src/sass/juez.rs`):
       con un censo conocido (uno que pasa, uno por cada puerta: la prueba
       del NO es que cada puerta se cuente); en el metal, la linea del
       DIARIO de Cyberpunk. **Decide el orden de LI2.**
+      **12-10, HECHO en el anfitrion** (`proton-x-sm86/src/censo.rs`,
+      `pruebas_censo.rs`: la prueba del NO es un PSO con DOS puertas, donde
+      `traducir` dice una y el censo las dos). Cuenta tambien las puertas
+      del LOTE (mezcla, Z, stencil, instancias, UAV, olas, derivadas, mips)
+      y las del destino (HDR, sin pixeles), y "solo por ella". Encendido con
+      el diario. **Falta:** la linea del DIARIO de Cyberpunk en el metal.
 
 ## 4.1 El libreto de los PSO (preparar una vez)
 

@@ -248,9 +248,20 @@ pub fn apuntar_arranque(linea: &str) {
     e.texto.push(b'\n');
 }
 
+/// **Una linea apuntada TARDE al disco ya** (12-10, el censo LI0): el diario
+/// solo baja al disco con la primera llamada a una funcion nueva, y a mitad
+/// de partida ya no hay funciones nuevas. Una escritura entera del diario.
+pub fn apuntar_y_volcar(linea: &str) {
+    apuntar_arranque(linea);
+    let e = estado();
+    if e.ruta.is_some() {
+        let _ = volcar(e);
+    }
+}
+
 /// Si el diario esta encendido (`personal diario ...`): lo que solo se
 /// cuenta al investigar (los NO de la memoria) sale solo entonces.
-pub(crate) fn encendido() -> bool {
+pub fn encendido() -> bool {
     estado().ruta.is_some()
 }
 
