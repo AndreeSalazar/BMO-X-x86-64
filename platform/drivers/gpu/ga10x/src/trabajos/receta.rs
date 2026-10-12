@@ -396,7 +396,7 @@ pub fn escribir(out: &mut [u8], r: &Receta) -> Option<usize> {
     let d = r.dibujo;
     let (dva, dst) = d.destino?;
     // Q0a1: la medida que quepa; con Z, la de VERRANO (`tuberia::cabe`).
-    if !dst.valido() || !tu::cabe(&d) {
+    if !dst.valido_en(dva) || !tu::cabe(&d) {
         return None;
     }
     let estado = match d.descarte {
@@ -531,9 +531,10 @@ pub fn clave(r: &Receta, out: &mut [u8; MAX_CLAVE]) -> usize {
     // 12-10: la mezcla cambia el pegado del de pixel (y el destino, su
     // medida y su formato: lo que lee).
     poner(&r.dibujo.mezcla.a_bytes());
-    let dst = r.dibujo.destino.map_or(crate::destino::Destino::default(), |(_, d)| d);
+    let (dva, dst) = r.dibujo.destino.unwrap_or((0, crate::destino::Destino::default()));
     poner(&dst.fila.to_le_bytes());
-    poner(&(dst.flotante.numero() | (dst.rgb as u32) << 8).to_le_bytes());
+    // Q0a1b: y donde empieza en su pagina (la mezcla lee desde alli).
+    poner(&(dst.flotante.numero() | (dst.rgb as u32) << 8 | ((dva % 4096) as u32) << 16).to_le_bytes());
     poner(r.vs);
     poner(r.ps);
     for e in r.elementos() {
@@ -588,7 +589,7 @@ pub fn pegar(r: &Receta, t: &mut Taller) -> Result<(), NoReceta> {
     t.bytes_vs = t.pegado.bytes(&mut t.vs);
     let cuerpo = instrucciones(&mut t.cuerpo, r.ps);
     juez::juzgar_cuerpo_con(cuerpo, r.registros_ps, juez::Permisos { asas: pegamento::asas(r.cargas_ps()), banco }).map_err(|b| NoReceta::Cuerpo("pixel", b))?;
-    let mezcla = r.dibujo.destino.filter(|_| !r.dibujo.mezcla.trivial()).map(|(_, dst)| (r.dibujo.mezcla, dst));
+    let mezcla = r.dibujo.destino.filter(|_| !r.dibujo.mezcla.trivial()).map(|(va, dst)| (r.dibujo.mezcla, dst, (va % 4096) as u32));
     pegamento::pixel_entero_en(&mut t.pegado, cuerpo, r.registros_ps, r.cargas_ps(), datos, r.genericos(), r.termometro_ps, r.dibujo.redondeo, mezcla).map_err(|e| NoReceta::Pegamento("pixel", e))?;
     t.bytes_ps = t.pegado.bytes(&mut t.ps);
     let jv = juez::juzgar_programa(&t.vs[..t.bytes_vs], tu::REGISTROS).map_err(|b| NoReceta::Juez("vertice", b))?;

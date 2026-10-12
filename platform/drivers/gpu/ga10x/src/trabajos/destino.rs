@@ -44,6 +44,14 @@ pub const MAX_BYTES: u64 = PTS as u64 * (2 << 20);
 /// mas; el mapa, [`MAX_BYTES`], es el que de verdad acota).
 pub const MAX_LADO: u32 = 4096;
 const PAGINA: u64 = 0x1000;
+/// **Q0a1b (12-10): donde puede EMPEZAR un destino**: a 128 B, no a pagina.
+/// La 3060 ya dibuja en un color pitch que empieza a mitad de pagina: la
+/// ventana del cubo en la pantalla (`cubo::ventana`, x0 a 32 pixeles = 128
+/// B), visto en el metal desde X5. Un render target del juego que empieza a
+/// mitad de pagina (un mip de 80x45 en ...d400) va igual: su ventana empieza
+/// en [`VA`] + lo que se mete en la pagina, y la IOMMU presta desde la
+/// pagina de su base.
+pub const ALINEA: u64 = 128;
 
 /// **Como guarda el destino cada pixel** (LI2d-HDR, 12-10). Un render target
 /// de float del juego lo guarda la casa en floats de 32 bits YA redondeados a
@@ -132,6 +140,18 @@ impl Destino {
         self.ancho >= 1 && self.alto >= 1 && self.ancho <= MAX_LADO && self.alto <= MAX_LADO && self.fila as u64 >= self.flotante.bytes() as u64 * self.ancho as u64 && self.fila % 128 == 0 && self.bytes() <= MAX_BYTES
     }
 
+    /// **Q0a1b**: [`valido`](Self::valido) y que la VA de la app empiece a
+    /// [`ALINEA`], con lo que se mete en la pagina DENTRO del mapa.
+    pub const fn valido_en(&self, va_app: u64) -> bool {
+        self.valido() && va_app % ALINEA == 0 && va_app % PAGINA + self.bytes() <= MAX_BYTES
+    }
+
+    /// Las paginas que se prestan para un destino en `va_app`: desde la de
+    /// su base hasta la de su ultimo byte.
+    pub const fn paginas_en(&self, va_app: u64) -> u64 {
+        (va_app % PAGINA + self.bytes()).div_ceil(PAGINA)
+    }
+
     /// La de VERRANO: 1280x720 (la de la sombra y la de la Z).
     pub const fn es_la_de_verrano(&self) -> bool {
         self.ancho == crate::cubo::ANCHO && self.alto == crate::cubo::ALTO
@@ -140,7 +160,14 @@ impl Destino {
     /// Como lo ven las ordenes de VERRANO: una ventana en el (0, 0) de [`VA`],
     /// de SU medida.
     pub const fn ventana(&self) -> Ventana {
-        Ventana { x0: 0, y0: 0, va: VA, fila: self.fila, rgb: self.rgb, flotante: self.flotante, ancho: self.ancho, alto: self.alto }
+        self.ventana_en(0)
+    }
+
+    /// **Q0a1b**: la ventana de un destino en `va_app`: empieza en [`VA`] +
+    /// lo que `va_app` se mete en su pagina (la IOMMU presta desde la pagina
+    /// de la base: `IOVA` es esa pagina).
+    pub const fn ventana_en(&self, va_app: u64) -> Ventana {
+        Ventana { x0: 0, y0: 0, va: VA + va_app % PAGINA, fila: self.fila, rgb: self.rgb, flotante: self.flotante, ancho: self.ancho, alto: self.alto }
     }
 }
 

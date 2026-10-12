@@ -517,7 +517,7 @@ pub(crate) fn dibujo_de_campos(cabecera: &[u8], n: usize, datos: usize) -> Optio
         // redondeo (abajo); nada mas.
         let flotante = crate::destino::Flotante::de_numero(bandera >> 1 & 3)?;
         let d = crate::destino::Destino { fila: u32le(cabecera, 52), ancho: medidas & 0xFFFF, alto: medidas >> 16, flotante, rgb: bandera & 1 != 0 };
-        if bandera & !(HAY_DESTINO | 7 | 0xFF << 8) != 0 || !d.valido() || va == 0 || va % 4096 != 0 {
+        if bandera & !(HAY_DESTINO | 7 | 0xFF << 8) != 0 || !d.valido_en(va) || va == 0 {
             return None;
         }
         Some((va, d))
@@ -812,7 +812,7 @@ pub fn ordenes_dibujo(v: &Ventana, n: usize, ligero: bool, d: Dibujo) -> cu::Ord
     let (v, limpiar) = match d.destino {
         // Z1: en la pantalla, y SIN la limpieza de VERRANO: limpia la app.
         Some(_) if d.pantalla => (*v, false),
-        Some((_, dst)) => (dst.ventana(), false),
+        Some((va, dst)) => (dst.ventana_en(va), false),
         None => (*v, true),
     };
     // P3b4c.6b: con Z, el color va a la SOMBRA en bloque (la 3060 no dibuja
@@ -973,7 +973,7 @@ pub fn huella_fija(v: &Ventana, p: &Paquete, ligero: bool) -> u64 {
     let color = d.color.map_or(0, |c| 1 << 32 | c as u64) | (d.texturas as u64) << 40;
     let dst = d.destino.map_or(Default::default(), |(_, dst)| dst);
     let hay_destino = d.destino.is_some() as u64 | (d.cadena as u64) << 1 | (d.pantalla as u64) << 2;
-    for x in [dibujo, z, color, hay_destino, dst.fila as u64 | (dst.ancho as u64) << 32, dst.alto as u64 | (dst.rgb as u64) << 32 | (dst.flotante.numero() as u64) << 33 | (d.redondeo.numero() as u64) << 40, v.x0 as u64, v.y0 as u64, v.va, v.fila as u64, v.rgb as u64, ligero as u64] {
+    for x in [dibujo, z, color, hay_destino, dst.fila as u64 | (dst.ancho as u64) << 32, dst.alto as u64 | (dst.rgb as u64) << 32 | (dst.flotante.numero() as u64) << 33 | (d.redondeo.numero() as u64) << 40, v.x0 as u64, v.y0 as u64, v.va, v.fila as u64, v.rgb as u64, ligero as u64, d.destino.map_or(0, |(va, _)| va % 4096)] {
         mezclar(&x.to_le_bytes());
     }
     h

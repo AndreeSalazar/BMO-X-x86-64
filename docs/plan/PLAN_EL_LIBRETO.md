@@ -454,6 +454,15 @@ y `puerta.rs`; el juez en `platform/drivers/gpu/ga10x/src/sass/juez.rs`):
       **Como se sabe:** el metal con Cyberpunk: `smp all`, `personal 3060`,
       y la linea `[3060]` con lotes dibujados; si el kernel dice NO, el censo
       dice el porque con palabras (ya no hace falta `cabina fallos`).
+      **Q0a1b (12-10): el render target a mitad de pagina** (el censo: "no
+      empieza en pagina", un mip de 80x45 en ...d400). La 3060 ya dibujaba
+      un color que empieza a 128 B (la ventana del cubo en la pantalla, X5).
+      `destino::ALINEA` = 128: la ventana va en `destino::VA` + lo que se
+      mete en la pagina (`ventana_en`), el kernel presta desde la pagina de
+      la base (`paginas_en`), la mezcla lo pone en el inmediato de sus LDG,
+      y la huella del caliente y la clave del pegado lo llevan. Pruebas:
+      `q0a1b_el_destino_a_mitad_de_pagina`, `leer_destino_a_mitad_de_pagina`,
+      `el_render_target_a_mitad_de_pagina_va_a_la_3060`.
 
 ## 4.3 PROTON-X habla VERRANO
 

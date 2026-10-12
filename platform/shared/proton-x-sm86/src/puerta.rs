@@ -305,7 +305,7 @@ impl NoMedida {
         match self {
             NoMedida::Filas => "un render target cuyas filas no van de 128 en 128 B (la casa las guarda juntas; la 3060 escribe filas de 128 B)",
             NoMedida::Grande => "un render target que no cabe en el mapa del destino de la 3060 (16 MiB, 4096 por lado)",
-            NoMedida::Pagina => "un render target que no empieza en pagina (la IOMMU presta paginas enteras)",
+            NoMedida::Pagina => "un render target que no empieza a 128 B (el color de la 3060 empieza a 128 B; Q0a1b)",
             NoMedida::ConZ => "un render target de otra medida que 1280x720 con la Z (la Z y la sombra de la 3060 miden 1280x720)",
         }
     }
@@ -327,13 +327,18 @@ pub fn medida(b: &Blanco, flotante: Flotante, con_z: bool) -> Result<Destino, No
     if dst.fila % 128 != 0 {
         return Err(NoMedida::Filas);
     }
-    if b.va % 4096 != 0 {
+    // Q0a1b (12-10): a mitad de pagina vale, si empieza a 128 B; lo que se
+    // mete en la pagina cuenta en el mapa.
+    if b.va % bmo_gpu_ga10x::destino::ALINEA != 0 {
         return Err(NoMedida::Pagina);
+    }
+    if b.va % 4096 + dst.bytes() > MAX_BYTES {
+        return Err(NoMedida::Grande);
     }
     if con_z && !dst.es_la_de_verrano() {
         return Err(NoMedida::ConZ);
     }
-    debug_assert!(dst.valido());
+    debug_assert!(dst.valido_en(b.va));
     Ok(dst)
 }
 

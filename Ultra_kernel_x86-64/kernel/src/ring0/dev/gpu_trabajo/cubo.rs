@@ -500,7 +500,7 @@ fn a_la_pantalla(pid: u32, d: &bmo_gpu_ga10x::tuberia::Dibujo) -> bool {
         // 12-10: la mezcla lee la RAM de la app: el dibujo va alli.
         && d.mezcla.trivial()
         && PANTALLA_PID.load(Ordering::Acquire) == pid
-        && d.destino.is_some_and(|(_, dst)| dst.ancho == cu::ANCHO && dst.alto == cu::ALTO)
+        && d.destino.is_some_and(|(va, dst)| va % 4096 == 0 && dst.ancho == cu::ANCHO && dst.alto == cu::ALTO)
 }
 
 /// **P3b4c.8 T2: prestar las texturas de una receta a la 3060**: cada una
@@ -777,27 +777,31 @@ fn prestar_destino(bar0: u64, pid: u32, va_app: u64, dst: &bmo_gpu_ga10x::destin
     use bmo_gpu_ga10x::porque::DESTINO_RESERVA;
     use crate::ring0::obj::reserva;
     let bytes = dst.bytes();
-    let paginas = dst.paginas();
+    // ** Q0a1b (12-10): el destino puede empezar a mitad de pagina (a 128 B,
+    // `destino::ALINEA`; lo valido `receta::leer`). Se presta desde la pagina
+    // de su BASE, y las ordenes dibujan en `destino::VA` + lo que se mete.
+    let base = va_app & !0xFFF;
+    let paginas = dst.paginas_en(va_app);
     // Donde esta: un bloque suyo (seguido), o su RESERVA (marcos sueltos).
-    let fisica = crate::ring0::obj::memory::fisica_para_escribir(pid, va_app, bytes);
+    let fisica = crate::ring0::obj::memory::fisica_para_escribir(pid, va_app, bytes).map(|f| f - va_app % 4096);
     let aspace = crate::ring0::mm::vmm::read_cr3();
-    let marco = |k: u64| reserva::marco(aspace, va_app + k * crate::ring0::mm::PAGE, true);
+    let marco = |k: u64| reserva::marco(aspace, base + k * crate::ring0::mm::PAGE, true);
     match fisica {
-        Some(f) if f % 4096 != 0 || f + bytes > crate::ring0::mm::PHYSMAP_SIZE => {
+        Some(f) if f % 4096 != 0 || f + paginas * 4096 > crate::ring0::mm::PHYSMAP_SIZE => {
             crate::ring0::cabina::warn("gpu", "VERRANO: el destino no empieza en pagina o se sale del physmap; fisica", f);
             return Err(no(Porque::DestinoNoAlineado, 0, f));
         }
         Some(_) => {}
         None if reserva::en_la_ventana(va_app, bytes) => {
-            if va_app % 4096 != 0 {
+            if va_app % bmo_gpu_ga10x::destino::ALINEA != 0 {
                 return Err(no(Porque::DestinoNoAlineado, 1, va_app));
             }
             // ** 12-10: el render target de un juego vive en su reserva (lo
             // de 64 KiB o mas: `memoria::pedir_paginas` de la casa). Cada
             // pagina tiene que estar HECHA, ser suya y escribible.
             if let Some(k) = (0..paginas).find(|&k| marco(k).is_none()) {
-                crate::ring0::cabina::warn("gpu", "VERRANO: una pagina del destino en la reserva no esta hecha o no es escribible", va_app + k * 4096);
-                return Err(no(Porque::DestinoNoEscribible, DESTINO_RESERVA, va_app + k * 4096));
+                crate::ring0::cabina::warn("gpu", "VERRANO: una pagina del destino en la reserva no esta hecha o no es escribible", base + k * 4096);
+                return Err(no(Porque::DestinoNoEscribible, DESTINO_RESERVA, base + k * 4096));
             }
         }
         None => {

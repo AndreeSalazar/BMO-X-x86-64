@@ -127,3 +127,30 @@ fn preparar_dice_el_paso_que_fallo() {
     let vacio = Paquete { n: 0, ..p };
     assert_eq!(preparar_paso(&mut Vram(Default::default(), 0), 3, &v, &vacio, false), Err(0));
 }
+
+/// ** Q0a1b (12-10): un destino que empieza a mitad de pagina (el mip de
+/// 80x45 de Cyberpunk, en ...d400): el color va a `destino::VA` + lo que
+/// se mete en la pagina, y la huella cambia con eso (el caliente no
+/// reusa unas ordenes de otro sitio).
+#[test]
+fn q0a1b_el_destino_a_mitad_de_pagina() {
+    use crate::tresde as td;
+    let gop = crate::pantalla::Pantalla { vram: 0x100_0000, pitch: 1920, ancho: 1920, alto: 1080, rgb: false };
+    let v = crate::cubo::ventana(&gop).unwrap();
+    let dst = crate::destino::Destino { fila: 384, ancho: 80, alto: 45, flotante: crate::destino::Flotante::No, rgb: true };
+    let ct = crate::copia::cabecera_en(0, td::SET_COLOR_TARGET_A0, 8);
+    for (va, desp) in [(0x2_0012_3000u64, 0u64), (0x2_0012_3400, 0x400), (0x2_0012_3f80, 0xf80)] {
+        assert!(dst.valido_en(va));
+        let d = Dibujo { vertices: 3, destino: Some((va, dst)), ..Dibujo::default() };
+        let o = ordenes_dibujo(&v, 1, true, d);
+        let w = &o.o[..o.n];
+        let i = w.iter().position(|&x| x == ct).unwrap();
+        let base = crate::destino::VA + desp;
+        assert_eq!(&w[i + 1..i + 3], &[(base >> 32) as u32, base as u32], "{va:#x}");
+        assert_eq!(dst.paginas_en(va), (desp + 384 * 45).div_ceil(4096), "{va:#x}");
+    }
+    assert!(!dst.valido_en(0x2_0012_3410), "no a 128 B");
+    let p = |va| Paquete { ficha: 1, vs: &[], ps: &[], vertices: &[], n: 3, limpiar: None, dibujo: Dibujo { vertices: 3, destino: Some((va, dst)), ..Dibujo::default() } };
+    assert_ne!(huella_fija(&v, &p(0x2_0012_3400), false), huella_fija(&v, &p(0x2_0012_3000), false));
+    assert_eq!(huella_fija(&v, &p(0x2_0012_3400), false), huella_fija(&v, &p(0x2_0099_9400), false), "la pagina no cuenta: la presta la IOMMU");
+}

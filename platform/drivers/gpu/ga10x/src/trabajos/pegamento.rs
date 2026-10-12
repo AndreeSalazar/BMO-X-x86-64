@@ -735,7 +735,7 @@ pub fn pixel_con_libreta_en(g: &mut Pegado, cuerpo: &[(u64, u64)], registros: u3
 ///
 /// ** 12-10: con `mezcla` (no trivial), tras el cuerpo, lo que ya esta en
 /// ESE destino mezclado con el pixel nuevo (`mezcla`), antes del redondeo.
-pub fn pixel_entero_en(g: &mut Pegado, cuerpo: &[(u64, u64)], registros: u32, cargas: &[Carga], datos: Datos, genericos: &[Option<u8>], termometro: Option<u8>, redondeo: Redondeo, mezcla: Option<(crate::mezcla::Mezcla, crate::destino::Destino)>) -> Result<(), NoPega> {
+pub fn pixel_entero_en(g: &mut Pegado, cuerpo: &[(u64, u64)], registros: u32, cargas: &[Carga], datos: Datos, genericos: &[Option<u8>], termometro: Option<u8>, redondeo: Redondeo, mezcla: Option<(crate::mezcla::Mezcla, crate::destino::Destino, u32)>) -> Result<(), NoPega> {
     g.n = 0;
     let (resto, exit) = partir(cuerpo)?;
     cargas_propias(cargas, registros)?;
@@ -786,8 +786,8 @@ pub fn pixel_entero_en(g: &mut Pegado, cuerpo: &[(u64, u64)], registros: u32, ca
         sph[0] |= crate::raster::LEE_O_ESCRIBE;
     }
     let mascara = if entradas > 0 { 1 << 0 } else { 0 } | if filas { 1 << B_CARGAS } else { 0 };
-    let mezcla = mezcla.filter(|(m, _)| !m.trivial());
-    if let Some((m, _)) = mezcla {
+    let mezcla = mezcla.filter(|(m, _, _)| !m.trivial());
+    if let Some((m, _, _)) = mezcla {
         if m.valida().is_err() {
             return Err(NoPega::Carga);
         }
@@ -795,13 +795,13 @@ pub fn pixel_entero_en(g: &mut Pegado, cuerpo: &[(u64, u64)], registros: u32, ca
     // La mezcla (12-10): tras el cuerpo, con a..a+8 de trabajo (las filas ya
     // se leyeron; el apunte de la libreta pone los suyos).
     let mezclar = |o: &mut Poner, sph: &mut [u32; SPH]| {
-        let Some((m, dst)) = mezcla else { return };
+        let Some((m, dst, desplazamiento)) = mezcla else { return };
         o.p(ipa(a, ATRIBUTO_POSICION, IPA_CONTROL));
         o.p(ipa(a + 1, ATRIBUTO_POSICION + 1, IPA_ULTIMO));
         sph[5] |= 0b11 << (BIT_IMAP_POSICION_X - 160);
         sph[0] |= crate::raster::LEE_O_ESCRIBE;
         let mut primera = true;
-        crate::mezcla::leer_destino(&dst, a, &mut |w| {
+        crate::mezcla::leer_destino(&dst, desplazamiento, a, &mut |w| {
             o.p(if primera { esperando(w, 1 << 0) } else { w });
             primera = false;
         });
