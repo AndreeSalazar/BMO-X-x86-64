@@ -886,22 +886,38 @@ pub fn preparar<R: Registros>(r: &mut R, e: u32, v: &Ventana, p: &Paquete) -> bo
 
 /// `preparar`, con las ordenes `ligero` o con su escalera.
 pub fn preparar_con<R: Registros>(r: &mut R, e: u32, v: &Ventana, p: &Paquete, ligero: bool) -> bool {
+    preparar_paso(r, e, v, p, ligero).is_ok()
+}
+
+/// **`preparar_con`, diciendo QUE PASO fallo** (12-10): `Err(k)` con `k` el
+/// indice de `porque::PASOS`. El kernel lo apunta como
+/// `Porque::Preparar` (el metal daba un 79 sin mas).
+pub fn preparar_paso<R: Registros>(r: &mut R, e: u32, v: &Ventana, p: &Paquete, ligero: bool) -> Result<(), u8> {
     let n = p.n;
     if !crate::blur::entrada_valida(e) || n == 0 || n % 3 != 0 || n > MAX_VERTICES {
-        return false;
+        return Err(0);
     }
     let o = ordenes_dibujo(v, n / 3, ligero, p.dibujo);
     let en = entrada(sombreador_va(EMPUJE), o.n as u32);
     let va = crate::vram::DATOS_VA;
-    escribir(r, SEMAFORO_FIN, &[0; 4]) == 4
-        && escribir(r, ESCALONES, &[0; N_ESCALONES as usize]) == N_ESCALONES as usize
-        && a_cero(r, SUSTITUTO) as usize == crate::vram::PALABRAS
-        && escribir_programa(r, VS, p.vs)
-        && escribir_programa(r, PS, p.ps)
-        && escribir(r, TABLA, &[va as u32, (va >> 32) as u32]) == 2
-        && escribir(r, crate::libreta::LIBRETA, &[0]) == 1
-        && escribir_bytes(r, DATOS, p.vertices)
-        && escribir(r, EMPUJE, &o.o[..o.n]) == o.n && escribir(r, GR.gpfifo + 8 * e as u64, &[en as u32, (en >> 32) as u32]) == 2
+    // En orden, y el primero que falla corta (como el `&&` de antes): la
+    // entrada del GPFIFO, la ultima, nunca apunta a algo a medias.
+    let mut paso = 0u8;
+    let mut hecho = |bien: bool| {
+        paso += 1;
+        if bien { Ok(()) } else { Err(paso) }
+    };
+    hecho(escribir(r, SEMAFORO_FIN, &[0; 4]) == 4)?;
+    hecho(escribir(r, ESCALONES, &[0; N_ESCALONES as usize]) == N_ESCALONES as usize)?;
+    hecho(a_cero(r, SUSTITUTO) as usize == crate::vram::PALABRAS)?;
+    hecho(escribir_programa(r, VS, p.vs))?;
+    hecho(escribir_programa(r, PS, p.ps))?;
+    hecho(escribir(r, TABLA, &[va as u32, (va >> 32) as u32]) == 2)?;
+    hecho(escribir(r, crate::libreta::LIBRETA, &[0]) == 1)?;
+    hecho(escribir_bytes(r, DATOS, p.vertices))?;
+    hecho(escribir(r, EMPUJE, &o.o[..o.n]) == o.n)?;
+    hecho(escribir(r, GR.gpfifo + 8 * e as u64, &[en as u32, (en >> 32) as u32]) == 2)?;
+    Ok(())
 }
 
 pub use crate::cubo::{empaquetar, lanzar, mirar, sano};

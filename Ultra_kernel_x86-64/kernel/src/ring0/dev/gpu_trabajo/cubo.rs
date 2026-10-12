@@ -58,7 +58,9 @@ use bmo_gpu_ga10x::cubo as cu;
 
 use super::pantalla::{asegurar_mapa, la_pantalla, IOMMU_NO_PANTALLA};
 use super::{esperando, gr_ocupado, BLUR_ENTRADA, BLUR_EN_MARCHA, DIAG_3D, FRACTAL_ESPERA_US, IOMMU_NO_BLUR, IOMMU_NO_BLUR_PREPARAR, LIENZO_HECHO};
+use super::porque::{apuntar, no};
 use crate::ring0::dev::gpu_prestamo::Bar0;
+use bmo_gpu_ga10x::porque::Porque;
 
 /// El bit de `arg` que pide LEER en vez de DIBUJAR.
 pub const CUBO_LEER: u64 = 1 << 63;
@@ -143,7 +145,7 @@ pub fn cubo(arg: u64) -> Result<u64, u32> {
     // Lo que el volcado del escritorio tenga en vuelo, antes: si no, su copia
     // podria caer ENCIMA del cubo entre el dibujo y la lectura.
     let tris = &tris[..t.n];
-    let r = super::volcado::quieto().and_then(|()| dibujar(bar0, ficha as u32, e, &p, t.n as u32, true, |r| cu::preparar(r, e, &v, tris)));
+    let r = super::volcado::quieto().and_then(|()| dibujar(bar0, ficha as u32, e, &p, t.n as u32, true, |r| cu::preparar(r, e, &v, tris).then_some(()).ok_or(0)));
     BLUR_EN_MARCHA.store(false, Ordering::Release);
     r
 }
@@ -298,9 +300,11 @@ pub fn receta(va: u64) -> Result<u64, u32> {
     let bar0 = crate::ring0::dev::gpu::bar0();
     let Some(ficha) = super::ficha_del_gr() else {
         crate::ring0::cabina::warn("gpu", "P3b4c: una app pide la 3060 y el escritorio no la preparo (`gpu verrano`, hasta `lienzo`)", va);
+        apuntar(Porque::SinEscritorio, 0, 0);
         return Err(IOMMU_NO_BLUR);
     };
     if bar0 == 0 || crate::ring0::dev::gpu_apagar::despedido() {
+        apuntar(Porque::SinEscritorio, 1, 0);
         return Err(IOMMU_NO_BLUR);
     }
     let Some(p) = la_pantalla() else { return Err(IOMMU_NO_PANTALLA) };
@@ -313,27 +317,29 @@ pub fn receta(va: u64) -> Result<u64, u32> {
     let dentro = |fisica: u64, bytes: u64| fisica.checked_add(bytes).is_some_and(|fin| fin <= crate::ring0::mm::PHYSMAP_SIZE);
     let Some(f) = crate::ring0::obj::memory::fisica_de(pid, va, rc::CABECERA_2 as u64).filter(|&f| dentro(f, rc::CABECERA_2 as u64)) else {
         crate::ring0::cabina::warn("gpu", "P3b4c: la receta no es un bloque de quien la manda", va);
-        return Err(IOMMU_NO_BLUR_PREPARAR);
+        return Err(no(Porque::RecetaNoEsSuya, 0, va));
     };
     // SAFETY: `fisica_de` dio la cabecera en un bloque del proceso, dentro
     // del physmap (comprobado); solo se lee.
     let cabecera = unsafe { core::slice::from_raw_parts(crate::ring0::mm::phys_to_virt(f) as *const u8, rc::CABECERA_2) };
     let Some(total) = rc::medida(cabecera) else {
         crate::ring0::cabina::warn("gpu", "P3b4c: la cabecera de la receta no se sostiene (VRN2)", va);
-        return Err(IOMMU_NO_BLUR_PREPARAR);
+        return Err(no(Porque::RecetaCabecera, 0, va));
     };
     let Some(f) = crate::ring0::obj::memory::fisica_de(pid, va, total as u64).filter(|&f| dentro(f, total as u64)) else {
-        return Err(IOMMU_NO_BLUR_PREPARAR);
+        crate::ring0::cabina::warn("gpu", "P3b4c: la receta entera no cabe en UN bloque de quien la manda; bytes", total as u64);
+        return Err(no(Porque::RecetaEnteraNoEsSuya, 0, total as u64));
     };
     // SAFETY: como arriba, con `total` bytes; la app esta dentro de esta
     // llamada (un hilo por tarea) y no los toca mientras.
     let bytes = unsafe { core::slice::from_raw_parts(crate::ring0::mm::phys_to_virt(f) as *const u8, total) };
     let Some(r) = rc::leer(bytes) else {
         crate::ring0::cabina::warn("gpu", "P3b4c: la receta no se sostiene (medidas, destino, cargas, datos o indices); bytes", total as u64);
-        return Err(IOMMU_NO_BLUR_PREPARAR);
+        return Err(no(Porque::RecetaNoSeSostiene, 0, total as u64));
     };
     let t0 = pieza(1, inicio);
     if TALLER_EN_USO.swap(true, Ordering::AcqRel) {
+        apuntar(Porque::TallerOcupado, 0, 0);
         return Err(IOMMU_NO_BLUR);
     }
     // SAFETY: `TALLER_EN_USO` recien tomado: nadie mas lo toca hasta soltarlo.
@@ -445,7 +451,7 @@ fn prestar_texturas(bar0: u64, pid: u32, texturas: &[bmo_gpu_ga10x::texturas::De
             }
             _ => {
                 crate::ring0::cabina::warn("gpu", "P3b4c.8: las tablas de las texturas no se escribieron o no se releyeron", 0);
-                return Err(IOMMU_NO_BLUR_PREPARAR);
+                return Err(no(Porque::TexturasTablas, 0, 0));
             }
         }
     }
@@ -454,20 +460,20 @@ fn prestar_texturas(bar0: u64, pid: u32, texturas: &[bmo_gpu_ga10x::texturas::De
         let Some(fisica) = fisica.filter(|&f| f % 4096 == t.va % 4096) else {
             crate::ring0::cabina::warn("gpu", "P3b4c.8: una textura no es un bloque de quien manda la receta", t.va);
             devolver_texturas(&prestadas);
-            return Err(IOMMU_NO_BLUR_PREPARAR);
+            return Err(no(Porque::TexturaNoEsSuya, k as u8, t.va));
         };
         let paginas = t.paginas();
         if crate::ring0::plat::iommu::prestar_gpu(tx::IOVA + k as u64 * tx::RANURA, fisica & !0xFFF, paginas, false).is_err() {
             crate::ring0::cabina::warn("gpu", "P3b4c.8: una textura no se pudo prestar a la 3060; fisica", fisica);
             devolver_texturas(&prestadas);
-            return Err(IOMMU_NO_BLUR_PREPARAR);
+            return Err(no(Porque::TexturaNoSePresta, k as u8, fisica));
         }
         prestadas[k] = paginas;
     }
     if !tx::escribir_piscinas(&mut Bar0(bar0), texturas) {
         crate::ring0::cabina::warn("gpu", "P3b4c.8: los TIC y TSC no quedaron en las piscinas; texturas", texturas.len() as u64);
         devolver_texturas(&prestadas);
-        return Err(IOMMU_NO_BLUR_PREPARAR);
+        return Err(no(Porque::TexturaPiscinas, 0, texturas.len() as u64));
     }
     Ok(prestadas)
 }
@@ -487,12 +493,19 @@ fn decir_no_receta(e: bmo_gpu_ga10x::receta::NoReceta) {
     use bmo_gpu_ga10x::receta::NoReceta;
     match e {
         NoReceta::Cuerpo(cual, b) | NoReceta::Juez(cual, b) => {
+            apuntar(Porque::Juez, 1 + (cual == "pixel") as u8, b.instruccion as u64);
             crate::ring0::cabina::warn("gpu", cual, b.instruccion as u64);
             crate::ring0::cabina::warn("gpu", b.regla.nombre(), b.que as u64);
             crate::ring0::cabina::warn("gpu", "[BMO-X Juez V3b]: TOMA TU BODRIO! la receta de una app no sube a la 3060; instruccion", b.instruccion as u64);
         }
-        NoReceta::Pegamento(cual, _) => crate::ring0::cabina::warn("gpu", "P3b4c: el pegamento del kernel no puede con esta receta (cargas, registros o salidas)", (cual == "pixel") as u64),
-        NoReceta::Forma => crate::ring0::cabina::warn("gpu", "P3b4c: la receta no se sostiene", 0),
+        NoReceta::Pegamento(cual, _) => {
+            apuntar(Porque::Pegamento, 1 + (cual == "pixel") as u8, 0);
+            crate::ring0::cabina::warn("gpu", "P3b4c: el pegamento del kernel no puede con esta receta (cargas, registros o salidas)", (cual == "pixel") as u64)
+        }
+        NoReceta::Forma => {
+            apuntar(Porque::Forma, 0, 0);
+            crate::ring0::cabina::warn("gpu", "P3b4c: la receta no se sostiene", 0)
+        }
     }
 }
 
@@ -505,9 +518,11 @@ fn en_frio(bar0: u64, pid: u32, e: u32, p: &bmo_gpu_ga10x::pantalla::Pantalla, v
     let (p, v, paquete) = (*p, *v, *paquete);
     // P3b4c (29-09): un canal MUERTO dice NO al instante, con SU motivo.
     if super::gr_muerto().is_some() {
+        apuntar(Porque::CanalMuerto, 0, 0);
         return Err(super::IOMMU_NO_CANAL_MUERTO);
     }
     if !bmo_gpu_ga10x::blur::entrada_valida(e) || gr_ocupado() {
+        apuntar(Porque::GrOcupado, 0, e as u64);
         return Err(IOMMU_NO_BLUR);
     }
     // ** P3b4b (3): con DESTINO, la 3060 dibuja en la RAM de la app -- un
@@ -572,7 +587,7 @@ fn en_frio(bar0: u64, pid: u32, e: u32, p: &bmo_gpu_ga10x::pantalla::Pantalla, v
     let mut preparar_ciclos = 0u64;
     let preparar = |r: &mut Bar0| {
         let desde = crate::ring0::task::scheduler::rdtsc();
-        let bien = if caliente { tu::preparar_caliente(r, e, &v, &paquete, ligero) } else { tu::preparar_con(r, e, &v, &paquete, ligero) };
+        let bien = if caliente { tu::preparar_caliente(r, e, &v, &paquete, ligero).then_some(()).ok_or(0) } else { tu::preparar_paso(r, e, &v, &paquete, ligero) };
         preparar_ciclos = crate::ring0::task::scheduler::rdtsc() - desde;
         bien
     };
@@ -641,7 +656,7 @@ fn mapear_z(bar0: u64) -> Result<(), u32> {
         }
         _ => {
             crate::ring0::cabina::warn("gpu", "P3b4c: las tablas de la Z no se escribieron o no se releyeron", 0);
-            Err(IOMMU_NO_BLUR_PREPARAR)
+            Err(no(Porque::ZTablas, 0, 0))
         }
     }
 }
@@ -663,7 +678,7 @@ fn mapear_sombra(bar0: u64) -> Result<(), u32> {
         }
         _ => {
             crate::ring0::cabina::warn("gpu", "P3b4c.6b: las tablas de la sombra no se escribieron o no se releyeron", 0);
-            Err(IOMMU_NO_BLUR_PREPARAR)
+            Err(no(Porque::SombraTablas, 0, 0))
         }
     }
 }
@@ -679,10 +694,12 @@ fn prestar_destino(bar0: u64, pid: u32, va_app: u64, dst: &bmo_gpu_ga10x::destin
     let bytes = dst.bytes();
     let Some(fisica) = crate::ring0::obj::memory::fisica_para_escribir(pid, va_app, bytes) else {
         crate::ring0::cabina::warn("gpu", "VERRANO: el destino no es un bloque ESCRIBIBLE de quien lo pide", va_app);
-        return Err(IOMMU_NO_BLUR_PREPARAR);
+        let sub = crate::ring0::obj::memory::por_que_no_escribir(pid, va_app, bytes);
+        return Err(no(Porque::DestinoNoEscribible, sub, va_app));
     };
     if fisica % 4096 != 0 || fisica + bytes > crate::ring0::mm::PHYSMAP_SIZE {
-        return Err(IOMMU_NO_BLUR_PREPARAR);
+        crate::ring0::cabina::warn("gpu", "VERRANO: el destino no empieza en pagina o se sale del physmap; fisica", fisica);
+        return Err(no(Porque::DestinoNoAlineado, 0, fisica));
     }
     if !DESTINO_MAPEADO.load(Ordering::Acquire) {
         match ds::mapear(&mut Bar0(bar0)) {
@@ -692,14 +709,14 @@ fn prestar_destino(bar0: u64, pid: u32, va_app: u64, dst: &bmo_gpu_ga10x::destin
             }
             _ => {
                 crate::ring0::cabina::warn("gpu", "P3b4b: las tablas del destino no se escribieron o no se releyeron", 0);
-                return Err(IOMMU_NO_BLUR_PREPARAR);
+                return Err(no(Porque::DestinoTablas, 0, 0));
             }
         }
     }
     let paginas = dst.paginas();
     if crate::ring0::plat::iommu::prestar_gpu(ds::IOVA, fisica, paginas, true).is_err() {
         crate::ring0::cabina::warn("gpu", "VERRANO: la RAM de la app no se pudo prestar a la 3060; fisica", fisica);
-        return Err(IOMMU_NO_BLUR_PREPARAR);
+        return Err(no(Porque::DestinoNoSePresta, 0, fisica));
     }
     Ok(paginas)
 }
@@ -991,12 +1008,12 @@ fn diagnostico(r: &mut Bar0) {
 /// y la escalera. `n` = los triangulos. `escalera` = leer los escalones y
 /// los registros del GR al acabar (sin ella, VERRANO `ligero`, no hay
 /// escalones que leer: son ~40 lecturas por PCIe menos por fotograma).
-fn dibujar(bar0: u64, ficha: u32, e: u32, p: &bmo_gpu_ga10x::pantalla::Pantalla, n: u32, escalera: bool, preparar: impl FnOnce(&mut Bar0) -> bool) -> Result<u64, u32> {
+fn dibujar(bar0: u64, ficha: u32, e: u32, p: &bmo_gpu_ga10x::pantalla::Pantalla, n: u32, escalera: bool, preparar: impl FnOnce(&mut Bar0) -> Result<(), u8>) -> Result<u64, u32> {
     let mut r = Bar0(bar0);
-    asegurar_mapa(&mut r, p)?;
-    if !preparar(&mut r) {
-        crate::ring0::cabina::warn("gpu", "X5: el tramo del cubo no quedo preparado; no se toca el timbre", n as u64);
-        return Err(IOMMU_NO_BLUR_PREPARAR);
+    asegurar_mapa(&mut r, p).inspect_err(|_| apuntar(Porque::PantallaMapa, 0, 0))?;
+    if let Err(paso) = preparar(&mut r) {
+        crate::ring0::cabina::warn("gpu", "X5: el tramo del cubo no quedo preparado; no se toca el timbre; paso", paso as u64);
+        return Err(no(Porque::Preparar, paso, n as u64));
     }
     core::sync::atomic::fence(Ordering::SeqCst);
     let hz = (crate::ring0::task::scheduler::tsc_freq() / 1_000_000).max(1);

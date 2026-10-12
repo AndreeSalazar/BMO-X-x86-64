@@ -60,7 +60,7 @@ pub mod trabajos;
 
 /// El idioma de la 3060: el juez del SASS y su corpus (26-09).
 pub mod sass;
-pub use trabajos::{lienzo, blur, fractal, triangulo, raster, color3d, giro, pantalla, video, imagen, completa, volcado, escena, cubo, tuberia, anillo, pegamento, formatos, mezcla, destino, profundidad, sombra, texturas, receta, eterno, libreta};
+pub use trabajos::{lienzo, blur, fractal, triangulo, raster, color3d, giro, pantalla, video, imagen, completa, volcado, escena, cubo, tuberia, anillo, pegamento, formatos, mezcla, destino, profundidad, sombra, texturas, receta, eterno, libreta, porque};
 
 /// **Quien toca los registros.** El kernel lo implementa sobre BAR0; las
 /// pruebas, sobre un banco de mentira que apunta cada escritura.

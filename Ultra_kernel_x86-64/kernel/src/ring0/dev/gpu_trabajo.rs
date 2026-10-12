@@ -48,6 +48,10 @@ mod vigilante;
 /// dibujo de una receta y dicho solo a quien la mando.
 mod libreta;
 pub use vigilante::eterno;
+/// 12-10: el PORQUE del ultimo NO de la puerta de las apps, para quien lo
+/// recibio (`INFO_GPU_PORQUE`).
+mod porque;
+pub use porque::info as info_porque;
 
 // == M5d S1 y S3: EL COMPUTO Y EL PRIMER TRABAJO DEL GR (2026-09-24) ==========
 //

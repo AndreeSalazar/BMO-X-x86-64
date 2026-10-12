@@ -286,6 +286,9 @@ const INFO_REINICIO_MCA: u64 = 0xD1;
 const INFO_SMP_CPU: u64 = 0xD2;
 /// La 3060 lista para los lotes de una app (12-10): `gpu_trabajo::puerta_lista`.
 const INFO_GPU_PUERTA: u64 = 0xD3;
+/// El porque del ultimo NO de la puerta de las apps, a quien lo recibio
+/// (12-10): `gpu_trabajo::info_porque`.
+const INFO_GPU_PORQUE: u64 = 0xD4;
 
 // El metro de la puerta: cuantas y cuantos ciclos dentro de `dispatch`. Se
 // leen como delta. Ver `ring0/syscall/meter.rs`.
@@ -917,6 +920,7 @@ pub fn campo(n: u64) -> Option<u64> {
         INFO_REINICIO_MCA => crate::ring0::plat::porque::mca(),
         INFO_SMP_CPU => crate::ring0::plat::smp::veredicto_cpu(),
         INFO_GPU_PUERTA => crate::ring0::dev::gpu_trabajo::puerta_lista() as u64,
+        INFO_GPU_PORQUE => crate::ring0::dev::gpu_trabajo::info_porque(),
         INFO_DISCO_GUARDAR => {
             crate::ring0::fsys::fs::guardar_peor_us() as u64
                 | (crate::ring0::dev::disk::vaciado_peor_us() as u64) << 32

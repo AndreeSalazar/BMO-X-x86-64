@@ -615,6 +615,13 @@ pub const INFO_SMP_CPU: u64 = 0xD2;
 /// la preparo (`gpu verrano`, hasta `lienzo`) y no se despidio; 0 si no. Sin
 /// ella, cada lote de PROTON-X que pasa las puertas recibe un NO.
 pub const INFO_GPU_PUERTA: u64 = 0xD3;
+/// **El PORQUE del ultimo NO de la puerta de las apps** (12-10): el kernel
+/// decia `motivo 79` por cuarenta caminos; ahora cada uno apunta el suyo.
+/// `[0..16)` el porque, `[16..24)` el caso (el paso, la ranura, el lado),
+/// `[32..64)` un detalle (una VA, unos bytes, una instruccion): los numeros
+/// y las frases, en `bmo_gpu_ga10x::porque`. Solo a QUIEN recibio el NO (a
+/// otro proceso, 0), como la libreta. 0 = ninguno.
+pub const INFO_GPU_PORQUE: u64 = 0xD4;
 
 /// -- ** EL METRO DE LA PUERTA -------------------------------------------
 ///

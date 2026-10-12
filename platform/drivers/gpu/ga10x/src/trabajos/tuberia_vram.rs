@@ -93,3 +93,37 @@ fn un_programa_largo_en_su_region() {
     }
 }
 
+
+/// ** El PORQUE (12-10): una VRAM que no guarda lo escrito en un tramo (como
+/// una ventana PRAMIN que no llega) hace fallar `preparar_paso` en EL paso
+/// que escribe alli, y lo dice con su numero de `porque::PASOS`.
+#[test]
+fn preparar_dice_el_paso_que_fallo() {
+    struct Sorda(Vram, core::ops::Range<u64>);
+    impl Registros for Sorda {
+        fn leer(&mut self, reg: u32) -> u32 {
+            self.0.leer(reg)
+        }
+        fn escribir(&mut self, reg: u32, v: u32) {
+            let dir = ((self.0 .1 as u64) << 16) + reg.wrapping_sub(crate::vram::VENTANA) as u64;
+            if reg == crate::vram::VENTANA_REG || !self.1.contains(&dir) {
+                self.0.escribir(reg, v);
+            }
+        }
+    }
+    let gop = crate::pantalla::Pantalla { vram: 0x100_0000, pitch: 1920, ancho: 1920, alto: 1080, rgb: false };
+    let v = crate::cubo::ventana(&gop).unwrap();
+    let mut vs = [0u8; 4 * PALABRAS_VS];
+    let mut ps = [0u8; 4 * PALABRAS_PS];
+    bytes(&vertice(), &mut vs);
+    bytes(&pixel(), &mut ps);
+    let x: std::vec::Vec<u8> = (0..6 * BYTES_VERTICE).map(|k| (k * 7 + 1) as u8).collect();
+    let p = Paquete { ficha: 1, vs: &vs, ps: &ps, vertices: &x, n: 6, limpiar: None, dibujo: Dibujo::default() };
+    assert_eq!(preparar_paso(&mut Vram(Default::default(), 0), 3, &v, &p, false), Ok(()));
+    for (tramo, paso) in [(VS..VS + 4, 4u8), (PS..PS + 4, 5), (DATOS..DATOS + 4, 8)] {
+        let r = preparar_paso(&mut Sorda(Vram(Default::default(), 0), tramo.clone()), 3, &v, &p, false);
+        assert_eq!(r, Err(paso), "el tramo {tramo:#x?}: {}", crate::porque::PASOS[paso as usize]);
+    }
+    let vacio = Paquete { n: 0, ..p };
+    assert_eq!(preparar_paso(&mut Vram(Default::default(), 0), 3, &v, &vacio, false), Err(0));
+}

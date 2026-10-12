@@ -724,6 +724,9 @@ pub const INFO_REINICIO_MCA: u64 = 0xD1;
 pub const INFO_SMP_CPU: u64 = 0xD2;
 /// La 3060 lista para los lotes de una app: 1 = el escritorio la preparo.
 pub const INFO_GPU_PUERTA: u64 = 0xD3;
+/// El porque del ultimo NO de la puerta de la 3060, si fue a ESTE proceso
+/// (`bmo_gpu_ga10x::porque::empaquetar`; 0 = ninguno). Ver el ABI.
+pub const INFO_GPU_PORQUE: u64 = 0xD4;
 /// El formato `i` (`INFO_AUDIO_FORMATO | (i << 8)`): alt, canales, bits,
 /// subframe, `wMaxPacketSize`, cuantas frecuencias, si CABE en 1 ms, si es el
 /// elegido y su sincronia. Ver `uaudio::info_formato` en el kernel.

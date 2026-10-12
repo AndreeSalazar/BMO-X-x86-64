@@ -89,6 +89,9 @@ struct Estado {
     censo_dicho: (u64, u64),
     /// 12-10: los motivos con su numero DXGI (`con_numero`).
     numerados: Vec<(u32, &'static str)>,
+    /// 12-10: los PORQUE de los NO del kernel (`INFO_GPU_PORQUE`), cada uno
+    /// una vez y con cuantas veces: el censo los dice.
+    porques: Vec<(String, u64)>,
 }
 
 /// **El recuerdo de los `.bsf` en ESTRATOS** (A9, 06-10): cada PSO, un
@@ -227,6 +230,7 @@ static ESTADO: Celda = Celda(core::cell::UnsafeCell::new(Estado {
     censo: bmo_proton_x_sm86::censo::Censo::nuevo(),
     censo_dicho: (0, 0),
     numerados: Vec::new(),
+    porques: Vec::new(),
 }));
 
 /// Cada cuanto se dice el censo (LI0), en la consola y en el DIARIO; en el
@@ -319,6 +323,9 @@ fn decir_censo(e: &mut Estado, ahora: u64) {
         NO_DEL_KERNEL.load(core::sync::atomic::Ordering::Relaxed),
         if e.apagada { "; la 3060 se dejo (los lotes, por la CPU)" } else { "" }
     ));
+    for (porque, veces) in &e.porques {
+        s.push_str(&alloc::format!("#   el kernel dijo NO {veces} vez/veces porque: {porque}\n"));
+    }
     bmo::consola("PROTON-X: el censo de la 3060 (LI0):\n");
     let n = s.lines().count();
     for (k, linea) in s.lines().enumerate() {
@@ -343,6 +350,13 @@ fn soltar_pantalla(e: &mut Estado) {
         e.sin_pantalla = true;
         bmo::consola("PROTON-X: la pantalla directa se suelta (Z1): el escritorio vuelve a componer la ventana\n");
     }
+}
+
+/// **El porque del ultimo NO del kernel** (`INFO_GPU_PORQUE`), en palabras.
+fn el_porque() -> String {
+    let mut s = String::new();
+    let _ = bmo_proton_x_sm86::porque::decir(bmo::info(bmo::INFO_GPU_PORQUE), &mut s);
+    s
 }
 
 fn decir(e: &mut Estado, motivo: String) {
@@ -522,7 +536,13 @@ pub fn dibujar(l: &Lote, d: &mut Destino) -> Result<Cuenta, NoDibuja> {
                         NO_DEL_KERNEL.fetch_add(1, core::sync::atomic::Ordering::Relaxed);
                         p.despues(l, false);
                         e.negados += 1;
-                        decir(e, alloc::format!("el kernel dijo que no a la receta (motivo {m}; el porque, en `cabina fallos`)"));
+                        // 12-10: el kernel apunta SU porque (a este proceso).
+                        let porque = el_porque();
+                        match e.porques.iter_mut().find(|x| x.0 == porque) {
+                            Some(x) => x.1 += 1,
+                            None => e.porques.push((porque.clone(), 1)),
+                        }
+                        decir(e, alloc::format!("el kernel dijo que no a la receta (motivo {m}): {porque}"));
                         if e.negados >= 3 {
                             e.apagada = true;
                             bmo::consola("PROTON-X: tres NO seguidos del kernel: la 3060 se deja; el resto, por la CPU\n");

@@ -96,6 +96,9 @@ pub mod puerta;
 pub mod solape;
 /// LI0 (12-10): el censo de la 3060 -- todas las puertas de cada lote, contadas.
 pub mod censo;
+/// 12-10: el PORQUE de cada NO del kernel (el vocabulario es del driver:
+/// `bmo_gpu_ga10x::porque`; PROTON-X lo lee y lo dice).
+pub use bmo_gpu_ga10x::porque;
 
 // A9 (06-10): el .bsf vivo: generar, comprobar bit a bit y recordar.
 pub mod vivo;

@@ -63,3 +63,6 @@ pub mod libreta;
 /// E7: el trabajo ETERNO -- un computo que no acaba nunca, a proposito: lo
 /// que corta el vigilante (2026-10-02).
 pub mod eterno;
+/// El PORQUE de cada NO de la puerta de las apps: el vocabulario que el
+/// kernel apunta y PROTON-X lee (2026-10-12).
+pub mod porque;
