@@ -62,7 +62,9 @@ fn lado_comun(x: &Tri, y: &Tri) -> bool {
 /// decir. Solo lo pide un lote que mezcla.
 pub fn sin_solape(l: &Lote) -> Result<(), &'static str> {
     let en = l.enlace;
-    let n = l.ids.len() / 3;
+    // Los triangulos de la CPU (una tira, ya como lista).
+    let triangulos = bmo_proton_x::lote::triangulos(l.ids, l.topologia);
+    let n = triangulos.len();
     if n > MAX_TRIANGULOS {
         return Err(MUCHOS);
     }
@@ -89,7 +91,7 @@ pub fn sin_solape(l: &Lote) -> Result<(), &'static str> {
         Ok(p)
     };
     let mut tris = Vec::with_capacity(n);
-    for t in l.ids.chunks_exact(3) {
+    for t in &triangulos {
         let v = [posicion(t[0])?, posicion(t[1])?, posicion(t[2])?];
         if lado(v[0], v[1], v[2]) == 0.0 {
             continue;

@@ -76,3 +76,28 @@ fn lo_que_no_mezcla_la_3060() {
     let r = por_la_puerta(&[0, 1, 2], m::Mezcla { mascara: 0x7, ..m::Mezcla::NINGUNA }, false, false, blanco(None)).unwrap();
     assert_eq!(r.dibujo.mezcla.mascara, 0x7);
 }
+
+/// *** 12-10: la TIRA de triangulos va como LISTA, con los triangulos de la
+/// CPU (`lote::triangulos`: el impar se da la vuelta). El cuadro en tira
+/// (0, 1, 2, 5: dos triangulos que comparten la diagonal 1-2) con
+/// transparencia: no se pisa, y va.
+#[test]
+fn la_tira_va_como_lista() {
+    let en = lote::enlazar(&dxil::leer(CUADRO_VS).unwrap(), &dxil::leer(COLOR_PS).unwrap(), &[]).unwrap();
+    let cb = std::vec![0x3Fu8; 16 * en.vs.filas_cb.max(en.ps.filas_cb).max(1) as usize];
+    let mut mezclas = m::Mezclas::NINGUNA;
+    mezclas.rt[0] = TRANSPARENCIA;
+    let reglas = bmo_proton_x::trama::Reglas { viewport: [0.0, 0.0, 256.0, 256.0, 0.0, 1.0], tijera: [0, 0, 256, 256], descarte: 1, antihorario: false, profundidad: None, mezcla: mezclas, z_del_sombreador: false, stencil: None };
+    let ids = [0u32, 1, 2, 5];
+    let l = Lote { enlace: &en, entradas: &[], vertices: &[], paso: 0, ids: &ids, topologia: Topologia::Tira, cb: &cb, reglas, limpiar_z: None, limpiar_rt: None, recursos: bmo_proton_x::textura::Recursos::NINGUNO, oclusion: false, otros: &[], instancias: 1, primera_instancia: 0, base_vertice: 0, uavs: None };
+    let mut p = Puerta::nueva();
+    let n = p.preparar(&l, blanco(None)).unwrap_or_else(|e| panic!("{e}"));
+    let r = bmo_gpu_ga10x::receta::leer(&p.caja[..n]).expect("el kernel lee la receta");
+    let desde = r.dibujo.indices.expect("con indices") as usize;
+    let leidos: Vec<u32> = (0..r.n).map(|i| u32::from_le_bytes(r.datos[desde + 4 * i..desde + 4 * i + 4].try_into().unwrap())).collect();
+    assert_eq!(leidos, [0, 1, 2, 2, 1, 5], "el segundo, dado la vuelta: el de la CPU");
+    assert_eq!(leidos.chunks(3).map(|t| [t[0], t[1], t[2]]).collect::<Vec<_>>(), lote::triangulos(&ids, Topologia::Tira));
+    // Puntos o lineas, no.
+    let lineas = Lote { topologia: Topologia::Lineas, ..l };
+    assert!(Puerta::nueva().preparar(&lineas, blanco(None)).unwrap_err().contains("triangulos"));
+}

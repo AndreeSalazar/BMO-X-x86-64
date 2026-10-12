@@ -87,6 +87,8 @@ struct Estado {
     censo: bmo_proton_x_sm86::censo::Censo,
     /// Cuando se dijo el censo por ultima vez (ns) y con cuantos lotes.
     censo_dicho: (u64, u64),
+    /// 12-10: los motivos con su numero DXGI (`con_numero`).
+    numerados: Vec<(u32, &'static str)>,
 }
 
 /// **El recuerdo de los `.bsf` en ESTRATOS** (A9, 06-10): cada PSO, un
@@ -224,6 +226,7 @@ static ESTADO: Celda = Celda(core::cell::UnsafeCell::new(Estado {
     bsf_dicho: (0, 0, 0, 0),
     censo: bmo_proton_x_sm86::censo::Censo::nuevo(),
     censo_dicho: (0, 0),
+    numerados: Vec::new(),
 }));
 
 /// Cada cuanto se dice el censo (LI0), en la consola y en el DIARIO; en el
@@ -283,6 +286,16 @@ pub(crate) fn decir_si_esta_lista() {
     bmo::consola(s);
     bmo::consola("\n");
     bmo_proton_x_casa::diario::apuntar_y_volcar(s);
+}
+
+/// `motivo (DXGI n)`, una vez por numero (el censo agrupa por el texto).
+fn con_numero(guardados: &mut Vec<(u32, &'static str)>, motivo: &str, n: u32) -> &'static str {
+    if let Some(&(_, t)) = guardados.iter().find(|x| x.0 == n) {
+        return t;
+    }
+    let t: &'static str = alloc::format!("{motivo} (DXGI {n})").leak();
+    guardados.push((n, t));
+    t
 }
 
 /// El formato de un destino de float y cuantas palabras guarda la casa por
@@ -375,7 +388,9 @@ pub fn dibujar(l: &Lote, d: &mut Destino) -> Result<Cuenta, NoDibuja> {
         // lo que NO va todavia lo dice la misma puerta (`de_flotante`).
         if let Some(f) = flotante_de(d) {
             if let Err(m) = puerta::de_flotante(f.0, f.1) {
-                del_destino.push(m);
+                // 12-10: el que no se conoce, con su numero DXGI (para saber
+                // cual falta: uno por formato, se guarda).
+                del_destino.push(if m == puerta::FLOTANTE_DESCONOCIDO { con_numero(&mut e.numerados, m, f.0) } else { m });
             }
             if l.reglas.profundidad.is_some() {
                 del_destino.push(puerta::Z_CON_FLOAT);

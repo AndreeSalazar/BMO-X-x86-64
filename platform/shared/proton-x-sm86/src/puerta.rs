@@ -192,6 +192,10 @@ pub struct Blanco {
     pub flotante: Option<(u32, u32)>,
 }
 
+/// Un render target de float de un formato que `formato_ia` no sabe leer (el
+/// censo le pone su numero DXGI).
+pub const FLOTANTE_DESCONOCIDO: &str = "un render target de float de un formato que la casa no conoce";
+
 /// **Un render target de float, como lo escribe la 3060** (LI2d-HDR, 12-10):
 /// en floats de 32 (`destino::Flotante`), con la salida redondeada canal a
 /// canal a lo que la CPU guarda (`formato_ia::cuantizar`: de 32 bits igual,
@@ -199,7 +203,7 @@ pub struct Blanco {
 /// 3060 no sabe redondear todavia (11 y 10 bits, UNORM, SNORM), su porque.
 pub fn de_flotante(formato: u32, palabras: u32) -> Result<(Flotante, Redondeo), &'static str> {
     use bmo_proton_x::formato_ia::{forma, Clase};
-    let Some(f) = forma(formato) else { return Err("un render target de float de un formato que la casa no conoce") };
+    let Some(f) = forma(formato) else { return Err(FLOTANTE_DESCONOCIDO) };
     if f.clase != Clase::Float {
         return Err("un render target de UNORM o SNORM de mas de 8 bits (R10G10B10A2, RGBA16_UNORM...): la 3060 redondea floats de 32 y 16 todavia");
     }
@@ -319,10 +323,19 @@ pub fn medida(b: &Blanco, flotante: Flotante, con_z: bool) -> Result<Destino, No
 /// **Escribir la receta de un lote** en `caja` (con `datos` de apoyo).
 /// `Err` = por que este lote NO va a la 3060 (va a la CPU, y se dice).
 pub fn escribir(c: &Cuerpos, l: &Lote, b: Blanco, limpiar_z: Option<u32>, datos: &mut Vec<u8>, caja: &mut [u8]) -> Result<usize, String> {
-    if l.topologia != Topologia::Lista {
-        return Err(String::from("una TIRA de triangulos: la 3060 dibuja listas todavia"));
-    }
-    let n = l.ids.len();
+    // ** 12-10: la TIRA, como LISTA -- los triangulos de la CPU
+    // (`lote::triangulos`: el impar se da la vuelta, para que su cara sea la
+    // misma), con los mismos ids --: la 3060 dibuja listas.
+    let lista: Vec<u32>;
+    let ids: &[u32] = match l.topologia {
+        Topologia::Lista => l.ids,
+        Topologia::Tira => {
+            lista = bmo_proton_x::lote::triangulos(l.ids, Topologia::Tira).concat();
+            &lista
+        }
+        _ => return Err(String::from("puntos, lineas o adyacencia: la 3060 dibuja triangulos")),
+    };
+    let n = ids.len();
     if n == 0 || n % 3 != 0 {
         return Err(format!("{n} indices: no son triangulos enteros"));
     }
@@ -374,10 +387,10 @@ pub fn escribir(c: &Cuerpos, l: &Lote, b: Blanco, limpiar_z: Option<u32>, datos:
         return Err(format!("un paso de vertice de {paso} bytes"));
     }
     let base = l.base_vertice as usize;
-    if l.ids.iter().any(|&id| (id as usize) < base) {
+    if ids.iter().any(|&id| (id as usize) < base) {
         return Err(format!("un indice por debajo del vertice base ({base}): un BaseVertexLocation negativo"));
     }
-    let mayor = *l.ids.iter().max().unwrap_or(&(base as u32)) as usize;
+    let mayor = *ids.iter().max().unwrap_or(&(base as u32)) as usize;
     if paso != 0 {
         let hay = l.vertices.len() / paso;
         if mayor >= hay {
@@ -396,7 +409,7 @@ pub fn escribir(c: &Cuerpos, l: &Lote, b: Blanco, limpiar_z: Option<u32>, datos:
     let k = l.cb.len().min(cb);
     datos[..k].copy_from_slice(&l.cb[..k]);
     datos[cb..cb + vertices * paso].copy_from_slice(&l.vertices[base * paso..(base + vertices) * paso]);
-    for (i, &id) in l.ids.iter().enumerate() {
+    for (i, &id) in ids.iter().enumerate() {
         datos[desde + 4 * i..desde + 4 * i + 4].copy_from_slice(&(id - base as u32).to_le_bytes());
     }
     if c.elementos.len() > MAX_ELEMENTOS || c.cargas_vs.len() > MAX_CARGAS || c.cargas_ps.len() > MAX_CARGAS || c.genericos.len() > MAX_GENERICOS {
