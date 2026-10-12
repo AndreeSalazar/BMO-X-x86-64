@@ -212,6 +212,13 @@ pub(super) fn ficha_del_gr() -> Option<u32> {
     let f = FICHA_GR.load(Ordering::Acquire);
     (LIENZO_HECHO.load(Ordering::Acquire) && f != 0).then_some(f as u32)
 }
+/// **La puerta de las apps, abierta** (`INFO_GPU_PUERTA`, 12-10): el
+/// escritorio preparo la 3060 hasta el lienzo y no se despidio. Lo pregunta
+/// PROTON-X `--3060` al arrancar, para decirlo antes del primer lote.
+pub fn puerta_lista() -> bool {
+    ficha_del_gr().is_some() && crate::ring0::dev::gpu::bar0() != 0 && !crate::ring0::dev::gpu_apagar::despedido()
+}
+
 /// L: sin el primer sombreador, una ficha ajena, o ya se pinto.
 pub const IOMMU_NO_LIENZO: u32 = 76;
 /// L: el lienzo no se presto, sus PTE no estaban vacias, o el tramo no se

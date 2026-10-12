@@ -128,9 +128,11 @@ match c {
         line[..ln].copy_from_slice(&dsk.field.path[..ln]);
         let orden = parse(&line[..ln]);
         // `personal diario` es `personal censo` con --diario (30-09).
+        // `personal 3060` (12-10), con --3060 (que trae el diario).
         let (orden, diario) = match orden {
-            Command::PersonalDiario(r) => (Command::PersonalCenso(r), true),
-            o => (o, false),
+            Command::PersonalDiario(r) => (Command::PersonalCenso(r), 1u8),
+            Command::PersonalLa3060(r) => (Command::PersonalCenso(r), 2u8),
+            o => (o, 0u8),
         };
         match orden {
             // ** `run` SE DEVUELVE, no se ejecuta aqui.
@@ -155,6 +157,13 @@ match c {
                 let mut buf = [0u8; PATH_MAX];
                 match crate::commands::files::linea_censo(ruta, diario, &mut buf) {
                     Ok(tn) => {
+                        // ** El modo 3060 (12-10): si el escritorio no preparo
+                        // la tarjeta, se dice ANTES (sigue, por la CPU).
+                        if diario == 2 && bmo::info(bmo::INFO_GPU_PUERTA) == 0 {
+                            dsk.out.grid.with_ink(INK_ERR);
+                            dsk.out.grid.text(b"  la 3060 NO esta lista para los lotes del juego: antes, `gpu verrano` (hasta `lienzo`) o `save mode`. Sin ella, todo por la CPU\n");
+                            dsk.out.grid.with_ink(INK_PLAIN);
+                        }
                         antes_de_proton_x(dsk, p, &buf[..tn]);
                         return Edit::Launch(buf, tn);
                     }
