@@ -125,17 +125,65 @@ pasan por cada baldosa) y **aprende** del propio juego.
 
 ---
 
+# 2b. LA 4D Y LA 5D, DICHAS BIEN
+
+> El propietario (12-10): *"el 4D no existe, solo los 3D; sin embargo ese
+> mismo 4D guia los 1D, 2D y 3D ... y si vamos con el 5D, cambia algo?"*
+
+**La 4D es el tiempo.** No se dibuja nunca, pero ordena todo lo que si se
+dibuja. Como una sombra: un objeto 3D proyecta una sombra 2D, y la sombra no
+sabe por que tiene esa forma; manda el objeto, que no esta en la pared. Un
+juego es un escalon mas arriba: **cada fotograma es un corte 3D** de algo que
+es 4D (la escena a lo largo del tiempo). La GPU dibuja cortes; la CPU ve la
+serie de cortes.
+
+```text
+   1D   un pixel a lo largo del tiempo   si lleva 10 fotogramas igual, no se
+        es una linea de valores; un      recalcula (A2); un borde que se
+        borde tambien es 1D              desplaza, se sabe hacia donde
+   2D   la imagen, sus baldosas          que baldosas tenian detalle y cuales
+                                         eran cielo liso (A1)
+   3D   los triangulos, la profundidad   que se mueve, que esta quieto, que
+                                         quedo tapado (A4)
+   4D   la historia: no se ve            PACHA: la que decide todo lo de arriba
+```
+
+Funciona porque **el mundo no salta**: en 16 ms casi nada cambia. Y deja de
+funcionar donde el mundo SI salta (un corte de camara, una explosion): ahi la
+historia no sirve, y por eso estan las maestras, el umbral y `ayni off`.
+
+**La 5D: la intencion del jugador.** Fisicamente nadie ha visto una quinta
+dimension (las de la teoria de cuerdas o Kaluza-Klein son hipotesis). Pero
+para AYNI hay un eje mas que si sirve, y es barato: **el futuro no es una
+linea, se ramifica, y quien elige la rama es el jugador**. La entrada (raton,
+mando, teclado) llega ANTES que el fotograma que la muestra, asi que la CPU
+sabe hacia donde va el siguiente corte antes de que la GPU lo dibuje:
+
+* **Giro rapido de camara**: la pantalla entera se emborrona al ojo; el
+  detalle fino no se ve y se puede sombrear menos.
+* **Apuntando quieto**: el ojo esta en el centro; ahi, todo el detalle.
+* **Sin tocar nada** (un menu, una pausa): lo que no cambio (A2) manda.
+
+Cambia **poco y concreto**: un numero mas por baldosa para UMA (la velocidad
+de la entrada y la distancia al centro). No anade input lag: la entrada ya
+estaba leida para el juego. Mas alla de eso (adivinar lo que el jugador hara)
+es especular, y no entra: un fotograma dibujado para un futuro que no llega
+es trabajo tirado, justo lo contrario de AYNI.
+
+---
+
 # 3. UMA: LA RED, INSPIRADA Y DIMINUTA
 
 ```text
    por cada baldosa de 16x16       (1920x1080 = 8160 baldosas)
-      entra (PACHA, ~8 numeros)    el contraste del fotograma anterior ahi,
+      entra (PACHA, ~9 numeros)    el contraste del fotograma anterior ahi,
                                    el borde mas fuerte, el salto de
                                    profundidad, cuanto se movio, lo oscuro
                                    (el ojo ve menos en la sombra), cuantos
                                    triangulos la cruzan, si un lote de
-                                   INTERFAZ la toca, si cambio algo
-      la red                       8 -> 16 -> 4: unas 200 multiplicaciones
+                                   INTERFAZ la toca, si cambio algo, y la
+                                   5D: la entrada del jugador (seccion 2b)
+      la red                       9 -> 16 -> 4: unas 200 multiplicaciones
       sale                         la tasa: 1x1, 2x1/1x2, 2x2, 4x4
 ```
 
@@ -220,7 +268,7 @@ corrige un paso. Asi aprende de TU juego, en TU monitor, mientras juegas.
 
 # 7. LAS CASILLAS
 
-- [ ] **AY0 -- el contrato, en papel.** Que entra (las ~8 de PACHA por
+- [ ] **AY0 -- el contrato, en papel.** Que entra (las ~9 de PACHA por
       baldosa), que sale (una tasa por baldosa), las reglas que la red no
       rompe. **Como se sabe:** `verrano-ayni/src/lib.rs` con el contrato y
       su prueba de forma.

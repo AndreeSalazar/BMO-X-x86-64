@@ -229,7 +229,7 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 
 *PLAN AYNI -- que la GPU gaste MENOS, con un cerebro pequeno en la CPU*
 
-- [ ] AY0 -- el contrato, en papel. Que entra (las ~8 de PACHA por
+- [ ] AY0 -- el contrato, en papel. Que entra (las ~9 de PACHA por
 - [ ] AY1 -- A0, el plazo. Un fotograma por VBlank, empezado tarde.
 - [ ] AY2 -- UMA en el banco. La red, la leccion de las maestras y las
 - ... y 8 mas
