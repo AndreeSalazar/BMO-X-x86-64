@@ -384,17 +384,20 @@ pub fn dibujar(l: &Lote, d: &mut Destino) -> Result<Cuenta, NoDibuja> {
         if d.pixeles.is_empty() {
             del_destino.push("un lote sin pixeles (solo profundidad, N5.12)");
         }
-        // Metal 12-10: la puerta dibuja su medida (Q0a1, 1280x720); la
-        // ventana de Cyberpunk media 1738x1064 y el censo no lo decia. Con
-        // LI2j la ventana ya mide eso: lo que queda son los render targets
-        // PROPIOS del juego (tablas de 256x1, 256x256, la mitad...), otra
-        // puerta -- se dicen aparte.
-        if !d.pixeles.is_empty() && (d.ancho, d.alto) != puerta::MEDIDA {
-            del_destino.push(if d.cadena {
-                "la ventana del juego no mide 1280x720 (su cadena: `--pantalla`, o Q0a1)"
-            } else {
-                "un render target del juego de otra medida que 1280x720 (no es la ventana: Q0a1, la puerta de otras medidas)"
-            });
+        // Metal 12-10: la ventana de Cyberpunk media 1738x1064 y el censo no
+        // lo decia; con LI2j mide 1280x720, y lo que quedaba eran sus render
+        // targets PROPIOS (256x1, 256x256). Q0a1 (12-10): la puerta dibuja
+        // otras medidas; lo que NO, lo dice ella (`puerta::medida`).
+        if !d.pixeles.is_empty() {
+            let b = Blanco { va: d.pixeles.as_ptr() as u64, ancho: d.ancho, alto: d.alto, bgra: d.bgra, cadena: d.cadena, flotante: None };
+            let f = match flotante_de(d).map(|f| puerta::de_flotante(f.0, f.1)) {
+                Some(Ok((f, _))) => Some(f),
+                Some(Err(_)) => None,
+                None => Some(puerta::Flotante::No),
+            };
+            if let Some(Err(m)) = f.map(|f| puerta::medida(&b, f, l.reglas.profundidad.is_some())) {
+                del_destino.push(m.motivo());
+            }
         }
         e.censo.apuntar(l, &del_destino, puerta::Z_EN_LA_SOMBRA);
         let ahora = crate::plataforma::ahora_ns();

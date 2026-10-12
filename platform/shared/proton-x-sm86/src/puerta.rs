@@ -29,7 +29,9 @@ use alloc::format;
 use alloc::string::String;
 use alloc::vec::Vec;
 
-use bmo_gpu_ga10x::destino::{Destino, Flotante};
+use bmo_gpu_ga10x::destino::Destino;
+/// Como guarda el destino cada pixel (la app la nombra por aqui: Q0a1).
+pub use bmo_gpu_ga10x::destino::Flotante;
 use bmo_gpu_ga10x::pegamento::{Canal, Carga, Elemento, Redondeo};
 use bmo_gpu_ga10x::profundidad::Z;
 use bmo_gpu_ga10x::texturas::{DeApp, Muestreo, MAX_TEXTURAS};
@@ -224,10 +226,65 @@ pub fn de_flotante(formato: u32, palabras: u32) -> Result<(Flotante, Redondeo), 
 /// la sombra en bloque, y la sombra es de 8 bits por canal todavia.
 pub const Z_CON_FLOAT: &str = "un render target de float con la Z: la sombra en bloque de la 3060 es de 8 bits por canal todavia";
 
-/// **La medida que la puerta dibuja** (Q0a1): la de VERRANO, la unica que
-/// `Destino::es_la_de_verrano` deja pasar. PROTON-X, con `--3060`, se la da
-/// al juego como su pantalla (LI2j, 12-10): el juego elige de lo que ve.
+/// **La medida de VERRANO** (1280x720): la de la Z y la sombra en bloque de
+/// la 3060 (`Destino::es_la_de_verrano`) y la de la pantalla directa (Z1).
+/// PROTON-X, con `--3060`, se la da al juego como su pantalla (LI2j, 12-10):
+/// el juego elige de lo que ve. Sin Z, la puerta dibuja OTRAS medidas
+/// ([`medida`], Q0a1).
 pub const MEDIDA: (u32, u32) = (bmo_gpu_ga10x::cubo::ANCHO, bmo_gpu_ga10x::cubo::ALTO);
+
+/// **Por que un destino no es de la medida que la puerta dibuja** (Q0a1).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum NoMedida {
+    /// Sus filas (la casa las guarda juntas: `bytes * ancho`) no van de 128
+    /// en 128 B, lo que escribe el destino de color de la 3060.
+    Filas,
+    /// No cabe en el mapa del destino (`destino::MAX_BYTES`), o un lado pasa
+    /// de `destino::MAX_LADO`.
+    Grande,
+    /// Sus pixeles no empiezan en pagina (la IOMMU presta paginas).
+    Pagina,
+    /// Con la Z: la Z y la sombra en bloque miden 1280x720.
+    ConZ,
+}
+
+impl NoMedida {
+    /// Para el censo (fijo: agrupa lotes).
+    pub const fn motivo(self) -> &'static str {
+        match self {
+            NoMedida::Filas => "un render target cuyas filas no van de 128 en 128 B (la casa las guarda juntas; la 3060 escribe filas de 128 B)",
+            NoMedida::Grande => "un render target que no cabe en el mapa del destino de la 3060 (16 MiB, 4096 por lado)",
+            NoMedida::Pagina => "un render target que no empieza en pagina (la IOMMU presta paginas enteras)",
+            NoMedida::ConZ => "un render target de otra medida que 1280x720 con la Z (la Z y la sombra de la 3060 miden 1280x720)",
+        }
+    }
+}
+
+/// **El destino de un blanco, si la puerta sabe dibujarlo** (Q0a1, 12-10).
+/// Hasta hoy, solo 1280x720; el driver dibuja CUALQUIER medida que quepa
+/// (`Destino::valido`: el viewport y el recorte salen de ella, el banco lo
+/// probo con 640x360 igual a la CPU) y el metal del 12-10 dijo que lo que
+/// paraba a Cyberpunk eran sus render targets propios (256x1, 256x256).
+/// Con la Z, sigue en 1280x720 (`tuberia::cabe`).
+pub fn medida(b: &Blanco, flotante: Flotante, con_z: bool) -> Result<Destino, NoMedida> {
+    use bmo_gpu_ga10x::destino::{MAX_BYTES, MAX_LADO};
+    let fila = flotante.bytes() as u64 * b.ancho as u64;
+    if b.ancho == 0 || b.alto == 0 || b.ancho > MAX_LADO || b.alto > MAX_LADO || fila * b.alto as u64 > MAX_BYTES {
+        return Err(NoMedida::Grande);
+    }
+    let dst = Destino { fila: fila as u32, ancho: b.ancho, alto: b.alto, flotante, rgb: !b.bgra };
+    if dst.fila % 128 != 0 {
+        return Err(NoMedida::Filas);
+    }
+    if b.va % 4096 != 0 {
+        return Err(NoMedida::Pagina);
+    }
+    if con_z && !dst.es_la_de_verrano() {
+        return Err(NoMedida::ConZ);
+    }
+    debug_assert!(dst.valido());
+    Ok(dst)
+}
 
 /// **Escribir la receta de un lote** en `caja` (con `datos` de apoyo).
 /// `Err` = por que este lote NO va a la 3060 (va a la CPU, y se dice).
@@ -253,14 +310,8 @@ pub fn escribir(c: &Cuerpos, l: &Lote, b: Blanco, limpiar_z: Option<u32>, datos:
             return Err(String::from("un render target de float que se limpia en el lote o se muestra: la 3060 lo dibuja sin limpiar y fuera de la pantalla todavia"));
         }
     }
-    let dst = Destino { fila: flotante.bytes() * b.ancho, ancho: b.ancho, alto: b.alto, flotante, rgb: !b.bgra };
-    // ** Q0a1 (EL_FOCO, 10-10): el driver ya dibuja un destino de OTRA medida
-    // (`Destino::valido`); la puerta de los juegos se queda en la de VERRANO
-    // hasta verlo en el metal -- que el viewport y el recorte de otra medida
-    // dan los bits de la casa --, y entonces se abre aqui.
-    if !dst.valido() || !dst.es_la_de_verrano() || b.va % 4096 != 0 {
-        return Err(format!("el back buffer de {}x{} (VA {:#x}): la puerta dibuja 1280x720 desde una pagina, todavia (otra medida: Q0a1, por ver en el metal)", b.ancho, b.alto, b.va));
-    }
+    // ** Q0a1 (12-10): cualquier medida que el destino de la 3060 sepa.
+    let dst = medida(&b, flotante, l.reglas.profundidad.is_some()).map_err(|m| format!("el render target de {}x{} (VA {:#x}): {}", b.ancho, b.alto, b.va, m.motivo()))?;
     let r = &l.reglas;
     if r.viewport != [0.0, 0.0, b.ancho as f32, b.alto as f32, 0.0, 1.0] {
         return Err(format!("un viewport que no es el back buffer entero ({:?})", r.viewport));

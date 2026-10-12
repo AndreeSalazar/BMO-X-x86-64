@@ -1069,6 +1069,8 @@ mod pruebas_saltos;
 #[cfg(test)]
 mod pruebas_sistema;
 #[cfg(test)]
+mod pruebas_medida;
+#[cfg(test)]
 mod pruebas_flotante;
 #[cfg(test)]
 mod pruebas_vivo;
