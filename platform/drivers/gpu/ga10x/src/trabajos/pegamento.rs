@@ -728,7 +728,7 @@ pub fn pixel_en(g: &mut Pegado, cuerpo: &[(u64, u64)], registros: u32, cargas: &
 /// [`pixel_en`] con la LIBRETA (9d): el apunte va antes del EXIT del
 /// cuerpo, que espera ademas su lectura.
 pub fn pixel_con_libreta_en(g: &mut Pegado, cuerpo: &[(u64, u64)], registros: u32, cargas: &[Carga], datos: Datos, genericos: &[Option<u8>], termometro: Option<u8>) -> Result<(), NoPega> {
-    pixel_entero_en(g, cuerpo, registros, cargas, datos, genericos, termometro, Redondeo::NADA, None)
+    pixel_entero_en(g, cuerpo, registros, cargas, datos, genericos, termometro, Redondeo::NADA, None, 1)
 }
 
 /// [`pixel_con_libreta_en`] con el REDONDEO de la salida 0 al formato del
@@ -737,7 +737,12 @@ pub fn pixel_con_libreta_en(g: &mut Pegado, cuerpo: &[(u64, u64)], registros: u3
 ///
 /// ** 12-10: con `mezcla` (no trivial), tras el cuerpo, lo que ya esta en
 /// ESE destino mezclado con el pixel nuevo (`mezcla`), antes del redondeo.
-pub fn pixel_entero_en(g: &mut Pegado, cuerpo: &[(u64, u64)], registros: u32, cargas: &[Carga], datos: Datos, genericos: &[Option<u8>], termometro: Option<u8>, redondeo: Redondeo, mezcla: Option<(crate::mezcla::Mezcla, crate::destino::Destino, u32)>) -> Result<(), NoPega> {
+pub fn pixel_entero_en(g: &mut Pegado, cuerpo: &[(u64, u64)], registros: u32, cargas: &[Carga], datos: Datos, genericos: &[Option<u8>], termometro: Option<u8>, redondeo: Redondeo, mezcla: Option<(crate::mezcla::Mezcla, crate::destino::Destino, u32)>, objetivos: u32) -> Result<(), NoPega> {
+    // LI2d (12-10): los render targets que escribe (1..=8): el k sale de
+    // R4k..R4k+3 (lo deja asi el emisor, `4 * salidas` desde R0).
+    if objetivos == 0 || objetivos > 8 {
+        return Err(NoPega::Salidas);
+    }
     g.n = 0;
     let (resto, exit) = partir(cuerpo)?;
     cargas_propias(cargas, registros)?;
@@ -745,6 +750,9 @@ pub fn pixel_entero_en(g: &mut Pegado, cuerpo: &[(u64, u64)], registros: u32, ca
     let (a, d, v, _, total) = propios(registros)?;
     let mut o = Poner { g, lleno: false };
     let mut sph = sph_pixel_v0_sin_generico();
+    // LI2d: OmapTarget, 4 bits (R G B A) por target desde el 576 (la SPH de
+    // V0 trae los del 0).
+    sph[18] |= if objetivos == 8 { u32::MAX } else { (1u32 << (4 * objetivos)) - 1 };
     // ** DL12: un cuerpo que tira pixeles (KILL) lo dice en su SPH; si no,
     // su KILL seria un NOP y una excepcion (y el juez lo para: R5).
     if cuerpo.iter().any(|w| w.0 & 0xFFF == 0x95B) {

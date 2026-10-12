@@ -499,6 +499,8 @@ fn a_la_pantalla(pid: u32, d: &bmo_gpu_ga10x::tuberia::Dibujo) -> bool {
         && d.cadena
         // 12-10: la mezcla lee la RAM de la app: el dibujo va alli.
         && d.mezcla.trivial()
+        // LI2d: con varios render targets, todos a la RAM de la app.
+        && d.n_mas == 0
         && PANTALLA_PID.load(Ordering::Acquire) == pid
         && d.destino.is_some_and(|(va, dst)| va % 4096 == 0 && dst.ancho == cu::ANCHO && dst.alto == cu::ALTO)
 }
@@ -634,18 +636,28 @@ fn en_frio(bar0: u64, pid: u32, e: u32, p: &bmo_gpu_ga10x::pantalla::Pantalla, v
             return Err(m);
         }
     }
-    let prestado = match paquete.dibujo.destino {
-        None => None,
+    // ** LI2d (12-10): el 0 y los render targets 1.., cada uno en SU ranura
+    // (`destino::iova_de`); las paginas de cada uno, para devolverlas TODAS
+    // salga como salga (0 = esa ranura no se presto).
+    let mut prestado = [0u64; bmo_gpu_ga10x::destino::OBJETIVOS];
+    match paquete.dibujo.destino {
+        None => {}
         // Z1: a la pantalla, la RAM de la app no se presta ni se toca.
-        Some(_) if paquete.dibujo.pantalla => None,
-        Some((va_app, dst)) => match prestar_destino(bar0, pid, va_app, &dst) {
-            Ok(p) => Some(p),
-            Err(m) => {
-                BLUR_EN_MARCHA.store(false, Ordering::Release);
-                return Err(m);
+        Some(_) if paquete.dibujo.pantalla => {}
+        Some(d0) => {
+            let todos = core::iter::once(d0).chain(paquete.dibujo.mas().iter().copied());
+            for (k, (va_app, dst)) in todos.enumerate() {
+                match prestar_destino(bar0, pid, va_app, &dst, k) {
+                    Ok(p) => prestado[k] = p,
+                    Err(m) => {
+                        devolver_destinos(&prestado);
+                        BLUR_EN_MARCHA.store(false, Ordering::Release);
+                        return Err(m);
+                    }
+                }
             }
-        },
-    };
+        }
+    }
     let n = (paquete.n / 3) as u32;
     // En caliente, o no: lo fijo es lo mismo, nadie lanzo nada por el GR
     // desde nuestro ultimo dibujo (la entrada sigue donde la dejamos) y fue
@@ -705,11 +717,7 @@ fn en_frio(bar0: u64, pid: u32, e: u32, p: &bmo_gpu_ga10x::pantalla::Pantalla, v
         // 9d: la libreta, leida con el cerrojo aun tomado.
         .map(|x| super::libreta::tras_el_dibujo(bar0, libreta, x));
     BLUR_EN_MARCHA.store(false, Ordering::Release);
-    if let Some(paginas) = prestado {
-        if crate::ring0::plat::iommu::devolver_gpu(bmo_gpu_ga10x::destino::IOVA, paginas).is_err() {
-            crate::ring0::cabina::warn("gpu", "VERRANO: la RAM de la app NO se pudo devolver (la invalidacion no contesto); paginas", paginas);
-        }
-    }
+    devolver_destinos(&prestado);
     let r = r.map(|x| cu::con_preparar(x, caliente, preparar_ciclos * 1_000_000 / tsc));
     if let Ok(x) = r {
         if cu::sano(x) {
@@ -772,7 +780,17 @@ static DESTINO_MAPEADO: core::sync::atomic::AtomicBool = core::sync::atomic::Ato
 /// **Prestar la RAM de la app a la 3060** (P3b4b 3): un bloque escribible
 /// del proceso, entero y alineado, en `destino::IOVA`, con las tablas del
 /// destino puestas. `Ok(paginas prestadas)`.
-fn prestar_destino(bar0: u64, pid: u32, va_app: u64, dst: &bmo_gpu_ga10x::destino::Destino) -> Result<u64, u32> {
+/// **Devolver los destinos prestados** (LI2d: cada ranura con lo suyo).
+fn devolver_destinos(prestado: &[u64; bmo_gpu_ga10x::destino::OBJETIVOS]) {
+    for (k, &paginas) in prestado.iter().enumerate() {
+        if paginas != 0 && crate::ring0::plat::iommu::devolver_gpu(bmo_gpu_ga10x::destino::iova_de(k), paginas).is_err() {
+            crate::ring0::cabina::warn("gpu", "VERRANO: la RAM de la app NO se pudo devolver (la invalidacion no contesto); paginas", paginas);
+        }
+    }
+}
+
+/// `k`: el render target (LI2d), y con el su ranura (`destino::iova_de`).
+fn prestar_destino(bar0: u64, pid: u32, va_app: u64, dst: &bmo_gpu_ga10x::destino::Destino, k: usize) -> Result<u64, u32> {
     use bmo_gpu_ga10x::destino as ds;
     use bmo_gpu_ga10x::porque::DESTINO_RESERVA;
     use crate::ring0::obj::reserva;
@@ -823,8 +841,8 @@ fn prestar_destino(bar0: u64, pid: u32, va_app: u64, dst: &bmo_gpu_ga10x::destin
         }
     }
     let prestado = match fisica {
-        Some(f) => crate::ring0::plat::iommu::prestar_gpu(ds::IOVA, f, paginas, true),
-        None => crate::ring0::plat::iommu::prestar_gpu_marcos(ds::IOVA, paginas, true, marco),
+        Some(f) => crate::ring0::plat::iommu::prestar_gpu(ds::iova_de(k), f, paginas, true),
+        None => crate::ring0::plat::iommu::prestar_gpu_marcos(ds::iova_de(k), paginas, true, marco),
     };
     if let Err(m) = prestado {
         crate::ring0::cabina::warn("gpu", "VERRANO: la RAM de la app no se pudo prestar a la 3060; motivo de la IOMMU", m as u64);

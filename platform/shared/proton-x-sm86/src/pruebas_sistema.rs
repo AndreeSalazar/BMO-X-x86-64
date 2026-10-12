@@ -22,7 +22,7 @@ fn reglas() -> bmo_proton_x::trama::Reglas {
     bmo_proton_x::trama::Reglas { viewport: [0.0, 0.0, 1280.0, 720.0, 0.0, 1.0], tijera: [0, 0, 1280, 720], descarte: 1, antihorario: false, profundidad: None, mezcla: bmo_proton_x::mezcla::Mezclas::NINGUNA, z_del_sombreador: false, stencil: None }
 }
 
-const BLANCO: Blanco = Blanco { va: 0x4000_0000, ancho: 1280, alto: 720, bgra: false, cadena: false, flotante: None };
+const BLANCO: Blanco = Blanco { va: 0x4000_0000, ancho: 1280, alto: 720, bgra: false, cadena: false, flotante: None, mas: crate::puerta::SIN_MAS };
 
 /// La puerta con el cuadro de `ids` y vertice `base`: la receta, sus
 /// indices en los DATOS, y si el vigia lo reviso contra la CPU.

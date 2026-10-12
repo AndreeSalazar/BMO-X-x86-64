@@ -1081,6 +1081,8 @@ mod pruebas_largos;
 #[cfg(test)]
 mod pruebas_registros;
 #[cfg(test)]
+mod pruebas_mrt;
+#[cfg(test)]
 mod pruebas_mezcla;
 #[cfg(test)]
 mod pruebas_flotante;

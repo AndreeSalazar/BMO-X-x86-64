@@ -18,7 +18,7 @@ const CUADRO_VS: &[u8] = include_bytes!("../../proton-x/prueba/flotante1_vs.dxil
 const COLOR_PS: &[u8] = include_bytes!("../../proton-x/prueba/flotante1_color.dxil");
 
 fn blanco(ancho: u32, alto: u32) -> Blanco {
-    Blanco { va: 0x4000_0000, ancho, alto, bgra: true, cadena: false, flotante: None }
+    Blanco { va: 0x4000_0000, ancho, alto, bgra: true, cadena: false, flotante: None, mas: crate::puerta::SIN_MAS }
 }
 
 /// El cuadro de pantalla completa en un blanco de `b`, con o sin la Z.

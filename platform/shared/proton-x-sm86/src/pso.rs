@@ -186,10 +186,8 @@ pub fn traducir(en: &Enlace, ia: &[ElementoIa], paso: u32) -> Result<ParaLa3060,
     if posicion_zw(en) {
         return Err(NoVa::Entrada("SV_Position.z o .w en el de pixeles"));
     }
-    // N5.8: la 3060 pinta UN render target todavia: el G-buffer, por la CPU.
-    if en.objetivos != [0] {
-        return Err(NoVa::Entrada("varios render targets (o uno que no es el 0, o SV_Depth)"));
-    }
+    // LI2d (12-10): SV_Target0..n, hasta 4.
+    crate::puerta::objetivos_de(en).map_err(NoVa::Entrada)?;
     let posicion = en.posicion as u32;
     let mut v = pegado_vacio();
     pegamento::vertice_con_libreta_en(&mut v, &ev.codigo, ev.registros, &cargas(&ev), datos, en.vs.salidas as u32, posicion, ev.termometro).map_err(|e| NoVa::Pegamento("vertice", e))?;

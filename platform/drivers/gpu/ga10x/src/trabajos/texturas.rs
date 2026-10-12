@@ -234,7 +234,7 @@ pub const fn asa(tic: u32, tsc: u32) -> u32 {
 // ```text
 //    TEXELES  la RAM de la APP (sus texturas, como las guarda la casa: pitch,
 //             filas de 4 x ancho), prestada a la 3060 SOLO LECTURA y solo
-//             mientras dibuja, como el destino: IOVA 0x5900_0000, una RANURA
+//             mientras dibuja, como el destino: IOVA 0x5C00_0000, una RANURA
 //             de 16 MiB por textura (hasta [`MAX_TEXTURAS`]; era de 1 MiB
 //             hasta el 12-10: el censo de Cyberpunk paro una de 1920x1088)
 //    VA       0xA_0000_0000 (la PD1 del tramo; tras la sombra, 0x9): las
@@ -248,7 +248,8 @@ pub const fn asa(tic: u32, tsc: u32) -> u32 {
 /// Donde ve la 3060 los texeles y las piscinas.
 pub const VA: u64 = 0xA_0000_0000;
 /// Donde los ve por la IOMMU.
-pub const IOVA: u64 = 0x5900_0000;
+/// 12-10 (LI2d): tras las CUATRO ranuras de los destinos (era 0x5900_0000).
+pub const IOVA: u64 = 0x5C00_0000;
 /// La PD0 y las PT, en VRAM.
 pub const TABLAS: u64 = 0x04A0_0000;
 /// Las texturas de un dibujo, y lo que mide la ranura de cada una.
@@ -427,7 +428,7 @@ pub fn ordenes(e: &mut Ordenes, tics: u64, n_tic: u32, tscs: u64, n_tsc: u32) ->
 
 // Nada se pisa: su entrada de la PD1, su IOVA, sus tablas y su pagina.
 const _: () = assert!(VA % (2 << 20) == 0 && indices(VA)[2] != indices(crate::sombra::VA)[2] && indices(VA)[2] != indices(crate::destino::VA)[2]);
-const _: () = assert!(IOVA >= crate::destino::IOVA + crate::destino::MAX_BYTES && MAX_TEXTURAS as u64 * RANURA == (PTS as u64 - 1) * (2 << 20));
+const _: () = assert!(IOVA >= crate::destino::iova_de(crate::destino::OBJETIVOS) && MAX_TEXTURAS as u64 * RANURA == (PTS as u64 - 1) * (2 << 20));
 const _: () = assert!(TABLAS >= crate::sombra::TABLAS + (1 + crate::sombra::PTS as u64) * PAGINA && PISCINAS + PAGINA <= 0x0800_0000);
 const _: () = assert!(TSC_DESDE >= (MAX_TEXTURAS * BYTES) as u64 && TSC_DESDE + (MAX_TEXTURAS * BYTES) as u64 <= PAGINA);
 const _: () = assert!(indices(PISCINAS_VA)[3] == indices(VA)[3] + PTS - 1 && indices(PISCINAS_VA)[4] == 0);

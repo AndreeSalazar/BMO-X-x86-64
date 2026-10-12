@@ -127,10 +127,8 @@ pub fn cuerpos_con_libreta(en: &Enlace, ia: &[ElementoIa], recuerdo: Option<&mut
     if crate::pso::posicion_zw(en) {
         return Err(NoVa::Entrada("SV_Position.z o .w en el de pixeles"));
     }
-    // N5.8: la 3060 pinta UN render target todavia: el G-buffer, por la CPU.
-    if en.objetivos != [0] {
-        return Err(NoVa::Entrada("varios render targets (o uno que no es el 0, o SV_Depth)"));
-    }
+    // LI2d (12-10): SV_Target0..n, hasta 4 (el G-buffer sin Z).
+    objetivos_de(en).map_err(NoVa::Entrada)?;
     // Con libreta, y si su termometro no cabe en los registros, sin ella.
     let emitir = |p: &bmo_proton_x::dxil::programa::Programa, que: &'static str| {
         let sin = || emitir_con(p, REGISTROS, Abi::Registros).map_err(|e| NoVa::Emisor(que, e));
@@ -195,6 +193,46 @@ pub struct Blanco {
     /// (`trama::Destino::flotante`) y cuantas palabras guarda la casa por
     /// texel (4, o 1 en un R32_FLOAT) --, o `None`: 8 bits por canal.
     pub flotante: Option<(u32, u32)>,
+    /// ** LI2d (12-10): los render targets 1..7 del lote (`trama::Otro`: el
+    /// `k` es el SV_Target `k + 1`), de la medida del 0; `None`, un RTV nulo
+    /// (o ninguno).
+    pub mas: MasDelLote,
+}
+
+use bmo_gpu_ga10x::destino::OBJETIVOS;
+
+/// **Un render target 1.. del lote** (LI2d): donde estan sus pixeles en la
+/// app, su orden de bytes y, si es de float, como `Blanco::flotante`.
+#[derive(Clone, Copy, Debug)]
+pub struct Mas {
+    pub va: u64,
+    pub bgra: bool,
+    pub flotante: Option<(u32, u32)>,
+}
+
+/// Los render targets 1..7 de un lote (los SV_Target 1..7 de D3D12).
+pub type MasDelLote = [Option<Mas>; bmo_proton_x::trama::OBJETIVOS - 1];
+
+/// Un lote de UN render target.
+pub const SIN_MAS: MasDelLote = [None; bmo_proton_x::trama::OBJETIVOS - 1];
+
+/// **Los render targets que escribe el de pixel** (LI2d): sus SV_Target, el
+/// 0 el primero y los demas en orden (`gbuffer.hlsl` escribe 0, 1 y 3: el 2
+/// se salta). La salida `k` (el emisor la deja en R4k) va a la RANURA `k` de
+/// la 3060 (`destino::va_de`), con la memoria del SV_Target que escribe: en
+/// la 3060 los huecos de D3D no existen. Hasta `destino::OBJETIVOS`.
+pub fn objetivos_de(en: &bmo_proton_x::lote::Enlace) -> Result<usize, &'static str> {
+    let n = en.objetivos.len();
+    if en.objetivos.iter().any(|&o| o as usize >= bmo_proton_x::trama::OBJETIVOS) {
+        return Err("SV_Depth o SV_StencilRef en el de pixel: la 3060 no los escribe todavia");
+    }
+    if en.objetivos.first() != Some(&0) || en.objetivos.windows(2).any(|w| w[0] >= w[1]) {
+        return Err("un de pixel que no escribe el SV_Target0, o los escribe desordenados: la 3060 los lleva el 0 primero y en orden");
+    }
+    if n > OBJETIVOS {
+        return Err("mas de 4 render targets: la 3060 tiene 4 ranuras de destino");
+    }
+    Ok(n)
 }
 
 /// Un render target de float de un formato que `formato_ia` no sabe leer (el
@@ -407,6 +445,38 @@ pub fn escribir(c: &Cuerpos, l: &Lote, b: Blanco, limpiar_z: Option<u32>, nula: 
     }
     // ** Q0a1 (12-10): cualquier medida que el destino de la 3060 sepa.
     let dst = medida(&b, flotante, l.reglas.profundidad.is_some()).map_err(|m| format!("el render target de {}x{} (VA {:#x}): {}", b.ancho, b.alto, b.va, m.motivo()))?;
+    // ** LI2d (12-10): los render targets 1.. -- cada uno de la medida del
+    // 0, con su VA, su orden de bytes y su float; un float que pide
+    // redondeo (half) no: el pegamento redondea solo el 0. Y sin mezcla ni
+    // mascara (la del sombreador es la del 0). Sin Z: la sombra es una.
+    let objetivos = objetivos_de(l.enlace).map_err(String::from)?;
+    let mut mas = [(0u64, bmo_gpu_ga10x::destino::Destino::default()); OBJETIVOS - 1];
+    for k in 1..objetivos {
+        // La salida k escribe el SV_Target `s`: su memoria va a la ranura k.
+        let s = l.enlace.objetivos[k] as usize;
+        let Some(m) = b.mas[s - 1] else {
+            return Err(format!("el render target {s} es un RTV nulo (lo que escribe se pierde): la 3060 escribe en todos"));
+        };
+        if l.reglas.profundidad.is_some() {
+            return Err(String::from("varios render targets con la Z: la sombra en bloque de la 3060 es UNA todavia"));
+        }
+        if l.limpiar_rt.is_some() || b.cadena {
+            return Err(String::from("varios render targets con la limpieza en el lote, o en la cadena: la 3060 no lo lleva todavia"));
+        }
+        if !l.reglas.mezcla.rt[s].trivial() {
+            return Err(format!("el render target {s} mezcla o enmascara: la 3060 mezcla solo el 0 todavia"));
+        }
+        let (f, red) = match m.flotante {
+            None => (Flotante::No, Redondeo::NADA),
+            Some((formato, palabras)) => de_flotante(formato, palabras).map_err(|x| format!("el render target {s}: {x}"))?,
+        };
+        if red != Redondeo::NADA {
+            return Err(format!("el render target {s} es de un float que se redondea (half, R11G11B10): el pegamento redondea solo el 0 todavia"));
+        }
+        let bk = Blanco { va: m.va, bgra: m.bgra, cadena: false, flotante: m.flotante, mas: SIN_MAS, ..b };
+        let dk = medida(&bk, f, false).map_err(|x| format!("el render target {s} (VA {:#x}): {}", m.va, x.motivo()))?;
+        mas[k - 1] = (m.va, dk);
+    }
     let r = &l.reglas;
     if r.viewport != [0.0, 0.0, b.ancho as f32, b.alto as f32, 0.0, 1.0] {
         return Err(format!("un viewport que no es el back buffer entero ({:?})", r.viewport));
@@ -529,7 +599,7 @@ pub fn escribir(c: &Cuerpos, l: &Lote, b: Blanco, limpiar_z: Option<u32>, nula: 
         genericos: [None; MAX_GENERICOS],
         n_genericos: c.genericos.len(),
         datos,
-        dibujo: Dibujo { indices: Some(desde as u32), vertices: vertices as u32, descarte, antihorario: r.antihorario, destino: Some((b.va, dst)), z, color: l.limpiar_rt, texturas: c.texturas.len() as u8, cadena: b.cadena, pantalla: false, banco: if c.banco { 16 * c.filas } else { 0 }, redondeo, mezcla: mezcla_de(&l.reglas.mezcla).map_err(String::from)?, registros: 0 },
+        dibujo: Dibujo { indices: Some(desde as u32), vertices: vertices as u32, descarte, antihorario: r.antihorario, destino: Some((b.va, dst)), z, color: l.limpiar_rt, texturas: c.texturas.len() as u8, cadena: b.cadena, pantalla: false, banco: if c.banco { 16 * c.filas } else { 0 }, redondeo, mezcla: mezcla_de(&l.reglas.mezcla).map_err(String::from)?, registros: 0, mas, n_mas: objetivos as u8 - 1 },
         texturas,
         termometro_vs: c.termometro_vs,
         termometro_ps: c.termometro_ps,

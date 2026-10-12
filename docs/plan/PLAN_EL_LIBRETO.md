@@ -332,6 +332,36 @@ y `puerta.rs`; el juez en `platform/drivers/gpu/ga10x/src/sass/juez.rs`):
       y en RGBA16F, por la puerta, la receta y el pegado del kernel con su
       juez; y cada NO con su porque. **Falta:** el metal; las particulas y
       lo que se pisa (el ROP, medido en el metal, o por la CPU).
+      **12-10, VARIOS RENDER TARGETS por la 3060, SIN Z** (el G-buffer; pedido
+      del propietario: "sin Z, en el emulador hasta el limite"):
+      - `destino`: 4 RANURAS de 16 MiB (`OBJETIVOS`, `va_de`, `iova_de`),
+        seguidas en la VA y en la IOVA; las texturas pasan a la IOVA
+        0x5C00_0000. La IOMMU: ~92 tablas de sus 128.
+      - Las ordenes (`clc797.h`): `SET_COLOR_TARGET_A(k)` (0x0800 + 64 k),
+        su LAYER, COMPRESSION, BLEND a 0 y `SET_CT_WRITE(k)`; y
+        `SET_CT_SELECT` con la cuenta y la salida k al target k.
+      - El pegamento: OmapTarget de cada target en la SPH (4 bits desde el
+        576); el emisor deja la salida k en R4k. El 0 lleva la mezcla y el
+        redondeo; los demas, de 8 bits o de float SIN redondeo (R32, RGBA32F).
+      - La receta: +88 bit 3 y un bloque de medida fija (`receta::MAS`). La
+        huella del caliente y la clave del pegado los llevan. El kernel presta
+        cada uno en su ranura y los devuelve TODOS (`devolver_destinos`); la
+        pantalla directa, solo con uno.
+      - La puerta: `objetivos_de` -- el SV_Target0 primero y los demas en
+        orden, con huecos (`gbuffer.hlsl` escribe 0, 1 y 3: en la 3060 la
+        ranura k es la k-esima salida, los huecos de D3D no existen) --,
+        hasta 4. `Blanco::mas` (los SV_Target 1..7 de la trama).
+      - Pruebas: `una_receta_de_tres_render_targets` (ga10x) y
+        `el_g_buffer_de_dxc_va_a_la_3060`: dxc, la puerta, la receta, el
+        pegado del kernel con su juez, las ordenes de cada ranura y el
+        SIMULADOR de la 3060 contra la CPU en las tres salidas; y sus NO (un
+        RTV nulo, un half en el 1, fuera de 128 B).
+      **Lo que NO prueba el emulador (se mira en el metal):** que la 3060
+      acepte `SET_CT_SELECT` con mas de uno y los arrays por target (nunca
+      corrieron); que escriba cada salida en su ranura (el banco solo ve las
+      ordenes); y el coste de prestar 3 o 4 destinos por lote.
+      **Falta:** con la Z (una sombra y una copia por target), la mezcla en
+      los demas, los floats con redondeo en los demas, y mas de 4.
 - [~] **LI2e -- la entrada de vertices de verdad**: formatos de 8 y 16 bits
       (UNORM, SNORM, half) y `SV_VertexID` / `SV_InstanceID`. **Como se
       sabe:** las instancias de N5.19 por la 3060, con su huella.

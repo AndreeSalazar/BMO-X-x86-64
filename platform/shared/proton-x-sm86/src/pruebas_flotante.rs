@@ -25,7 +25,7 @@ const FORMATOS: [u32; 6] = [2, 6, 10, 16, 34, 54];
 fn epilogo(r: Redondeo) -> Vec<(u64, u64)> {
     let cuerpo = [bmo_gpu_ga10x::cubo::mov(5, 0), bmo_gpu_ga10x::cubo::EXIT];
     let mut g = pegamento::Pegado::VACIO;
-    pegamento::pixel_entero_en(&mut g, &cuerpo, 8, &[], Datos { filas: 0, paso: 0, elementos: &[] }, &[], None, r, None).expect("se pega");
+    pegamento::pixel_entero_en(&mut g, &cuerpo, 8, &[], Datos { filas: 0, paso: 0, elementos: &[] }, &[], None, r, None, 1).expect("se pega");
     let mut v: Vec<(u64, u64)> = g
         .codigo()
         .iter()
@@ -103,7 +103,7 @@ fn un_cuadro_en_un_rgba16f_va_a_la_3060() {
     let cb = std::vec![0x3Fu8; 16 * en.vs.filas_cb.max(en.ps.filas_cb).max(1) as usize];
     let ids = [0, 1, 2, 3, 4, 5];
     let l = Lote { enlace: &en, entradas: &[], vertices: &[], paso: 0, ids: &ids, topologia: Topologia::Lista, cb: &cb, reglas: reglas(), limpiar_z: None, limpiar_rt: None, recursos: bmo_proton_x::textura::Recursos::NINGUNO, oclusion: false, otros: &[], instancias: 1, primera_instancia: 0, base_vertice: 0, uavs: None };
-    let b = Blanco { va: 0x4000_0000, ancho: 1280, alto: 720, bgra: false, cadena: false, flotante: Some((10, 4)) };
+    let b = Blanco { va: 0x4000_0000, ancho: 1280, alto: 720, bgra: false, cadena: false, flotante: Some((10, 4)), mas: crate::puerta::SIN_MAS };
     let mut p = Puerta::nueva();
     let n = p.preparar(&l, b).unwrap_or_else(|m| panic!("el RGBA16F va a la 3060: {m}"));
     let r = bmo_gpu_ga10x::receta::leer(&p.caja[..n]).expect("el kernel lee la receta");

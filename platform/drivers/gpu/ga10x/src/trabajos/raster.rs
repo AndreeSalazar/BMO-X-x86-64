@@ -79,6 +79,19 @@ pub const SET_VERTEX_ATTRIBUTE_A0: u32 = 0x1160;
 pub const SET_DEPTH_TEST: u32 = 0x12cc;
 pub const SET_ALPHA_TEST: u32 = 0x12ec;
 pub const SET_BLEND0: u32 = 0x1360;
+
+/// LI2d: los arrays por target (`clc797.h`): `SET_COLOR_TARGET_LAYER(j)`
+/// en el bloque del target (0x0820 + 64 j), `SET_COLOR_COMPRESSION(i)` y
+/// `SET_BLEND(i)` de 4 en 4.
+pub const fn set_color_target_layer(j: u32) -> u32 {
+    SET_COLOR_TARGET_LAYER0 + 0x40 * j
+}
+pub const fn set_color_compression(i: u32) -> u32 {
+    SET_COLOR_COMPRESSION0 + 4 * i
+}
+pub const fn set_blend(i: u32) -> u32 {
+    SET_BLEND0 + 4 * i
+}
 pub const SET_STENCIL_TEST: u32 = 0x1380;
 pub const SET_WINDOW_ORIGIN: u32 = 0x13ac;
 pub const SET_ANTI_ALIAS_ENABLE: u32 = 0x1534;

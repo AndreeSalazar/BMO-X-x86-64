@@ -311,6 +311,22 @@ fn flotante_de(d: &Destino) -> Option<(u32, u32)> {
     Some((f, palabras))
 }
 
+/// **LI2d (12-10): los render targets 1.. del dibujo** (`trama::Otro`), para
+/// la puerta: su VA, su orden de bytes y, si es de float, su formato y las
+/// palabras por texel (como [`flotante_de`]). Uno sin pixeles es un RTV nulo.
+fn mas_de(d: &Destino) -> puerta::MasDelLote {
+    let mut m = puerta::SIN_MAS;
+    let texeles = d.ancho as usize * d.alto as usize;
+    for (x, o) in m.iter_mut().zip(d.otros.iter()) {
+        *x = o.pixeles.as_deref().filter(|p| !p.is_empty()).map(|p| puerta::Mas {
+            va: p.as_ptr() as u64,
+            bgra: o.bgra,
+            flotante: o.flotante.map(|f| (f, if texeles == 0 { 0 } else { (p.len() / texeles) as u32 })),
+        });
+    }
+    m
+}
+
 /// **El censo de la 3060** a la consola y al DIARIO (LI0, 12-10).
 fn decir_censo(e: &mut Estado, ahora: u64) {
     e.censo_dicho = (ahora, e.censo.lotes);
@@ -418,7 +434,7 @@ pub fn dibujar(l: &Lote, d: &mut Destino) -> Result<Cuenta, NoDibuja> {
         // targets PROPIOS (256x1, 256x256). Q0a1 (12-10): la puerta dibuja
         // otras medidas; lo que NO, lo dice ella (`puerta::medida`).
         if !d.pixeles.is_empty() {
-            let b = Blanco { va: d.pixeles.as_ptr() as u64, ancho: d.ancho, alto: d.alto, bgra: d.bgra, cadena: d.cadena, flotante: None };
+            let b = Blanco { va: d.pixeles.as_ptr() as u64, ancho: d.ancho, alto: d.alto, bgra: d.bgra, cadena: d.cadena, flotante: None, mas: puerta::SIN_MAS };
             let f = match flotante_de(d).map(|f| puerta::de_flotante(f.0, f.1)) {
                 Some(Ok((f, _))) => Some(f),
                 Some(Err(_)) => None,
@@ -449,6 +465,7 @@ pub fn dibujar(l: &Lote, d: &mut Destino) -> Result<Cuenta, NoDibuja> {
             bgra: d.bgra,
             cadena: d.cadena,
             flotante: flotante_de(d),
+            mas: mas_de(d),
         };
         let carpeta = e.carpeta_bsf.clone();
         let p = e.puerta.get_or_insert_with(|| {
