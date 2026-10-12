@@ -1,4 +1,4 @@
-//! **El salto a 0, leido del informe** (03-10, N4.4): de `datos/fallos.txt`
+//! **El salto a 0, leido del informe** (03-10, N4.4): de `informe/fallos.txt`
 //! a la CASILLA que valia 0, y en el codigo del `.exe`, quien la toca.
 //!
 //! [carril]  VERDE     lee texto y bytes; no toca la maquina
@@ -39,7 +39,7 @@ pub struct SaltoNulo {
     pub casilla: u64,
 }
 
-/// **El ultimo salto a 0 del informe** (`datos/fallos.txt`), si lo hay. Un
+/// **El ultimo salto a 0 del informe** (`informe/fallos.txt`), si lo hay. Un
 /// fallo con `rip` distinto de 0, o un salto que no fue por `ff 15`, no da
 /// casilla y se salta.
 pub fn del_informe(texto: &str) -> Option<SaltoNulo> {
