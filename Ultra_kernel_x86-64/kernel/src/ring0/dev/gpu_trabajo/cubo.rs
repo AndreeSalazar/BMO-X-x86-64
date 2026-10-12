@@ -312,37 +312,22 @@ pub fn receta(va: u64) -> Result<u64, u32> {
     if !crate::ring0::dev::gpu_despertar::bar1_fisica() {
         return Err(IOMMU_NO_PANTALLA);
     }
-    // La receta: un bloque de QUIEN la manda, entero, dentro del physmap.
+    // El taller (y la copia de la receta) se toman YA: soltados al salir
+    // por donde sea (`TallerTomado`).
+    if TALLER_EN_USO.swap(true, Ordering::AcqRel) {
+        apuntar(Porque::TallerOcupado, 0, 0);
+        return Err(IOMMU_NO_BLUR);
+    }
+    let _tomado = TallerTomado;
     let pid = crate::ring0::task::scheduler::current_pid();
-    let dentro = |fisica: u64, bytes: u64| fisica.checked_add(bytes).is_some_and(|fin| fin <= crate::ring0::mm::PHYSMAP_SIZE);
-    let Some(f) = crate::ring0::obj::memory::fisica_de(pid, va, rc::CABECERA_2 as u64).filter(|&f| dentro(f, rc::CABECERA_2 as u64)) else {
-        crate::ring0::cabina::warn("gpu", "P3b4c: la receta no es un bloque de quien la manda", va);
-        return Err(no(Porque::RecetaNoEsSuya, 0, va));
-    };
-    // SAFETY: `fisica_de` dio la cabecera en un bloque del proceso, dentro
-    // del physmap (comprobado); solo se lee.
-    let cabecera = unsafe { core::slice::from_raw_parts(crate::ring0::mm::phys_to_virt(f) as *const u8, rc::CABECERA_2) };
-    let Some(total) = rc::medida(cabecera) else {
-        crate::ring0::cabina::warn("gpu", "P3b4c: la cabecera de la receta no se sostiene (VRN2)", va);
-        return Err(no(Porque::RecetaCabecera, 0, va));
-    };
-    let Some(f) = crate::ring0::obj::memory::fisica_de(pid, va, total as u64).filter(|&f| dentro(f, total as u64)) else {
-        crate::ring0::cabina::warn("gpu", "P3b4c: la receta entera no cabe en UN bloque de quien la manda; bytes", total as u64);
-        return Err(no(Porque::RecetaEnteraNoEsSuya, 0, total as u64));
-    };
-    // SAFETY: como arriba, con `total` bytes; la app esta dentro de esta
-    // llamada (un hilo por tarea) y no los toca mientras.
-    let bytes = unsafe { core::slice::from_raw_parts(crate::ring0::mm::phys_to_virt(f) as *const u8, total) };
+    let bytes = leer_receta(pid, va)?;
+    let total = bytes.len();
     let Some(r) = rc::leer(bytes) else {
         crate::ring0::cabina::warn("gpu", "P3b4c: la receta no se sostiene (medidas, destino, cargas, datos o indices); bytes", total as u64);
         return Err(no(Porque::RecetaNoSeSostiene, 0, total as u64));
     };
     let t0 = pieza(1, inicio);
-    if TALLER_EN_USO.swap(true, Ordering::AcqRel) {
-        apuntar(Porque::TallerOcupado, 0, 0);
-        return Err(IOMMU_NO_BLUR);
-    }
-    // SAFETY: `TALLER_EN_USO` recien tomado: nadie mas lo toca hasta soltarlo.
+    // SAFETY: `TALLER_EN_USO` tomado arriba: nadie mas lo toca hasta soltarlo.
     let t = unsafe { &mut *TALLER.0.get() };
     // ** P3b4c.9 Z3: si lo que `pegar` leeria es IGUAL, byte a byte, a lo de
     // la ultima receta que el juez aprobo, el taller ya tiene esos programas
@@ -382,8 +367,93 @@ pub fn receta(va: u64) -> Result<u64, u32> {
             Err(IOMMU_NO_BODRIO)
         }
     };
-    TALLER_EN_USO.store(false, Ordering::Release);
     salida
+}
+
+/// Suelta el taller (y la copia de la receta) al salir de [`receta`].
+struct TallerTomado;
+
+impl Drop for TallerTomado {
+    fn drop(&mut self) {
+        TALLER_EN_USO.store(false, Ordering::Release);
+    }
+}
+
+/// **La COPIA de una receta de la reserva** (12-10): ~200 KiB ESTATICOS, como
+/// el taller; los guarda el mismo [`TALLER_EN_USO`].
+struct CopiaFija(core::cell::UnsafeCell<[u8; bmo_gpu_ga10x::receta::MAX_RECETA]>);
+// SAFETY: solo se toca con `TALLER_EN_USO` tomado (ver `leer_receta`).
+unsafe impl Sync for CopiaFija {}
+static COPIA: CopiaFija = CopiaFija(core::cell::UnsafeCell::new([0; bmo_gpu_ga10x::receta::MAX_RECETA]));
+
+/// **Los bytes de la receta de `pid` en `va`** (con el taller TOMADO):
+///
+/// ```text
+///    en un bloque suyo   leidos donde estan, por el physmap (como siempre)
+///    en su RESERVA       COPIADOS aqui pagina a pagina (12-10): la reserva
+///                        son marcos sueltos (`obj::reserva`), y el monton de
+///                        PROTON-X crece por ella -- la receta de Cyberpunk
+///                        vive alli en cuanto el monton pasa de 64 MiB
+/// ```
+fn leer_receta(pid: u32, va: u64) -> Result<&'static [u8], u32> {
+    use bmo_gpu_ga10x::receta as rc;
+    use crate::ring0::obj::reserva;
+    let dentro = |fisica: u64, bytes: u64| fisica.checked_add(bytes).is_some_and(|fin| fin <= crate::ring0::mm::PHYSMAP_SIZE);
+    if let Some(f) = crate::ring0::obj::memory::fisica_de(pid, va, rc::CABECERA_2 as u64).filter(|&f| dentro(f, rc::CABECERA_2 as u64)) {
+        // SAFETY: `fisica_de` dio la cabecera en un bloque del proceso, dentro
+        // del physmap (comprobado); solo se lee.
+        let cabecera = unsafe { core::slice::from_raw_parts(crate::ring0::mm::phys_to_virt(f) as *const u8, rc::CABECERA_2) };
+        let Some(total) = rc::medida(cabecera) else {
+            crate::ring0::cabina::warn("gpu", "P3b4c: la cabecera de la receta no se sostiene (VRN2)", va);
+            return Err(no(Porque::RecetaCabecera, 0, va));
+        };
+        let Some(f) = crate::ring0::obj::memory::fisica_de(pid, va, total as u64).filter(|&f| dentro(f, total as u64)) else {
+            crate::ring0::cabina::warn("gpu", "P3b4c: la receta entera no cabe en UN bloque de quien la manda; bytes", total as u64);
+            return Err(no(Porque::RecetaEnteraNoEsSuya, 0, total as u64));
+        };
+        // SAFETY: como arriba, con `total` bytes; vive lo que el proceso, y
+        // `receta` la usa solo dentro de esta llamada.
+        return Ok(unsafe { core::slice::from_raw_parts(crate::ring0::mm::phys_to_virt(f) as *const u8, total) });
+    }
+    if !reserva::en_la_ventana(va, rc::CABECERA_2 as u64) {
+        crate::ring0::cabina::warn("gpu", "P3b4c: la receta no es un bloque de quien la manda ni de su reserva", va);
+        return Err(no(Porque::RecetaNoEsSuya, 0, va));
+    }
+    // SAFETY: `TALLER_EN_USO` lo tiene quien llama (`receta`): nadie mas.
+    let copia = unsafe { &mut *COPIA.0.get() };
+    let aspace = crate::ring0::mm::vmm::read_cr3();
+    if !copiar_de_la_reserva(aspace, va, &mut copia[..rc::CABECERA_2]) {
+        crate::ring0::cabina::warn("gpu", "P3b4c: la cabecera de la receta no esta en paginas HECHAS de la reserva", va);
+        return Err(no(Porque::RecetaNoEsSuya, 1, va));
+    }
+    let Some(total) = rc::medida(&copia[..rc::CABECERA_2]).filter(|&t| t <= copia.len()) else {
+        crate::ring0::cabina::warn("gpu", "P3b4c: la cabecera de la receta no se sostiene (VRN2)", va);
+        return Err(no(Porque::RecetaCabecera, 0, va));
+    };
+    if !copiar_de_la_reserva(aspace, va, &mut copia[..total]) {
+        crate::ring0::cabina::warn("gpu", "P3b4c: la receta entera no esta en paginas HECHAS de la reserva; bytes", total as u64);
+        return Err(no(Porque::RecetaEnteraNoEsSuya, 1, total as u64));
+    }
+    Ok(&copia[..total])
+}
+
+/// Copiar `[va, va + a.len())` de la reserva del espacio `aspace` a `a`, pagina
+/// a pagina; `false` si alguna no esta hecha (o no es suya).
+fn copiar_de_la_reserva(aspace: u64, va: u64, a: &mut [u8]) -> bool {
+    use crate::ring0::mm::PAGE;
+    let mut hecho = 0usize;
+    while hecho < a.len() {
+        let dir = va + hecho as u64;
+        let Some(marco) = crate::ring0::obj::reserva::marco(aspace, dir, false) else { return false };
+        let desde = (dir % PAGE) as usize;
+        let n = (PAGE as usize - desde).min(a.len() - hecho);
+        // SAFETY: `reserva::marco` dio un marco PROPIO del proceso, dentro del
+        // physmap; se leen `n` bytes sin pasar de su pagina.
+        let src = unsafe { core::slice::from_raw_parts((crate::ring0::mm::phys_to_virt(marco) + desde as u64) as *const u8, n) };
+        a[hecho..hecho + n].copy_from_slice(src);
+        hecho += n;
+    }
+    true
 }
 
 /// Las tablas de las texturas y su pagina de piscinas, escritas (una vez
@@ -455,18 +525,31 @@ fn prestar_texturas(bar0: u64, pid: u32, texturas: &[bmo_gpu_ga10x::texturas::De
             }
         }
     }
+    let aspace = crate::ring0::mm::vmm::read_cr3();
     for (k, t) in texturas.iter().enumerate().take(tx::MAX_TEXTURAS) {
         let fisica = crate::ring0::obj::memory::fisica_de(pid, t.va, t.bytes()).filter(|&f| f.checked_add(t.bytes()).is_some_and(|fin| fin <= crate::ring0::mm::PHYSMAP_SIZE));
-        let Some(fisica) = fisica.filter(|&f| f % 4096 == t.va % 4096) else {
-            crate::ring0::cabina::warn("gpu", "P3b4c.8: una textura no es un bloque de quien manda la receta", t.va);
-            devolver_texturas(&prestadas);
-            return Err(no(Porque::TexturaNoEsSuya, k as u8, t.va));
-        };
         let paginas = t.paginas();
-        if crate::ring0::plat::iommu::prestar_gpu(tx::IOVA + k as u64 * tx::RANURA, fisica & !0xFFF, paginas, false).is_err() {
-            crate::ring0::cabina::warn("gpu", "P3b4c.8: una textura no se pudo prestar a la 3060; fisica", fisica);
+        let iova = tx::IOVA + k as u64 * tx::RANURA;
+        // ** 12-10: o un bloque suyo (seguido), o su RESERVA: las texturas de
+        // 64 KiB o mas de un juego viven alli, en marcos sueltos. Solo
+        // LECTURA, como siempre; cada pagina HECHA y suya.
+        let base = t.va & !0xFFF;
+        let marco = |j: u64| crate::ring0::obj::reserva::marco(aspace, base + j * crate::ring0::mm::PAGE, false);
+        let prestado = match fisica {
+            Some(f) if f % 4096 == t.va % 4096 => crate::ring0::plat::iommu::prestar_gpu(iova, f & !0xFFF, paginas, false),
+            None if crate::ring0::obj::reserva::en_la_ventana(t.va, t.bytes()) && (0..paginas).all(|j| marco(j).is_some()) => {
+                crate::ring0::plat::iommu::prestar_gpu_marcos(iova, paginas, false, marco)
+            }
+            _ => {
+                crate::ring0::cabina::warn("gpu", "P3b4c.8: una textura no es un bloque de quien manda la receta ni paginas hechas de su reserva", t.va);
+                devolver_texturas(&prestadas);
+                return Err(no(Porque::TexturaNoEsSuya, k as u8, t.va));
+            }
+        };
+        if let Err(m) = prestado {
+            crate::ring0::cabina::warn("gpu", "P3b4c.8: una textura no se pudo prestar a la 3060; motivo de la IOMMU", m as u64);
             devolver_texturas(&prestadas);
-            return Err(no(Porque::TexturaNoSePresta, k as u8, fisica));
+            return Err(no(Porque::TexturaNoSePresta, k as u8, t.va));
         }
         prestadas[k] = paginas;
     }
@@ -691,15 +774,37 @@ static DESTINO_MAPEADO: core::sync::atomic::AtomicBool = core::sync::atomic::Ato
 /// destino puestas. `Ok(paginas prestadas)`.
 fn prestar_destino(bar0: u64, pid: u32, va_app: u64, dst: &bmo_gpu_ga10x::destino::Destino) -> Result<u64, u32> {
     use bmo_gpu_ga10x::destino as ds;
+    use bmo_gpu_ga10x::porque::DESTINO_RESERVA;
+    use crate::ring0::obj::reserva;
     let bytes = dst.bytes();
-    let Some(fisica) = crate::ring0::obj::memory::fisica_para_escribir(pid, va_app, bytes) else {
-        crate::ring0::cabina::warn("gpu", "VERRANO: el destino no es un bloque ESCRIBIBLE de quien lo pide", va_app);
-        let sub = crate::ring0::obj::memory::por_que_no_escribir(pid, va_app, bytes);
-        return Err(no(Porque::DestinoNoEscribible, sub, va_app));
-    };
-    if fisica % 4096 != 0 || fisica + bytes > crate::ring0::mm::PHYSMAP_SIZE {
-        crate::ring0::cabina::warn("gpu", "VERRANO: el destino no empieza en pagina o se sale del physmap; fisica", fisica);
-        return Err(no(Porque::DestinoNoAlineado, 0, fisica));
+    let paginas = dst.paginas();
+    // Donde esta: un bloque suyo (seguido), o su RESERVA (marcos sueltos).
+    let fisica = crate::ring0::obj::memory::fisica_para_escribir(pid, va_app, bytes);
+    let aspace = crate::ring0::mm::vmm::read_cr3();
+    let marco = |k: u64| reserva::marco(aspace, va_app + k * crate::ring0::mm::PAGE, true);
+    match fisica {
+        Some(f) if f % 4096 != 0 || f + bytes > crate::ring0::mm::PHYSMAP_SIZE => {
+            crate::ring0::cabina::warn("gpu", "VERRANO: el destino no empieza en pagina o se sale del physmap; fisica", f);
+            return Err(no(Porque::DestinoNoAlineado, 0, f));
+        }
+        Some(_) => {}
+        None if reserva::en_la_ventana(va_app, bytes) => {
+            if va_app % 4096 != 0 {
+                return Err(no(Porque::DestinoNoAlineado, 1, va_app));
+            }
+            // ** 12-10: el render target de un juego vive en su reserva (lo
+            // de 64 KiB o mas: `memoria::pedir_paginas` de la casa). Cada
+            // pagina tiene que estar HECHA, ser suya y escribible.
+            if let Some(k) = (0..paginas).find(|&k| marco(k).is_none()) {
+                crate::ring0::cabina::warn("gpu", "VERRANO: una pagina del destino en la reserva no esta hecha o no es escribible", va_app + k * 4096);
+                return Err(no(Porque::DestinoNoEscribible, DESTINO_RESERVA, va_app + k * 4096));
+            }
+        }
+        None => {
+            crate::ring0::cabina::warn("gpu", "VERRANO: el destino no es un bloque ESCRIBIBLE de quien lo pide", va_app);
+            let sub = crate::ring0::obj::memory::por_que_no_escribir(pid, va_app, bytes);
+            return Err(no(Porque::DestinoNoEscribible, sub, va_app));
+        }
     }
     if !DESTINO_MAPEADO.load(Ordering::Acquire) {
         match ds::mapear(&mut Bar0(bar0)) {
@@ -713,10 +818,13 @@ fn prestar_destino(bar0: u64, pid: u32, va_app: u64, dst: &bmo_gpu_ga10x::destin
             }
         }
     }
-    let paginas = dst.paginas();
-    if crate::ring0::plat::iommu::prestar_gpu(ds::IOVA, fisica, paginas, true).is_err() {
-        crate::ring0::cabina::warn("gpu", "VERRANO: la RAM de la app no se pudo prestar a la 3060; fisica", fisica);
-        return Err(no(Porque::DestinoNoSePresta, 0, fisica));
+    let prestado = match fisica {
+        Some(f) => crate::ring0::plat::iommu::prestar_gpu(ds::IOVA, f, paginas, true),
+        None => crate::ring0::plat::iommu::prestar_gpu_marcos(ds::IOVA, paginas, true, marco),
+    };
+    if let Err(m) = prestado {
+        crate::ring0::cabina::warn("gpu", "VERRANO: la RAM de la app no se pudo prestar a la 3060; motivo de la IOMMU", m as u64);
+        return Err(no(Porque::DestinoNoSePresta, fisica.is_none() as u8, va_app));
     }
     Ok(paginas)
 }

@@ -1213,7 +1213,11 @@ pub fn operation(base: u64, operation: u64, pid: u32) -> Option<u64> {
         // programa un DMA, y un aparato escribiendo en codigo es la W por otra
         // puerta (2026-09-23, `MEM_OP_SELLAR`).
         MEM_OP_FISICA => fisica_para_escribir(pid, base, 1),
-        MEM_OP_SOLTAR => soltar(pid, base),
+        // 12-10: por la puerta de la 3060, como DESHACER la reserva: el
+        // bloque puede ser el destino PRESTADO de una receta cuya titular esta
+        // apartada en el respiro. Si en 2 s no suelta, el bloque NO se suelta
+        // ("no existe aqui", y se puede volver a pedir).
+        MEM_OP_SOLTAR => crate::ring0::dev::respiro::fuera_de_la_gpu(|| soltar(pid, base)).flatten(),
         _ => None,
     }
 }

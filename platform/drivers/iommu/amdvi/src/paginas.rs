@@ -93,6 +93,8 @@ pub enum NoPresta {
     SinTablas,
     /// Alguna de esas paginas del aparato ya estaba prestada. No se pisa.
     YaPrestada,
+    /// `prestar_marcos`: quien da los marcos no dio el de alguna pagina.
+    SinMarco,
 }
 
 /// Lo que ve el aparato en una direccion, segun el oraculo.
@@ -150,6 +152,40 @@ impl Dominio {
                     m.escribir(t, indice(1, a), hoja(fisica + k * PAGINA, lee, escribe));
                     Ok(())
                 }
+            };
+            if let Err(e) = r {
+                self.quitar(m, iova, k);
+                return Err(e);
+            }
+        }
+        Ok(())
+    }
+
+    /// **PRESTAR PAGINA A PAGINA** (12-10): como [`Dominio::prestar`], pero
+    /// la pagina `k` del aparato ve el marco `marco(k)`, que no tiene por que
+    /// seguir al anterior (la RAM de la RESERVA de un proceso: cada pagina un
+    /// marco suelto). Todo o nada, igual: un marco que falta o mal alineado
+    /// quita lo que ESTA llamada puso.
+    pub fn prestar_marcos(
+        &self,
+        m: &mut impl Memoria,
+        iova: u64,
+        paginas: u64,
+        lee: bool,
+        escribe: bool,
+        mut marco: impl FnMut(u64) -> Option<u64>,
+    ) -> Result<(), NoPresta> {
+        let fin = paginas.checked_mul(PAGINA).and_then(|b| iova.checked_add(b));
+        if iova % PAGINA != 0 {
+            return Err(NoPresta::Desalineada);
+        }
+        if paginas == 0 || fin.map_or(true, |f| f > IOVA_TOPE) {
+            return Err(NoPresta::FueraDelEspacio);
+        }
+        for k in 0..paginas {
+            let r = match marco(k) {
+                None => Err(NoPresta::SinMarco),
+                Some(f) => self.prestar(m, iova + k * PAGINA, f, 1, lee, escribe),
             };
             if let Err(e) = r {
                 self.quitar(m, iova, k);
@@ -364,6 +400,28 @@ mod pruebas {
         assert_eq!(d.prestar(&mut b, IOVA_TOPE - PAGINA, FIS, 2, true, true), Err(NoPresta::FueraDelEspacio));
         assert_eq!(d.prestar(&mut b, IOVA, FIS, 0, true, true), Err(NoPresta::FueraDelEspacio));
         assert_eq!(d.prestar(&mut b, IOVA, FIS, u64::MAX, true, true), Err(NoPresta::FueraDelEspacio));
+    }
+
+    /// 12-10: los marcos sueltos de la reserva, cada pagina el suyo; y uno
+    /// que falta a mitad no deja nada puesto.
+    #[test]
+    fn prestar_marcos_sueltos_y_todo_o_nada() {
+        let mut b = Banco::nuevo(8);
+        let d = Dominio::nuevo(&mut b).unwrap();
+        let marcos = [0x9000_0000u64, 0x1234_5000, 0x9000_1000, 0x7000];
+        d.prestar_marcos(&mut b, IOVA, 4, true, true, |k| marcos.get(k as usize).copied()).unwrap();
+        for (k, &f) in marcos.iter().enumerate() {
+            assert_eq!(d.traducir(&b, IOVA + k as u64 * PAGINA + 8), Some(Vista { fisica: f + 8, lee: true, escribe: true }));
+        }
+        assert_eq!(d.quitar(&mut b, IOVA, 4), 4);
+        let iova2 = IOVA + 16 * PAGINA;
+        assert_eq!(d.prestar_marcos(&mut b, iova2, 3, true, false, |k| (k != 2).then_some(FIS + 7 * k * PAGINA)), Err(NoPresta::SinMarco));
+        assert_eq!(d.prestar_marcos(&mut b, iova2, 2, true, false, |k| Some(FIS + 8 * k)), Err(NoPresta::Desalineada));
+        for k in 0..3 {
+            assert_eq!(d.traducir(&b, iova2 + k * PAGINA), None, "la llamada fallida no deja nada");
+        }
+        assert_eq!(d.prestar_marcos(&mut b, IOVA + 1, 1, true, true, |_| Some(FIS)), Err(NoPresta::Desalineada));
+        assert_eq!(d.prestar_marcos(&mut b, IOVA, 0, true, true, |_| Some(FIS)), Err(NoPresta::FueraDelEspacio));
     }
 
     #[test]

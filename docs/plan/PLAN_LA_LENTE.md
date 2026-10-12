@@ -80,3 +80,7 @@ Lo que el informe diria (un ejemplo, no una promesa de formato):
       **Como se sabe:** el informe de una sesion con Cyberpunk lleva los NO
       del kernel con sus motivos (lo que hoy es `cabina fallos` y el motivo
       79 de la 3060, en una lectura).
+      **Primer trozo (12-10), solo la 3060:** cada NO de su puerta apunta su
+      porque (`bmo_gpu_ga10x::porque`, `INFO_GPU_PORQUE`) y PROTON-X lo dice
+      con palabras -- el ultimo, a quien lo recibio. Falta el diario entero
+      (todos los NO, de todo el kernel, con quien) y que vaya al informe.

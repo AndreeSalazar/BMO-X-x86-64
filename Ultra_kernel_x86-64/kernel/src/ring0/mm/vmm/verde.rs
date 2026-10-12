@@ -131,6 +131,28 @@ pub fn fisica_escribible_ring3(pml4: u64, va: u64) -> Option<u64> {
     Some(t + (va & (PAGE - 1)))
 }
 
+/// **El MARCO de una pagina PROPIA de Ring 3** (12-10, el prestamo de la
+/// reserva a la 3060): presente y de usuario en TODOS los pisos (y
+/// escribible, con `escribe`), una hoja de 4 KiB, y marcada
+/// [`super::amarilla::PTE_NUESTRA`] -- un marco de RAM que el espacio dio y
+/// devolvera, nunca un aparato mapeado ni la pantalla. `None` si no.
+pub fn marco_propio_ring3(pml4: u64, va: u64, escribe: bool) -> Option<u64> {
+    let quiere = PTE_PRESENT | PTE_USER | if escribe { PTE_WRITABLE } else { 0 };
+    let idx = [(va >> 39) & 0x1FF, (va >> 30) & 0x1FF, (va >> 21) & 0x1FF, (va >> 12) & 0x1FF];
+    let mut t = pml4;
+    for (nivel, &i) in idx.iter().enumerate() {
+        let e = table(t)[i as usize];
+        if e & quiere != quiere || (nivel < 3 && e & PTE_HUGE != 0) {
+            return None;
+        }
+        if nivel == 3 && e & super::amarilla::PTE_NUESTRA == 0 {
+            return None;
+        }
+        t = e & ADDR_MASK;
+    }
+    Some(t)
+}
+
 /// **Donde se corta el paseo de `va`**: `(nivel, tabla)`.
 ///
 /// `nivel` es el piso cuya ENTRADA falta -- 4 = la del PML4, 3 = la del PDPT,

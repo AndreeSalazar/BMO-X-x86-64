@@ -149,15 +149,17 @@ impl Porque {
 /// Por que el destino no es escribible (el `sub` de
 /// [`Porque::DestinoNoEscribible`]): lo mira el kernel en las cuentas del
 /// proceso, no se adivina.
-pub const DESTINO: [&str; 4] = [
+pub const DESTINO: [&str; 5] = [
     "sin mirar",
-    "su VA no cae en ningun bloque del proceso",
+    "su VA no cae en ningun bloque del proceso ni en su reserva",
     "empieza en un bloque del proceso y se sale de el (el render target cruza dos bloques)",
     "toca un bloque SELLADO (codigo)",
+    "una pagina suya en la RESERVA no esta hecha, o no es escribible (detalle: esa pagina)",
 ];
 pub const DESTINO_EN_NINGUNO: u8 = 1;
 pub const DESTINO_SE_SALE: u8 = 2;
 pub const DESTINO_SELLADO: u8 = 3;
+pub const DESTINO_RESERVA: u8 = 4;
 
 /// Los pasos de `tuberia::preparar_paso`, en orden (el `sub` de
 /// [`Porque::Preparar`]).

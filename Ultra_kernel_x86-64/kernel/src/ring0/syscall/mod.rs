@@ -341,10 +341,16 @@ fn invoke_current_task(operation: u64, arg0: u64, arg1: u64) -> BmoStatus {
                 Err((motivo, valor)) => BmoStatus::negado(motivo, valor),
             }
         }
+        // ** 12-10: por la puerta de la 3060. La RAM de la reserva se presta a
+        // la 3060 (el destino y las texturas de una receta) y, con el respiro,
+        // la titular puede estar apartada a mitad del dibujo: devolver esos
+        // marcos ahora seria la 3060 escribiendo en memoria de otro (R-DMA-3).
         TASK_OP_RESERVA_DESHACER => {
-            match crate::ring0::obj::reserva::deshacer(scheduler::current_pid(), crate::ring0::mm::vmm::read_cr3(), arg0, arg1) {
-                Ok(bytes) => BmoStatus::ok_value(bytes),
-                Err((motivo, valor)) => BmoStatus::negado(motivo, valor),
+            let (pid, aspace) = (scheduler::current_pid(), crate::ring0::mm::vmm::read_cr3());
+            match crate::ring0::dev::respiro::fuera_de_la_gpu(|| crate::ring0::obj::reserva::deshacer(pid, aspace, arg0, arg1)) {
+                Some(Ok(bytes)) => BmoStatus::ok_value(bytes),
+                Some(Err((motivo, valor))) => BmoStatus::negado(motivo, valor),
+                None => BmoStatus::negado(crate::ring0::obj::reserva::RESERVA_GPU_VIENDO, 0),
             }
         }
         // * TOMAR lo que otro me ofrecio. El mapeo ocurre AQUI, en el espacio

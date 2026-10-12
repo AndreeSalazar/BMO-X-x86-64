@@ -790,6 +790,9 @@ pub const RESERVA_SIN_RAM: u32 = 4;
 /// El valor: cuantos bytes SI se hicieron (y se quedan hechos).
 pub const RESERVA_SIN_MARCOS: u32 = 5;
 pub const RESERVA_NO_MAPEA: u32 = 6;
+/// DESHACER con la 3060 viendo esa RAM (una puerta suya apartada en el
+/// respiro) mas de 2 s: no se devuelve nada (12-10).
+pub const RESERVA_GPU_VIENDO: u32 = 7;
 pub const IOMMU_OP_ENCENDER: u64 = 0x01;
 pub const IOMMU_OP_APAGAR: u64 = 0x02;
 /// Cegar la 3060 (M0e): su DMA no alcanza la RAM; sus interrupciones si pasan.

@@ -36,6 +36,7 @@ impl NoReserva {
             4 => "no hay RAM: pide / hay, en MiB (lo libre menos el margen del kernel)",
             5 => "el kernel se quedo sin marcos a mitad (valor: los bytes que SI se hicieron)",
             6 => "un mapeo fallo a mitad (valor: los bytes que SI se hicieron)",
+            7 => "la 3060 tenia la puerta (y quiza esa RAM prestada) mas de 2 s: no se devolvio nada",
             _ => "un motivo que este userland no conoce",
         }
     }

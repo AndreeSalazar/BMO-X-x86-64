@@ -425,6 +425,36 @@ y `puerta.rs`; el juez en `platform/drivers/gpu/ga10x/src/sass/juez.rs`):
       no esta casilla. Y el juez en vivo tiraba un PSO por un `Load` (TLD) que
       el simulador SI sabe: le faltaba la textura nula (arreglado, con prueba).
 
+- [~] **LI2k -- LA RAM DEL JUEGO, PRESTADA ENTERA, y el PORQUE de cada NO**
+      (metal 12-10, 12:58). El censo dijo que 22 de 32 lotes de Cyberpunk
+      "irian", y la 3060 dibujo 0: el kernel dijo `motivo 79` a los dos
+      primeros y PROTON-X la dejo. El 79 salia por cuarenta caminos, y la
+      mitad no dejaba nada en `cabina`. **El fondo:** el kernel solo prestaba
+      a la 3060 un BLOQUE del proceso (`memory::fisica_de`), y lo de 64 KiB o
+      mas de un juego (sus render targets, sus texturas, sus `ID3D12Heap`, y
+      el monton de PROTON-X cuando pasa de 64 MiB, con la receta dentro)
+      vive en la VENTANA DE RESERVA: marcos sueltos que no son de ningun
+      bloque. La casa ya lo sabia ("una pagina de la reserva no esta ahi") y
+      solo mandaba a bloques prestables la cadena y texturas de hasta 4 MiB.
+      **Hecho (12-10), como piezas:**
+      - `bmo_gpu_ga10x::porque` + `INFO_GPU_PORQUE` (0xD4): cada NO de la
+        puerta apunta SU porque (23, con sus casos: el paso de `preparar`, la
+        ranura, el lado) y PROTON-X lo dice con palabras y el censo los
+        cuenta. Solo a quien recibio el NO.
+      - El prestamo PAGINA A PAGINA: `amdvi::Dominio::prestar_marcos` (todo o
+        nada, con prueba), `iommu::prestar_gpu_marcos` (una invalidacion, el
+        oraculo relee cada pagina) y `obj::reserva::marco` (en la ventana,
+        de usuario, escribible si se pide, PROPIA: nunca un aparato). El
+        destino y las texturas de la reserva se prestan asi; la receta de
+        la reserva se COPIA al kernel (200 KiB estaticos, bajo el taller).
+      - **R-DMA-3 con el respiro:** DESHACER la reserva y SOLTAR un bloque
+        pasan por la puerta de la 3060 (`respiro::fuera_de_la_gpu`): la
+        titular, apartada en su respiro, puede tener esa RAM prestada. Si en
+        2 s no suelta, no se devuelve nada (`RESERVA_GPU_VIENDO`).
+      **Como se sabe:** el metal con Cyberpunk: `smp all`, `personal 3060`,
+      y la linea `[3060]` con lotes dibujados; si el kernel dice NO, el censo
+      dice el porque con palabras (ya no hace falta `cabina fallos`).
+
 ## 4.3 PROTON-X habla VERRANO
 
 - [ ] **LI3 -- el fotograma por pases, no por lotes** (es VC2 de

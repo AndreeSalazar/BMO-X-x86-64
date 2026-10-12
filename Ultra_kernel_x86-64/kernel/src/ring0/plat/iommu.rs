@@ -861,6 +861,42 @@ pub fn prestar_gpu(iova: u64, fisica: u64, paginas: u64, escribe: bool) -> Resul
     Ok(us)
 }
 
+/// **PRESTAR A LA 3060 PAGINA A PAGINA** (12-10): como [`prestar_gpu`], pero
+/// la pagina `k` es el marco `marco(k)` -- la RAM de la RESERVA de un proceso,
+/// que son marcos sueltos (`obj::reserva`), no un bloque seguido. Una sola
+/// invalidacion para todas, y el ORACULO relee cada una contra `marco(k)`
+/// (que se vuelve a preguntar: quien da los marcos camina las tablas del
+/// proceso, y lo que vio la primera vez tiene que seguir siendo lo mismo).
+pub fn prestar_gpu_marcos(iova: u64, paginas: u64, escribe: bool, marco: impl Fn(u64) -> Option<u64>) -> Result<u64, u32> {
+    use amdvi::tablas::Orden;
+    let g = GPU.load(Ordering::Acquire);
+    if g & IOMMU_GPU_TRADUCIDA == 0 || g & IOMMU_GPU_RELEIDA == 0 {
+        return fallo(IOMMU_NO_NO_TRADUCIDA);
+    }
+    let Some(d) = dominio_gpu() else { return fallo(IOMMU_NO_SIN_AREA) };
+    if let Err(e) = d.prestar_marcos(&mut Area, iova, paginas, true, escribe, &marco) {
+        crate::ring0::cabina::warn("iommu", "M0d: el prestamo a la 3060 (pagina a pagina) no se hizo", e as u64);
+        return fallo(IOMMU_NO_PRESTAMO);
+    }
+    let Some(us) = mandar(&[Orden::invalidar_paginas(DOMINIO_GPU)]) else {
+        d.quitar(&mut Area, iova, paginas);
+        return fallo(IOMMU_NO_CONTESTA);
+    };
+    for k in 0..paginas {
+        let a = iova + k * amdvi::paginas::PAGINA;
+        let bien = d.traducir(&Area, a).is_some_and(|v| Some(v.fisica) == marco(k) && v.lee && v.escribe == escribe);
+        if !bien {
+            d.quitar(&mut Area, iova, paginas);
+            let _ = mandar(&[Orden::invalidar_paginas(DOMINIO_GPU)]);
+            crate::ring0::cabina::warn("iommu", "M0d: el ORACULO no ve lo prestado (pagina a pagina): se quita", a);
+            return fallo(IOMMU_NO_RELEIDA);
+        }
+    }
+    PRESTADAS.fetch_add(paginas, Ordering::AcqRel);
+    crate::ring0::cabina::count("iommu", "M0d: paginas PRESTADAS a la 3060 (marcos sueltos) y releidas", paginas);
+    Ok(us)
+}
+
 /// **DEVOLVER lo prestado a la 3060**: `paginas` desde `iova` dejan de
 /// traducirse (vuelve el fallo de pagina) y se invalida el dominio. Lo usa el
 /// volcado del escritorio (compositor por GPU, paso 1), que presta el lienzo
