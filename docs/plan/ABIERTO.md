@@ -1,13 +1,13 @@
 <!-- GENERADO por toolchain/tools/planes. No se edita a mano. -->
 
-# LO QUE FALTA -- las casillas abiertas de los 79 planes
+# LO QUE FALTA -- las casillas abiertas de los 80 planes
 
 > Generado por `toolchain/tools/planes`. **El build comprueba que
 > este fichero y los planes dicen lo mismo**, asi que no puede
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   761 casillas ABIERTAS en 70 planes
+   770 casillas ABIERTAS en 71 planes
    605 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
@@ -162,15 +162,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] S3 -- EL PRIMER CLIENTE: INTI. Porque puede declarar el alias. Y
 - ... y 12 mas
 
-## [`PLAN_EL_LIBRETO.md`](PLAN_EL_LIBRETO.md) -- 14 abiertas, 1 hechas
-
-*PLAN EL LIBRETO -- Cyberpunk 2077 entra por VERRANO*
-
-- [ ] **LI0 -- EL CENSO de la 3060: cuantos PSO de Cyberpunk pasarian, y
-- [ ] LI1 -- traducir y juzgar al CREAR, no al dibujar. Es VC1 de
-- [ ] LI2a -- SV_Position en el de pixeles (N5.9). La 3060 la da en
-- ... y 11 mas
-
 ## [`PLAN_EL_PLAZO.md`](PLAN_EL_PLAZO.md) -- 14 abiertas, 1 hechas
 
 *PLAN EL PLAZO -- V-Sync, VBlank y la deuda de planificacion*
@@ -225,6 +216,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] E2 -- (C,T) DECLARADOS Y EL AFORO. Cada tarea trae su compas; el kernel
 - ... y 9 mas
 
+## [`PLAN_EL_LIBRETO.md`](PLAN_EL_LIBRETO.md) -- 12 abiertas, 1 hechas
+
+*PLAN EL LIBRETO -- Cyberpunk 2077 entra por VERRANO*
+
+- [ ] LI1 -- traducir y juzgar al CREAR, no al dibujar. Es VC1 de
+- [ ] LI2b -- programas largos. Hoy el cuerpo cabe en un hueco de 128
+- [ ] LI2c -- texturas (TEX; M3 de PLAN_VERRANO.md). El TIC y el
+- ... y 9 mas
+
 ## [`PLAN_LA_PUERTA_SE_PARTE.md`](PLAN_LA_PUERTA_SE_PARTE.md) -- 11 abiertas, 8 hechas
 
 *PLAN LA PUERTA SE PARTE -- dividir lo que no se puede abaratar*
@@ -232,6 +232,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] M0b-2 -- lo que queda del papeleo, SI la medida lo pide. Quedan dos
 - [ ] M0c -- los 112 ticks del match de INFO. El rechazo por campo
 - [ ] M1b -- CUANTO CUESTA REVOCAR UNA PAGINA, y va ANTES de M1. La seccion
+- ... y 8 mas
+
+## [`PLAN_LLIPIQ.md`](PLAN_LLIPIQ.md) -- 11 abiertas, 0 hechas
+
+*PLAN LLIPIQ -- la nitidez de BMO-X, y PACHA, su corazon de espacio y tiempo*
+
+- [ ] LL0 -- el contrato, en papel. Que entra (color, su formato y su
+- [ ] LL1 -- RCAS de la casa (L2), en la CPU y juzgado. La cuenta de
+- [ ] LL2 -- RCAS en la 3060, por la puerta de COMPLETAR (VEL2), en
 - ... y 8 mas
 
 ## [`PLAN_LOS_DATOS.md`](PLAN_LOS_DATOS.md) -- 11 abiertas, 2 hechas
