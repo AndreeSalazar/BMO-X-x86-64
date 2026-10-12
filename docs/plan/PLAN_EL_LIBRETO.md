@@ -290,6 +290,24 @@ y `puerta.rs`; el juez en `platform/drivers/gpu/ga10x/src/sass/juez.rs`):
       juez cazo un fallo del primer intento (R3: el cuerpo esperaba la
       barrera de unas cargas que no habia). **Falta:** el metal, los formatos
       de 8 y 16 bits y varias instancias.
+      *12-10, los FORMATOS* (el censo de Cyberpunk: 12 lotes de 34):
+      `ga10x/src/trabajos/formatos.rs` -- UNORM, SNORM, half, enteros de 8,
+      16 y 32, R10G10B10A2 y B8G8R8A8, en la libreria de la 3060 --. El
+      pegamento carga la palabra que lleva cada componente y la convierte
+      con instrucciones de latencia FIJA: sus bits abajo (SHF), el entero
+      EXACTO como float por la suma magica (0x4B000000, sin I2F) y la
+      division de IEEE por el cociente corregido (q = n/D aproximado, e = n -
+      q*D con una FFMA, q + e/D), y max(-1) en SNORM. **Los mismos bits que
+      la CPU (`formato_ia::leer`) en TODO el dominio**: los 256 valores de 8
+      bits, los 65 536 de 16, los de 10 y 2, con basura alrededor -- mas de
+      un millon --; saboteado (sin la correccion del cociente) cae en el
+      0x101 de UNORM16. El formato viaja en los bits 16..24 de `componentes`
+      de la receta; el vigia le da al simulador lo que lee la CPU. De punta
+      a punta: el cubo con su NORMAL en SNORM16 o half y su COLOR en RGBA8 o
+      BGRA8 cruza la puerta, la receta, el pegado del kernel (con sus
+      conversiones) y su juez, y el vigia lo da igual a la CPU.
+      **Falta:** R11G11B10_FLOAT (lo dice el censo), varias instancias y el
+      metal.
 - [ ] **LI2f -- el computo del juego en la 3060.** Un PSO de computo al QMD
       (la 3060 ya corre computo fijo: `trabajos/blur.rs`), con UAV. **Como
       se sabe:** `olas` (A10) por la 3060, con su huella.

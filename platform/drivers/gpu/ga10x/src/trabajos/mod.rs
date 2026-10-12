@@ -37,6 +37,9 @@ pub mod anillo;
 /// VERRANO E5: el pegamento de los programas EMITIDOS (lo que rodea al
 /// cuerpo que sale de PROTON-X: cargas, salidas y su SPH; 2026-09-28).
 pub mod pegamento;
+/// LI2e: los FORMATOS de vertice que lee el pegamento (UNORM, SNORM, half,
+/// enteros), con los bits de la CPU (2026-10-12).
+pub mod formatos;
 /// P3b4b: el destino de la app -- la 3060 dibuja en la RAM de un proceso
 /// (su back buffer), prestada por la IOMMU (2026-09-28).
 pub mod destino;

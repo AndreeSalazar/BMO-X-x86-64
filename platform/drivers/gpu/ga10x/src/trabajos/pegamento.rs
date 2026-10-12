@@ -207,10 +207,13 @@ pub fn asas(cargas: &[Carga]) -> u64 {
 pub struct Elemento {
     /// Su byte dentro del vertice.
     pub desde: u32,
-    /// Cuantos float trae (1..4).
+    /// Cuantos componentes trae (1..4).
     pub componentes: u8,
     /// De la memoria del vertice, o un valor de sistema.
     pub sistema: Sistema,
+    /// ** LI2e (12-10): su `DXGI_FORMAT` (`formatos::forma`), o 0: floats de
+    /// 32 bits (`componentes` de ellos), lo de siempre.
+    pub formato: u8,
 }
 
 /// **Los valores de sistema del de vertice** (LI2e, 12-10: el censo de
@@ -257,12 +260,44 @@ impl Sistema {
 impl Elemento {
     /// De la memoria del vertice.
     pub const fn memoria(desde: u32, componentes: u8) -> Self {
-        Elemento { desde, componentes, sistema: Sistema::No }
+        Elemento { desde, componentes, sistema: Sistema::No, formato: 0 }
+    }
+
+    /// ** LI2e (12-10): de la memoria, en el `DXGI_FORMAT` `formato`, si la
+    /// 3060 lo lee (`formatos::forma`); los floats de 32, como [`Self::memoria`].
+    pub const fn con_formato(desde: u32, formato: u32) -> Option<Self> {
+        match crate::formatos::forma(formato) {
+            Some(f) if f.es_float32() => Some(Elemento::memoria(desde, f.componentes())),
+            Some(f) => Some(Elemento { desde, componentes: f.componentes(), sistema: Sistema::No, formato: formato as u8 }),
+            None => None,
+        }
     }
 
     /// Un valor de sistema (un entero, en x).
     pub const fn de_sistema(sistema: Sistema) -> Self {
-        Elemento { desde: 0, componentes: 1, sistema }
+        Elemento { desde: 0, componentes: 1, sistema, formato: 0 }
+    }
+
+    /// Su forma (la de los floats de 32 si no dice otra).
+    pub const fn forma(&self) -> Option<crate::formatos::Forma> {
+        match self.formato {
+            0 => crate::formatos::forma(match self.componentes {
+                1 => 41,
+                2 => 16,
+                3 => 6,
+                4 => 2,
+                _ => return None,
+            }),
+            f => crate::formatos::forma(f as u32),
+        }
+    }
+
+    /// Los bytes que lee de la memoria del vertice.
+    pub const fn bytes(&self) -> u32 {
+        match self.forma() {
+            Some(f) => f.bytes(),
+            None => 0,
+        }
     }
 }
 
@@ -579,6 +614,9 @@ pub fn vertice_con_libreta_en(g: &mut Pegado, cuerpo: &[(u64, u64)], registros: 
     // V:V+1 = D:D+1 + V (espera la tabla).
     o.p(iadd3_acarreo(v, 0, d, v, espera(1 << B_TABLA)));
     o.p(imad_x(v + 1, d + 1, 0xFF, 0, ALU));
+    // LI2e: los componentes que hay que convertir, tras sus cargas.
+    let mut convertir = [(crate::formatos::forma(41).unwrap(), 0u64, 0u32, 0u32); 64];
+    let mut convertir_n = 0;
     for c in cargas {
         if let Carga::Entrada { elemento, componente, reg } = *c {
             let Some(el) = datos.elementos.get(elemento as usize) else { return Err(NoPega::Carga) };
@@ -598,25 +636,48 @@ pub fn vertice_con_libreta_en(g: &mut Pegado, cuerpo: &[(u64, u64)], registros: 
                 }
                 Sistema::No => {}
             }
-            if el.componentes == 0 || el.componentes > 4 || el.desde + 4 * el.componentes as u32 > paso {
+            let Some(f) = el.forma() else { return Err(NoPega::Carga) };
+            if el.componentes == 0 || el.componentes > 4 || el.desde % 4 != 0 || el.desde + el.bytes() > paso {
                 return Err(NoPega::Carga);
             }
-            if componente < el.componentes {
-                o.p(ldg(reg as u64, v, el.desde + 4 * componente as u32, carga(B_CARGAS)));
-            } else {
-                // El que no trae: 0, y 1 en w (D3D).
-                o.p(mov(reg as u64, if componente == 3 { 0x3F80_0000 } else { 0 }));
+            match f.lugar(componente) {
+                // LI2e: la palabra que lo lleva; si no es un float o un
+                // entero de 32, se convierte detras (`formatos`).
+                Some((palabra, desplazamiento, bits)) => {
+                    o.p(ldg(reg as u64, v, el.desde + 4 * palabra, carga(B_CARGAS)));
+                    if bits < 32 || !matches!(f.clase, crate::formatos::Clase::Float | crate::formatos::Clase::Uint | crate::formatos::Clase::Sint) {
+                        if convertir_n == convertir.len() {
+                            return Err(NoPega::Carga);
+                        }
+                        convertir[convertir_n] = (f, reg as u64, desplazamiento, bits);
+                        convertir_n += 1;
+                    }
+                }
+                // El que no trae: 0, y 1 en w (D3D; entero en UINT/SINT).
+                None => o.p(mov(reg as u64, f.falta(componente))),
             }
         }
     }
     las_filas(&mut o, cargas, datos, d, false)?;
+    // ** LI2e: las conversiones, con TODAS las cargas ya en sus registros (la
+    // primera espera la barrera); V y V+1, que ya no hacen falta, de trabajo.
+    let mut primera = true;
+    for &(f, r, desplazamiento, bits) in &convertir[..convertir_n] {
+        let mut w = [(0, 0); crate::formatos::MAX_CONVERSION];
+        let n = crate::formatos::conversion(&f, r, v, desplazamiento, bits, &mut w);
+        for &x in &w[..n] {
+            o.p(if primera { esperando(x, 1 << B_CARGAS) } else { x });
+            primera = false;
+        }
+    }
     // Si hubo cargas de la memoria (LDG): las de un elemento del vertice y
     // las filas del cbuffer. Un cuadro de SV_VertexID sin cbuffer no lee
     // nada, y esperar su barrera seria esperar una que nadie enciende (el
-    // juez, R3: lo cazo el banco de LI2e el 12-10).
-    let leyo = cargas.iter().any(|c| match *c {
+    // juez, R3: lo cazo el banco de LI2e el 12-10). Si ya la espero una
+    // conversion, el cuerpo no la vuelve a esperar.
+    let leyo = primera && cargas.iter().any(|c| match *c {
         Carga::Fila { .. } => true,
-        Carga::Entrada { elemento, componente, .. } => datos.elementos.get(elemento as usize).is_some_and(|e| e.sistema == Sistema::No && componente < e.componentes),
+        Carga::Entrada { elemento, componente, .. } => datos.elementos.get(elemento as usize).is_some_and(|e| e.sistema == Sistema::No && e.forma().is_some_and(|f| f.lugar(componente).is_some())),
         _ => false,
     });
     // El cuerpo: su primera espera las cargas; la ultima, lo que tarde en

@@ -212,8 +212,12 @@ pub fn del_pso(en: &Enlace, ia: &[ElementoIa], paso: u32) -> Vec<String> {
                     if e.ranura != 0 {
                         poner!("un elemento de vertice en otra ranura que la 0".into());
                     }
-                    if !bmo_proton_x::formato_ia::es_float32(e.formato) {
-                        poner!("un formato de vertice que no es float de 32 bits".into());
+                    // LI2e (12-10): lo que la 3060 lee lo dice ella
+                    // (`pegamento::Elemento::con_formato`), como `pso`.
+                    match bmo_gpu_ga10x::pegamento::Elemento::con_formato(e.desde, e.formato) {
+                        None => poner!("un formato de vertice que la 3060 no lee todavia (R11G11B10_FLOAT)".into()),
+                        Some(_) if e.desde % 4 != 0 => poner!("un elemento de vertice que no empieza en 4 bytes".into()),
+                        Some(_) => {}
                     }
                 }
             }

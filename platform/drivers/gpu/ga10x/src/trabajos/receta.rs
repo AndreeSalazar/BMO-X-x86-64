@@ -236,14 +236,21 @@ pub fn leer(b: &[u8]) -> Option<Receta<'_>> {
     for e in elementos.iter_mut().take(n_elementos) {
         let x = b.get(i..i + 8)?;
         // `componentes`: los bits 0..8 cuantos, los 8..10 de que sistema
-        // (LI2e, `pegamento::Sistema`); el resto, a 0.
-        let (cuantos, sistema) = (u32le(x, 4) & 0xFF, u32le(x, 4) >> 8);
+        // (LI2e, `pegamento::Sistema`), los 16..24 su formato (LI2e, 12-10:
+        // `formatos::forma`; 0, floats de 32); el resto, a 0.
+        let w = u32le(x, 4);
+        let (cuantos, sistema, formato) = (w & 0xFF, w >> 8 & 0xFF, w >> 16);
         let sistema = Sistema::de_numero(sistema)?;
-        *e = Elemento { desde: u32le(x, 0), componentes: cuantos as u8, sistema };
+        *e = Elemento { desde: u32le(x, 0), componentes: cuantos as u8, sistema, formato: formato as u8 };
         let mal = match sistema {
             // Un valor de sistema es un entero en x, y no lee la memoria.
-            Sistema::Vertice | Sistema::Instancia => cuantos != 1 || e.desde != 0,
-            Sistema::No => cuantos == 0 || cuantos > 4 || e.desde % 4 != 0 || e.desde as u64 + 4 * cuantos as u64 > paso as u64,
+            Sistema::Vertice | Sistema::Instancia => cuantos != 1 || e.desde != 0 || formato != 0,
+            // De la memoria: un formato que la 3060 lee, con SUS componentes,
+            // desde 4 bytes y dentro del vertice.
+            Sistema::No => {
+                let forma = if formato > 0xFF { None } else { e.forma() };
+                cuantos == 0 || cuantos > 4 || forma.is_none_or(|f| f.componentes() as u32 != cuantos || (formato != 0 && f.es_float32())) || e.desde % 4 != 0 || e.desde as u64 + e.bytes() as u64 > paso as u64
+            }
         };
         if mal {
             return None;
@@ -425,7 +432,7 @@ pub fn escribir(out: &mut [u8], r: &Receta) -> Option<usize> {
     poner(r.ps);
     for e in r.elementos() {
         poner(&e.desde.to_le_bytes());
-        poner(&(e.componentes as u32 | e.sistema.numero() << 8).to_le_bytes());
+        poner(&(e.componentes as u32 | e.sistema.numero() << 8 | (e.formato as u32) << 16).to_le_bytes());
     }
     for c in r.cargas_vs().iter().chain(r.cargas_ps()) {
         poner(&carga_a(*c));
@@ -506,7 +513,7 @@ pub fn clave(r: &Receta, out: &mut [u8; MAX_CLAVE]) -> usize {
     poner(r.ps);
     for e in r.elementos() {
         poner(&e.desde.to_le_bytes());
-        poner(&(e.componentes as u32 | e.sistema.numero() << 8).to_le_bytes());
+        poner(&(e.componentes as u32 | e.sistema.numero() << 8 | (e.formato as u32) << 16).to_le_bytes());
     }
     for c in r.cargas_vs().iter().chain(r.cargas_ps()) {
         poner(&carga_a(*c));

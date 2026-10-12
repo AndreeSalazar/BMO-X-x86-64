@@ -407,6 +407,9 @@ pub fn revisar(en: &Enlace, els: &[bmo_gpu_ga10x::pegamento::Elemento], vs: &Emi
         let leer_vertice = |el: usize, k: usize| match els.get(el) {
             Some(x) if x.sistema == bmo_gpu_ga10x::pegamento::Sistema::Vertice => if k == 0 { id.wrapping_sub(l.base_vertice) } else { 0 },
             Some(x) if x.sistema == bmo_gpu_ga10x::pegamento::Sistema::Instancia => 0,
+            // LI2e: lo que deja el pegamento es lo que lee la CPU (su
+            // conversion la prueba el banco valor a valor: `formatos`).
+            Some(x) if x.formato != 0 => l.vertices.get(v + x.desde as usize..).map_or(0, |b| bmo_proton_x::formato_ia::leer(x.formato as u32, b)[k].to_bits()),
             Some(x) if k < x.componentes as usize => palabra(l.vertices, v + x.desde as usize + 4 * k),
             Some(_) if k == 3 => 1.0f32.to_bits(),
             _ => 0,

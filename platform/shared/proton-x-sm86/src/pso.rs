@@ -21,7 +21,7 @@ use alloc::vec::Vec;
 use bmo_gpu_ga10x::pegamento::{self, Carga, Datos, Elemento, NoPega, Sistema};
 use bmo_gpu_ga10x::sass::juez;
 use bmo_gpu_ga10x::tuberia;
-use bmo_proton_x::lote::{componentes, ElementoIa, Enlace, Fuente};
+use bmo_proton_x::lote::{ElementoIa, Enlace, Fuente};
 
 use crate::{emitir_con, Abi, Emitido, NoEmite, Precarga};
 
@@ -149,10 +149,14 @@ pub fn elementos(en: &Enlace, ia: &[ElementoIa]) -> Result<Vec<Elemento>, NoVa> 
             if e.ranura != 0 {
                 return Err(NoVa::Ranura(e.ranura));
             }
-            if !bmo_proton_x::formato_ia::es_float32(e.formato) {
-                return Err(NoVa::Entrada("un formato de vertice que no es float de 32 bits"));
+            // ** LI2e (12-10): UNORM, SNORM, half, enteros de 8, 16 y 32,
+            // R10G10B10A2 y B8G8R8A8, con los bits de la CPU (el pegamento
+            // los convierte: `formatos`); el elemento, desde 4 bytes.
+            match Elemento::con_formato(e.desde, e.formato) {
+                Some(x) if e.desde % 4 == 0 => Ok(x),
+                Some(_) => Err(NoVa::Entrada("un elemento de vertice que no empieza en 4 bytes")),
+                None => Err(NoVa::Entrada("un formato de vertice que la 3060 no lee todavia (R11G11B10_FLOAT)")),
             }
-            Ok(Elemento::memoria(e.desde, componentes(e.formato) as u8))
         })
         .collect()
 }

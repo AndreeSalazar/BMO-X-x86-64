@@ -18,6 +18,8 @@ const POSICION_PS: &[u8] = include_bytes!("../../proton-x/prueba/posicion.dxil")
 const F4: u32 = 2;
 const F3: u32 = 6;
 const U8X4: u32 = 28;
+/// R11G11B10_FLOAT: lo que la 3060 aun no lee (LI2e).
+const R11G11B10: u32 = 26;
 
 fn e(s: &str, formato: u32, desde: u32) -> ElementoIa {
     ElementoIa { semantica: s.into(), indice: 0, formato, ranura: 0, desde, por_instancia: None }
@@ -41,8 +43,11 @@ fn el_cubo_pasa_todas() {
 
 #[test]
 fn cada_puerta_se_cuenta_sola() {
+    // LI2e (12-10): el RGBA8 ya lo lee la 3060; el R11G11B10_FLOAT, no.
     let (en, ia) = cubo(U8X4);
-    assert_eq!(del_pso(&en, &ia, 28), ["un formato de vertice que no es float de 32 bits"]);
+    assert_eq!(del_pso(&en, &ia, 28), Vec::<alloc::string::String>::new());
+    let (en, ia) = cubo(R11G11B10);
+    assert_eq!(del_pso(&en, &ia, 28), ["un formato de vertice que la 3060 no lee todavia (R11G11B10_FLOAT)"]);
     let (en, ia) = posicion(F4);
     assert!(del_pso(&en, &ia, 32).iter().any(|m| m == "SV_Position.z o .w en el de pixeles"));
 }
@@ -51,10 +56,10 @@ fn cada_puerta_se_cuenta_sola() {
 /// censo dice las DOS.
 #[test]
 fn el_censo_dice_todas_no_la_primera() {
-    let (en, ia) = posicion(U8X4);
+    let (en, ia) = posicion(R11G11B10);
     let m = del_pso(&en, &ia, 20);
     assert!(m.iter().any(|x| x == "SV_Position.z o .w en el de pixeles"), "{m:?}");
-    assert!(m.iter().any(|x| x == "un formato de vertice que no es float de 32 bits"), "{m:?}");
+    assert!(m.iter().any(|x| x == "un formato de vertice que la 3060 no lee todavia (R11G11B10_FLOAT)"), "{m:?}");
     let una = crate::pso::traducir(&en, &ia, 20).unwrap_err();
     assert!(alloc::format!("{una:?}").contains("formato"), "traducir dice solo la primera: {una:?}");
 }
@@ -145,4 +150,53 @@ fn el_censo_dice_las_puertas_juntas() {
     // `largo` para 5 lotes ([1]) y `hdr` 4 ([2]): la combinacion, por numero.
     assert!(r.contains("juntas: 4 lotes se abren con [1] + [2]"), "{r}");
     assert!(r.contains("de 6 lotes, 1 irian"), "{r}");
+}
+
+/// *** LI2e (12-10), de punta a punta: el cubo con su NORMAL en
+/// R16G16B16A16_SNORM o half y su COLOR en RGBA8 o BGRA8 -- la puerta, la
+/// receta (el formato en los bits 16..24 de `componentes`), el pegado del
+/// kernel con su juez, y el vigia: el de vertice en el simulador de la 3060
+/// con lo que el pegamento lee, contra la CPU, bit a bit.
+#[test]
+fn los_formatos_de_vertice_van_a_la_3060() {
+    use crate::puerta::{Blanco, Puerta};
+    const SNORM16X4: u32 = 13;
+    const HALF4: u32 = 10;
+    const BGRA8: u32 = 87;
+    for (normal, color) in [(SNORM16X4, U8X4), (HALF4, BGRA8)] {
+        let ia = std::vec![e("POSITION", F3, 0), e("NORMAL", normal, 12), e("COLOR", color, 20)];
+        let en = lote::enlazar(&dxil::leer(CUBO_VS).unwrap(), &dxil::leer(CUBO_PS).unwrap(), &ia).unwrap();
+        let paso = 24usize;
+        let mut vertices = std::vec![0u8; 3 * paso];
+        for v in 0..3 {
+            let b = &mut vertices[v * paso..(v + 1) * paso];
+            for (k, x) in [0.25f32 * v as f32 - 0.5, 0.5 - 0.25 * v as f32, 0.5].iter().enumerate() {
+                b[4 * k..4 * k + 4].copy_from_slice(&x.to_le_bytes());
+            }
+            for k in 12..24 {
+                b[k] = (v * 37 + k * 11) as u8 ^ 0x5A;
+            }
+        }
+        let cb = std::vec![0x3Fu8; 16 * en.vs.filas_cb.max(en.ps.filas_cb).max(1) as usize];
+        let reglas = bmo_proton_x::trama::Reglas { viewport: [0.0, 0.0, 1280.0, 720.0, 0.0, 1.0], tijera: [0, 0, 1280, 720], descarte: 1, antihorario: false, profundidad: None, mezcla: bmo_proton_x::mezcla::Mezclas::NINGUNA, z_del_sombreador: false, stencil: None };
+        let l = lote::Lote { enlace: &en, entradas: &ia, vertices: &vertices, paso, ids: &[0, 1, 2], topologia: lote::Topologia::Lista, cb: &cb, reglas, limpiar_z: None, limpiar_rt: None, recursos: bmo_proton_x::textura::Recursos::NINGUNO, oclusion: false, otros: &[], instancias: 1, primera_instancia: 0, base_vertice: 0, uavs: None };
+        let mut p = Puerta::nueva();
+        let blanco = Blanco { va: 0x4000_0000, ancho: 1280, alto: 720, bgra: true, cadena: false, flotante: None };
+        let n = p.preparar(&l, blanco).unwrap_or_else(|m| panic!("normal {normal}, color {color}: {m}"));
+        let r = bmo_gpu_ga10x::receta::leer(&p.caja[..n]).expect("el kernel lee la receta");
+        let formatos: Vec<u8> = r.elementos().iter().map(|x| x.formato).collect();
+        assert!(formatos.contains(&(normal as u8)) && formatos.contains(&(color as u8)), "{formatos:?}");
+        assert_eq!(p.revisados, 1, "el vigia lo reviso y cuadro con la CPU");
+        // El pegado del kernel (el mismo `pegar`), con su juez: lleva las
+        // conversiones -- la magia de SNORM o el HADD2 del half --.
+        let mut t = alloc::boxed::Box::new(bmo_gpu_ga10x::receta::Taller::nuevo());
+        bmo_gpu_ga10x::receta::pegar(&r, &mut t).unwrap_or_else(|x| panic!("{x:?}"));
+        let vs: Vec<(u64, u64)> = t.vs[4 * bmo_gpu_ga10x::raster::SPH..t.bytes_vs].chunks(16).map(|w| (u64::from_le_bytes(w[..8].try_into().unwrap()), u64::from_le_bytes(w[8..].try_into().unwrap()))).collect();
+        let magia = |m: u64| vs.iter().any(|w| w.0 & 0xFFF == 0x810 && w.0 >> 32 == m);
+        if normal == SNORM16X4 {
+            assert!(magia(0x4B40_0000) && magia(0x4B00_0000), "la magia de SNORM y de UNORM");
+        } else {
+            assert!(vs.iter().any(|w| w.0 & 0xFFF == 0x230), "el HADD2.F32 del half");
+        }
+    }
 }
