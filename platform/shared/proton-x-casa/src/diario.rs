@@ -40,7 +40,7 @@ use alloc::string::String;
 use alloc::vec::Vec;
 use core::cell::UnsafeCell;
 
-use crate::{aviso, plataforma};
+use crate::{aviso, plataforma_si};
 
 /// Cuantos trampolines hay (las 1619 de Cyberpunk caben, con sitio).
 const PUESTOS: usize = 4096;
@@ -319,11 +319,14 @@ extern "win64" fn primera(i: u32) {
 /// si esta apagado).
 fn volcar(e: &mut Estado) -> bool {
     let Some(r) = &e.ruta else { return true };
+    // Antes de que la casa tenga plataforma, lo apuntado se queda en memoria:
+    // baja al disco con el siguiente volcado (ver `plataforma_si`).
+    let Some(p) = plataforma_si() else { return false };
     e.salida.clear();
     e.salida.reserve(e.texto.len() + e.foto.len() + SOBRA_PARA_MORIR);
     e.salida.extend_from_slice(&e.texto);
     e.salida.extend_from_slice(&e.foto);
-    (plataforma().escribir_fichero)(r, &e.salida)
+    (p.escribir_fichero)(r, &e.salida)
 }
 
 /// **Al morir de panico** (03-10): lo que habia --lo apuntado y la ultima
@@ -333,6 +336,8 @@ fn volcar(e: &mut Estado) -> bool {
 pub fn al_morir(motivo: &[u8]) {
     let e = estado();
     let Some(r) = &e.ruta else { return };
+    // Sin plataforma, NADA: pedirla aqui era otro panico dentro del panico.
+    let Some(p) = plataforma_si() else { return };
     let cabe = e.texto.len() + e.foto.len() + motivo.len() + 16;
     e.salida.clear();
     if cabe <= e.salida.capacity() {
@@ -343,9 +348,9 @@ pub fn al_morir(motivo: &[u8]) {
         if !motivo.ends_with(b"\n") {
             e.salida.push(b'\n');
         }
-        let _ = (plataforma().escribir_fichero)(r, &e.salida);
+        let _ = (p.escribir_fichero)(r, &e.salida);
     } else {
-        let _ = (plataforma().escribir_fichero)(r, &e.texto);
+        let _ = (p.escribir_fichero)(r, &e.texto);
     }
 }
 
@@ -359,7 +364,7 @@ pub fn al_salir(codigo: u32) {
         return;
     }
     let mut t = alloc::format!("# saliendo con {codigo:#x}\n");
-    t.push_str(&crate::pulso::texto((plataforma().ahora_ns)()));
+    t.push_str(&crate::pulso::texto(plataforma_si().map_or(0, |p| (p.ahora_ns)())));
     t.push_str(&ultimas(ANILLO));
     e.texto.extend_from_slice(t.as_bytes());
     // La foto de la salida es mas nueva que la ultima del pulso: esa sobra.

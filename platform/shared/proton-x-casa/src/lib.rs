@@ -394,6 +394,16 @@ fn con<R>(f: impl FnOnce(&mut Estado) -> R) -> R {
     f(unsafe { &mut *ESTADO.0.get() })
 }
 
+/// **La plataforma, si ya la puso quien carga.** Para lo que puede correr
+/// ANTES (el diario al arrancar) o DESPUES de todo (el panico): sin ella no se
+/// escribe al disco, pero tampoco se muere. El metal del 12-10: `--3060`
+/// volcaba el diario antes de cargar el `.exe`, `plataforma()` entraba en
+/// panico, y el panico, al volcar el diario, otra vez -- hasta desbordar la
+/// pila (304 B bajo el fondo) sin llegar a abrir el juego.
+pub(crate) fn plataforma_si() -> Option<Plataforma> {
+    con(|e| e.plataforma)
+}
+
 fn plataforma() -> Plataforma {
     match con(|e| e.plataforma) {
         Some(p) => p,

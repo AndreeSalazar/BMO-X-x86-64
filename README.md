@@ -434,9 +434,12 @@ checks it comes out bit-identical.
 error inside the threshold, 4 640 instead of 5 120 invocations with the
 5D on. The freshly born UMA *underestimates* steep gradients (0.015 predicted,
 0.026 real), which is exactly why the master tiles tighten the threshold on
-their own. It has **not** touched the card: the first `personal 3060` run on
-the metal (2026-10-12) did not take Cyberpunk's batches -- the judge refused
-them, and rightly -- so the 3060 drawing the game comes first
+their own. It has **not** touched the card, and the card has not drawn the game yet:
+the first `personal 3060` run on the metal (2026-10-12) never reached
+Cyberpunk -- PROTON-X itself fell first, a panic inside its own panic until
+the stack ran out (the 3060 mode flushed its log before the loader had a
+platform to write it with; fixed the same day). The 3060 drawing the game's
+batches comes first
 ([`PLAN_EL_LIBRETO`](docs/plan/PLAN_EL_LIBRETO.md)). The whole plan, with the
 kernel stepping aside while a game runs (Linux's `nohz_full`, read and
 mapped onto this house's own checkboxes):

@@ -1264,6 +1264,14 @@ fn panico(info: &core::panic::PanicInfo) -> ! {
         // SAFETY: una excepcion a proposito; el obrero vuelve al kernel.
         unsafe { core::arch::asm!("ud2", options(noreturn)) };
     }
+    // ** UN PANICO DENTRO DEL PANICO se va sin mas (metal 12-10): decir el
+    // motivo o volcar el diario puede volver a fallar, y cada vuelta era otro
+    // marco en la pila hasta desbordarla (`PILA DESBORDADA: 304 B bajo el
+    // fondo`), con el primer motivo enterrado bajo diez copias.
+    static EN_PANICO: core::sync::atomic::AtomicBool = core::sync::atomic::AtomicBool::new(false);
+    if EN_PANICO.swap(true, core::sync::atomic::Ordering::SeqCst) {
+        bmo::salir();
+    }
     // El motivo y el sitio, ENTEROS, en un bufer de la pila: el monton puede
     // ser justo lo que se acabo (metal 30-09: el primer contacto decia solo
     // "panico en el cargador", porque el mensaje no era un texto fijo).

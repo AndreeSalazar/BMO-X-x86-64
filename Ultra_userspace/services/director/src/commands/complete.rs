@@ -140,12 +140,14 @@ pub(crate) fn complete(path: &mut [u8; PATH_MAX], n: usize, output: &mut Output)
     end
 }
 
-/// Donde empieza la ruta de D: en `personal [ls|dir|lee|cat] <ruta>`, o
-/// `None` si la linea no es una orden `personal`.
+/// Donde empieza la ruta de D: en `personal [ls|dir|lee|cat|censo|diario|
+/// 3060|gpu] <ruta>`, o `None` si la linea no es una orden `personal`. (12-10:
+/// faltaban `3060` y `gpu`, y el TAB tomaba la palabra por el principio de
+/// la ruta: `personal 3060 Cyber<TAB>` no encontraba nada.)
 fn ruta_personal(linea: &[u8]) -> Option<usize> {
     let resto = linea.strip_prefix(b"personal ")?;
     let mut desde = linea.len() - resto.len();
-    for sub in [&b"ls "[..], b"dir ", b"lee ", b"cat ", b"censo ", b"diario "] {
+    for sub in [&b"ls "[..], b"dir ", b"lee ", b"cat ", b"censo ", b"diario ", b"3060 ", b"gpu "] {
         if resto.starts_with(sub) {
             desde += sub.len();
             break;
