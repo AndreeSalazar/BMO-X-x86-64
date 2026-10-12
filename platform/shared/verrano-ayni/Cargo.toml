@@ -1,0 +1,15 @@
+[package]
+name = "bmo-verrano-ayni"
+version = "0.1.0"
+edition = "2021"
+description = "AYNI de VERRANO: que la GPU gaste MENOS. UMA, una red diminuta en la CPU, decide cuanto sombrear cada baldosa de 16x16 y aprende del propio juego con las baldosas maestras; la 5D predice la mano para ahorrar, nunca para actuar. Puro."
+license = "Apache-2.0"
+
+# Sin dependencias a proposito: AYNI no conoce ninguna tarjeta (la regla S de
+# `la-3060`). Cada GPU escribe el mapa con su emisor (la 3060: la imagen de
+# tasas de AMPERE_B, `clc797.h`); la CPU que dibuja hoy lo lee igual.
+[dependencies]
+
+[lib]
+name = "bmo_verrano_ayni"
+path = "src/lib.rs"

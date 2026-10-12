@@ -950,6 +950,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "bmo-verrano-ayni"
+version = "0.1.0"
+
+[[package]]
 name = "bmo-verrano-trama"
 version = "0.1.0"
 dependencies = [

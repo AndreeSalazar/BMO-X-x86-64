@@ -7,8 +7,8 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   771 casillas ABIERTAS en 71 planes
-   605 hechas
+   768 casillas ABIERTAS en 71 planes
+   607 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -207,15 +207,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] RS2 -- el pase que se SOSTIENE (Ring 0, chico y con motivo). Un
 - ... y 10 mas
 
-## [`PLAN_AYNI.md`](PLAN_AYNI.md) -- 12 abiertas, 0 hechas
-
-*PLAN AYNI -- que la GPU gaste MENOS, con un cerebro pequeno en la CPU*
-
-- [ ] AY0 -- el contrato, en papel. Que entra (las ~9 de PACHA por
-- [ ] AY1 -- A0, el plazo. Un fotograma por VBlank, empezado tarde.
-- [ ] AY2 -- UMA en el banco. La red, la leccion de las maestras y las
-- ... y 9 mas
-
 ## [`PLAN_EL_COMPAS.md`](PLAN_EL_COMPAS.md) -- 12 abiertas, 4 hechas
 
 *PLAN EL COMPAS -- el quantum se retira, y el turno se CONCEDE*
@@ -269,6 +260,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] E2 lo que mas falta ahora, por usos: display:grid (117),
 - [ ] E3 las variables que las maquetas definen POR CAJA (--c en un
 - ... y 7 mas
+
+## [`PLAN_AYNI.md`](PLAN_AYNI.md) -- 9 abiertas, 2 hechas
+
+*PLAN AYNI -- que la GPU gaste MENOS, con un cerebro pequeno en la CPU*
+
+- [ ] AY1 -- A0, el plazo. Un fotograma por VBlank, empezado tarde.
+- [ ] AY3 -- el mapa en la 3060. La imagen de tasas y su tabla por los
+- [ ] AY4 -- el juez sabe de tasas. El juez de la CPU dibuja con el mismo
+- ... y 6 mas
 
 ## [`PLAN_VATIOS.md`](PLAN_VATIOS.md) -- 9 abiertas, 4 hechas
 

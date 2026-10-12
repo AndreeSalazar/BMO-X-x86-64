@@ -164,9 +164,11 @@ sabe hacia donde va el siguiente corte antes de que la GPU lo dibuje:
 * **Apuntando quieto**: el ojo esta en el centro; ahi, todo el detalle.
 * **Sin tocar nada** (un menu, una pausa): lo que no cambio (A2) manda.
 
-Cambia **poco y concreto**: un numero mas por baldosa para UMA (la velocidad
-de la entrada y la distancia al centro). No anade input lag: la entrada ya
-estaba leida para el juego.
+Cambia **poco y concreto**: la 5D entra en el UMBRAL de cada baldosa (la
+velocidad de la mano y la distancia a donde va), no en la red. Por que: las
+maestras miden imagenes QUIETAS, asi que no pueden ensenar que la mano rapida
+emborrona; eso es una regla (`ayni.rs`, `relajo`), y la red aprende solo lo que
+se puede medir. No anade input lag: la entrada ya estaba leida para el juego.
 
 **La 5D que predice** (el propietario, despues: *"la CPU ya sabe que quiere
 el jugador ... cuando apunta con el puntero se crea una posibilidad propia,
@@ -214,20 +216,29 @@ ahorra, el cuerpo la esperaria y el plan no tendria sentido.
 
 ```text
    por cada baldosa de 16x16       (1920x1080 = 8160 baldosas)
-      entra (PACHA, ~9 numeros)    el contraste del fotograma anterior ahi,
-                                   el borde mas fuerte, el salto de
-                                   profundidad, cuanto se movio, lo oscuro
-                                   (el ojo ve menos en la sombra), cuantos
-                                   triangulos la cruzan, si un lote de
-                                   INTERFAZ la toca, si cambio algo, y la
-                                   5D: la entrada del jugador (seccion 2b)
-      la red                       9 -> 16 -> 4: unas 200 multiplicaciones
-      sale                         la tasa: 1x1, 2x1/1x2, 2x2, 4x4
+      entra (PACHA, 8 numeros)     la luz, el contraste, el borde mas
+                                   fuerte, el detalle (salto medio), lo que
+                                   cambio desde antes (la 4D), el salto de
+                                   profundidad, cuanto se mueve y cuantos
+                                   triangulos la cruzan
+      la red                       8 -> 16 -> 4: 192 multiplicaciones
+      sale                         el ERROR predicho de 2x1, 1x2, 2x2 y 4x4;
+                                   la decision toma la mas gruesa que cabe en
+                                   el umbral (la interfaz y el borde de
+                                   geometria son reglas, no entradas)
 ```
 
-**El coste de UMA**: 8160 x 200 = 1,6 millones de multiplicaciones por
+**El coste de UMA**: 8160 x 192 = 1,6 millones de multiplicaciones por
 fotograma. En un nucleo del 5600X, con AVX2, es del orden de una decima de
-milisegundo. Cero en la GPU.
+milisegundo (estimado, sin medir aun). Cero en la GPU. **Al nacer** (lo
+basico, `semilla.rs`): 4000 baldosas de muestra vistas 10 veces, unos 26 ms
+en el anfitrion, una vez al arrancar.
+
+**Lo que el banco ya dijo (12-10)**: en un degradado fuerte, UMA recien
+nacida predice para 1x2 un error de 0,015 cuando el de verdad es 0,026: se
+queda CORTA. Por eso estan las maestras con la `exigencia` (si el error de lo
+que UMA queria pasa del umbral, el umbral se aprieta solo) y el refresco: la
+red puede equivocarse sin que la imagen pague.
 
 **Como aprende sin datos de nadie -- las baldosas maestras.** Cada
 fotograma, unas pocas baldosas (8, rotando por la pantalla) se sombrean
@@ -306,18 +317,23 @@ corrige un paso. Asi aprende de TU juego, en TU monitor, mientras juegas.
 
 # 7. LAS CASILLAS
 
-- [ ] **AY0 -- el contrato, en papel.** Que entra (las ~9 de PACHA por
+- [x] **AY0 -- el contrato, en papel** (12-10). Que entra (las 8 de PACHA por
       baldosa), que sale (una tasa por baldosa), las reglas que la red no
-      rompe. **Como se sabe:** `verrano-ayni/src/lib.rs` con el contrato y
-      su prueba de forma.
+      rompe. **Como se sabe:** `platform/shared/verrano-ayni/src/lib.rs`
+      (`Tasa`, sus invocaciones con los nombres de `clc797.h`) y `pacha.rs`;
+      `las_tasas_cuentan_sus_invocaciones`.
 - [ ] **AY1 -- A0, el plazo.** Un fotograma por VBlank, empezado tarde.
       **Como se sabe:** FRAPS-X dice fotogramas dibujados = mostrados, y el
       tiempo entre leer la entrada y el VBlank baja.
-- [ ] **AY2 -- UMA en el banco.** La red, la leccion de las maestras y las
-      reglas, en la CPU, sobre imagenes guardadas. **Como se sabe:** una
-      imagen con cielo liso y un borde: el cielo sale 4x4, el borde 1x1; la
-      prueba del NO: con la regla de interfaz quitada, el texto sale 2x2 y la
-      prueba cae.
+- [x] **AY2 -- UMA en el banco** (12-10). La red, la leccion de las
+      maestras y las reglas, en la CPU, sobre una escena hecha en el banco.
+      **Como se sabe:** `el_banco_ahorra_donde_no_se_nota`: el cielo va
+      grueso (2x2 en `suave`, 4x4 en `fuerte`), la textura y el HUD enteros,
+      5120 de 8192 invocaciones (62 %) y el peor error del cielo dentro del
+      umbral; la prueba del NO,
+      `la_prueba_del_no_sin_la_regla_de_interfaz_el_hud_engruesa`; y
+      `ninguna_baldosa_se_queda_gruesa_para_siempre`. Lo que falta para el
+      metal (imagenes de un juego de verdad, no hechas aqui) es AY5/AY6.
 - [ ] **AY3 -- el mapa en la 3060.** La imagen de tasas y su tabla por los
       metodos de AMPERE_B, y el contador `PS_INVOCATIONS`. **Como se sabe:**
       un lote que llena la pantalla con todo a 2x2 cuenta 1/4 de las
@@ -342,12 +358,17 @@ corrige un paso. Asi aprende de TU juego, en TU monitor, mientras juegas.
 - [ ] **AY10 -- A5, el reloj, DECISION DEL PROPIETARIO.** Pedir al GSP un
       estado de rendimiento mas bajo cuando sobra tiempo. Riesgo: es el reloj
       de la tarjeta.
-- [ ] **AY11 -- la 5D: la prediccion del puntero.** Con la entrada que el
+- [~] **AY11 -- la 5D: la prediccion del puntero.** Con la entrada que el
       kernel ve primero, predecir donde para el puntero y con que confianza;
       solo para ahorrar o preparar (seccion 2b). **Como se sabe:** en
       sesiones grabadas, el acierto de la prediccion a 1, 2 y 4 fotogramas;
       en vivo, el ahorro con y sin ella; y la prueba del NO: la entrada que
       llega al juego es identica bit a bit con la 5D encendida y apagada.
+      *12-10, en el banco* (`mano.rs`): la frenada da el punto final a menos
+      de 2 px, la mano que tiembla no da confianza, la entrada no se toca
+      (`predecir` la recibe prestada y sin `mut`), y con confianza el banco
+      ahorra mas (4640 contra 5120) sin engrosar la baldosa a donde va la
+      mano. Falta lo del metal: sesiones grabadas y el ahorro en vivo.
 
 **El orden**: AY0 -> AY1 (lo que mas ahorra, sin red) -> AY2 -> AY3 -> AY4
 -> AY5 -> AY6 -> AY7 -> AY8 -> AY11 -> AY9 -> AY10. AY2 y AY6 se pueden hacer YA
@@ -356,7 +377,80 @@ de Cyberpunk (`PLAN_EL_LIBRETO`, LI0..LI6).
 
 ---
 
-# 8. LO QUE PUEDE FALLAR, dicho antes
+# 8. BMO-X SE APARTA (el kernel, cuando corre algo pesado)
+
+> El propietario (12-10): *"cuando ya empieza el juego o algo pesado, BMO-X
+> se aparta por completo para que la CPU, la GPU y la RAM trabajen sin
+> recibir molestias; con otras apps, mi kernel se presenta por motivos nada
+> mas"*. Y: *"las dimensiones literales son complejas; las paralelas, como
+> hablamos, es lo que vamos a hacer"*.
+
+**Las dos dimensiones, separadas.** Las LITERALES (una quinta dimension de
+la fisica) no son ingenieria: nadie las ha medido, y BMO-X no las necesita.
+Las PARALELAS son las de este plan: el tiempo (4D, PACHA) y la mano (5D),
+que SI se miden. Este plan solo construye las paralelas.
+
+**Lo que hace Linux** (leido el 12-10 de `Documentation/timers/no_hz.rst`,
+`kernel/sched/isolation.c` y `kernel/time/tick-sched.c`): `nohz_full=` para
+el tic en los nucleos con UNA sola tarea lista, y un nucleo de "limpieza"
+(*housekeeping*) se queda con todo lo demas -- la hora, los temporizadores,
+las colas de trabajo, las interrupciones de los aparatos y la contabilidad
+del planificador, que se hace DESDE FUERA una vez por segundo. La leccion de
+Linux: **quitar el tic sirve poco si queda otro ruido**; primero el ruido,
+luego el tic, luego el nucleo aparte.
+
+**Lo que molesta HOY a un juego en BMO-X** (12-10, con el codigo delante):
+
+```text
+   el tic                 1 kHz periodico, SOLO en el BSP; los obreros de
+                          `smp all` no tienen tic (ya estan "apartados")
+   el hilo del juego      corre en el BSP, junto con todo lo demas
+   el escritorio (Z1)     sigue montado en el LATIDO de 1 kHz aunque el juego
+                          tenga la pantalla: ~1000 cambios de tarea por
+                          segundo, cada uno con su CR3 (no hay PCID)
+   la entrada             se SONDEA cada 4 ms (el hilo del bus USB); no es
+                          un esperable, asi que el escritorio no puede
+                          dormir "hasta que llegue una tecla"
+   la red, la consola     un latido de 4 ms cada una
+   las interrupciones     todas al BSP (disco, GPU, VBlank)
+```
+
+**El orden, y cada paso YA tiene su casilla en la casa** (no se duplican
+aqui):
+
+```text
+   1 la entrada DESPIERTA   PLAN_EL_PIXEL Y2 y PLAN_VATIOS W3/W4: un
+                            esperable de ENTRADA. Con el, el escritorio en
+                            Z1 duerme hasta que pasa algo y la tecla llega
+                            ANTES (hoy espera al siguiente latido). Va
+                            PRIMERO porque es el unico paso que baja el input
+                            lag a la vez que aparta. [!] Dormir el escritorio
+                            un plazo fijo SIN esto (lo facil) SUBE el input
+                            lag: no se hace
+   2 LAS ANTEOJERAS         PLAN_EL_COMPAS E6/E7: el juego declara "no me
+                            toques" (o el escritorio lo declara por el al
+                            darle la pantalla) y los latidos de la red y la
+                            consola se estiran; visible en la cabina
+   3 SIN TIC                PLAN_EL_COMPAS E4 y PLAN_VATIOS W2: el tic del
+                            BSP armado al proximo plazo, no cada 1 ms,
+                            mientras haya una sola tarea lista
+   4 EL VBLANK              PLAN_EL_PLAZO P3.2 y PLAN_LA_3060_AFINADA A3: el
+                            ritmo del escritorio y la espera de la GPU por
+                            interrupcion, no girando
+   5 EL NUCLEO APARTE       el hilo del juego en un obrero sin tic ni
+                            interrupciones y su hermano SMT parado; el BSP
+                            queda de limpieza (como `housekeeping`). El mas
+                            caro: pide llamadas al sistema en los obreros
+```
+
+**Como se sabe que se aparto**: las vueltas por segundo del escritorio y los
+despertares de otras tareas mientras el juego corre (la cabina), las
+interrupciones por segundo del nucleo del juego, y FRAPS-X: el 1 % bajo del
+juego antes y despues de cada paso.
+
+---
+
+# 9. LO QUE PUEDE FALLAR, dicho antes
 
 * **Que se note**: el 4x4 en una textura con detalle fino se ve borroso. Las
   maestras lo miden y la regla del borde lo limita; el umbral lo pone el
