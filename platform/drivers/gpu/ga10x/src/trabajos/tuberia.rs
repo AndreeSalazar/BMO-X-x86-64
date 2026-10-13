@@ -626,6 +626,11 @@ pub const fn cabe(d: &Dibujo) -> bool {
     if !d.mezcla.trivial() && (d.destino.is_none() || d.z.is_some() || d.color.is_some() || d.pantalla || d.mezcla.valida().is_err()) {
         return false;
     }
+    // 13-10: un render target de ENTEROS (`Flotante::Uint8`) no mezcla ni
+    // enmascara (D3D12 no mezcla enteros; la mascara va por la mezcla).
+    if !d.mezcla.trivial() && matches!(d.destino, Some((_, crate::destino::Destino { flotante: crate::destino::Flotante::Uint8, .. }))) {
+        return false;
+    }
     // LI2d: los render targets 1.., con destino, sin Z (la sombra es UNA),
     // sin limpieza (la de la app es del 0), fuera de la pantalla, de la
     // medida del 0 y cada uno valido donde esta.
@@ -944,12 +949,13 @@ pub fn ordenes_dibujo(v: &Ventana, n: usize, ligero: bool, d: Dibujo) -> cu::Ord
             e.m(bind_group_constant_buffer(g), &[1 | (BANCO_APP as u32) << 4]);
         }
     }
-    // P3b4c.8 T2: las piscinas de las texturas (el TIC y el TSC k de la
-    // textura k), con sus caches invalidadas: el kernel acaba de escribirlas.
+    // P3b4c.8 T2: las piscinas de las texturas (G5: los 16 TIC de la
+    // textura k, `mips`, y su TSC k), con sus caches invalidadas: el kernel
+    // acaba de escribirlas.
     if d.texturas > 0 {
         let n = d.texturas as u32;
         let t = crate::texturas::PISCINAS_VA;
-        crate::texturas::ordenes(&mut e, t, n, t + crate::texturas::TSC_DESDE, n);
+        crate::texturas::ordenes(&mut e, t, crate::mips::HUECOS * n, t + crate::texturas::TSC_DESDE, n);
     }
     match d.indices {
         None => e.dibujo_de(3 * n as u32),

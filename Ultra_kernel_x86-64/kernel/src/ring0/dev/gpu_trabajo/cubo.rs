@@ -510,8 +510,9 @@ fn a_la_pantalla(pid: u32, d: &bmo_gpu_ga10x::tuberia::Dibujo) -> bool {
 
 /// **P3b4c.8 T2: prestar las texturas de una receta a la 3060**: cada una
 /// es un bloque de QUIEN la manda (lo dice `fisica_de`), prestado SOLO
-/// LECTURA en su ranura de `texturas::IOVA`; y sus TIC y TSC, escritos y
-/// releidos en las piscinas. Lo que salga mal devuelve lo ya prestado.
+/// LECTURA en su ranura de `texturas::IOVA` (G5: sus mips de antes de la
+/// cola, `bmo_gpu_ga10x::mips`); y sus 16 TIC y su TSC, escritos y releidos
+/// en las piscinas. Lo que salga mal devuelve lo ya prestado.
 fn prestar_texturas(bar0: u64, pid: u32, texturas: &[bmo_gpu_ga10x::texturas::DeApp]) -> Result<Prestadas, u32> {
     use bmo_gpu_ga10x::texturas as tx;
     let mut prestadas: Prestadas = [0; tx::MAX_TEXTURAS];
@@ -521,6 +522,11 @@ fn prestar_texturas(bar0: u64, pid: u32, texturas: &[bmo_gpu_ga10x::texturas::De
     texturas_mapeadas(bar0)?;
     let aspace = crate::ring0::mm::vmm::read_cr3();
     for (k, t) in texturas.iter().enumerate().take(tx::MAX_TEXTURAS) {
+        // G5 (13-10): una textura cuyas mips van TODAS en la cola (en los
+        // DATOS, `mips`) no presta nada de la RAM de la app.
+        if t.paginas() == 0 {
+            continue;
+        }
         let fisica = crate::ring0::obj::memory::fisica_de(pid, t.va, t.bytes()).filter(|&f| f.checked_add(t.bytes()).is_some_and(|fin| fin <= crate::ring0::mm::PHYSMAP_SIZE));
         let paginas = t.paginas();
         let iova = tx::IOVA + k as u64 * tx::RANURA;

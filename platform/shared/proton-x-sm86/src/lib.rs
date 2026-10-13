@@ -87,6 +87,9 @@ mod indexado;
 mod constantes;
 // ** E8g (09-10, DL17): SampleLevel y Load, por sus formas de TEX y TLD.
 mod lecturas;
+/// G5 (13-10): la mip de un `SampleLevel` o un `Load` de 2D, elegida por el
+/// sombreador con las cuentas de la casa (una mip por TIC).
+pub mod mips;
 /// E6 (02-10): lo que se mira antes de emitir un programa que salta.
 mod saltos;
 /// P3b4a: un PSO de la casa, listo y juzgado para la 3060.
@@ -170,6 +173,15 @@ pub enum Precarga {
     /// van juntos en Rb, Rb+1). Una por lectura: el nivel de una no pisa el
     /// de otra mientras la 3060 aun lo lee.
     AsaPar { textura: u8, muestreador: u8, reg: u8 },
+    /// ** G5 (13-10): la BASE de las mips de (tN, sM) en `reg` -- el asa del
+    /// hueco de su mip 0 (`bmo_gpu_ga10x::mips`); la pone el pegamento --:
+    /// un `SampleLevel` o un `Load` de 2D le suma la mip sujeta (`mips.rs`).
+    Base { textura: u8, muestreador: u8, reg: u8 },
+    /// ** G5: la fila `fila` (0 o 1) de las constantes de las mips de (tN,
+    /// sM), en `reg`..`reg + 3`: las escribe la PUERTA en cada lote detras
+    /// del cbuffer (`mips::FILAS` por textura), y el pegamento las carga como
+    /// una fila mas (`Carga::Fila`).
+    Mips { textura: u8, muestreador: u8, fila: u8, reg: u8 },
     /// ** LI2f (12-10): lo que el KERNEL dice del UAV `u` ([`DelUav`]), en
     /// `reg` (la base, en el par `reg`, `reg + 1`). Fijo todo el programa:
     /// el cuerpo no lo puede pisar (R7), y con el se SUJETA cada direccion.
@@ -473,11 +485,13 @@ impl Emisor<'_> {
                 (Precarga::Entrada { elemento, componente, reg }, Precarga::Entrada { elemento: e2, componente: c2, .. }) if (elemento, componente) == (e2, c2) => return Ok(reg),
                 (Precarga::Fila { fila, reg }, Precarga::Fila { fila: f2, .. }) if fila == f2 => return Ok(reg),
                 (Precarga::Asa { textura, muestreador, reg }, Precarga::Asa { textura: t2, muestreador: s2, .. }) if (textura, muestreador) == (t2, s2) => return Ok(reg),
+                (Precarga::Base { textura, muestreador, reg }, Precarga::Base { textura: t2, muestreador: s2, .. }) if (textura, muestreador) == (t2, s2) => return Ok(reg),
+                (Precarga::Mips { textura, muestreador, fila, reg }, Precarga::Mips { textura: t2, muestreador: s2, fila: f2, .. }) if (textura, muestreador, fila) == (t2, s2, f2) => return Ok(reg),
                 _ => {}
             }
         }
         let n = match pedida {
-            Precarga::Fila { .. } => 4,
+            Precarga::Fila { .. } | Precarga::Mips { .. } => 4,
             // ** E8g: el par lo pide `precarga_par`, nunca compartido; LI2f:
             // lo de un UAV, `precarga_uav`.
             Precarga::AsaPar { .. } | Precarga::Uav { .. } => return Err(NoEmite::Registros),
@@ -502,6 +516,8 @@ impl Emisor<'_> {
             Precarga::Entrada { elemento, componente, .. } => Precarga::Entrada { elemento, componente, reg },
             Precarga::Fila { fila, .. } => Precarga::Fila { fila, reg },
             Precarga::Asa { textura, muestreador, .. } => Precarga::Asa { textura, muestreador, reg },
+            Precarga::Base { textura, muestreador, .. } => Precarga::Base { textura, muestreador, reg },
+            Precarga::Mips { textura, muestreador, fila, .. } => Precarga::Mips { textura, muestreador, fila, reg },
             Precarga::AsaPar { .. } | Precarga::Uav { .. } => unreachable!("arriba"),
         });
         Ok(reg)
@@ -665,6 +681,16 @@ fn emitir_modo(p: &Programa, registros: u32, abi: Abi, libreta: bool, frugal: bo
                 // El asa: fija TODO el programa (la lee un TEX desacoplado).
                 Op::Muestra { t, s, .. } => {
                     e.precarga(Precarga::Asa { textura: t, muestreador: s, reg: 0 })?;
+                    continue;
+                }
+                // ** G5 (13-10): la de una 2D elige su mip (`mips.rs`): su
+                // base y sus filas de constantes (la 0, solo con nivel).
+                Op::Lee { t, s, como: como @ (bmo_proton_x::dxil::programa::Lectura::Nivel | bmo_proton_x::dxil::programa::Lectura::Carga { .. }), .. } if t != bmo_proton_x::dxil::programa::DINAMICA && mips::es_2d(p, t) => {
+                    e.precarga(Precarga::Base { textura: t, muestreador: s, reg: 0 })?;
+                    e.precarga(Precarga::Mips { textura: t, muestreador: s, fila: 1, reg: 0 })?;
+                    if matches!(como, bmo_proton_x::dxil::programa::Lectura::Nivel) {
+                        e.precarga(Precarga::Mips { textura: t, muestreador: s, fila: 0, reg: 0 })?;
+                    }
                     continue;
                 }
                 // ** E8g: un par (asa, nivel) por lectura con nivel o Load.

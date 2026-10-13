@@ -167,6 +167,17 @@ pub fn planificar(metas: &[Meta]) -> (alloc::vec::Vec<u64>, u32) {
                     }
                 }
                 libres[b as usize] = true;
+                // ** G5 (13-10): una barrera que se libera deja de ser la "de
+                // lectura" de nadie. Si no, al esperar DESPUES la de
+                // escritura de quien la encendio, se volvia a liberar --
+                // cuando ya era de OTRA lectura tarde -- y se olvidaba lo que
+                // esa aun lee (el juez R4: "fuente pisada", con los dos TEX
+                // de una mip y el TLD de un array juntos).
+                for x in lectura_de.iter_mut() {
+                    if *x == Some(b) {
+                        *x = None;
+                    }
+                }
                 for p in pendiente.iter_mut().chain(leyendo.iter_mut()) {
                     if *p == Some(b) {
                         *p = None;

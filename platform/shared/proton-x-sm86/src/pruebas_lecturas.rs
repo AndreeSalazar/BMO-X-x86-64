@@ -72,13 +72,78 @@ fn emitido(p: &Programa) -> Emitido {
     let e = emitir_con(p, TECHO, Abi::Registros).unwrap_or_else(|x| panic!("{x:?}"));
     let v = juzgar_drenado(&e.codigo, &Contexto { registros: e.registros + RESERVADOS, sph: None });
     assert!(v.is_ok(), "{}", v.map(|_| std::string::String::new()).unwrap_or_else(|b| std::format!("{b}")));
-    let asas = crate::pso::cargas(&e).iter().fold(0u64, |m, c| match *c {
-        bmo_gpu_ga10x::pegamento::Carga::Asa { reg, .. } => m | 1 << reg,
-        _ => m,
-    });
-    assert_eq!(juzgar_cuerpo_con_asas(&e.codigo, e.registros, asas), Ok(()));
+    let cargas = crate::pso::cargas_con_posicion(&e, None, 0);
+    let (asas, bases) = (bmo_gpu_ga10x::pegamento::asas(&cargas), bmo_gpu_ga10x::pegamento::bases(&cargas));
+    let permisos = bmo_gpu_ga10x::sass::juez::Permisos { asas, bases, ..Default::default() };
+    assert_eq!(bmo_gpu_ga10x::sass::juez::juzgar_cuerpo_con(&e.codigo, e.registros, permisos), Ok(()));
+    if bases != 0 {
+        // G5: sin la base, el asa calculada no pasa.
+        assert_eq!(juzgar_cuerpo_con_asas(&e.codigo, e.registros, asas).unwrap_err().regla, Regla::R7CuerpoAjeno, "un asa calculada sin base");
+    }
     assert_eq!(juzgar_cuerpo_de_app(&e.codigo, e.registros).unwrap_err().regla, Regla::R7CuerpoAjeno, "sin asas, no");
     e
+}
+
+/// ** G5: LA 3060 DE MENTIRA. Con `.LL` (3D, array) lee la mip que le dicen
+/// de la textura del asa (lo de E8g); con `.LZ` (una 2D: G5), el HUECO del
+/// asa (`bmo_gpu_ga10x::mips`): el 0 la mip de la vista, del 1 al 14 la mip
+/// del recurso (si la hay) y el 15 ceros -- cada uno un TIC de UN nivel, con
+/// el filtro de cerca del muestreador --.
+fn tres_mil(rec: &Recursos, pares: &[(u8, u8)], l: &LecturaTex, enteros: bool) -> [u32; 4] {
+    use bmo_gpu_ga10x::mips::{HUECOS, HUECO_BASE, HUECO_NULO, HUECO_VISTA};
+    let i = l.asa & 0xF_FFFF;
+    let (k, hueco) = (i / HUECOS, i % HUECOS);
+    assert_eq!(l.asa >> 20, k, "el TSC de la textura {k}");
+    let (t, s) = pares[k as usize];
+    let Some(n) = l.nivel else {
+        assert_eq!(l.dim, 1, "el .LZ es de una 2D");
+        let Some(Some(tx)) = rec.texturas.get(t as usize) else { return [0; 4] };
+        let mip = match hueco {
+            HUECO_VISTA => tx.mip,
+            HUECO_NULO => return [0; 4],
+            h if h - HUECO_BASE < tx.mips => h - HUECO_BASE,
+            _ => return [0; 4],
+        };
+        let una = Textura { mip, niveles: 1, ..*tx };
+        return if l.carga {
+            una.cargar([l.c[0] as i32, l.c[1] as i32, 0], 0, [0; 3], enteros)
+        } else {
+            let m = rec.muestreadores[s as usize].expect("con muestreador");
+            una.muestrear_en(&m, [f(l.c[0]), f(l.c[1]), 0.0, 0.0], None, [0; 3]).map(f32::to_bits)
+        };
+    };
+    assert_eq!(hueco, HUECO_VISTA, "con .LL, el asa de la textura");
+    match (l.dim, l.carga) {
+        (2, false) => rec.muestrear_en(t, s, [f(l.c[0]), f(l.c[1]), f(l.c[2]), 0.0], Some(f(n)), [0; 3]).map(f32::to_bits),
+        // La capa, ya entera: la 3060 la sujeta a las de la vista.
+        (5, false) => rec.muestrear_en(t, s, [f(l.c[1]), f(l.c[2]), l.c[0] as f32, 0.0], Some(f(n)), [0; 3]).map(f32::to_bits),
+        (5, true) => rec.cargar(t, [l.c[1] as i32, l.c[2] as i32, l.c[0] as i32], n as i32, [0; 3], enteros),
+        otra => panic!("una forma que no se emite: {otra:?}"),
+    }
+}
+
+/// Lo que carga el pegamento del kernel (las asas y las bases de la
+/// textura k) y lo que escribe la puerta (las filas de sus mips).
+fn precargar(m: &mut Maquina, e: &Emitido, rec: &Recursos, entradas: &[[f32; 4]]) {
+    let pares = crate::pso::texturas_de(e);
+    let k_de = |t, s| pares.iter().position(|&x| x == (t, s)).unwrap() as u32;
+    for &q in &e.precargas {
+        match q {
+            Precarga::Entrada { elemento, componente, reg } => m.r[reg as usize] = entradas[elemento as usize][componente as usize & 3].to_bits(),
+            Precarga::Asa { textura, muestreador, reg } | Precarga::AsaPar { textura, muestreador, reg } => m.r[reg as usize] = bmo_gpu_ga10x::pegamento::asa_de(k_de(textura, muestreador), false),
+            Precarga::Base { textura, muestreador, reg } => m.r[reg as usize] = bmo_gpu_ga10x::pegamento::asa_de(k_de(textura, muestreador), true),
+            Precarga::Mips { textura, muestreador, fila, reg } => {
+                let tx = rec.texturas[textura as usize].as_ref().expect("la textura");
+                let filas = match rec.muestreadores.get(muestreador as usize) {
+                    Some(Some(ms)) => crate::mips::filas(tx, ms),
+                    // Un Load sin muestreador: solo la fila 1.
+                    _ => [[0; 4], [tx.mip, 0, 0, 0]],
+                };
+                m.r[reg as usize..reg as usize + 4].copy_from_slice(&filas[fila as usize]);
+            }
+            Precarga::Fila { .. } | Precarga::Uav { .. } => panic!("sin cbuffer ni UAV"),
+        }
+    }
 }
 
 /// La casa y la 3060 de mentira, con las mismas entradas: los mismos bits.
@@ -87,36 +152,13 @@ fn igual(p: &Programa, e: &Emitido, rec: &Recursos, entradas: &[[f32; 4]; 2], en
     let mut regs = Vec::new();
     p.correr_con(entradas, &[], rec, &mut casa, &mut regs);
     let pares = crate::pso::texturas_de(e);
-    let leer = |l: &LecturaTex| -> [u32; 4] {
-        let k = (l.asa & 0xF_FFFF) as usize;
-        assert_eq!(l.asa, bmo_gpu_ga10x::texturas::asa(k as u32, k as u32), "el asa de la textura {k}");
-        let (t, s) = pares[k];
-        let n = l.nivel.expect("con .LL");
-        match (l.dim, l.carga) {
-            (1, false) => rec.muestrear_en(t, s, [f(l.c[0]), f(l.c[1]), 0.0, 0.0], Some(f(n)), [0; 3]).map(f32::to_bits),
-            (2, false) => rec.muestrear_en(t, s, [f(l.c[0]), f(l.c[1]), f(l.c[2]), 0.0], Some(f(n)), [0; 3]).map(f32::to_bits),
-            // La capa, ya entera: la 3060 la sujeta a las de la vista.
-            (5, false) => rec.muestrear_en(t, s, [f(l.c[1]), f(l.c[2]), l.c[0] as f32, 0.0], Some(f(n)), [0; 3]).map(f32::to_bits),
-            (1, true) => rec.cargar(t, [l.c[0] as i32, l.c[1] as i32, 0], n as i32, [0; 3], enteros),
-            (5, true) => rec.cargar(t, [l.c[1] as i32, l.c[2] as i32, l.c[0] as i32], n as i32, [0; 3], enteros),
-            otra => panic!("una forma que no se emite: {otra:?}"),
-        }
-    };
+    let leer = |l: &LecturaTex| tres_mil(rec, &pares, l, enteros);
     let mut m = Maquina::nueva([&[]; 8]);
     m.leer_textura = Some(&leer);
     for (i, r) in m.r.iter_mut().enumerate() {
         *r = 0x7FC0_0000 | i as u32;
     }
-    for &q in &e.precargas {
-        match q {
-            Precarga::Entrada { elemento, componente, reg } => m.r[reg as usize] = entradas[elemento as usize][componente as usize & 3].to_bits(),
-            Precarga::Asa { textura, muestreador, reg } | Precarga::AsaPar { textura, muestreador, reg } => {
-                let k = pares.iter().position(|&x| x == (textura, muestreador)).unwrap() as u32;
-                m.r[reg as usize] = bmo_gpu_ga10x::texturas::asa(k, k);
-            }
-            Precarga::Fila { .. } | Precarga::Uav { .. } => panic!("sin cbuffer ni UAV"),
-        }
-    }
+    precargar(&mut m, e, rec, entradas);
     correr(&e.codigo, &mut m).unwrap_or_else(|x| panic!("{x:?}"));
     for k in 0..4 {
         assert_eq!(m.r[k], casa[0][k].to_bits(), "canal {k} con {entradas:?}: la 3060 {:#x} y la casa {:#x}", m.r[k], casa[0][k].to_bits());
@@ -132,7 +174,24 @@ fn muestreadores() -> [Muestreador; 3] {
     ]
 }
 
+/// ** G5: los de una 2D, que la 3060 lee con UN filtro (cerca = lejos: la
+/// puerta para los otros): sin limites, PUNTO y LINEAL entre mips, y con
+/// sesgo, MinLOD y MaxLOD (de medios).
+fn muestreadores_2d() -> [Muestreador; 5] {
+    let lod = |mip| Lod { min: None, mip, sesgo: 0.0, minimo: 0.0, maximo: f32::MAX };
+    let limites = |filtro, mip| Lod { min: Some(filtro), mip, sesgo: 0.5, minimo: 0.75, maximo: 2.25 };
+    [
+        Muestreador { filtro: Filtro::Punto, u: Direccion::Repetir, v: Direccion::Espejo, borde: [0.0; 4], comparacion: 0, lod: lod(Filtro::Punto) },
+        Muestreador { filtro: Filtro::Lineal, u: Direccion::Sujetar, v: Direccion::Repetir, borde: [0.0; 4], comparacion: 0, lod: lod(Filtro::Lineal) },
+        Muestreador { filtro: Filtro::Lineal, u: Direccion::Borde, v: Direccion::Borde, borde: [0.25, 0.5, 0.75, 1.0], comparacion: 0, lod: limites(Filtro::Lineal, Filtro::Punto) },
+        Muestreador { filtro: Filtro::Punto, u: Direccion::Repetir, v: Direccion::Repetir, borde: [0.0; 4], comparacion: 0, lod: limites(Filtro::Punto, Filtro::Lineal) },
+        Muestreador { filtro: Filtro::Lineal, u: Direccion::Repetir, v: Direccion::Sujetar, borde: [0.0; 4], comparacion: 0, lod: Lod { min: Some(Filtro::Lineal), mip: Filtro::Lineal, sesgo: -0.3, minimo: 0.0, maximo: 1.6 } },
+    ]
+}
+
 const NIVELES: [f32; 9] = [-1.0, 0.0, 0.3, 0.5, 1.0, 1.7, 2.0, 3.5, 10.0];
+/// Los de mas de G5: medios, los que redondea `fijo`, y NaN e infinitos.
+const NIVELES_2D: [f32; 16] = [-1.0, 0.0, 0.3, 0.5, 0.501953, 1.0, 1.25, 1.7, 1.998, 2.0, 2.5, 3.5, 10.0, f32::NAN, f32::INFINITY, f32::NEG_INFINITY];
 const UV: [(f32, f32); 6] = [(0.1, 0.2), (0.5, 0.5), (0.93, 0.07), (1.3, -0.4), (0.0625, 0.9375), (-2.2, 7.01)];
 
 /// ** `SampleLevel` en 2D, con cuatro mips: cada nivel, cada muestreador.
@@ -140,15 +199,22 @@ const UV: [(f32, f32); 6] = [(0.1, 0.2), (0.5, 0.5), (0.93, 0.07), (1.3, -0.4), 
 fn sample_level_en_2d() {
     let p = programa(Lectura::Nivel, 2);
     let e = emitido(&p);
-    assert_eq!(e.codigo.iter().filter(|w| w.0 & 0xFFF == 0x361).count(), 1, "un TEX");
-    let t = texeles(16, 8, 1, 1, 4);
-    let tx = [Some(textura(&t, Clase::Plana, 16, 8, 1, 1, 4))];
-    for m in muestreadores() {
-        let ms = [Some(m)];
-        let rec = Recursos { texturas: &tx, muestreadores: &ms, buferes: &[], dinamicas: None };
-        for &(u, v) in &UV {
-            for &n in &NIVELES {
-                igual(&p, &e, &rec, &[[u, v, 0.0, 0.0], [n, 0.0, 0.0, 0.0]], false);
+    // G5: dos TEX .LZ (la mip y la siguiente), cada uno con su asa calculada.
+    assert_eq!(e.codigo.iter().filter(|w| w.0 & 0xFFF == 0x361).count(), 2, "dos TEX");
+    assert!(e.codigo.iter().filter(|w| w.0 & 0xFFF == 0x361).all(|w| w.1 >> 23 & 7 == 1), "los dos .LZ");
+    let t = texeles(16, 8, 1, 1, 5);
+    // La vista entera, una desde la mip 1 (como la de Cyberpunk), y una con
+    // dos mips y un ResourceMinLODClamp de 1.5.
+    let vistas = [textura(&t, Clase::Plana, 16, 8, 1, 1, 5), Textura { mip: 1, ..textura(&t, Clase::Plana, 16, 8, 1, 1, 5) }, Textura { niveles: 2, lod_min: 1.5, ..textura(&t, Clase::Plana, 16, 8, 1, 1, 5) }];
+    for vista in vistas {
+        let tx = [Some(vista)];
+        for m in muestreadores_2d() {
+            let ms = [Some(m)];
+            let rec = Recursos { texturas: &tx, muestreadores: &ms, buferes: &[], dinamicas: None };
+            for &(u, v) in &UV {
+                for &n in &NIVELES_2D {
+                    igual(&p, &e, &rec, &[[u, v, 0.0, 0.0], [n, 0.0, 0.0, 0.0]], false);
+                }
             }
         }
     }
@@ -236,9 +302,10 @@ fn lo_que_no_va_todavia() {
     assert_eq!(emitir_con(&p, TECHO, Abi::Registros).err(), Some(NoEmite::Operacion(5)), "con desplazamiento");
 }
 
-/// ** Dos lecturas de la MISMA textura: UN par (asa, nivel) -- el nivel de
-/// la segunda espera la barrera de lectura del primer TEX --, UNA textura en
-/// la receta, y los bits de la casa.
+/// ** Dos lecturas de la MISMA 2D (G5): UNA base y UNA de cada fila de sus
+/// mips, UNA textura en la receta, cuatro TEX con su asa calculada (cada
+/// una, de un IMNMX y un IADD3 propios: el juez lo mira), y los bits de la
+/// casa.
 #[test]
 fn dos_lecturas_una_textura() {
     let mut p = programa(Lectura::Nivel, 2);
@@ -247,27 +314,25 @@ fn dos_lecturas_una_textura() {
     p.ops.push(Op::Salida { s: 14, elemento: 0, componente: 0 });
     p.iniciales.resize(18, 0.0);
     let e = emitido(&p);
-    let pares: Vec<u8> = e.precargas.iter().filter_map(|q| if let Precarga::AsaPar { reg, .. } = *q { Some(reg) } else { None }).collect();
-    assert_eq!(pares.len(), 1, "un par por (textura, muestreador)");
-    assert!(pares[0] % 2 == 0);
+    let cuenta = |f: &dyn Fn(&Precarga) -> bool| e.precargas.iter().filter(|q| f(q)).count();
+    assert_eq!(cuenta(&|q| matches!(q, Precarga::Base { .. })), 1, "una base por (textura, muestreador)");
+    assert_eq!(cuenta(&|q| matches!(q, Precarga::Mips { fila: 0, .. })), 1);
+    assert_eq!(cuenta(&|q| matches!(q, Precarga::Mips { fila: 1, .. })), 1);
+    assert_eq!(cuenta(&|q| matches!(q, Precarga::AsaPar { .. })), 0, "sin el par de E8g");
     assert_eq!(crate::pso::texturas_de(&e), vec![(0u8, 0u8)], "una textura");
-    // El nivel de la segunda, escrito en el MISMO Rb+1: espera la barrera
-    // de LECTURA del primer TEX (el juez no lo veria: sin barrera de lectura
-    // da la lectura por hecha al salir).
-    let tex: Vec<usize> = (0..e.codigo.len()).filter(|&k| e.codigo[k].0 & 0xFFF == 0x361).collect();
-    assert_eq!(tex.len(), 2);
-    let leida = e.codigo[tex[0]].1 >> 49 & 7;
-    assert!(leida < 6, "el primer TEX enciende su barrera de lectura");
-    let nivel = (tex[0] + 1..tex[1]).find(|&k| e.codigo[k].0 >> 16 & 0xFF == pares[0] as u64 + 1).expect("el MOV del nivel");
-    assert!((tex[0] + 1..=nivel).any(|k| e.codigo[k].1 >> 52 & 1 << leida != 0), "lo espera antes de pisar el nivel");
+    assert_eq!(e.codigo.iter().filter(|w| w.0 & 0xFFF == 0x361).count(), 4);
+    // Las filas, detras de las del cbuffer (aqui ninguna): la 0 y la 1.
+    let filas: Vec<u16> = crate::pso::cargas_con_posicion(&e, None, 3).iter().filter_map(|c| if let bmo_gpu_ga10x::pegamento::Carga::Fila { fila, .. } = *c { Some(fila) } else { None }).collect();
+    assert_eq!(filas.len(), 2);
+    assert!(filas.contains(&3) && filas.contains(&4), "{filas:?}");
     let t = texeles(16, 8, 1, 1, 4);
     let tx = [Some(textura(&t, Clase::Plana, 16, 8, 1, 1, 4))];
-    for m in muestreadores() {
+    for m in muestreadores_2d() {
         let ms = [Some(m)];
         let rec = Recursos { texturas: &tx, muestreadores: &ms, buferes: &[], dinamicas: None };
         for &(u, v) in &UV {
-            for (k, &n) in NIVELES.iter().enumerate() {
-                igual(&p, &e, &rec, &[[u, v, 0.0, 0.0], [n, NIVELES[(k + 4) % 9], 0.0, 0.0]], false);
+            for (k, &n) in NIVELES_2D.iter().enumerate() {
+                igual(&p, &e, &rec, &[[u, v, 0.0, 0.0], [n, NIVELES_2D[(k + 5) % 16], 0.0, 0.0]], false);
             }
         }
     }
@@ -297,14 +362,15 @@ fn niveles_de_dxc_en_la_3060() {
     let por_registro = |r: u32| p.ranuras.texturas.iter().position(|l| l.registro == r).unwrap();
     assert_eq!([especies[por_registro(0)], especies[por_registro(1)], especies[por_registro(2)]], [Some(2), Some(4), Some(7)], "t0 2D, t1 3D, t2 array");
     let e = emitido(&p);
-    assert_eq!((e.codigo.iter().filter(|w| w.0 & 0xFFF == 0x361).count(), e.codigo.iter().filter(|w| w.0 & 0xFFF == 0x367).count()), (3, 2), "tres TEX y dos TLD");
+    // G5: el SampleLevel de la 2D son dos TEX (la mip y la siguiente).
+    assert_eq!((e.codigo.iter().filter(|w| w.0 & 0xFFF == 0x361).count(), e.codigo.iter().filter(|w| w.0 & 0xFFF == 0x367).count()), (4, 2), "cuatro TEX y dos TLD");
     let (t0, t1, t2) = (texeles(16, 8, 1, 1, 4), texeles(8, 8, 8, 1, 3), texeles(8, 8, 1, 4, 3));
     let mut tx = vec![None; 3];
     tx[por_registro(0)] = Some(textura(&t0, Clase::Plana, 16, 8, 1, 1, 4));
     tx[por_registro(1)] = Some(textura(&t1, Clase::Volumen, 8, 8, 8, 1, 3));
     tx[por_registro(2)] = Some(textura(&t2, Clase::Array, 8, 8, 1, 4, 3));
     let i = |x: i32| f32::from_bits(x as u32);
-    for m in muestreadores() {
+    for m in muestreadores_2d() {
         let ms = [Some(m)];
         let rec = Recursos { texturas: &tx, muestreadores: &ms, buferes: &[], dinamicas: None };
         for &(u, v) in &UV {
@@ -325,33 +391,13 @@ fn igual_tres(p: &Programa, e: &Emitido, rec: &Recursos, entradas: &[[f32; 4]; 3
     let mut regs = Vec::new();
     p.correr_con(entradas, &[], rec, &mut casa, &mut regs);
     let pares = crate::pso::texturas_de(e);
-    let leer = |l: &LecturaTex| -> [u32; 4] {
-        let (t, s) = pares[(l.asa & 0xF_FFFF) as usize];
-        let n = l.nivel.expect("con .LL");
-        match (l.dim, l.carga) {
-            (1, false) => rec.muestrear_en(t, s, [f(l.c[0]), f(l.c[1]), 0.0, 0.0], Some(f(n)), [0; 3]).map(f32::to_bits),
-            (2, false) => rec.muestrear_en(t, s, [f(l.c[0]), f(l.c[1]), f(l.c[2]), 0.0], Some(f(n)), [0; 3]).map(f32::to_bits),
-            (5, false) => rec.muestrear_en(t, s, [f(l.c[1]), f(l.c[2]), l.c[0] as f32, 0.0], Some(f(n)), [0; 3]).map(f32::to_bits),
-            (1, true) => rec.cargar(t, [l.c[0] as i32, l.c[1] as i32, 0], n as i32, [0; 3], false),
-            (5, true) => rec.cargar(t, [l.c[1] as i32, l.c[2] as i32, l.c[0] as i32], n as i32, [0; 3], false),
-            otra => panic!("{otra:?}"),
-        }
-    };
+    let leer = |l: &LecturaTex| tres_mil(rec, &pares, l, false);
     let mut m = Maquina::nueva([&[]; 8]);
     m.leer_textura = Some(&leer);
     for (i, r) in m.r.iter_mut().enumerate() {
         *r = 0x7FC0_0000 | i as u32;
     }
-    for &q in &e.precargas {
-        match q {
-            Precarga::Entrada { elemento, componente, reg } => m.r[reg as usize] = entradas[elemento as usize][componente as usize & 3].to_bits(),
-            Precarga::Asa { textura, muestreador, reg } | Precarga::AsaPar { textura, muestreador, reg } => {
-                let k = pares.iter().position(|&x| x == (textura, muestreador)).unwrap() as u32;
-                m.r[reg as usize] = bmo_gpu_ga10x::texturas::asa(k, k);
-            }
-            Precarga::Fila { .. } | Precarga::Uav { .. } => panic!("sin cbuffer ni UAV"),
-        }
-    }
+    precargar(&mut m, e, rec, entradas);
     correr(&e.codigo, &mut m).unwrap_or_else(|x| panic!("{x:?}"));
     for k in 0..4 {
         assert!(crate::pruebas::mismos(m.r[k], casa[0][k]), "canal {k} con {entradas:?}: la 3060 {:#x} y la casa {:#x}", m.r[k], casa[0][k].to_bits());

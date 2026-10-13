@@ -131,3 +131,19 @@ fn la_marca_de_cuatro_floats_se_desempaqueta() {
     assert_eq!(crate::puerta::de_flotante(32571392, 4).unwrap_err(), crate::puerta::FLOTANTE_OTRA_VISTA);
     assert_eq!(crate::puerta::de_flotante(con_vista(10, 34), 4).unwrap_err(), crate::puerta::FLOTANTE_OTRA_VISTA);
 }
+
+/// ** Metal 13-10 14:04 (Cyberpunk 2077): `guardado DXGI 0, visto como DXGI
+/// 31` -- un RGBA8 tal cual (una palabra por texel) visto como
+/// R8G8B8A8_UINT va a la 3060 en AU8BU8GU8RU8; con otro guardado, con otra
+/// medida o con otra vista, sigue diciendo su porque.
+#[test]
+fn el_rgba8_visto_como_uint_va_a_la_3060() {
+    use bmo_proton_x::bufer::con_vista;
+    use bmo_gpu_ga10x::destino::Flotante;
+    let (f, r) = crate::puerta::de_flotante(con_vista(0, 31), 1).expect("RGBA8 visto como R8G8B8A8_UINT");
+    assert_eq!((f, r), (Flotante::Uint8, bmo_gpu_ga10x::pegamento::Redondeo::NADA));
+    assert_eq!(f.formato(false), 0xD9, "SET_COLOR_TARGET_FORMAT_V_AU8BU8GU8RU8");
+    assert_eq!(crate::puerta::de_flotante(con_vista(0, 31), 4).unwrap_err(), crate::puerta::FLOTANTE_OTRA_VISTA, "en cuatro palabras no");
+    assert_eq!(crate::puerta::de_flotante(con_vista(0, 32), 1).unwrap_err(), crate::puerta::FLOTANTE_OTRA_VISTA, "SINT: todavia no");
+    assert_eq!(crate::puerta::de_flotante(con_vista(10, 31), 1).unwrap_err(), crate::puerta::FLOTANTE_OTRA_VISTA, "sobre un float no");
+}

@@ -432,6 +432,17 @@ impl<'a> Textura<'a> {
         self.plano(self.mip, self.capa, 0).map(|p| (p.texeles, p.ancho, p.alto))
     }
 
+    /// ** G5 (13-10, las mips de la 3060): la CADENA de la capa que mira la
+    /// vista -- sus texeles desde la mip 0 hasta la ultima del recurso,
+    /// seguidos como los guarda la casa -- y su numero de mips. `None` si la
+    /// memoria no llega.
+    pub fn cadena(&self) -> Option<(&'a [u32], u32)> {
+        let mips = self.mips.max(1);
+        let capa: usize = (0..mips).map(|k| self.palabras(k).1).sum();
+        let c = self.capa.min(self.capas.max(1) - 1) as usize;
+        Some((self.texeles.get(c * capa..(c + 1) * capa)?, mips))
+    }
+
     /// **`Sample(s, (u, v))`** en la mip y la capa de la vista, con su mapeo.
     pub fn muestrear(&self, m: &Muestreador, u: f32, v: f32) -> [f32; 4] {
         match self.plano(self.mip, self.capa, 0) {

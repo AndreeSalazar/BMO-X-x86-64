@@ -146,7 +146,9 @@ pub(crate) fn por_la_puerta(p: &Programa, genericos: &[Option<u8>]) -> Result<us
     use bmo_gpu_ga10x::sass::juez;
     use bmo_gpu_ga10x::tuberia;
     let r = emitir_con(p, TECHO, Abi::Registros).unwrap();
-    let pegado = pegamento::pixel(&r.codigo, r.registros, &crate::pso::cargas(&r), Datos { filas: p.filas_cb as u32, paso: 0, elementos: &[] }, genericos)?;
+    // G5: con las filas de las mips detras del cbuffer, como la puerta.
+    let filas = crate::pso::filas_con_mips(p.filas_cb as u32, &r);
+    let pegado = pegamento::pixel(&r.codigo, r.registros, &crate::pso::cargas_con_posicion(&r, None, p.filas_cb as u32), Datos { filas, paso: 0, elementos: &[] }, genericos)?;
     let mut b = vec![0u8; tuberia::HUECO];
     let n = pegado.bytes(&mut b);
     let v = juez::juzgar_programa(&b[..n], tuberia::REGISTROS).unwrap_or_else(|x| panic!("{x}"));

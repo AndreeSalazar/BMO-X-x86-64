@@ -250,6 +250,10 @@ pub struct BancoDeApp {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 pub struct Permisos {
     pub asas: u64,
+    /// ** G5 (13-10): de esas, las BASES de unas mips (`Carga::Base`): un
+    /// TEX o TLD puede leer con un asa CALCULADA desde una, sujeta a los
+    /// huecos de su textura (`juez_asas`).
+    pub bases: u64,
     pub banco: Option<BancoDeApp>,
     /// ** LI2f (12-10): un cuerpo de COMPUTO -- sus ids (S2R) y su barrera
     /// (BAR.SYNC) --, y los UAV que el kernel le ato (`juez_computo`).
@@ -352,10 +356,7 @@ pub fn juzgar_cuerpo_con(codigo: &[(u64, u64)], registros: u32, permisos: Permis
             return ajeno(k, r as u32, "pisa el registro del ASA de una textura: el asa la pone el kernel");
         }
         if op == 0x161 || op == 0x167 {
-            let asa = (lo >> 32 & 0xFF) as u32;
-            if asa >= 64 || asas >> asa & 1 == 0 {
-                return ajeno(k, asa, "un TEX o un TLD con un asa que no puso el kernel");
-            }
+            super::juez_asas::asa_de_app(codigo, k, asas, permisos.bases & asas)?;
         }
         if op == 0x182 {
             ldc_de_app(codigo, k, permisos.banco)?;

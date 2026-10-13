@@ -66,7 +66,7 @@
 //! Y detras, seguidos: el cuerpo de vertice, el de pixel, los elementos (8 B:
 //! su byte y cuantos float), las cargas (4 B: `0, elemento, componente, reg`,
 //! `1, fila baja, fila alta, reg` o `2, textura, 0, reg` -- el ASA, solo en
-//! el de pixel), los genericos (1 B cada uno, 0xFF la posicion), las
+//! el de pixel; G5, `2, textura, 1, reg` la BASE de sus mips), los genericos (1 B cada uno, 0xFF la posicion), las
 //! texturas (48 B cada una, `texturas::DeApp`: SU memoria, sus medidas y su
 //! muestreador), la mezcla si la trae (24 B), relleno hasta 16, y los DATOS.
 
@@ -186,6 +186,8 @@ fn carga_de(b: &[u8]) -> Option<Carga> {
         0 => Some(Carga::Entrada { elemento: b[1], componente: b[2], reg: b[3] }),
         1 => Some(Carga::Fila { fila: b[1] as u16 | (b[2] as u16) << 8, reg: b[3] }),
         2 if b[2] == 0 => Some(Carga::Asa { textura: b[1], reg: b[3] }),
+        // G5 (13-10): la base de las mips de la textura.
+        2 if b[2] == 1 => Some(Carga::Base { textura: b[1], reg: b[3] }),
         // LI2a (12-10): la posicion de la pantalla, x o y.
         3 if b[1] == 0 && b[2] < 2 => Some(Carga::Posicion { componente: b[2], reg: b[3] }),
         _ => None,
@@ -197,6 +199,7 @@ fn carga_a(c: Carga) -> [u8; 4] {
         Carga::Entrada { elemento, componente, reg } => [0, elemento, componente, reg],
         Carga::Fila { fila, reg } => [1, fila as u8, (fila >> 8) as u8, reg],
         Carga::Asa { textura, reg } => [2, textura, 0, reg],
+        Carga::Base { textura, reg } => [2, textura, 1, reg],
         Carga::Posicion { componente, reg } => [3, 0, componente, reg],
     }
 }
@@ -353,6 +356,11 @@ pub fn leer(b: &[u8]) -> Option<Receta<'_>> {
         return None;
     }
     let datos = &b[desde_datos..];
+    // ** G5: la cola de mips de cada textura, DENTRO de los DATOS (la 3060
+    // la lee alli: `mips`).
+    if texturas[..n_texturas].iter().any(|t| t.cola_en as u64 + t.bytes_cola() > datos.len() as u64) {
+        return None;
+    }
     // Como se dibuja: los campos de VRN1, con el DESTINO obligatorio.
     let mut dibujo = tu::dibujo_de_campos(b, n, datos.len())?;
     if dibujo.destino.is_none() {
@@ -425,7 +433,7 @@ pub fn leer(b: &[u8]) -> Option<Receta<'_>> {
             Carga::Entrada { elemento, componente, .. } if componente < 4 && matches!(r.genericos().get(elemento as usize), Some(Some(_))) => {}
             Carga::Fila { fila, .. } if fila_ok(fila) => {}
             // El asa de una textura que la receta TRAE.
-            Carga::Asa { textura, .. } if (textura as usize) < n_texturas => {}
+            Carga::Asa { textura, .. } | Carga::Base { textura, .. } if (textura as usize) < n_texturas => {}
             // LI2a: x o y de SV_Position (solo en el de pixel).
             Carga::Posicion { componente, .. } if componente < 2 => {}
             _ => return None,
@@ -656,7 +664,7 @@ pub fn pegar(r: &Receta, t: &mut Taller) -> Result<(), NoReceta> {
     t.bytes_vs = t.pegado.bytes(&mut t.vs);
     let usados_vs = t.pegado.registros;
     let cuerpo = instrucciones(&mut t.cuerpo, r.ps);
-    juez::juzgar_cuerpo_con(cuerpo, r.registros_ps, juez::Permisos { asas: pegamento::asas(r.cargas_ps()), banco, ..juez::Permisos::default() }).map_err(|b| NoReceta::Cuerpo("pixel", b))?;
+    juez::juzgar_cuerpo_con(cuerpo, r.registros_ps, juez::Permisos { asas: pegamento::asas(r.cargas_ps()), bases: pegamento::bases(r.cargas_ps()), banco, ..juez::Permisos::default() }).map_err(|b| NoReceta::Cuerpo("pixel", b))?;
     let mezcla = r.dibujo.destino.filter(|_| !r.dibujo.mezcla.trivial()).map(|(va, dst)| (r.dibujo.mezcla, dst, (va % 4096) as u32));
     pegamento::pixel_entero_en(&mut t.pegado, cuerpo, r.registros_ps, r.cargas_ps(), datos, r.genericos(), r.termometro_ps, r.dibujo.redondeo, mezcla, r.dibujo.objetivos()).map_err(|e| NoReceta::Pegamento("pixel", e))?;
     t.bytes_ps = t.pegado.bytes(&mut t.ps);
@@ -952,7 +960,7 @@ mod pruebas {
         let ps = bytes(&[tex(0, 4, 6, crate::tuberia::carga(0)), c::exit(ALU_1 | 1 << 11)]);
         let datos = std::vec![0u8; 96];
         let dst = Destino { fila: 5120, ancho: 1280, alto: 720, flotante: crate::destino::Flotante::No, rgb: false };
-        let t = DeApp { va: 0x4000_0000, ancho: 256, alto: 256, fila: 1024, bgra: false, muestreo: Muestreo { lineal: true, u: 1, v: 3, borde: [0.0, 0.0, 0.0, 1.0] } };
+        let t = DeApp { va: 0x4000_0000, ancho: 256, alto: 256, fila: 1024, mips: 1, vista: 0, cola_en: 0, bgra: false, muestreo: Muestreo { lineal: true, u: 1, v: 3, borde: [0.0, 0.0, 0.0, 1.0] } };
         let mut r = Receta {
             n: 3,
             vs: &vs,
