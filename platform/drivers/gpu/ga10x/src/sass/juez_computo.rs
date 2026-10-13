@@ -179,6 +179,81 @@ pub(super) fn memoria_de_app(codigo: &[(u64, u64)], k: usize, uavs: &UavsDeApp) 
     Ok(())
 }
 
+// == La compartida del grupo (LDS, STS, ATOMS) ==============================
+//
+// La direccion de una palabra de la compartida, justo detras de:
+//
+//    IMNMX.U32 Ra, x, TOPE, PT      TOPE un inmediato
+//    IMAD      Ra, Ra, 0x4, RZ      a bytes
+//    LDS / [@P] STS / [@P] ATOMS(.CAS)  [Ra]   sin inmediato
+//
+// y 4 * TOPE + 4 <= la compartida que el kernel da al grupo (`compartida`,
+// en bytes; la del QMD). Una direccion fuera de la compartida es una
+// excepcion de la 3060 (o memoria de otro grupo): nunca.
+
+fn lds(rd: u8, a: u8) -> (u64, u64) {
+    (0x7984 | (rd as u64) << 16 | (a as u64) << 24, 0x800)
+}
+fn sts(guarda: u8, a: u8, rb: u8) -> (u64, u64) {
+    (0x0388 | (guarda as u64 & 0xF) << 12 | (a as u64) << 24 | (rb as u64) << 32, 0x800)
+}
+fn atoms(guarda: u8, rd: u8, a: u8, rb: u8, op: u8, signo: bool) -> (u64, u64) {
+    (0x038c | (guarda as u64 & 0xF) << 12 | (rd as u64) << 16 | (a as u64) << 24 | (rb as u64) << 32, (op as u64) << 23 | (signo as u64) << 9)
+}
+fn atoms_cas(guarda: u8, rd: u8, a: u8, rb: u8, rc: u8) -> (u64, u64) {
+    (0x038d | (guarda as u64 & 0xF) << 12 | (rd as u64) << 16 | (a as u64) << 24 | (rb as u64) << 32, rc as u64)
+}
+/// `IMNMX.U32 a, x, tope, PT` con el tope inmediato.
+fn sujeta_imm(a: u8, x: u8, tope: u32) -> (u64, u64) {
+    (0x017 | PT | 4 << 9 | (a as u64) << 16 | (x as u64) << 24 | (tope as u64) << 32, 7 << 23)
+}
+/// `IMAD a, a, 0x4, RZ`.
+fn por_cuatro(a: u8) -> (u64, u64) {
+    (0x024 | PT | 4 << 9 | (a as u64) << 16 | (a as u64) << 24 | 4 << 32, 0x078e_0200 | RZ as u64)
+}
+
+/// **Un LDS, STS o ATOMS de app** en `k`: su forma y la cadena que lo sujeta
+/// a los `bytes` de la compartida.
+pub(super) fn compartida_de_app(codigo: &[(u64, u64)], k: usize, bytes: u32) -> Result<(), Bodrio> {
+    let w = codigo[k];
+    let (lo, hi) = w;
+    let guarda = (lo >> 12 & 0xF) as u8;
+    let (rd, a, rb) = ((lo >> 16 & 0xFF) as u8, (lo >> 24 & 0xFF) as u8, (lo >> 32 & 0xFF) as u8);
+    let forma = match lo & 0x1FF {
+        0x184 => igual(w, lds(rd, a)),
+        0x188 => igual(w, sts(guarda, a, rb)),
+        0x18C => {
+            let op = (hi >> 23 & 0xF) as u8;
+            matches!(op, 0 | 1 | 2 | 5 | 6 | 7 | 8) && igual(w, atoms(guarda, rd, a, rb, op, hi >> 9 & 1 == 1))
+        }
+        _ => igual(w, atoms_cas(guarda, rd, a, rb, (hi & 0xFF) as u8)),
+    };
+    if !forma {
+        return ajeno(k, (lo & 0x1FF) as u32, "un LDS, STS o ATOMS que no es de la forma de una app (sin inmediato)");
+    }
+    let Some(j) = k.checked_sub(2) else {
+        return ajeno(k, a as u32, "un acceso a la compartida sin la cadena que lo sujeta");
+    };
+    let x = (codigo[j].0 >> 24 & 0xFF) as u8;
+    let tope = (codigo[j].0 >> 32) as u32;
+    if !igual(codigo[j], sujeta_imm(a, x, tope)) || !igual(codigo[j + 1], por_cuatro(a)) {
+        return ajeno(j, a as u32, "un acceso a la compartida que no viene de IMNMX.U32 con su tope y IMAD por 4");
+    }
+    if 4 * tope as u64 + 4 > bytes as u64 {
+        return ajeno(j, tope, "un acceso que puede salir de la compartida del grupo");
+    }
+    for (m, &(blo, bhi)) in codigo.iter().enumerate() {
+        if blo & 0x1FF == 0x147 {
+            let d = (((bhi & 0x3_FFFF) << 32 | blo >> 32) << 14) as i64 >> 14;
+            let destino = (16 * (m as i64 + 1) + d) / 16;
+            if destino > j as i64 && destino <= k as i64 {
+                return ajeno(m, destino as u32, "un salto cae dentro de la cadena que sujeta un acceso a la compartida");
+            }
+        }
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod pruebas {
     use super::*;
@@ -198,5 +273,16 @@ mod pruebas {
         assert!(igual(sujeta(6, 33), c::imnmx(6, 6, c::r(33), false, false, 0)));
         assert!(igual(suma(6, 3, 30), c::iadd3_acarreo(6, 3, 30, c::r(6), 0)));
         assert!(igual(alta(6, 3, 30), c::iadd3_x(7, 31, c::r(c::RZ), 3, 0)));
+        assert!(igual(lds(5, 6), g::lds(5, 6, 0, 0)));
+        let mut w = g::sts(6, 0, 9, 0);
+        w.0 = w.0 & !(0xF << 12) | 0xA << 12;
+        assert!(igual(sts(0xA, 6, 9), w));
+        assert!(igual(sts(7, 6, 9), g::sts(6, 0, 9, 0)));
+        for (op, signo) in [(g::Atomo::Add, false), (g::Atomo::Min, true), (g::Atomo::Exch, false)] {
+            assert!(igual(atoms(7, 5, 6, 9, op as u8, signo), g::atoms(op, signo, 5, 6, 9, 0)));
+        }
+        assert!(igual(atoms_cas(7, 5, 6, 9, 10), g::atoms_cas(5, 6, 9, 10, 0)));
+        assert!(igual(sujeta_imm(6, 21, 127), c::imnmx(6, 21, Fuente::Imm(127), false, false, 0)));
+        assert!(igual(por_cuatro(6), c::imad(6, 6, Fuente::Imm(4), c::RZ, 0)));
     }
 }

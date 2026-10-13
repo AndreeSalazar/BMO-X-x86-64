@@ -499,6 +499,28 @@ fn decodificar(lo: u64, hi: u64) -> Option<Instr> {
             i.escribe = reg(rd, if doble { 2 } else { 1 });
             i.lee = [reg(s0, 1), NADA, NADA, NADA];
         }
+        // ** LI2f (12-10): la compartida del grupo -- LDS, STS, ATOMS y
+        // ATOMS.CAS --, SOLO en las formas de `bmo_sm86::computo` (de oro):
+        // [Ra] sin inmediato, 32 bits; lo demas, R0.
+        0x184 if forma == 4 && lo >> 40 == 0 && hi & ((1 << 41) - 1) == 0x800 => {
+            i.clase = Clase::Agu;
+            i.escribe = reg(rd, 1);
+            i.lee = [reg(s0, 1), NADA, NADA, NADA];
+        }
+        0x188 if forma == 1 && lo >> 40 == 0 && hi & ((1 << 41) - 1) == 0x800 => {
+            i.clase = Clase::Agu;
+            i.lee = [reg(s0, 1), reg(s1, 1), NADA, NADA];
+        }
+        0x18C if forma == 1 && lo >> 40 == 0 && hi & ((1 << 41) - 1) & !(0xF << 23 | 1 << 9) == 0 => {
+            i.clase = Clase::Agu;
+            i.escribe = reg(rd, 1);
+            i.lee = [reg(s0, 1), reg(s1, 1), NADA, NADA];
+        }
+        0x18D if forma == 1 && lo >> 40 == 0 && hi & ((1 << 41) - 1) & !0xFF == 0 => {
+            i.clase = Clase::Agu;
+            i.escribe = reg(rd, 1);
+            i.lee = [reg(s0, 1), reg(s1, 1), reg(s2, 1), NADA];
+        }
         // ** LI2f (12-10): BAR.SYNC 0x0, la barrera del grupo de un computo
         // (`bmo_sm86::computo::bar_sync`, de oro), y solo esa forma.
         0x11D if lo == 0x7b1d && hi & ((1 << 41) - 1) == 1 << 16 => i.clase = Clase::Nada,
@@ -599,6 +621,8 @@ pub struct Permisos {
     /// (BAR.SYNC) --, y los UAV que el kernel le ato (`juez_computo`).
     pub computo: bool,
     pub uavs: super::juez_computo::UavsDeApp,
+    /// ** LI2f: los bytes de la compartida del grupo (los del QMD).
+    pub compartida: u32,
 }
 
 /// **R7 con todo lo que el kernel da** (E8f, 09-10): las asas, como
@@ -624,7 +648,7 @@ pub fn juzgar_cuerpo_con(codigo: &[(u64, u64)], registros: u32, permisos: Permis
     for (k, &(lo, hi)) in codigo.iter().enumerate() {
         let op = (lo & 0x1FF) as u32;
         let forma = (lo >> 9 & 7) as u32;
-        if lo >> 12 & 0xF != 7 && op != 0x147 && op != 0x15B && !(op == 0x186 && permisos.uavs.n > 0) {
+        if lo >> 12 & 0xF != 7 && op != 0x147 && op != 0x15B && !(op == 0x186 && permisos.uavs.n > 0) && !(matches!(op, 0x188 | 0x18C | 0x18D) && permisos.compartida > 0) {
             return ajeno(k, op, "con predicado: en el cuerpo de una app solo un BRA, un KILL o (LI2f) un STG lleva guarda");
         }
         let formas: &[u32] = match op {
@@ -666,6 +690,8 @@ pub fn juzgar_cuerpo_con(codigo: &[(u64, u64)], registros: u32, permisos: Permis
             0x119 if permisos.computo => &[4],
             0x11D if permisos.computo => &[5],
             0x181 | 0x186 if permisos.uavs.n > 0 => &[4],
+            0x184 if permisos.compartida > 0 => &[4],
+            0x188 | 0x18C | 0x18D if permisos.compartida > 0 => &[1],
             0x14D if k == ultima => &[4],
             0x14D => return ajeno(k, op, "un EXIT antes del final: el pegamento de detras no correria"),
             _ => return ajeno(k, op, "fuera de la lista blanca de una app (memoria, atributos, saltos...)"),
@@ -702,6 +728,7 @@ pub fn juzgar_cuerpo_con(codigo: &[(u64, u64)], registros: u32, permisos: Permis
             0x119 => super::juez_computo::s2r_de_app((lo, hi), k)?,
             0x11D => super::juez_computo::bar_de_app((lo, hi), k)?,
             0x181 | 0x186 => super::juez_computo::memoria_de_app(codigo, k, &permisos.uavs)?,
+            0x184 | 0x188 | 0x18C | 0x18D => super::juez_computo::compartida_de_app(codigo, k, permisos.compartida)?,
             _ => {}
         }
     }

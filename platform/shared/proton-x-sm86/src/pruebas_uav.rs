@@ -58,6 +58,10 @@ impl Memoria for Ventanas {
 }
 
 fn programa(ops: Vec<Op>, iniciales: Vec<u32>, uavs: usize, hilos: [u32; 3]) -> Programa {
+    programa_con(ops, iniciales, uavs, hilos, 0)
+}
+
+fn programa_con(ops: Vec<Op>, iniciales: Vec<u32>, uavs: usize, hilos: [u32; 3], compartida: u32) -> Programa {
     let l = bmo_proton_x::dxil::programa::Lugar { espacio: 0, registro: 0, vista: 0 };
     Programa {
         ops,
@@ -67,7 +71,7 @@ fn programa(ops: Vec<Op>, iniciales: Vec<u32>, uavs: usize, hilos: [u32; 3]) -> 
         lee: 0,
         filas_cb: 0,
         ranuras: Ranuras { uavs: vec![l; uavs], ..Ranuras::default() },
-        computo: Computo { hilos, compartida: 0, temprana: false },
+        computo: Computo { hilos, compartida, temprana: false },
     }
 }
 
@@ -82,9 +86,18 @@ fn las_dos(p: &Programa, vistas: &[Vista], grupos: u32) -> (Vec<Vec<u8>>, Vec<Ve
         p.despachar([grupos, 1, 1], &[], &rec, &mut uavs);
     }
     let e = emitir_con(p, 64, Abi::Registros).unwrap_or_else(|x| panic!("no se emite: {x:?}"));
+    // Y lo emitido, juzgado: R0..R6 y R7 con lo que el kernel le da.
+    {
+        use bmo_gpu_ga10x::sass::juez::{juzgar_cuerpo_con, juzgar_drenado, Contexto, RESERVADOS};
+        juzgar_drenado(&e.codigo, &Contexto { registros: e.registros + RESERVADOS, sph: None }).unwrap_or_else(|b| panic!("R0..R6: {b}"));
+        juzgar_cuerpo_con(&e.codigo, e.registros, crate::permisos_computo(&e, p).unwrap()).unwrap_or_else(|b| panic!("R7: {b}"));
+    }
     let mut mem = Ventanas(vistas.iter().map(|v| v.bytes.clone()).collect());
     for gx in 0..grupos {
-        correr_grupo(&e.codigo, p.computo.hilos, [gx, 0, 0], [&[]; 8], &mut [], &mut mem, |_, m| {
+        // La compartida de la 3060 NO empieza a cero: basura, que el
+        // prologo tiene que limpiar.
+        let mut compartida = vec![0xA5u8; 4 * p.computo.compartida as usize];
+        correr_grupo(&e.codigo, p.computo.hilos, [gx, 0, 0], [&[]; 8], &mut compartida, &mut mem, |_, m| {
             for q in &e.precargas {
                 if let Precarga::Uav { u, que, reg } = *q {
                     let v = &vistas[u as usize];
@@ -266,7 +279,7 @@ fn el_juez_deja_lo_emitido_y_no_las_trampas() {
     ini[8] = 2.0f32.to_bits();
     let p = programa(ops, ini, 2, [8, 2, 1]);
     let e = emitir_con(&p, 64, Abi::Registros).unwrap();
-    let permisos = crate::permisos_computo(&e).unwrap();
+    let permisos = crate::permisos_computo(&e, &p).unwrap();
     assert_eq!(permisos.uavs.n, 2);
     let ctx = Contexto { registros: e.registros + RESERVADOS, sph: None };
     juzgar_drenado(&e.codigo, &ctx).unwrap_or_else(|b| panic!("R0..R6: {b}"));
@@ -298,4 +311,61 @@ fn el_juez_deja_lo_emitido_y_no_las_trampas() {
     let mut t = e.codigo.clone();
     t.insert(0, bmo_sm86::codifica::bra(7, 16 * (ldg as i64 - 1), 0));
     assert!(r7(&t).is_some_and(|d| d.contains("salto")), "{:?}", r7(&t));
+}
+
+/// ** LA COMPARTIDA: cada hilo escribe su id en `a[t]` (array 0, de 12, en
+/// la palabra 3: hay 4 hilos de mas que se salen), barrera, y lee el de su
+/// espejo `a[11 - t]`; ademas suma 1 a un contador (array 1, palabra 1) con
+/// un atomico y lee lo que quedo en una palabra que nadie escribe (el
+/// prologo: 0, aunque la 3060 empiece con basura). 2 grupos de 16.
+#[test]
+fn la_compartida_con_su_barrera_y_sus_atomicos() {
+    let ops = vec![
+        Op::IdHilo { d: 0, que: 3, c: 0 },
+        Op::IdHilo { d: 1, que: 0, c: 0 },
+        Op::EscribeCompartida { base: 3, n: 12, i: 0, s: 1 },
+        Op::AtomicoCompartido { d: 2, base: 1, n: 1, i: 9, v: 10, como: bmo_proton_x::bufer::Atomo::Suma },
+        Op::Barrera,
+        Op::SumaEntera { d: 4, a: 11, b: 12 },
+        Op::Entera { d: 5, a: 4, b: 0, op: OpEntera::Resta },
+        Op::LeeCompartida { d: 6, base: 3, n: 12, i: 5 },
+        Op::LeeCompartida { d: 7, base: 1, n: 1, i: 9 },
+        Op::LeeCompartida { d: 8, base: 0, n: 1, i: 9 },
+        Op::Entera { d: 13, a: 1, b: 14, op: OpEntera::Shl },
+        Op::EscribeUav { u: 0, modo: Modo::Crudo, i: 13, desp: 9, z: 9, v: [6, 7, 8, 2], mascara: 0xF },
+    ];
+    let mut ini = vec![0u32; 15];
+    ini[10] = 1;
+    ini[11] = 11;
+    ini[14] = 4;
+    let p = programa_con(ops, ini, 1, [16, 1, 1], 15);
+    let vistas = [Vista { bytes: vec![0x77; 16 * 32], modo: Modo::Crudo, elementos: 4 * 32, paso: 0 }];
+    let (casa, gpu) = las_dos(&p, &vistas, 2);
+    assert_eq!(gpu, casa);
+    let w = |k: usize| u32::from_le_bytes(gpu[0][4 * k..4 * k + 4].try_into().unwrap());
+    // El hilo 2 del grupo 1 (el 18): lee a[9] = 25; el contador, 16; la palabra 0, 0; su atomico, 2.
+    assert_eq!([w(4 * 18), w(4 * 18 + 1), w(4 * 18 + 2), w(4 * 18 + 3)], [25, 16, 0, 2]);
+    // El 14 (t = 14): a[11 - 14] se sale: 0.
+    assert_eq!(w(4 * 14), 0);
+}
+
+/// El juez con la compartida: el tope del IMNMX mas alla de lo que el
+/// kernel da al grupo, no; y sin el IMAD por 4, no.
+#[test]
+fn el_juez_y_la_compartida() {
+    use bmo_gpu_ga10x::sass::juez::juzgar_cuerpo_con;
+    let ops = vec![Op::IdHilo { d: 0, que: 3, c: 0 }, Op::EscribeCompartida { base: 0, n: 8, i: 0, s: 0 }, Op::Barrera, Op::LeeCompartida { d: 1, base: 0, n: 8, i: 2 }, Op::EscribeUav { u: 0, modo: Modo::Crudo, i: 2, desp: 2, z: 2, v: [1, 1, 1, 1], mascara: 1 }];
+    let p = programa_con(ops, vec![0; 3], 1, [8, 1, 1], 8);
+    let e = emitir_con(&p, 64, Abi::Registros).unwrap();
+    let mut permisos = crate::permisos_computo(&e, &p).unwrap();
+    assert!(juzgar_cuerpo_con(&e.codigo, e.registros, permisos).is_ok());
+    permisos.compartida = 28;
+    let b = juzgar_cuerpo_con(&e.codigo, e.registros, permisos).unwrap_err();
+    assert!(b.detalle.contains("salir de la compartida"), "{b}");
+    permisos.compartida = 32;
+    let lds = e.codigo.iter().position(|w| w.0 & 0x1FF == 0x184).unwrap();
+    let mut t = e.codigo.clone();
+    let a = (t[lds].0 >> 24 & 0xFF) as u8;
+    t[lds - 1] = bmo_sm86::codifica::mov(a, bmo_sm86::codifica::r(a), t[lds - 1].1 >> 41);
+    assert!(juzgar_cuerpo_con(&t, e.registros, permisos).unwrap_err().detalle.contains("IMAD por 4"));
 }

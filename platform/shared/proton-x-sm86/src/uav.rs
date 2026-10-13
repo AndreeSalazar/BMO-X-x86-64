@@ -71,8 +71,9 @@ use super::{reg_de, Abi, Clase, Emisor, NoEmite, Precarga};
 
 /// **Lo que el juez del kernel le deja a un cuerpo de computo emitido**: sus
 /// ids y su barrera, y de cada UAV su base y su tope (los registros de sus
-/// precargas). `None`: mas UAV de los que ata el kernel.
-pub fn permisos_computo(e: &super::Emitido) -> Option<bmo_gpu_ga10x::sass::juez::Permisos> {
+/// precargas), y los bytes de su compartida. `None`: mas UAV de los que ata
+/// el kernel.
+pub fn permisos_computo(e: &super::Emitido, p: &bmo_proton_x::dxil::programa::Programa) -> Option<bmo_gpu_ga10x::sass::juez::Permisos> {
     use bmo_gpu_ga10x::sass::juez_computo::{UavsDeApp, MAX_UAVS};
     let mut uavs = UavsDeApp::default();
     let de = |u: u8, q: DelUav| e.precargas.iter().find_map(|p| matches!(*p, Precarga::Uav { u: u2, que, .. } if (u2, que) == (u, q)).then(|| if let Precarga::Uav { reg, .. } = *p { reg } else { 0 }));
@@ -87,7 +88,7 @@ pub fn permisos_computo(e: &super::Emitido) -> Option<bmo_gpu_ga10x::sass::juez:
             uavs.n += 1;
         }
     }
-    Some(bmo_gpu_ga10x::sass::juez::Permisos { computo: true, uavs, ..Default::default() })
+    Some(bmo_gpu_ga10x::sass::juez::Permisos { computo: true, uavs, compartida: 4 * p.computo.compartida, ..Default::default() })
 }
 
 /// Lo que el kernel pone de un UAV (ver el modulo).
@@ -191,7 +192,7 @@ impl Emisor<'_> {
     }
 
     /// Los hilos de un grupo, si el programa es de computo.
-    fn hilos(&self, k: usize) -> Result<[u32; 3], NoEmite> {
+    pub(super) fn hilos(&self, k: usize) -> Result<[u32; 3], NoEmite> {
         let h = self.p.computo.hilos;
         if self.abi != Abi::Registros || h.contains(&0) {
             return Err(NoEmite::Operacion(k));
@@ -218,17 +219,21 @@ impl Emisor<'_> {
             }
             1 => self.s2r(x, Sr::CTAID[co]),
             2 => self.s2r(x, Sr::TID[co]),
-            _ => {
-                self.s2r(x, Sr::TidX);
-                // Con una sola fila (o capa), su id es 0: no suma nada.
-                for (sr, ancho, hay) in [(Sr::TidY, h[0], h[1] > 1), (Sr::TidZ, h[0] * h[1], h[2] > 1)] {
-                    if hay {
-                        let t = self.pedir()?;
-                        paso.push(t);
-                        self.s2r(t, sr);
-                        self.poner(c::imad(x, t, Fuente::Imm(ancho), x, 0), Clase::Fma, Some(x), [Some(t), Some(x), None]);
-                    }
-                }
+            _ => self.indice(x, h)?,
+        }
+        Ok(())
+    }
+
+    /// `x` = SV_GroupIndex: tid.x + tid.y * hx + tid.z * hx * hy.
+    pub(super) fn indice(&mut self, x: u8, h: [u32; 3]) -> Result<(), NoEmite> {
+        self.s2r(x, Sr::TidX);
+        // Con una sola fila (o capa), su id es 0: no suma nada.
+        for (sr, ancho, hay) in [(Sr::TidY, h[0], h[1] > 1), (Sr::TidZ, h[0] * h[1], h[2] > 1)] {
+            if hay {
+                let t = self.pedir()?;
+                self.s2r(t, sr);
+                self.poner(c::imad(x, t, Fuente::Imm(ancho), x, 0), Clase::Fma, Some(x), [Some(t), Some(x), None]);
+                self.soltar(t);
             }
         }
         Ok(())

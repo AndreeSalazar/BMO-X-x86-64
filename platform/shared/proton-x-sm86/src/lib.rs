@@ -112,6 +112,8 @@ pub mod muestreo;
 /// LI2f (12-10): el computo de una app -- los ids, la barrera y los UAV
 /// crudos y estructurados, con la direccion SUJETA.
 mod uav;
+/// LI2f (12-10): la memoria compartida del grupo (`groupshared`), sujeta.
+mod compartida;
 pub use uav::{permisos_computo, DelUav};
 
 use alloc::vec;
@@ -681,6 +683,11 @@ fn emitir_modo(p: &Programa, registros: u32, abi: Abi, libreta: bool, frugal: bo
             e.nacer(r)?;
         }
     }
+    // ** LI2f: la compartida a cero antes del cuerpo (la casa la pone a cero
+    // en cada grupo; la 3060, no).
+    if abi == Abi::Registros {
+        e.prologo_compartida()?;
+    }
     // E6d: las divisiones que ya hizo su pareja.
     let mut hecha = vec![false; p.ops.len()];
     for (i, op) in p.ops.iter().enumerate() {
@@ -1002,7 +1009,10 @@ fn emitir_modo(p: &Programa, registros: u32, abi: Abi, libreta: bool, frugal: bo
             Op::Barrera => e.barrera(i)?,
             Op::LeeUav { d, u, modo, i: indice, desp, .. } => e.lee_uav(d, u, modo, indice, desp, i, &mut paso)?,
             Op::EscribeUav { u, modo, i: indice, desp, v, mascara, .. } => e.escribe_uav(u, modo, indice, desp, v, mascara, i, &mut paso)?,
-            Op::LeeCompartida { .. } | Op::EscribeCompartida { .. } | Op::AtomicoCompartido { .. } | Op::MedidasUav { .. } => return Err(NoEmite::Operacion(i)),
+            Op::LeeCompartida { d, base, n, i: indice } => e.lee_compartida(d, base, n, indice, i, &mut paso)?,
+            Op::EscribeCompartida { base, n, i: indice, s } => e.escribe_compartida(base, n, indice, s, i, &mut paso)?,
+            Op::AtomicoCompartido { d, base, n, i: indice, v, como } => e.atomico_compartido(d, base, n, indice, v, como, i, &mut paso)?,
+            Op::MedidasUav { .. } => return Err(NoEmite::Operacion(i)),
             // E2.3b: el sombreador de geometria, igual (va por la CPU).
             Op::EntradaDe { .. } | Op::Emite { .. } | Op::Corta { .. } => return Err(NoEmite::Operacion(i)),
             // E2.4: el contador de un UAV, igual; y (05-10) sus Interlocked.
