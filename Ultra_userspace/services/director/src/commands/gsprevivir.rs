@@ -78,7 +78,7 @@ pub(crate) fn orden(dsk: &mut Desktop, p: &bmo::Pantalla) -> After {
     let g = &mut dsk.out.grid;
     if !canal_libre {
         g.with_ink(INK_ERR);
-        g.text(b"  el GSP-RM no libero el canal de GR0: no se revive (mira `gsp aviso`); queda el reinicio\n");
+        g.text(b"  el GSP-RM no libero el canal de GR0: no se revive (mira `gpu aviso`); queda el reinicio\n");
         g.with_ink(INK_PLAIN);
         dsk.field.n = 0;
         return After::Settle;
