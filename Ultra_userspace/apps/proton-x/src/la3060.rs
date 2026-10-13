@@ -273,17 +273,17 @@ pub(crate) fn en_modo_3060() -> bool {
 /// elige de ella (su ventana, su cadena, sus modos). Con `--3060`, la medida
 /// que la puerta dibuja ([`puerta::MEDIDA`]) y sin barra de tareas, para que
 /// lo que el juego QUIERE sea lo que la 3060 puede; sin `--3060`, la de
-/// siempre (1920x1080). Si el dueno dijo `--pantalla WxH`, manda el: se
+/// siempre (1920x1080). Si el propietario dijo `--pantalla WxH`, manda el: se
 /// queda la suya, y si no es la de la puerta se le dice que va por la CPU.
 pub(crate) fn poner_pantalla() {
     use bmo_proton_x_casa::pantalla::{self, Pantalla};
     let p = pantalla::actual();
     let (w, h) = puerta::MEDIDA;
-    let s = if pantalla::del_dueno() {
+    let s = if pantalla::del_propietario() {
         if en_modo_3060() && (p.ancho, p.alto) != puerta::MEDIDA {
-            alloc::format!("PROTON-X: la pantalla que ve el juego: {}x{} (la del dueno, --pantalla); la puerta de la 3060 dibuja {w}x{h}: lo de otra medida va por la CPU", p.ancho, p.alto)
+            alloc::format!("PROTON-X: la pantalla que ve el juego: {}x{} (la del propietario, --pantalla); la puerta de la 3060 dibuja {w}x{h}: lo de otra medida va por la CPU", p.ancho, p.alto)
         } else {
-            alloc::format!("PROTON-X: la pantalla que ve el juego: {}x{} (la del dueno, --pantalla)", p.ancho, p.alto)
+            alloc::format!("PROTON-X: la pantalla que ve el juego: {}x{} (la del propietario, --pantalla)", p.ancho, p.alto)
         }
     } else if en_modo_3060() {
         // MEDIDA esta entre 640x480 y 8K, y sin barra: siempre vale.

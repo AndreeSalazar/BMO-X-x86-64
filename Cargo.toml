@@ -458,6 +458,35 @@ opt-level = 3
 opt-level = 3
 [profile.dev.package.bmo-ciudad]
 opt-level = 3
+# Y PROTON-X (13-10): las 129 filas de la casa corren DirectX en la CPU --
+# tuberias, texturas, el computo del juego-- y en debug tardaban 271 s, mas
+# que todo el resto del banco junto. Lo mismo para quien hace el trabajo:
+# la casa, su nucleo puro, el interprete del Programa y el emisor de SASS.
+[profile.dev.package.bmo-proton-x-casa]
+opt-level = 3
+[profile.dev.package.bmo-proton-x]
+opt-level = 3
+[profile.dev.package.bmo-prometeo]
+opt-level = 3
+[profile.dev.package.bmo-proton-x-sm86]
+opt-level = 3
+# Y lo que la casa llama en cada fotograma de su banco: el traductor de
+# DXIL/SPIR-V, el codificador de SM86, el juez y la receta de la 3060, el
+# .bsf, la trama de VERRANO y su hash.
+[profile.dev.package.bmo-spirv-front]
+opt-level = 3
+[profile.dev.package.bmo-sm86]
+opt-level = 3
+[profile.dev.package.bmo-gpu-ga10x]
+opt-level = 3
+[profile.dev.package.bmo-bsf]
+opt-level = 3
+[profile.dev.package.bmo-verrano]
+opt-level = 3
+[profile.dev.package.bmo-verrano-trama]
+opt-level = 3
+[profile.dev.package.bmo-hash]
+opt-level = 3
 
 [profile.release]
 panic = "abort"

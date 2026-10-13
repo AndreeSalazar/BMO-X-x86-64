@@ -67,8 +67,8 @@ pub fn lecciones(n: usize) -> Vec<([f32; ENTRADAS], [f32; 4])> {
         .collect()
 }
 
-/// **Ensenar** `pasos` lecciones: las de [`lecciones`], dando vueltas.
-pub fn ensenar(u: &mut Uma, pasos: u32) {
+/// **Mostrar** `pasos` lecciones: las de [`lecciones`], dando vueltas.
+pub fn mostrar(u: &mut Uma, pasos: u32) {
     let paso = u.paso;
     u.paso = PASO_DE_NACER;
     let l = lecciones(MUESTRAS.min(pasos as usize).max(1));

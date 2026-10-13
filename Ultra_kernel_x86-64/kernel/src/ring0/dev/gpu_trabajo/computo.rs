@@ -24,7 +24,8 @@
 //! `motivo 79` de siempre.
 //!
 //! [carril]  ROJO      la 3060 lee y escribe memoria de un proceso
-//! [consumo] DATO      ~0,9 MiB fijos: la copia de la receta y el pegado
+//! [consumo] NADA      corre por orden (un `Dispatch` del juego); ~0,9 MiB
+//!                fijos: la copia de la receta y el pegado
 //!
 //! [!] NADA DE ESTO HA CORRIDO EN EL METAL: lo dira el primer `Dispatch`.
 

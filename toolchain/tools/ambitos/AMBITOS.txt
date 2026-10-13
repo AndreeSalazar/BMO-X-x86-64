@@ -22,7 +22,7 @@
 # los 69 `gui` de ayer no se reescriben, y un guardian que fallara por ellos se
 # apagaria en una semana. Se mueve con `--sellar`.
 [DESDE]
-112af66a9eaccf3ebb06511fb87b5fcab99c121d   sellado a mano
+92acb547a6d97266667f1f33781614e52de7ff5b   sellado a mano
 
 # Viejo -> como se llama ahora, y por que. Un alias no es un error del que
 # escribe: es un nombre que se quedo atras, y decirle el nuevo cuesta lo mismo
@@ -33,58 +33,59 @@ escritorio     -> director     el mismo componente, tercer nombre
 ui             -> director     el mismo componente, cuarto nombre
 estructura     -> taller       el propietario lo renombro el 29-09 ("reemplazar el nombre ESTRUCTURA a taller")
 guardian       -> guardianes   el mismo componente en singular (07-10, `86ff2b3e`)
+sm86           -> proton-x-sm86  el emisor de SASS se llama por su crate (13-10)
 
 # Los que valen. Ordenados por uso, que es el orden en el que se ve el ruido.
 [AMBITOS]
 c                (0) 
-kernel           (8) 
-cobol            (3) 
+kernel           (11) 
+cobol            (0) 
 estratos         (9) 
-inti             (1) 
+inti             (3) 
 usb              (0) 
 boot             (0) 
-director         (15) 
-maqueta          (19) 
+director         (12) 
+maqueta          (9) 
 medida           (0) 
 mm               (0) 
-smp              (3) 
+smp              (5) 
 cpu              (0) 
 abi              (0) 
 bef              (0) 
 disk             (0) 
 ring0            (0) 
 c-front          (0) 
-disco            (43) 
+disco            (13) 
 puerta           (0) 
 cpp              (0) 
-metal            (0) 
+metal            (7) 
 ahci             (0) 
-cabina           (0) 
+cabina           (1) 
 ciudad           (0) 
-fs               (0) 
+fs               (1) 
 ipc              (0) 
-lienzo           (1) 
+lienzo           (0) 
 cap              (0) 
 ram              (0) 
 audio            (0) 
-build            (6) 
+build            (3) 
 forge            (0) 
-gpu              (0) 
+gpu              (39) 
 iommu            (0) la IOMMU de AMD (AMD-Vi): M0 de PLAN_LA_3060, la frontera del DMA de TODO aparato, no solo de la grafica
 lanzar           (0) 
 proc             (0) 
 red              (0) 
 shell            (0) 
-toolchain        (1) 
+toolchain        (0) 
 caja             (0) 
 calc             (0) 
 censo            (0) 
 coste            (0) 
-docs             (11) 
+docs             (0) 
 avances          (1) AVANCES.md, el estado de BMO-X para retomar desde cero
-emu              (0) 
+emu              (1) 
 ext              (0) 
-fat32            (0) 
+fat32            (2) 
 input            (0) 
 intro            (0) 
 lower            (0) 
@@ -101,7 +102,7 @@ contrato         (0)
 dibujo           (0) 
 explorador       (0) 
 fb               (0) 
-readme           (2) 
+readme           (3) 
 repo             (0) 
 userspace        (0) 
 ada              (0) 
@@ -131,7 +132,7 @@ cripto           (0)
 hash             (0) 
 herencia         (0) 
 hud              (4) 
-identidad        (0) 
+identidad        (1) 
 juicio           (0) 
 l1               (0) 
 lang             (0) 
@@ -161,23 +162,34 @@ vmm              (0)
 spirv            (0) 
 # 2026-09-29: el TALLER de F1 (`Ultra_userspace/apps/taller`) y
 # su contrato con TITAN++ (`platform/shared/titan-contrato`). Nace aqui.
-taller           (12) 
+taller           (4) 
 # 2026-09-30: el frontend de TITAN++ (`toolchain/lang/titan`), el lenguaje
 # para CONSTRUIR. Nace aqui, con el nivel 0 de su escalera.
-titan            (27) 
+titan            (33) 
 # 2026-10-03: HERMES, la app de F3 (`Ultra_userspace/apps/hermes`) y su
 # protocolo (`platform/shared/bmo-hermes`). Nace aqui, con H5.
-hermes           (1) 
+hermes           (0) 
 antena           (0) 
-bankcat          (4) 
+bankcat          (0) 
 # 2026-10-04: un cambio que toca VARIAS apps de `Ultra_userspace/apps` a la
 # vez -- las piezas que comparten (la `piezas.rs` de HERMES, que usan BANK CAT
 # y la LUDOTECA). Lo de una sola app va con su nombre.
-apps             (3) 
+apps             (2) 
 # 2026-10-04: los PLANES (`docs/plan/`): su estado, su orden y lo que cambia
 # en ellos por decision del propietario (`EL_ORDEN.md`, `en_pausa/`). Lo de
 # un componente va con el suyo; esto es el mapa de lo que falta.
-plan             (23) 
-proton-x         (23) la capa de Windows: la casa, el cargador, D3D12 en la CPU y la 3060 (07-10: decenas de commits sin estar en la lista)
+plan             (51) 
+proton-x         (33) la capa de Windows: la casa, el cargador, D3D12 en la CPU y la 3060 (07-10: decenas de commits sin estar en la lista)
 jueces           (2) los jueces de PROTON-X que corren solos en BMO-X
 arte             (3) las maquetas y los logos del propietario
+# 2026-10-13: los que llevaban semanas en el historial sin estar aqui (el
+# guardian lo decia y nadie llegaba a verlo: el build moria antes).
+la-3060          (15) la 3060 como aparato: su puerta en el kernel, su cerco y sus planes
+proton-x-sm86    (3) el emisor de SASS SM86 de PROTON-X (DXIL -> la 3060)
+ga10x            (2) el driver de la 3060 (`platform/drivers/gpu/ga10x`): jueces, recetas, QMD
+computo          (6) el computo (`Dispatch`) de un juego por la 3060: LI2f
+juez             (1) el juez de SASS del kernel (`ga10x/src/sass/juez*.rs`)
+fraps            (2) FRAPS-X: medir y grabar la pantalla
+imagen           (1) `bmo-imagen`: leer y escribir imagenes (BMP, PNG, JPEG)
+avisos           (1) el trinquete de los avisos del compilador
+verrano-ayni     (1) AYNI sin GPU: el contrato de reparto CPU/3060

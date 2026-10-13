@@ -377,10 +377,35 @@ fn main() {
         caliente(&rel, salida.as_deref());
         return;
     }
+    // ** LOS PROGRAMAS DEL BANCO SE MIDEN A LA VEZ (13-10): uno por hilo de
+    // la CPU. Cada medida es suya --compilar y emular, sin nada compartido--
+    // y el emulador cuenta instrucciones, no tiempo: el numero es el mismo en
+    // fila o a la vez. En fila eran 11 s de un solo nucleo en cada build.
+    let siguiente = std::sync::atomic::AtomicUsize::new(0);
+    let hilos = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(1).min(BANCO.len());
+    let resultados: Vec<(usize, Result<Medida, String>)> = std::thread::scope(|s| {
+        let obreros: Vec<_> = (0..hilos)
+            .map(|_| {
+                s.spawn(|| {
+                    let mut hechos = Vec::new();
+                    loop {
+                        let i = siguiente.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                        let Some((lenguaje, rel)) = BANCO.get(i) else { break };
+                        hechos.push((i, medir(lenguaje, rel)));
+                    }
+                    hechos
+                })
+            })
+            .collect();
+        obreros.into_iter().flat_map(|h| h.join().expect("un hilo del metro cayo")).collect()
+    });
+    let mut por_orden: Vec<_> = resultados;
+    por_orden.sort_by_key(|(i, _)| *i);
     let mut medidas = BTreeMap::new();
     let mut rotos = Vec::new();
-    for (lenguaje, rel) in BANCO {
-        match medir(lenguaje, rel) {
+    for (i, r) in por_orden {
+        let rel = BANCO[i].1;
+        match r {
             Ok(m) => { medidas.insert(rel.to_string(), m); }
             Err(e) => rotos.push(format!("{rel}: {e}")),
         }

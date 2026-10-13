@@ -394,7 +394,7 @@ mod pruebas {
     /// lee lo cargado justo despues del ultimo MOV: sus 6 ciclos bastan).
     #[test]
     fn el_pegado_carga_y_el_juez_lo_deja() {
-        use bmo_sm86::codifica::{self as c, Fuente};
+        use bmo_sm86::codifica as c;
         // R4 = R2 + R3, y EXIT (con su control, el de ALU).
         let cuerpo = [c::iadd3(4, 2, c::r(3), c::ALU), c::exit(c::ALU)];
         let mut out = [(0, 0); 8];

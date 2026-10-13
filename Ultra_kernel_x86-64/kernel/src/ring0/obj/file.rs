@@ -286,7 +286,7 @@ static mut NOMBRE_N: [usize; MAX_ABIERTOS] = [0; MAX_ABIERTOS];
 static mut DIRECTORIO: [u32; MAX_ABIERTOS] = [0; MAX_ABIERTOS];
 /// ** ESCRIBIR SIN FINAL (12-10): lo que ya bajo al disco de esta ranura. El
 /// bufer no crece mas alla de [`TRAMO_AL_DISCO`]: lleno, se VUELCA (el primer
-/// volcado reemplaza el fichero, los siguientes añaden al final) y vuelve a
+/// volcado reemplaza el fichero, los siguientes agregan al final) y vuelve a
 /// empezar vacio. La RAM deja de ser el techo de lo que se escribe.
 static mut EN_DISCO: [u64; MAX_ABIERTOS] = [0; MAX_ABIERTOS];
 /// Un volcado fallo: `close` lo dice (lo de antes del fallo SI esta en el
@@ -945,11 +945,11 @@ fn close(i: usize) -> u64 {
                 // `guardar_como` y no "crear": si el archivo ya existe, se
                 // REEMPLAZA (un programa que escribe su salida tiene que ser
                 // honesto tambien la segunda vez). Y si ya se volco algun
-                // tramo (12-10), lo que queda se AÑADE detras.
+                // tramo (12-10), lo que queda se AGREGA detras.
                 let r = if VOLCADO_MAL[i] {
                     Err(bmo_fat32::WriteError::Io)
                 } else if EN_DISCO[i] > 0 {
-                    crate::ring0::fsys::fs::anadir(DIRECTORIO[i], &NOMBRE[i][..NOMBRE_N[i]], datos).map(|_| ())
+                    crate::ring0::fsys::fs::agregar(DIRECTORIO[i], &NOMBRE[i][..NOMBRE_N[i]], datos).map(|_| ())
                 } else {
                     crate::ring0::fsys::fs::guardar_como(DIRECTORIO[i], &NOMBRE[i][..NOMBRE_N[i]], datos)
                 };
@@ -1177,7 +1177,7 @@ pub unsafe fn write_from(idx: u64, src: *const u8, n: usize) -> usize {
 
 /// **Baja al disco lo juntado en la ranura** y la deja vacia: el primer
 /// volcado REEMPLAZA el fichero (como un `OPEN OUTPUT`), los siguientes
-/// AÑADEN. `false` = el disco no lo acepto (se apunta y `close` lo dice).
+/// AGREGAN. `false` = el disco no lo acepto (se apunta y `close` lo dice).
 unsafe fn volcar(i: usize) -> bool {
     unsafe {
         if VOLCADO_MAL[i] || DESBORDO[i] {
@@ -1189,7 +1189,7 @@ unsafe fn volcar(i: usize) -> bool {
         let r = if EN_DISCO[i] == 0 {
             crate::ring0::fsys::fs::guardar_como(DIRECTORIO[i], nombre, datos)
         } else {
-            crate::ring0::fsys::fs::anadir(DIRECTORIO[i], nombre, datos).map(|_| ())
+            crate::ring0::fsys::fs::agregar(DIRECTORIO[i], nombre, datos).map(|_| ())
         };
         match r {
             Ok(()) => {

@@ -140,7 +140,16 @@ def px6_sin_numero_publico(modulos):
 
 
 def px7_lo_que_se_da(modulos):
+    # UNA pasada por todo el texto, no una por funcion: con 1.600 funciones y
+    # 1,7 MB eran dos busquedas de 1,7 MB por cada una (mas de dos minutos del
+    # build, 13-10). Se apunta de una vez lo que da y lo que llama.
     todo = "\n".join(modulos.values())
+    dados = set(re.findall(r"dir!\(\s*(?:\w+::)*(\w+)\s*\)", todo))
+    dados |= set(re.findall(r"\b(\w+)::<", todo))
+    dados |= set(re.findall(r"=\s*sym\s+(?:\w+::)*(\w+)\b", todo))
+    llamadas = {}
+    for n in re.findall(r"\b(\w+)\s*\(", todo):
+        llamadas[n] = llamadas.get(n, 0) + 1
     malos = []
     for mod, t in sorted(modulos.items()):
         for m in re.finditer(r'extern "win64" fn (\w+)', t):
@@ -148,9 +157,8 @@ def px7_lo_que_se_da(modulos):
             # dir!(f), dir!(modulo::f), f::<...> (una generica en una vtabla), o
             # `sym f` (un trampolin en asm que la llama: el float de xmm3 de
             # ClearDepthStencilView pasa a un registro entero y salta a `f`).
-            dado = re.search(r"dir!\(\s*(?:\w+::)*%s\s*\)|\b%s::<|=\s*sym\s+(?:\w+::)*%s\b" % (re.escape(f), re.escape(f), re.escape(f)), todo)
-            llamado = len(re.findall(r"\b%s\s*\(" % re.escape(f), todo)) > 1
-            if not dado and not llamado:
+            # Llamada: `f(` mas de una vez (la primera es su propia definicion).
+            if f not in dados and llamadas.get(f, 0) <= 1:
                 malos.append("PX7 %s.rs: `%s` es una funcion de Windows que ninguna tabla da ni nadie llama" % (mod, f))
     return malos
 

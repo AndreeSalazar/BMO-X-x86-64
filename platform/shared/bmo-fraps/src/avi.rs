@@ -12,7 +12,7 @@
 //! ```
 //!
 //! Sin memoria dinamica: todo va en el bufer de quien graba. [`CABECERA`]
-//! bytes al principio que [`Avi::terminar`] rellena al final (los tamanos y
+//! bytes al principio que [`Avi::terminar`] rellena al final (los medidas y
 //! cuantos fotogramas: no se saben hasta entonces), y cada fotograma se
 //! escribe en su sitio ([`Avi::hueco`]) y se cierra ([`Avi::cerrar`]).
 //!

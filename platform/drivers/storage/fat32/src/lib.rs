@@ -149,7 +149,7 @@ pub struct FatVolume {
     pista: u32,
     /// ** LA FECHA DE LO QUE SE ESCRIBE (12-10): `(fecha, hora)` en el formato
     /// de FAT, la pone quien monta con [`FatVolume::poner_reloj`]. `(0, 0)`
-    /// = sin reloj (Windows lo ensena en blanco, como hasta hoy).
+    /// = sin reloj (Windows lo muestra en blanco, como hasta hoy).
     sello: (u16, u16),
     /// ** LOS LIBRES DEL FSINFO, LLEVADOS AL DIA (12-10, como Linux:
     /// `sbi->free_clusters`). `None` = aun no se leyeron; `Some(u32::MAX)` =
@@ -1165,7 +1165,7 @@ mod buscar;
 /// **Lo unico que MODIFICA el disco.** Junto, para poder leerlo entero antes de
 /// tocarlo -- en esta maquina el volumen de al lado es el Windows del propietario.
 mod escribir;
-/// **NOMBRES LARGOS, CARPETAS Y AÑADIR AL FINAL** (12-10): lo que FAT32 sabia
+/// **NOMBRES LARGOS, CARPETAS Y AGREGAR AL FINAL** (12-10): lo que FAT32 sabia
 /// leer de Windows y no sabia escribir.
 mod largo;
 pub use largo::{nombre_escribible, Hallada, NOMBRE_MAX};

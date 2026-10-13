@@ -93,16 +93,20 @@ def con_pruebas(nombre):
     ** Un crate que existe y NO tiene pruebas no dispara el aviso: existir no es
     estar hecho, y el arbol tiene trece crates asi, contados y dichos por el
     banco de `bmo.ps1`. Lo sospechoso es existir **y estar probado**.
+
+    ** Se le pide la LISTA (`-- --list`), no que las corra (13-10): correrlas
+    era repetir el banco entero de esos crates --el de PROTON-X solo son dos
+    minutos-- para contestar si existen. La lista dice lo mismo: una fila por
+    prueba, `nombre: test`.
     """
     try:
         r = subprocess.run(
-            ["cargo", "test", "-q", "-p", nombre],
+            ["cargo", "test", "-q", "-p", nombre, "--", "--list"],
             cwd=RAIZ, capture_output=True, text=True,
         )
     except Exception:
         return False
-    total = sum(int(n) for n in re.findall(r"(\d+) passed", r.stdout))
-    return total > 0
+    return re.search(r": test$", r.stdout, re.M) is not None
 
 
 def revisar():

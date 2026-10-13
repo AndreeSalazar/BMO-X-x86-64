@@ -263,7 +263,7 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 
 ## [`PLAN_AYNI.md`](PLAN_AYNI.md) -- 9 abiertas, 2 hechas
 
-*PLAN AYNI -- que la GPU gaste MENOS, con un cerebro pequeno en la CPU*
+*PLAN AYNI -- que la GPU gaste MENOS, con un cerebro chico en la CPU*
 
 - [ ] AY1 -- A0, el plazo. Un fotograma por VBlank, empezado tarde.
 - [ ] AY3 -- el mapa en la 3060. La imagen de tasas y su tabla por los

@@ -1,10 +1,10 @@
-//! Las pruebas de `largo.rs` (12-10): nombres largos, carpetas y anadir.
+//! Las pruebas de `largo.rs` (12-10): nombres largos, carpetas y agregar.
 //! Salieron de `pruebas.rs` por L6a moviendo texto: ni una linea cambia, y
 //! usan el disco de mentira de alli (`super`).
 
 use super::*;
 
-// == NOMBRES LARGOS, CARPETAS Y AÑADIR (12-10, `largo.rs`) ==================
+// == NOMBRES LARGOS, CARPETAS Y AGREGAR (12-10, `largo.rs`) ==================
 
 /// Lee entero lo que `hallar` encuentra.
 fn leer_largo(v: &mut FatVolume, dir: u32, n: &str) -> Option<Vec<u8>> {
@@ -80,14 +80,14 @@ fn el_directorio_crece_cuando_se_llena() {
 }
 
 #[test]
-fn anadir_al_final_sin_fin() {
+fn agregar_al_final_sin_fin() {
     let (_turno, mut v) = volumen();
     let inf = v.crear_carpeta(2, b"informe").unwrap();
     let mut todo = Vec::new();
     // Trozos que cruzan sectores y clusters (spc = 1), de tallas raras.
     for (k, t) in [1usize, 7, 300, 511, 512, 513, 2000, 3].into_iter().enumerate() {
         let trozo: Vec<u8> = (0..t).map(|i| (i * 7 + k * 13) as u8).collect();
-        let m = v.anadir(inf, b"vivo-sin-final.log", &trozo).unwrap();
+        let m = v.agregar(inf, b"vivo-sin-final.log", &trozo).unwrap();
         todo.extend_from_slice(&trozo);
         assert_eq!(m as usize, todo.len());
         assert_eq!(leer_largo(&mut v, inf, "vivo-sin-final.log").unwrap(), todo, "tras el trozo {k}");
@@ -98,10 +98,10 @@ fn anadir_al_final_sin_fin() {
 }
 
 #[test]
-fn anadir_a_uno_vacio_y_reemplazar_despues() {
+fn agregar_a_uno_vacio_y_reemplazar_despues() {
     let (_turno, mut v) = volumen();
     v.guardar_como(2, b"vacio.txt", b"").unwrap();
-    v.anadir(2, b"vacio.txt", b"hola").unwrap();
+    v.agregar(2, b"vacio.txt", b"hola").unwrap();
     assert_eq!(leer_largo(&mut v, 2, "vacio.txt").unwrap(), b"hola");
     v.guardar_como(2, b"vacio.txt", b"otra cosa").unwrap();
     assert_eq!(leer_largo(&mut v, 2, "vacio.txt").unwrap(), b"otra cosa");
@@ -128,7 +128,7 @@ fn el_tope_de_fat32_se_dice() {
     assert!(read(h.entrada.lba, 1, &mut s));
     s[h.entrada.offset + 28..h.entrada.offset + 32].copy_from_slice(&(u32::MAX - 1).to_le_bytes());
     assert!(write(h.entrada.lba, 1, &s));
-    assert!(matches!(v.anadir(2, b"grande.bin", b"xy"), Err(WriteError::Grande)));
+    assert!(matches!(v.agregar(2, b"grande.bin", b"xy"), Err(WriteError::Grande)));
 }
 
 /// **Contra un FAT32 de VERDAD** (12-10): `BMO_FAT32_IMAGEN=img cargo test
@@ -184,7 +184,7 @@ fn contra_una_imagen() {
         assert!(vistos.contains(&"un nombre largo con espacios.txt".to_string()), "{vistos:?}");
         assert!(vistos.contains(&"minus.txt".to_string()), "{vistos:?}");
         // Y BMO-X escribe al lado sin romper nada (luego lo juzga fsck).
-        v.anadir(c, b"un nombre largo con espacios.txt", b"y bmo-x anade\n").unwrap();
+        v.agregar(c, b"un nombre largo con espacios.txt", b"y bmo-x agrega\n").unwrap();
         return;
     }
     let Ok(ruta) = std::env::var("BMO_FAT32_IMAGEN") else { return };
@@ -207,7 +207,7 @@ fn contra_una_imagen() {
     let mut todo = Vec::new();
     for k in 0..200usize {
         let t: Vec<u8> = format!("linea {k} del informe que no se acaba nunca\n").into_bytes().repeat(k % 37 + 1);
-        v.anadir(inf, b"informe-sin-final.log", &t).unwrap();
+        v.agregar(inf, b"informe-sin-final.log", &t).unwrap();
         todo.extend_from_slice(&t);
     }
     std::fs::write(format!("{ruta}.esperado"), &todo).unwrap();

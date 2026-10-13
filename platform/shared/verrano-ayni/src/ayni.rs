@@ -137,7 +137,7 @@ impl Ayni {
         let (mut suma_error, mut medidas) = (0.0f32, 0u32);
         for k in 0..n {
             // Las lecciones empiezan en `turno` y dan la vuelta: con el
-            // tope, ninguna baldosa se queda sin ensenar.
+            // tope, ninguna baldosa se queda sin mostrar.
             let i = (self.turno + k) % n;
             let (bx, by) = (i % self.columnas, i / self.columnas);
             let b = ahora.baldosa(bx, by);

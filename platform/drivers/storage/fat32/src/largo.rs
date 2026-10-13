@@ -1,7 +1,7 @@
-//! **NOMBRES LARGOS, CARPETAS Y AÑADIR AL FINAL** (12-10).
+//! **NOMBRES LARGOS, CARPETAS Y AGREGAR AL FINAL** (12-10).
 //!
-//! El propietario: *"¿puedes hacer que mi kernel escriba sin final? pero que
-//! sepa escribir y bueno también organizar carpetas"*, y la carpeta `datos`
+//! El propietario: *"puedes hacer que mi kernel escriba sin final? pero que
+//! sepa escribir y bueno tambien organizar carpetas"*, y la carpeta `datos`
 //! pasa a llamarse `datos-componentes`. Hasta hoy este driver:
 //!
 //! ```text
@@ -25,7 +25,7 @@
 //!   (como FAT): `datos-componentes`, `DATOS-COMPONENTES` y `DATOS-~1`.
 //! * **Carpetas**, con su `.` y su `..`, y **directorios que crecen**: sin
 //!   hueco, se encadena un cluster nuevo (a ceros) y se sigue.
-//! * **Añadir al final** de un fichero que ya esta en el disco: se llena la
+//! * **Agregar al final** de un fichero que ya esta en el disco: se llena la
 //!   cola de su ultimo cluster y lo que sobra va a una cadena nueva que se
 //!   engancha detras. Es lo que deja al kernel escribir SIN FINAL: lo escrito
 //!   baja al disco a trozos, y la RAM ya no es el techo (solo lo es FAT32:
@@ -36,7 +36,7 @@
 //! * Crear: los datos primero, las entradas largas despues y **la entrada 8.3
 //!   la ULTIMA**. Un corte antes deja como mucho entradas largas huerfanas,
 //!   que la suma delata y todos (Windows incluido) ignoran.
-//! * Añadir: los bytes nuevos de la cola del ultimo cluster estan por DETRAS
+//! * Agregar: los bytes nuevos de la cola del ultimo cluster estan por DETRAS
 //!   de la medida apuntada, asi que no se ven; la cadena nueva se escribe
 //!   entera antes de engancharla; y **la medida se apunta la ULTIMA**, en un
 //!   solo sector. Un corte en cualquier punto deja el fichero de antes entero
@@ -102,14 +102,14 @@ fn nombre_valido(n: &[u8]) -> bool {
         && n.last() != Some(&b' ')
 }
 
-/// **¿FAT puede guardar este nombre?** (largo o 8.3). Para validar ANTES de
+/// **FAT puede guardar este nombre?** (largo o 8.3). Para validar ANTES de
 /// aceptar bytes que luego no se podrian guardar.
 pub fn nombre_escribible(n: &[u8]) -> bool {
     nombre_valido(sin_puntos_al_final(n))
 }
 
 /// El byte 12 de la entrada (`lcase` en Linux, `NTRes` en Microsoft): la base
-/// y la extension se ENSEÑAN en minuscula aunque se guarden en mayuscula.
+/// y la extension se MUESTRAN en minuscula aunque se guarden en mayuscula.
 const MINUSCULA_BASE: u8 = 0x08;
 const MINUSCULA_EXT: u8 = 0x10;
 
@@ -625,7 +625,7 @@ impl FatVolume {
         Ok(desde)
     }
 
-    /// ¿Hay ya una entrada con este 8.3 en `dir`?
+    /// Hay ya una entrada con este 8.3 en `dir`?
     fn corto_ocupado(&mut self, dir: u32, c: &[u8; 11]) -> Result<bool, WriteError> {
         let mut esta = false;
         if matches!(self.recorrer(dir, |v| { esta = v.corto() == *c; esta }), Fin::Roto) {
@@ -780,15 +780,15 @@ impl FatVolume {
         }
     }
 
-    /// **Añade `data` al final de `nombre`** (lo crea si no esta). Devuelve
+    /// **Agrega `data` al final de `nombre`** (lo crea si no esta). Devuelve
     /// la medida nueva. Ver la cabecera: la medida se apunta la ultima.
-    pub fn anadir(&mut self, dir: u32, nombre: &[u8], data: &[u8]) -> Result<u32, WriteError> {
-        let r = self.anadir_sin_fsinfo(dir, nombre, data);
+    pub fn agregar(&mut self, dir: u32, nombre: &[u8], data: &[u8]) -> Result<u32, WriteError> {
+        let r = self.agregar_sin_fsinfo(dir, nombre, data);
         self.fsinfo_al_dia();
         r
     }
 
-    fn anadir_sin_fsinfo(&mut self, dir: u32, nombre: &[u8], data: &[u8]) -> Result<u32, WriteError> {
+    fn agregar_sin_fsinfo(&mut self, dir: u32, nombre: &[u8], data: &[u8]) -> Result<u32, WriteError> {
         let nombre = sin_puntos_al_final(nombre);
         self.se_puede_escribir()?;
         if !nombre_valido(nombre) {

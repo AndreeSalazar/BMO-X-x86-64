@@ -397,6 +397,23 @@ try {
         if ($_ -match 'Compiling|Finished|error') { Write-Host ('    [kernel] ' + $_) -ForegroundColor DarkGray }
     }
     if ($LASTEXITCODE -ne 0) { Fail 'kernel build failed' }
+    # ** LOS AVISOS SE CUENTAN AQUI, en la salida de ESTE build (13-10).
+    # Antes el guardian `avisos` compilaba otro kernel entero (release, LTO)
+    # en su propio directorio solo para leerlos. Ver la cabecera de avisos.py.
+    $avisosTxt = Join-Path $kd 'avisos.txt'
+    $out | ForEach-Object { "$_" } | Set-Content -LiteralPath $avisosTxt -Encoding utf8
+    $py = (Get-Command python -ErrorAction SilentlyContinue)
+    if ($py) {
+        $avisosPy = Join-Path (Split-Path -Parent $root) 'toolchain\tools\avisos\avisos.py'
+        $salidaAvisos = & $py.Source $avisosPy --check --de $avisosTxt
+        if ($LASTEXITCODE -ne 0) {
+            $salidaAvisos | ForEach-Object { Write-Host ('    ' + $_) -ForegroundColor Red }
+            Fail 'avisos: los avisos del compilador SUBIERON (ver arriba)'
+        }
+        $salidaAvisos | Where-Object { $_ -match 'clean:' } | ForEach-Object { Write-Host ('    ' + $_.Trim()) -ForegroundColor DarkGray }
+    } else {
+        Write-Host '  [!] python no encontrado: no se cuentan los avisos del compilador' -ForegroundColor Yellow
+    }
 } finally { Pop-Location }
 
 # -- ** CUANTO BAJA EL KERNEL POR CADA PILA DE TAREA (2026-09-21) ---

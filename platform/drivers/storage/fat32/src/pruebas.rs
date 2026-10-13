@@ -1411,5 +1411,5 @@ fn lo_soltado_se_reusa() {
     assert_eq!(ocupados(&mut v), antes, "reemplazar cinco veces no gasta mas clusters");
 }
 
-// Los nombres largos, las carpetas y anadir viven en su fichero (L6a).
+// Los nombres largos, las carpetas y agregar viven en su fichero (L6a).
 mod nombres_largos;

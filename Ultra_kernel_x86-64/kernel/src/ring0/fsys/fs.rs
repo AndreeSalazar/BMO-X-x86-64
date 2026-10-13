@@ -221,7 +221,7 @@ pub fn dir_de(ruta: &str) -> Option<(bool, u32)> {
         };
         if !arranque {
             if let Some(r) = de_la_vieja(resto) {
-                // `ls datos` ensena los componentes (si ya estan desplegados),
+                // `ls datos` muestra los componentes (si ya estan desplegados),
                 // y si no, lo que se escribio alli (`informe/`).
                 let raiz = v.root_cluster();
                 for base in [COMPONENTES, INFORME] {
@@ -361,7 +361,7 @@ pub fn carpeta_para_escribir(carpeta: &str) -> Result<u32, WriteError> {
     Ok(dir)
 }
 
-/// ¿Se puede escribir un fichero con este nombre? (largo o 8.3)
+/// Se puede escribir un fichero con este nombre? (largo o 8.3)
 pub fn nombre_escribible(n: &str) -> bool {
     bmo_fat32::nombre_escribible(n.as_bytes())
 }
@@ -386,14 +386,14 @@ pub fn guardar_como(dir: u32, nombre: &[u8], data: &[u8]) -> Result<(), WriteErr
     r
 }
 
-/// **Añade `data` al final de `nombre`** en `dir` (lo crea si no esta).
+/// **Agrega `data` al final de `nombre`** en `dir` (lo crea si no esta).
 /// Devuelve la medida nueva. Es lo que deja escribir SIN FINAL: lo escrito
 /// baja al disco a trozos (`obj/file.rs`) y la RAM ya no es el techo.
-pub fn anadir(dir: u32, nombre: &[u8], data: &[u8]) -> Result<u32, WriteError> {
+pub fn agregar(dir: u32, nombre: &[u8], data: &[u8]) -> Result<u32, WriteError> {
     let v = unsafe { (*core::ptr::addr_of_mut!(DATA_VOLUME)).as_mut() }.ok_or(WriteError::ReadOnly)?;
     let t0 = crate::ring0::task::scheduler::rdtsc();
     sellar(v);
-    let r = v.anadir(dir, nombre, data);
+    let r = v.agregar(dir, nombre, data);
     apuntar_guardado(t0);
     if r.is_ok() {
         disk::vaciar_sin_esperar();

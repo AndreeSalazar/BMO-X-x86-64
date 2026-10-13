@@ -52,6 +52,21 @@ esto. El dia que hagan falta, se agregan con su propia cifra.
 no mata**. Mismo trato que el sello de VALKYRIE: un guardian que no puede mirar
 tiene que confesarlo, no aprobar en silencio -- pero tampoco puede impedir que se
 construya en una maquina que no es la del propietario.
+
+Donde se cuentan (13-10)
+========================
+
+    python avisos.py --check --de <fichero>   los cuenta en la salida de un
+                                              build que YA se hizo
+    python avisos.py --check                  compila el kernel para contarlos
+
+Hasta el 13-10 este guardian COMPILABA EL KERNEL OTRA VEZ, en release con LTO
+y en su propio directorio, mientras la ventana COMPILAR compilaba el mismo
+kernel: dos kernels enteros por build para leer unas lineas que el primero ya
+habia escrito. Ahora `build.ps1` guarda la salida de SU build y este guardian
+la lee (`--de`). Cargo repite los avisos de lo que no recompila, asi que un
+build sin cambios los cuenta igual. Sin `--de` compila, como antes: para
+correrlo suelto.
 """
 
 import argparse
@@ -81,8 +96,23 @@ def leer_base():
     return None
 
 
-def contar():
-    """`(cuantos, [textos])` o `None` si no se puede mirar."""
+def avisos_de(texto):
+    """Los avisos de una salida de cargo (sin el resumen)."""
+    fuera = []
+    for linea in texto.splitlines():
+        if AVISO.match(linea) and not RESUMEN.match(linea):
+            fuera.append(linea[len("warning: "):].strip())
+    return fuera
+
+
+def contar(de=None):
+    """`[textos]` o `None` si no se puede mirar."""
+    if de:
+        try:
+            with open(de, "r", encoding="utf-8", errors="replace") as f:
+                return avisos_de(f.read())
+        except OSError:
+            return None
     try:
         p = subprocess.run(
             ["cargo", "build", "--release", "--target", "x86_64-unknown-none"],
@@ -92,16 +122,13 @@ def contar():
         return None
     if p.returncode != 0:
         return None
-    fuera = []
-    for linea in p.stderr.splitlines():
-        if AVISO.match(linea) and not RESUMEN.match(linea):
-            fuera.append(linea[len("warning: "):].strip())
-    return fuera
+    return avisos_de(p.stderr)
 
 
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--check", action="store_true")
+    ap.add_argument("--de", help="la salida de un build del kernel ya hecho")
     args = ap.parse_args()
 
     base = leer_base()
@@ -109,7 +136,7 @@ def main():
         print("no hay LINEA_BASE.txt: este guardian no sabe contra que comparar")
         return 1 if args.check else 0
 
-    avisos = contar()
+    avisos = contar(args.de)
     # ** NO PUEDE MIRAR: lo dice y sigue. Ver la cabecera.
     if avisos is None:
         print("[i] no se pudo compilar el kernel para contarlos (cargo, el target")

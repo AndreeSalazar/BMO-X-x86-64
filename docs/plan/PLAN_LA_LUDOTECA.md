@@ -1350,7 +1350,7 @@ capturas (Impr Pant, PNG propio) ya existian.
       `capturas/vidNNNNN.avi`: **MJPEG en AVI**, lo que YouTube, VLC y
       Windows abren tal cual. Las piezas, puras y probadas en el anfitrion:
       `bmo_imagen::jpeg_escribir` (JPEG baseline 4:2:0, entero; contra
-      Pillow 12.3, el mismo error y tamano que libjpeg) y `bmo_fraps::avi`
+      Pillow 12.3, el mismo error y medida que libjpeg) y `bmo_fraps::avi`
       (el contenedor; ffprobe: 60 fotogramas, 30/1, 2,000 s). Cada
       fotograma es el del instante `k / fps`: lo que no se pinto o no llego a
       tiempo va vacio (repite), y el video dura lo que duro de verdad.
