@@ -76,6 +76,11 @@ if ctrl && m & bmo::MOD_SHIFT != 0 && c == 0x02 {
     crate::desktop::fraps::banco(dsk, p);
     return Key::Taken;
 }
+// ** FRAPS-X GRABA (13-10): Ctrl+Shift+R empieza y para (el F9 de FRAPS).
+if ctrl && m & bmo::MOD_SHIFT != 0 && c == 0x12 {
+    crate::desktop::grabar::alternar(dsk, p, crate::desktop::grabar::Opciones::POR_DEFECTO);
+    return Key::Taken;
+}
 if alt_alone && c == 0x09 {
     if m & bmo::MOD_SHIFT != 0 {
         dsk.win.focus.conmutar_atras();

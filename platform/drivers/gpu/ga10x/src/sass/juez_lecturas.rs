@@ -82,7 +82,7 @@ fn e8f_el_ldc_de_la_app_y_sus_tres_cerrojos() {
     assert_eq!(juzgar_drenado(&mal, &ctx).unwrap_err().regla, Regla::R1DatoAntesDeLlegar);
     // R7: el banco 3, de 128 bytes (8 filas).
     let banco = Some(BancoDeApp { numero: 3, bytes: 128 });
-    let p = Permisos { asas: 0, banco };
+    let p = Permisos { asas: 0, banco, ..Permisos::default() };
     let sujeta = |tope: u32| c::imnmx(0, 1, Fuente::Imm(tope), false, false, 1);
     let ldc = |b: u8, ra: u8, desp: u16| c::ldc(2, b, ra, desp, true, 1);
     let ldc2 = c::ldc(4, 3, 0, 0x8, true, 1);

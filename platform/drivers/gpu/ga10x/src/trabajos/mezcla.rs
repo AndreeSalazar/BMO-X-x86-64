@@ -197,7 +197,9 @@ impl Trabajo {
 /// **Leer lo que ya esta** (la parte que no se simula: IPA ya hecho en `s`
 /// y `s + 1`, la direccion y los LDG). La primera espera la barrera 0 (los
 /// IPA); los LDG escriben [`B_LEER`].
-pub fn leer_destino(dst: &Destino, s: u64, o: &mut impl FnMut((u64, u64))) {
+/// `desplazamiento`: donde empieza el destino en su pagina (Q0a1b, a 128 B):
+/// va en el inmediato del LDG.
+pub fn leer_destino(dst: &Destino, desplazamiento: u32, s: u64, o: &mut impl FnMut((u64, u64))) {
     let w = Trabajo(s);
     // x e y: el centro del pixel (n + 0.5); n - 0.5 + 2^23 es un entero
     // EXACTO (< 2^24), y sus bits menos los de 2^23 son n.
@@ -213,7 +215,7 @@ pub fn leer_destino(dst: &Destino, s: u64, o: &mut impl FnMut((u64, u64))) {
     let palabras = if dst.flotante == Flotante::Rgba32 { 4 } else { 1 };
     for c in 0..4u64 {
         // A 8 bits, la misma palabra en los cuatro (cada uno saca su byte).
-        let desde = if palabras == 4 { 4 * c as u32 } else { 0 };
+        let desde = desplazamiento + if palabras == 4 { 4 * c as u32 } else { 0 };
         if palabras == 4 || dst.flotante == Flotante::No || c == 0 {
             o(crate::tuberia::ldg(w.d(c), w.t(2), desde, crate::tuberia::carga(B_LEER)));
         }
@@ -294,6 +296,32 @@ pub fn mezclar(m: &Mezcla, dst: &Destino, s: u64, o: &mut impl FnMut((u64, u64))
 mod pruebas {
     use super::*;
     use bmo_sm86::codifica as c;
+
+    /// ** Q0a1b (12-10): el destino que empieza a mitad de pagina se lee en
+    /// SU sitio: lo que se mete en la pagina va en el inmediato de cada LDG.
+    #[test]
+    fn leer_destino_a_mitad_de_pagina() {
+        extern crate std;
+        // (formato, palabras distintas, LDG): a 8 bits, la MISMA palabra en
+        // los cuatro canales.
+        for (flotante, palabras, cargas) in [(Flotante::Rgba32, 4u32, 4usize), (Flotante::No, 1, 4), (Flotante::R32, 1, 1)] {
+            let dst = Destino { fila: 256 * flotante.bytes(), ancho: 256, alto: 4, flotante, rgb: false };
+            for desp in [0u32, 0x400, 0xf80] {
+                let mut w = std::vec::Vec::new();
+                leer_destino(&dst, desp, 20, &mut |x| w.push(x));
+                let t = Trabajo(20);
+                for c in 0..palabras {
+                    let ldg = crate::tuberia::ldg(t.d(c as u64), t.t(2), desp + 4 * c * (palabras == 4) as u32, crate::tuberia::carga(B_LEER));
+                    assert!(w.contains(&ldg), "{flotante:?} {desp:#x}: el LDG {c}");
+                }
+                assert_eq!(w.iter().filter(|x| x.0 & 0xFFF == ldg_op()).count(), cargas);
+            }
+        }
+    }
+
+    fn ldg_op() -> u64 {
+        crate::tuberia::ldg(0, 0, 0, 0).0 & 0xFFF
+    }
 
     #[test]
     fn las_palabras_son_las_del_codificador() {

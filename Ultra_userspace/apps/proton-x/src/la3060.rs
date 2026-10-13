@@ -89,6 +89,9 @@ struct Estado {
     censo_dicho: (u64, u64),
     /// 12-10: los motivos con su numero DXGI (`con_numero`).
     numerados: Vec<(u32, &'static str)>,
+    /// 12-10: los PORQUE de los NO del kernel (`INFO_GPU_PORQUE`), cada uno
+    /// una vez y con cuantas veces: el censo los dice.
+    porques: Vec<(String, u64)>,
 }
 
 /// **El recuerdo de los `.bsf` en ESTRATOS** (A9, 06-10): cada PSO, un
@@ -227,6 +230,7 @@ static ESTADO: Celda = Celda(core::cell::UnsafeCell::new(Estado {
     censo: bmo_proton_x_sm86::censo::Censo::nuevo(),
     censo_dicho: (0, 0),
     numerados: Vec::new(),
+    porques: Vec::new(),
 }));
 
 /// Cada cuanto se dice el censo (LI0), en la consola y en el DIARIO; en el
@@ -241,6 +245,24 @@ static NO_DEL_KERNEL: core::sync::atomic::AtomicU64 = core::sync::atomic::Atomic
 
 pub(crate) fn modo_3060() {
     MODO_3060.store(true, core::sync::atomic::Ordering::Relaxed);
+}
+
+/// LI2f: si la 3060 se dejo (un canal muerto, o tres NO seguidos): el
+/// computo tampoco va.
+pub(crate) fn apagada() -> bool {
+    // SAFETY: ver `Celda`.
+    unsafe { (*ESTADO.0.get()).apagada }
+}
+
+/// LI2f: dejar la 3060 (el computo vio el canal muerto).
+pub(crate) fn apagar() {
+    // SAFETY: ver `Celda`.
+    unsafe { (*ESTADO.0.get()).apagada = true };
+}
+
+/// LI2f: el porque del ultimo NO del kernel, para el computo.
+pub(crate) fn porque_del_kernel() -> String {
+    el_porque()
 }
 
 pub(crate) fn en_modo_3060() -> bool {
@@ -307,6 +329,22 @@ fn flotante_de(d: &Destino) -> Option<(u32, u32)> {
     Some((f, palabras))
 }
 
+/// **LI2d (12-10): los render targets 1.. del dibujo** (`trama::Otro`), para
+/// la puerta: su VA, su orden de bytes y, si es de float, su formato y las
+/// palabras por texel (como [`flotante_de`]). Uno sin pixeles es un RTV nulo.
+fn mas_de(d: &Destino) -> puerta::MasDelLote {
+    let mut m = puerta::SIN_MAS;
+    let texeles = d.ancho as usize * d.alto as usize;
+    for (x, o) in m.iter_mut().zip(d.otros.iter()) {
+        *x = o.pixeles.as_deref().filter(|p| !p.is_empty()).map(|p| puerta::Mas {
+            va: p.as_ptr() as u64,
+            bgra: o.bgra,
+            flotante: o.flotante.map(|f| (f, if texeles == 0 { 0 } else { (p.len() / texeles) as u32 })),
+        });
+    }
+    m
+}
+
 /// **El censo de la 3060** a la consola y al DIARIO (LI0, 12-10).
 fn decir_censo(e: &mut Estado, ahora: u64) {
     e.censo_dicho = (ahora, e.censo.lotes);
@@ -319,6 +357,9 @@ fn decir_censo(e: &mut Estado, ahora: u64) {
         NO_DEL_KERNEL.load(core::sync::atomic::Ordering::Relaxed),
         if e.apagada { "; la 3060 se dejo (los lotes, por la CPU)" } else { "" }
     ));
+    for (porque, veces) in &e.porques {
+        s.push_str(&alloc::format!("#   el kernel dijo NO {veces} vez/veces porque: {porque}\n"));
+    }
     bmo::consola("PROTON-X: el censo de la 3060 (LI0):\n");
     let n = s.lines().count();
     for (k, linea) in s.lines().enumerate() {
@@ -343,6 +384,13 @@ fn soltar_pantalla(e: &mut Estado) {
         e.sin_pantalla = true;
         bmo::consola("PROTON-X: la pantalla directa se suelta (Z1): el escritorio vuelve a componer la ventana\n");
     }
+}
+
+/// **El porque del ultimo NO del kernel** (`INFO_GPU_PORQUE`), en palabras.
+fn el_porque() -> String {
+    let mut s = String::new();
+    let _ = bmo_proton_x_sm86::porque::decir(bmo::info(bmo::INFO_GPU_PORQUE), &mut s);
+    s
 }
 
 fn decir(e: &mut Estado, motivo: String) {
@@ -404,7 +452,7 @@ pub fn dibujar(l: &Lote, d: &mut Destino) -> Result<Cuenta, NoDibuja> {
         // targets PROPIOS (256x1, 256x256). Q0a1 (12-10): la puerta dibuja
         // otras medidas; lo que NO, lo dice ella (`puerta::medida`).
         if !d.pixeles.is_empty() {
-            let b = Blanco { va: d.pixeles.as_ptr() as u64, ancho: d.ancho, alto: d.alto, bgra: d.bgra, cadena: d.cadena, flotante: None };
+            let b = Blanco { va: d.pixeles.as_ptr() as u64, ancho: d.ancho, alto: d.alto, bgra: d.bgra, cadena: d.cadena, flotante: None, mas: puerta::SIN_MAS };
             let f = match flotante_de(d).map(|f| puerta::de_flotante(f.0, f.1)) {
                 Some(Ok((f, _))) => Some(f),
                 Some(Err(_)) => None,
@@ -435,6 +483,7 @@ pub fn dibujar(l: &Lote, d: &mut Destino) -> Result<Cuenta, NoDibuja> {
             bgra: d.bgra,
             cadena: d.cadena,
             flotante: flotante_de(d),
+            mas: mas_de(d),
         };
         let carpeta = e.carpeta_bsf.clone();
         let p = e.puerta.get_or_insert_with(|| {
@@ -522,7 +571,13 @@ pub fn dibujar(l: &Lote, d: &mut Destino) -> Result<Cuenta, NoDibuja> {
                         NO_DEL_KERNEL.fetch_add(1, core::sync::atomic::Ordering::Relaxed);
                         p.despues(l, false);
                         e.negados += 1;
-                        decir(e, alloc::format!("el kernel dijo que no a la receta (motivo {m}; el porque, en `cabina fallos`)"));
+                        // 12-10: el kernel apunta SU porque (a este proceso).
+                        let porque = el_porque();
+                        match e.porques.iter_mut().find(|x| x.0 == porque) {
+                            Some(x) => x.1 += 1,
+                            None => e.porques.push((porque.clone(), 1)),
+                        }
+                        decir(e, alloc::format!("el kernel dijo que no a la receta (motivo {m}): {porque}"));
                         if e.negados >= 3 {
                             e.apagada = true;
                             bmo::consola("PROTON-X: tres NO seguidos del kernel: la 3060 se deja; el resto, por la CPU\n");

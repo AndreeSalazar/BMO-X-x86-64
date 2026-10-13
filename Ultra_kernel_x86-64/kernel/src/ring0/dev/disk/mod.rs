@@ -472,7 +472,7 @@ unsafe fn ata_string(src: *const u8, first: usize, last: usize, dst: &mut [u8]) 
 fn identify() {
     let dma = unsafe { DMA_PHYS };
     if dma == 0 { return; }
-    match unsafe { bmo_ahci::identify_phys(unsafe { PORT }, dma) } {
+    match unsafe { bmo_ahci::identify_phys({ PORT }, dma) } {
         Ok(_) => {}
         Err(e) => {
             crate::ring0::cabina::warn("disk", e.name(), 0);
@@ -689,7 +689,7 @@ pub fn write(lba: u64, count: u16, data: &[u8]) -> u16 {
             return done;
         }
         phys::en_vuelo(dma, phys::APARATO_AHCI, t0);
-        let put = match unsafe { bmo_ahci::write_sectors_phys(unsafe { PORT }, lba + done as u64, batch, dma) } {
+        let put = match unsafe { bmo_ahci::write_sectors_phys({ PORT }, lba + done as u64, batch, dma) } {
             Ok(n) => n,
             Err(e) => {
                 // ** Aterriza TAMBIEN cuando falla. Un vuelo que solo se cierra
@@ -722,7 +722,7 @@ pub fn flush() -> bool {
     if !ajeno::escribible(unsafe { PORT }) {
         return false;
     }
-    match unsafe { bmo_ahci::flush_cache(unsafe { PORT }) } {
+    match unsafe { bmo_ahci::flush_cache({ PORT }) } {
         Ok(()) => true,
         Err(e) => {
             crate::ring0::cabina::fault("disk", e.name(), 0);

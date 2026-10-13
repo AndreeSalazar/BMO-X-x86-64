@@ -5,4 +5,5 @@
 #
 # 2026-09-08  97 -> 38   (cargo fix + el despachador arreglado + 4 muertos)
 # 2026-09-13  38 -> 37   (L8b: CABINA partida en registro y mirador)
-37
+# 2026-10-13  40 -> 14   (los unsafe que sobraban de fat32/disk/endpoint, LI2f)
+14

@@ -178,7 +178,7 @@ const _: () = assert!(VA % (2 << 20) == 0 && indices(VA)[2] != indices(crate::de
 const _: () = assert!(BYTES <= PTS as u64 * (2 << 20) && BYTES == 3_932_160 && FILA % GOB_ANCHO == 0);
 // Tras las tablas del destino, y antes de los buferes del GR; la superficie,
 // tras los buferes del GR (0x0800_0000 + 26560 KiB).
-const _: () = assert!(TABLAS >= crate::destino::TABLAS + (1 + crate::destino::PTS as u64) * PAGINA && TABLAS + (1 + PTS as u64) * PAGINA <= 0x0800_0000);
+const _: () = assert!(TABLAS >= crate::destino::TABLAS + (1 + crate::destino::PTS_TODAS as u64) * PAGINA && TABLAS + (1 + PTS as u64) * PAGINA <= 0x0800_0000);
 const _: () = assert!(VRAM >= crate::gr::VRAM + 26560 * 1024 && VRAM % (2 << 20) == 0);
 
 #[cfg(test)]

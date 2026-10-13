@@ -85,6 +85,10 @@ pub const RESERVA_SIN_RAM: u32 = 4;
 pub const RESERVA_SIN_MARCOS: u32 = 5;
 /// Un mapeo fallo a mitad: el valor, cuantos bytes si se hicieron.
 pub const RESERVA_NO_MAPEA: u32 = 6;
+/// DESHACER esperando a la 3060 (12-10): una puerta suya seguia dentro
+/// pasados 2 s, y sus paginas podrian estar PRESTADAS (el destino de una
+/// receta, `gpu_trabajo::cubo`): no se devuelve nada. Ver `respiro::fuera_de_la_gpu`.
+pub const RESERVA_GPU_VIENDO: u32 = 7;
 
 #[derive(Clone, Copy)]
 struct Cuenta {
@@ -196,6 +200,24 @@ pub fn deshacer(pid: u32, aspace: u64, va: u64, bytes: u64) -> Result<u64, (u32,
     }
     restar(pid, devueltos);
     Ok(devueltos)
+}
+
+/// Si `[va, va + bytes)` cae entero en la ventana de reserva.
+pub fn en_la_ventana(va: u64, bytes: u64) -> bool {
+    va >= VENTANA_BASE && va.checked_add(bytes).is_some_and(|fin| bytes != 0 && fin <= VENTANA_BASE + VENTANA_BYTES)
+}
+
+/// **El marco de una pagina HECHA de la reserva**, para prestarlo a un
+/// aparato o leerlo por el physmap (12-10, la 3060): `va` en la ventana,
+/// presente y de usuario (y escribible con `escribe`) en el espacio
+/// `aspace`, PROPIA (`PTE_NUESTRA`: un marco que dio [`hacer`], nunca un
+/// aparato mapeado) y dentro del physmap. `None` si no -- una pagina que no
+/// se hizo, tambien: lo que no esta no se presta.
+pub fn marco(aspace: u64, va: u64, escribe: bool) -> Option<u64> {
+    if !en_la_ventana(va & !(mm::PAGE - 1), mm::PAGE) {
+        return None;
+    }
+    vmm::marco_propio_ring3(aspace, va, escribe).filter(|&f| f.checked_add(mm::PAGE).is_some_and(|fin| fin <= mm::PHYSMAP_SIZE))
 }
 
 /// Lo que tiene hecho `pid` ahora (para CABINA y el informe).

@@ -40,7 +40,7 @@ fn por_la_puerta(ids: &[u32], mezcla: m::Mezcla, con_z: bool, limpiar: bool, bla
 }
 
 fn blanco(flotante: Option<(u32, u32)>) -> Blanco {
-    Blanco { va: 0x4000_0000, ancho: 256, alto: 256, bgra: true, cadena: false, flotante }
+    Blanco { va: 0x4000_0000, ancho: 256, alto: 256, bgra: true, cadena: false, flotante, mas: crate::puerta::SIN_MAS }
 }
 
 /// *** El cuadro de pantalla completa con transparencia, a 8 bits y en un

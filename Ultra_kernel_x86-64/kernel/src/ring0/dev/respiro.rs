@@ -193,6 +193,25 @@ pub fn con_la_gpu<R>(f: impl FnOnce() -> R) -> R {
     r
 }
 
+/// **Devolver memoria de un proceso SIN la 3060 viendola** (12-10): DESHACER
+/// la reserva y SOLTAR un bloque pasan por la puerta de la 3060, porque la
+/// titular, apartada en su respiro, puede tener ESA memoria prestada (el
+/// destino de una receta) y la 3060 escribiendo en ella. Como
+/// [`con_la_gpu`], pero si en 2 s no se pudo entrar NO se hace nada (`None`):
+/// aqui no hay muerte que no pueda esperar, y devolver con la 3060 viendo es
+/// lo unico que no se puede.
+pub fn fuera_de_la_gpu<R>(f: impl FnOnce() -> R) -> Option<R> {
+    let e = entrar();
+    if e == Entrada::NoSePudo {
+        return None;
+    }
+    let r = f();
+    if e == Entrada::Nueva && salir() {
+        scheduler::terminar(scheduler::current_tid());
+    }
+    Some(r)
+}
+
 /// **Salir de la puerta**. `true` si a la tarea la cerraron mientras estaba
 /// dentro: quien llama la termina YA (revocar y `exit_current`, como EXIT).
 pub fn salir() -> bool {

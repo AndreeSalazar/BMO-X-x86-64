@@ -33,7 +33,7 @@ impl FatVolume {
         loop {
             let Some(lba) = self.lba_valido(cluster) else { return None };
             for s in 0..spc {
-                unsafe {
+                {
                     if !self.read_sector(lba + s, Buf::buf) { continue; }
                 }
                 let entries = self.buf.as_ptr() as *const DirEntry;
@@ -60,7 +60,7 @@ impl FatVolume {
         loop {
             let Some(lba) = self.lba_valido(cluster) else { return None };
             for s in 0..spc {
-                unsafe {
+                {
                     if !self.read_sector(lba + s, Buf::buf) { continue; }
                 }
                 for i in 0..16 {
@@ -151,7 +151,7 @@ impl FatVolume {
         loop {
             let Some(lba) = self.lba_valido(cluster) else { return None };
             for s in 0..spc {
-                unsafe {
+                {
                     if !self.read_sector(lba + s, Buf::buf) { continue; }
                 }
                 let entries = self.buf.as_ptr() as *const DirEntry;

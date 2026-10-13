@@ -38,6 +38,9 @@ pub use imagen::{imagen, imagen_formato, IOMMU_NO_IMAGEN};
 // quien lo pide; lo juzga el, con la cuenta de VERRANO.
 mod completa;
 pub use completa::{completa, completa_formato, completar_de_app, IOMMU_NO_COMPLETA};
+/// LI2f (13-10): la TERCERA puerta estrecha -- el computo de una app (VRC1).
+mod computo;
+pub use computo::computo_de_app;
 /// X5: el cubo del estudio D3D por la 3060, en una ventana de la pantalla.
 mod cubo;
 pub use cubo::{cubo, info_receta, pantalla_para, receta};
@@ -48,6 +51,10 @@ mod vigilante;
 /// dibujo de una receta y dicho solo a quien la mando.
 mod libreta;
 pub use vigilante::eterno;
+/// 12-10: el PORQUE del ultimo NO de la puerta de las apps, para quien lo
+/// recibio (`INFO_GPU_PORQUE`).
+mod porque;
+pub use porque::info as info_porque;
 
 // == M5d S1 y S3: EL COMPUTO Y EL PRIMER TRABAJO DEL GR (2026-09-24) ==========
 //

@@ -152,6 +152,8 @@ pub(crate) enum Command<'a> {
     /// `fraps`: el contador de FPS (siguiente esquina, o fuera); `fraps banco`:
     /// empieza o para el banco. Lo mismo que Ctrl+Shift+F y Ctrl+Shift+B.
     Fraps(bool),
+    /// FRAPS-X graba (`fraps grabar [fps] [mitad] [calidad N]`); `None`: mal dicho.
+    Grabar(Option<crate::desktop::grabar::Opciones>),
     /// `sella` escrito AQUI, donde ya no vive: la orden se mudo a la ventana de
     /// ESTRATOS (F12, tecla `S`) y esto lleva la nota con la direccion nueva.
     SealMoved,
@@ -468,6 +470,7 @@ pub(crate) fn parse(line: &[u8]) -> Command<'_> {
         }
         b"calc" | b"calculadora" => Command::Calculator,
         b"aspecto" | b"estilo" => Command::Aspecto,
+        b"fraps" | b"fps" if rest.starts_with(b"grabar") => Command::Grabar(crate::desktop::grabar::Opciones::de(&rest[6..])),
         b"fraps" | b"fps" => Command::Fraps(matches!(rest, b"banco" | b"bench" | b"benchmark")),
         b"captura" | b"screenshot" | b"impr" => Command::Captura(match rest {
             b"ventana" => 1,

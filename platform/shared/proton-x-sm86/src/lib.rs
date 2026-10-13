@@ -67,6 +67,8 @@ extern crate alloc;
 
 pub mod planifica;
 pub mod simula;
+/// LI2f (12-10): un grupo de computo -- sus hilos, su compartida y sus barreras.
+pub mod simula_grupo;
 /// DL10 (09-10): la FFMA exacta, en sus cuatro redondeos (la del simulador).
 pub mod fma;
 
@@ -96,6 +98,9 @@ pub mod puerta;
 pub mod solape;
 /// LI0 (12-10): el censo de la 3060 -- todas las puertas de cada lote, contadas.
 pub mod censo;
+/// 12-10: el PORQUE de cada NO del kernel (el vocabulario es del driver:
+/// `bmo_gpu_ga10x::porque`; PROTON-X lo lee y lo dice).
+pub use bmo_gpu_ga10x::porque;
 
 // A9 (06-10): el .bsf vivo: generar, comprobar bit a bit y recordar.
 pub mod vivo;
@@ -104,6 +109,16 @@ pub mod libreta;
 /// P3b4c.8 T0: el muestreador y la textura de la casa en el TSC y el TIC de
 /// la 3060 (29-09).
 pub mod muestreo;
+/// LI2f (12-10): el computo de una app -- los ids, la barrera y los UAV
+/// crudos y estructurados, con la direccion SUJETA.
+mod uav;
+/// LI2f (12-10): la memoria compartida del grupo (`groupshared`), sujeta.
+mod compartida;
+/// LI2f (12-10): lo que todo el grupo corre a la vez (para la barrera).
+mod uniforme;
+pub use uav::{permisos_computo, receta_computo, DelUav, CONTADOR, SRV};
+/// LI2f: la receta de computo y lo que contesta el kernel (del driver).
+pub use bmo_gpu_ga10x::trabajos::{computo_app, receta_computo as vrc1};
 
 use alloc::vec;
 use alloc::vec::Vec;
@@ -153,6 +168,10 @@ pub enum Precarga {
     /// van juntos en Rb, Rb+1). Una por lectura: el nivel de una no pisa el
     /// de otra mientras la 3060 aun lo lee.
     AsaPar { textura: u8, muestreador: u8, reg: u8 },
+    /// ** LI2f (12-10): lo que el KERNEL dice del UAV `u` ([`DelUav`]), en
+    /// `reg` (la base, en el par `reg`, `reg + 1`). Fijo todo el programa:
+    /// el cuerpo no lo puede pisar (R7), y con el se SUJETA cada direccion.
+    Uav { u: u8, que: DelUav, reg: u8 },
 }
 
 /// Como se cronometra una instruccion (las clases del juez que emite esto).
@@ -260,6 +279,9 @@ struct Emisor<'a> {
     /// escribe. Mas MOV y menos registros; solo si sin ello no cabe
     /// ([`emitir_libreta`]).
     frugal: bool,
+    /// ** LI2f (12-10): si el control de cada operacion es UNIFORME en el
+    /// grupo (`uniforme.rs`): una barrera solo ahi.
+    uniforme: Vec<bool>,
 }
 
 /// Un `si` o un bucle abierto mientras se emite.
@@ -454,8 +476,9 @@ impl Emisor<'_> {
         }
         let n = match pedida {
             Precarga::Fila { .. } => 4,
-            // ** E8g: el par lo pide `precarga_par`, nunca compartido.
-            Precarga::AsaPar { .. } => return Err(NoEmite::Registros),
+            // ** E8g: el par lo pide `precarga_par`, nunca compartido; LI2f:
+            // lo de un UAV, `precarga_uav`.
+            Precarga::AsaPar { .. } | Precarga::Uav { .. } => return Err(NoEmite::Registros),
             _ => 1,
         };
         // n seguidos (una fila va con un LDG.128: alineada a 4 registros).
@@ -477,7 +500,7 @@ impl Emisor<'_> {
             Precarga::Entrada { elemento, componente, .. } => Precarga::Entrada { elemento, componente, reg },
             Precarga::Fila { fila, .. } => Precarga::Fila { fila, reg },
             Precarga::Asa { textura, muestreador, .. } => Precarga::Asa { textura, muestreador, reg },
-            Precarga::AsaPar { .. } => unreachable!("arriba"),
+            Precarga::AsaPar { .. } | Precarga::Uav { .. } => unreachable!("arriba"),
         });
         Ok(reg)
     }
@@ -626,6 +649,7 @@ fn emitir_modo(p: &Programa, registros: u32, abi: Abi, libreta: bool, frugal: bo
         abiertos: Vec::new(),
         pares: vec![None; p.ops.len()],
         frugal,
+        uniforme: if p.ops.iter().any(|o| matches!(o, Op::Barrera)) { uniforme::control_uniforme(p) } else { Vec::new() },
     };
     // Con `Abi::Registros` TODO lo precargado se pide ANTES del cuerpo: el
     // pegamento lo carga al empezar, asi que su registro no puede servir de
@@ -646,6 +670,29 @@ fn emitir_modo(p: &Programa, registros: u32, abi: Abi, libreta: bool, frugal: bo
                     e.pares[i_op] = Some(e.precarga_par(t, s)?);
                     continue;
                 }
+                // ** LI2f: lo que el kernel dice de cada UAV, fijo.
+                Op::LeeUav { u, modo, .. } | Op::EscribeUav { u, modo, .. } | Op::Atomico { u, modo, .. } => {
+                    e.precargas_uav(u, modo, i_op)?;
+                    continue;
+                }
+                Op::MedidasUav { u, modo, .. } => {
+                    e.precarga_medida(u, modo, i_op)?;
+                    continue;
+                }
+                // ** LI2f: el contador de un UAV, una palabra cruda.
+                Op::Contador { u, .. } if u < CONTADOR => {
+                    e.precargas_uav(u | CONTADOR, bmo_proton_x::bufer::Modo::Crudo, i_op)?;
+                    continue;
+                }
+                // ** LI2f: un SRV de bufer se lee como un UAV (de solo leer).
+                Op::Lee { t, como: bmo_proton_x::dxil::programa::Lectura::Bufer(modo), .. } if t != bmo_proton_x::dxil::programa::DINAMICA && t < SRV => {
+                    e.precargas_uav(t | SRV, modo, i_op)?;
+                    continue;
+                }
+                Op::Lee { t, como: bmo_proton_x::dxil::programa::Lectura::MedidasBufer(modo), .. } if t != bmo_proton_x::dxil::programa::DINAMICA && t < SRV => {
+                    e.precarga_medida(t | SRV, modo, i_op)?;
+                    continue;
+                }
                 _ => continue,
             };
             for j in 0..k {
@@ -661,6 +708,11 @@ fn emitir_modo(p: &Programa, registros: u32, abi: Abi, libreta: bool, frugal: bo
         if an.variable[r] && !frugal {
             e.nacer(r)?;
         }
+    }
+    // ** LI2f: la compartida a cero antes del cuerpo (la casa la pone a cero
+    // en cada grupo; la 3060, no).
+    if abi == Abi::Registros {
+        e.prologo_compartida()?;
     }
     // E6d: las divisiones que ya hizo su pareja.
     let mut hecha = vec![false; p.ops.len()];
@@ -974,15 +1026,26 @@ fn emitir_modo(p: &Programa, registros: u32, abi: Abi, libreta: bool, frugal: bo
             // Load en 2D y array (`lecturas.rs`); lo demas -- el cubo, los
             // gradientes, GetDimensions, los desplazamientos, la textura
             // elegida al correr -- en la CPU todavia.
+            Op::Lee { d, t, como: bmo_proton_x::dxil::programa::Lectura::Bufer(modo), c: co, .. } if t != bmo_proton_x::dxil::programa::DINAMICA && t < SRV => e.lee_uav(d, t | SRV, modo, co[0], co[1], i, &mut paso)?,
+            Op::Lee { d, t, como: bmo_proton_x::dxil::programa::Lectura::MedidasBufer(_), .. } if t != bmo_proton_x::dxil::programa::DINAMICA && t < SRV => e.medidas_uav(d, t | SRV, i)?,
             Op::Lee { d, t, s, como, c: co, nivel, desp } => e.lee_textura(d, t, s, como, co, nivel, desp, i, &mut paso)?,
             // N5.4: elegir la textura al correr, la 3060 todavia no.
             Op::EligeTextura { .. } => return Err(NoEmite::Operacion(i)),
-            // N5.5: el computo, todavia no en la 3060 (va por la CPU).
-            Op::IdHilo { .. } | Op::Barrera | Op::LeeCompartida { .. } | Op::EscribeCompartida { .. } | Op::AtomicoCompartido { .. } | Op::EscribeUav { .. } | Op::LeeUav { .. } | Op::MedidasUav { .. } => return Err(NoEmite::Operacion(i)),
+            // ** LI2f (12-10): el computo (`uav.rs`): los ids, la barrera y
+            // los UAV crudos y estructurados; lo demas, por la CPU todavia.
+            Op::IdHilo { d, que, c: comp } => e.id_hilo(d, que, comp, i, &mut paso)?,
+            Op::Barrera => e.barrera(i)?,
+            Op::LeeUav { d, u, modo, i: indice, desp, .. } => e.lee_uav(d, u, modo, indice, desp, i, &mut paso)?,
+            Op::EscribeUav { u, modo, i: indice, desp, v, mascara, .. } => e.escribe_uav(u, modo, indice, desp, v, mascara, i, &mut paso)?,
+            Op::LeeCompartida { d, base, n, i: indice } => e.lee_compartida(d, base, n, indice, i, &mut paso)?,
+            Op::EscribeCompartida { base, n, i: indice, s } => e.escribe_compartida(base, n, indice, s, i, &mut paso)?,
+            Op::AtomicoCompartido { d, base, n, i: indice, v, como } => e.atomico_compartido(d, base, n, indice, v, como, i, &mut paso)?,
+            Op::MedidasUav { d, u, .. } => e.medidas_uav(d, u, i)?,
+            Op::Atomico { d, u, modo, i: indice, desp, como, v, igual, .. } => e.atomico_uav(d, u, modo, indice, desp, como, v, igual, i, &mut paso)?,
             // E2.3b: el sombreador de geometria, igual (va por la CPU).
             Op::EntradaDe { .. } | Op::Emite { .. } | Op::Corta { .. } => return Err(NoEmite::Operacion(i)),
             // E2.4: el contador de un UAV, igual; y (05-10) sus Interlocked.
-            Op::Contador { .. } | Op::Atomico { .. } => return Err(NoEmite::Operacion(i)),
+            Op::Contador { d, u, inc } => e.contador(d, u, inc, i, &mut paso)?,
             // ** E8 (09-10): las EXACTAS de la casa -- redondeos, frac, la
             // clase de un numero, los bits, los medios floats -- con sus
             // bits (`mates.rs`). ** DL13 (09-10): y las de series (sin, cos,
@@ -1075,6 +1138,14 @@ mod pruebas_sistema;
 mod pruebas_medida;
 #[cfg(test)]
 mod pruebas_largos;
+#[cfg(test)]
+mod pruebas_registros;
+#[cfg(test)]
+mod pruebas_mrt;
+#[cfg(test)]
+mod pruebas_simula_computo;
+#[cfg(test)]
+mod pruebas_uav;
 #[cfg(test)]
 mod pruebas_mezcla;
 #[cfg(test)]

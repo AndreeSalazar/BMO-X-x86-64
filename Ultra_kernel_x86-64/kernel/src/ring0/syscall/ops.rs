@@ -520,6 +520,10 @@ pub(crate) const IOMMU_OP_GPU_COMPLETA: u64 = 0x50;
 /// SU imagen en la 3060 con el programa del kernel. `arg1` = la VA de su
 /// bloque (cabecera y el de VERRANO). Ver `dev/gpu_trabajo/completa.rs`.
 pub(crate) const IOMMU_OP_GPU_COMPLETAR: u64 = 0x51;
+/// LI2f: LA PUERTA ESTRECHA DEL COMPUTO -- una APP (sin `MAQUINA`) corre un
+/// `Dispatch` en la 3060 con una receta de computo (VRC1). `arg1` = su VA.
+/// Ver `dev/gpu_trabajo/computo.rs`.
+pub(crate) const IOMMU_OP_GPU_COMPUTO: u64 = 0x52;
 
 /// **ARMAR Y SONDEAR LA RED desde donde vive el propietario.** `arg0` = `RED_OP_*`.
 ///
@@ -1087,6 +1091,7 @@ pub(crate) fn nombre_iommu(op: u64) -> &'static str {
         IOMMU_OP_GPU_COMPLETA_FORMATO => "GPU_COMPLETA_FORMATO",
         IOMMU_OP_GPU_COMPLETA => "GPU_COMPLETA",
         IOMMU_OP_GPU_COMPLETAR => "GPU_COMPLETAR",
+        IOMMU_OP_GPU_COMPUTO => "GPU_COMPUTO",
         _ => "?",
     }
 }

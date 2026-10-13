@@ -40,7 +40,6 @@
 //! - **Los errores se miran.** `PxTFD.ERR` y `PxIS.TFES` existen para eso; un
 //!   comando que falla no puede devolver "leidos N sectores".
 
-use crate::storage_hal;
 use core::sync::atomic::{AtomicBool, Ordering};
 
 // ** Lo que se fue a `arranque.rs` y a `comando.rs` se REEXPORTA desde aqui, y

@@ -237,7 +237,16 @@ pub struct Plataforma {
     /// otros nucleos, para pintar un dibujo de la CPU en franjas
     /// (`bmo_proton_x::bandas`). `None`: todo en el nucleo de la casa.
     pub obreros: Option<Obreros>,
+    /// ** LI2f (13-10): quien corre un `Dispatch` en la GPU, si puede: con
+    /// el Programa de computo, los grupos, el cbuffer aplanado, los SRV y los
+    /// UAV por ranura. `true`: hecho (los UAV ya tienen lo escrito); `false`:
+    /// no se pudo, y la casa lo corre en la CPU como siempre. `None`: todo
+    /// por la CPU.
+    pub computar: Option<Computar>,
 }
+
+/// **Correr un `Dispatch` en la GPU** (ver [`Plataforma::computar`]).
+pub type Computar = fn(&bmo_proton_x::dxil::programa::Programa, [u32; 3], &[u8], &[Option<bmo_proton_x::bufer::Bufer>], &mut [Option<bmo_proton_x::bufer::Uav>]) -> bool;
 
 /// **Los otros nucleos** (H4.3, 07-10). En BMO-X, los obreros del kernel en
 /// Ring 3 (`TASK_OP_SUB_*`, despues de `smp all`); en el banco, hilos.

@@ -65,6 +65,12 @@ se acaba cuando el propietario quiere. Los ocho sitios del arbol donde eso esta
 escrito --y las tres cosas que cuesta-- estan en
 [`docs/identidad/EL_ORQUESTAL.md`](docs/identidad/EL_ORQUESTAL.md).
 
+Desde el 13-10 BMO-X se inspira en el **reino de los hongos (Fungi)**: presta
+y no regala (la micorriza), digiere afuera lo ajeno, crece por la punta, hace
+suelo con lo que paso -- y el kernel es el **lente** de lo que falla: una
+pieza que no sabe decir su fallo en castellano todavia no esta educada
+([`docs/identidad/EL_REINO_FUNGI.md`](docs/identidad/EL_REINO_FUNGI.md)).
+
 Esta escrito desde cero en Rust, en Lima, por una persona: la cadena de
 arranque, el kernel, los drivers, el sistema de ficheros, seis compiladores
 nativos (C, C++, COBOL, Ada, INTI y TITAN++) que no usan LLVM ni GCC, y el

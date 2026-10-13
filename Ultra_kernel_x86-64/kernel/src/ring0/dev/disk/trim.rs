@@ -196,7 +196,7 @@ pub fn recortar(lba: u64, sectores: u64) -> Recorte {
             if !super::ajeno::escribible(unsafe { PORT }) {
                 break;
             }
-            if let Err(e) = unsafe { bmo_ahci::trim_phys(unsafe { PORT }, dma, tanda.bloques) } {
+            if let Err(e) = unsafe { bmo_ahci::trim_phys({ PORT }, dma, tanda.bloques) } {
                 // ** TRES LINEAS Y NO UNA, y cada una contesta otra pregunta.
                 //
                 // La primera version dejaba solo `e.name()` con el LBA al lado,

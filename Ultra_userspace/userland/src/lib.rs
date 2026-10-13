@@ -354,6 +354,8 @@ pub const IOMMU_OP_GPU_COMPLETA_FORMATO: u64 = 0x4F;
 pub const IOMMU_OP_GPU_COMPLETA: u64 = 0x50;
 /// VEL2: la puerta estrecha de COMPLETAR, para una app (ver el ABI).
 pub const IOMMU_OP_GPU_COMPLETAR: u64 = 0x51;
+/// LI2f: la puerta estrecha del COMPUTO, para una app (ver el ABI).
+pub const IOMMU_OP_GPU_COMPUTO: u64 = 0x52;
 pub const COMPLETA_DE_B: u64 = 1 << 3;
 pub const COMPLETA_CARGAR: u64 = 1 << 4;
 pub const CUBO_LEER: u64 = 1 << 63;
@@ -724,6 +726,9 @@ pub const INFO_REINICIO_MCA: u64 = 0xD1;
 pub const INFO_SMP_CPU: u64 = 0xD2;
 /// La 3060 lista para los lotes de una app: 1 = el escritorio la preparo.
 pub const INFO_GPU_PUERTA: u64 = 0xD3;
+/// El porque del ultimo NO de la puerta de la 3060, si fue a ESTE proceso
+/// (`bmo_gpu_ga10x::porque::empaquetar`; 0 = ninguno). Ver el ABI.
+pub const INFO_GPU_PORQUE: u64 = 0xD4;
 /// El formato `i` (`INFO_AUDIO_FORMATO | (i << 8)`): alt, canales, bits,
 /// subframe, `wMaxPacketSize`, cuantas frecuencias, si CABE en 1 ms, si es el
 /// elegido y su sincronia. Ver `uaudio::info_formato` en el kernel.

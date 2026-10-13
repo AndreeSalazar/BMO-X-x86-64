@@ -74,7 +74,7 @@ impl FatVolume {
     fn find_free_cluster(&mut self) -> Option<u32> {
         let (desde, ultimo) = self.orden_de_busqueda();
         for sector in (desde..=ultimo).chain(0..desde) {
-            unsafe {
+            {
                 if !self.read_sector((self.fat_start + sector) as u64, Buf::fat_cache) { continue; }
             }
             for i in 0..(512/4) {
@@ -106,7 +106,7 @@ impl FatVolume {
         let fat_offset = cluster * 4;
         let fat_sector = self.fat_start + (fat_offset / 512);
         let idx = (fat_offset % 512) as usize;
-        unsafe {
+        {
             if !self.read_sector(fat_sector as u64, Buf::fat_cache) { return None; }
         }
         Some(u32::from_le_bytes([self.fat_cache[idx], self.fat_cache[idx+1],
@@ -132,14 +132,14 @@ impl FatVolume {
 
         for copy in 0..self.num_fats as u32 {
             let fat_sector = self.fat_start + copy * self.fat_size_sectors + sectors_from_fat_start;
-            unsafe {
+            {
                 if !self.read_sector(fat_sector as u64, Buf::fat_cache) { return false; }
             }
             self.fat_cache[idx]   = v as u8;
             self.fat_cache[idx+1] = (v >> 8) as u8;
             self.fat_cache[idx+2] = (v >> 16) as u8;
             self.fat_cache[idx+3] = (v >> 24) as u8;
-            unsafe {
+            {
                 if !self.write_sector(fat_sector as u64, Buf::fat_cache) { return false; }
             }
         }
@@ -262,7 +262,7 @@ impl FatVolume {
         loop {
             let Some(lba) = self.lba_valido(cluster) else { return None };
             for s in 0..spc {
-                unsafe {
+                {
                     if !self.read_sector(lba + s, Buf::buf) { continue; }
                 }
                 let entries = self.buf.as_ptr() as *const DirEntry;
@@ -286,7 +286,7 @@ impl FatVolume {
         loop {
             let Some(lba) = self.lba_valido(cluster) else { return None };
             for s in 0..spc {
-                unsafe {
+                {
                     if !self.read_sector(lba + s, Buf::buf) { continue; }
                 }
                 // Need 3 consecutive free slots (File=0x85, Stream=0xC0, Name=0xC1)
@@ -403,7 +403,7 @@ impl FatVolume {
         // usa `fat_cache`, y el dia que eso cambie el reemplazo escribiria en
         // el directorio lo que hubiera quedado en el buffer. Releer cuesta un
         // sector; el fallo que evita se lleva a los quince archivos vecinos.
-        unsafe {
+        {
             if !self.read_sector(vieja.lba, Buf::buf) {
                 self.free_chain(nueva);
                 return Err(WriteError::Io);
@@ -417,7 +417,7 @@ impl FatVolume {
         de.first_cluster_lo = (nueva & 0xFFFF) as u16;
         de.file_size = data.len() as u32;
 
-        if !unsafe { self.write_sector(vieja.lba, Buf::buf) } {
+        if !{ self.write_sector(vieja.lba, Buf::buf) } {
             // El directorio sigue apuntando a lo viejo, que sigue entero. Lo
             // nuevo se suelta y no ha pasado nada.
             self.free_chain(nueva);
@@ -634,7 +634,7 @@ impl FatVolume {
             None => { self.free_chain(first); return Err(WriteError::DirFull); }
         };
 
-        unsafe {
+        {
             if !self.read_sector(dir_lba, Buf::buf) {
                 self.free_chain(first);
                 return Err(WriteError::Io);
@@ -657,7 +657,7 @@ impl FatVolume {
         de.first_cluster_lo = (cluster & 0xFFFF) as u16;
         de.file_size = data.len() as u32;
 
-        let written = unsafe { self.write_sector(dir_lba, Buf::buf) };
+        let written = { self.write_sector(dir_lba, Buf::buf) };
         if !written {
             self.free_chain(first);
             return Err(WriteError::Io);
@@ -688,7 +688,7 @@ impl FatVolume {
             let off = (s * 512) as usize;
             let count = core::cmp::min(512, data.len().saturating_sub(off));
             temp[..count].copy_from_slice(&data[off..off + count]);
-            unsafe {
+            {
                 if !self.write_from(lba + s, &temp) { return false; }
             }
         }
@@ -698,7 +698,7 @@ impl FatVolume {
         // Se cuenta, y `fallos_mudos` es lo que hay que mirar cuando el disco
         // "va bien" y algo no cuadra.
         for s in write_n..spc {
-            let ok = unsafe { self.write_from(lba + s, &temp) };
+            let ok = { self.write_from(lba + s, &temp) };
             if !ok {
                 self.fallos_mudos = self.fallos_mudos.saturating_add(1);
             }
@@ -712,7 +712,7 @@ impl FatVolume {
         };
 
         // Read directory sector
-        unsafe {
+        {
             if !self.read_sector(dir_lba, Buf::buf) { return false; }
         }
 
@@ -776,7 +776,7 @@ impl FatVolume {
             core::slice::from_raw_parts(&name_entry as *const _ as *const u8, 32)
         });
 
-        unsafe {
+        {
             self.write_sector(dir_lba, Buf::buf)
         }
     }

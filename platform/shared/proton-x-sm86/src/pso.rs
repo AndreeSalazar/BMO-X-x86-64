@@ -91,13 +91,15 @@ pub(crate) fn cargas_con_posicion(e: &Emitido, pos: Option<usize>) -> Vec<Carga>
     let pares = texturas_de(e);
     e.precargas
         .iter()
-        .map(|p| match *p {
-            Precarga::Entrada { elemento, componente, reg } if pos == Some(elemento as usize) => Carga::Posicion { componente, reg },
-            Precarga::Entrada { elemento, componente, reg } => Carga::Entrada { elemento, componente, reg },
-            Precarga::Fila { fila, reg } => Carga::Fila { fila, reg },
+        .filter_map(|p| match *p {
+            Precarga::Entrada { elemento, componente, reg } if pos == Some(elemento as usize) => Some(Carga::Posicion { componente, reg }),
+            Precarga::Entrada { elemento, componente, reg } => Some(Carga::Entrada { elemento, componente, reg }),
+            Precarga::Fila { fila, reg } => Some(Carga::Fila { fila, reg }),
             // La pareja (tN, sM) es la textura k de la receta: su puesto.
             // E8g: el par (asa, nivel) se carga igual: el nivel es del cuerpo.
-            Precarga::Asa { textura, muestreador, reg } | Precarga::AsaPar { textura, muestreador, reg } => Carga::Asa { textura: pares.iter().position(|&x| x == (textura, muestreador)).unwrap_or(0) as u8, reg },
+            Precarga::Asa { textura, muestreador, reg } | Precarga::AsaPar { textura, muestreador, reg } => Some(Carga::Asa { textura: pares.iter().position(|&x| x == (textura, muestreador)).unwrap_or(0) as u8, reg }),
+            // LI2f: un UAV es de computo (`emitir` no lo pide en un dibujo).
+            Precarga::Uav { .. } => None,
         })
         .collect()
 }
@@ -169,9 +171,9 @@ pub fn traducir(en: &Enlace, ia: &[ElementoIa], paso: u32) -> Result<ParaLa3060,
     }
     // 9d: con la libreta, como la puerta (`puerta::CON_LIBRETA`).
     let emitir = |p, que| {
-        let sin = || emitir_con(p, 64, Abi::Registros).map_err(|e| NoVa::Emisor(que, e));
+        let sin = || emitir_con(p, crate::puerta::REGISTROS, Abi::Registros).map_err(|e| NoVa::Emisor(que, e));
         if crate::puerta::CON_LIBRETA {
-            crate::emitir_libreta(p, 64, Abi::Registros, true).or_else(|_| sin())
+            crate::emitir_libreta(p, crate::puerta::REGISTROS, Abi::Registros, true).or_else(|_| sin())
         } else {
             sin()
         }
@@ -186,10 +188,8 @@ pub fn traducir(en: &Enlace, ia: &[ElementoIa], paso: u32) -> Result<ParaLa3060,
     if posicion_zw(en) {
         return Err(NoVa::Entrada("SV_Position.z o .w en el de pixeles"));
     }
-    // N5.8: la 3060 pinta UN render target todavia: el G-buffer, por la CPU.
-    if en.objetivos != [0] {
-        return Err(NoVa::Entrada("varios render targets (o uno que no es el 0, o SV_Depth)"));
-    }
+    // LI2d (12-10): SV_Target0..n, hasta 4.
+    crate::puerta::objetivos_de(en).map_err(NoVa::Entrada)?;
     let posicion = en.posicion as u32;
     let mut v = pegado_vacio();
     pegamento::vertice_con_libreta_en(&mut v, &ev.codigo, ev.registros, &cargas(&ev), datos, en.vs.salidas as u32, posicion, ev.termometro).map_err(|e| NoVa::Pegamento("vertice", e))?;
@@ -197,7 +197,9 @@ pub fn traducir(en: &Enlace, ia: &[ElementoIa], paso: u32) -> Result<ParaLa3060,
     let mut p = pegado_vacio();
     pegamento::pixel_con_libreta_en(&mut p, &ep.codigo, ep.registros, &cargas_con_posicion(&ep, en.pos_ps), datos, &genericos, ep.termometro).map_err(|e| NoVa::Pegamento("pixel", e))?;
     let (vs, ps) = (bytes(&v), bytes(&p));
-    let juzgar = |cual: &'static str, b: &[u8]| juez::juzgar_programa(b, tuberia::REGISTROS).map_err(|x| NoVa::Juez(cual, alloc::format!("{x}")));
+    // LI2b: con los registros que pediria el kernel (`receta::pegar`).
+    let registros = tuberia::registros_para(v.registros.max(p.registros));
+    let juzgar = |cual: &'static str, b: &[u8]| juez::juzgar_programa(b, registros).map_err(|x| NoVa::Juez(cual, alloc::format!("{x}")));
     let instrucciones = juzgar("vertice", &vs)?.instrucciones + juzgar("pixel", &ps)?.instrucciones;
     Ok(ParaLa3060 { vs, ps, filas, paso, instrucciones })
 }

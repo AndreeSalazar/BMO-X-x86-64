@@ -127,12 +127,12 @@ fn resp() -> &'static mut [Reply; scheduler::MAX_TASKS] {
 /// Clave de espera del servidor. Como en los estuarios, una direccion estable
 /// y unica por objeto -- aqui, la del propio endpoint dentro del array.
 fn endpoint_key(idx: usize) -> u64 {
-    unsafe { core::ptr::addr_of!(ENDPOINTS) as u64 + (idx * core::mem::size_of::<Endpoint>()) as u64 }
+    { core::ptr::addr_of!(ENDPOINTS) as u64 + (idx * core::mem::size_of::<Endpoint>()) as u64 }
 }
 
 /// Clave de espera del llamante: su propia ranura de respuesta.
 fn reply_key(tid: u32) -> u64 {
-    unsafe { core::ptr::addr_of!(RESPUESTAS) as u64 + (tid as u64 * core::mem::size_of::<Reply>() as u64) }
+    { core::ptr::addr_of!(RESPUESTAS) as u64 + (tid as u64 * core::mem::size_of::<Reply>() as u64) }
 }
 
 // -- Crear -------------------------------------------------------------------

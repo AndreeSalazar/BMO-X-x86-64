@@ -618,7 +618,7 @@ impl FatVolume {
 
     fn read_fat_entry(&mut self, cluster: u32) -> Option<u32> {
         let (fat_sector, fat_index) = self.donde_en_la_fat(cluster);
-        unsafe {
+        {
             if !self.read_sector(fat_sector, Buf::fat_cache) { return None; }
         }
         self.siguiente_de(u32::from_le_bytes([self.fat_cache[fat_index], self.fat_cache[fat_index+1],
@@ -685,7 +685,7 @@ impl FatVolume {
         loop {
             let Some(lba) = self.lba_valido(cluster) else { return None };
             for s in 0..spc {
-                unsafe {
+                {
                     if !self.read_sector(lba + s, Buf::buf) { continue; }
                 }
                 let entries = self.buf.as_ptr() as *const DirEntry;
@@ -724,7 +724,7 @@ impl FatVolume {
         loop {
             let Some(lba) = self.lba_valido(cluster) else { return None };
             for s in 0..spc {
-                unsafe {
+                {
                     if !self.read_sector(lba + s, Buf::buf) { continue; }
                 }
                 // Scan 16 entries per 512-byte sector (each entry = 32 bytes)
@@ -890,7 +890,7 @@ impl FatVolume {
             let rabo = de_este - enteros * 512;
             if rabo > 0 && enteros < spc {
                 let desde = offset + enteros * 512;
-                let ok = unsafe {
+                let ok = {
                     if self.read_sector(lba + enteros as u64, Buf::buf) {
                         dst[desde..desde + rabo].copy_from_slice(&self.buf[..rabo]);
                         true
@@ -1020,7 +1020,7 @@ impl FatVolume {
             let mut hecho = 0usize;
             if en_sector != 0 {
                 let n = (512 - en_sector).min(de_este);
-                let ok = unsafe {
+                let ok = {
                     if self.read_sector(lba + sector as u64, Buf::buf) {
                         let d = pos - offset;
                         dst[d..d + n].copy_from_slice(&self.buf[en_sector..en_sector + n]);
@@ -1051,7 +1051,7 @@ impl FatVolume {
             let cola = de_este - hecho;
             if cola > 0 {
                 let sec = (dentro + hecho) / 512;
-                let ok = unsafe {
+                let ok = {
                     if self.read_sector(lba + sec as u64, Buf::buf) {
                         let d = pos - offset + hecho;
                         dst[d..d + cola].copy_from_slice(&self.buf[..cola]);
@@ -1117,7 +1117,7 @@ impl FatVolume {
             let queda = tope - offset;
             if queda > 0 && queda < 512 && enteros < spc {
                 let sector_en_cluster = enteros as u64;
-                let ok = unsafe {
+                let ok = {
                     if self.read_sector(lba + sector_en_cluster, Buf::buf) {
                         dst[offset..offset + queda].copy_from_slice(&self.buf[..queda]);
                         true

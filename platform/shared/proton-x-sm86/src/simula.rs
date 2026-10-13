@@ -43,6 +43,44 @@ pub enum NoSimula {
     SinExit,
     /// Mas de [`PASOS_MAXIMOS`] instrucciones: un bucle que no sale.
     SinFin,
+    /// ** LI2f (12-10): una lectura o escritura de memoria (global o
+    /// compartida) FUERA de lo que el modelo tiene: en la 3060, una
+    /// excepcion (o memoria de otro). El programa de una app nunca puede.
+    Fallo(usize),
+}
+
+/// ** LI2f (12-10): LA MEMORIA GLOBAL que ve el programa (en las pruebas,
+/// los UAV de la casa en su ventana de la 3060): palabras de 4 bytes,
+/// alineadas; `None`/`false` = fuera (un [`NoSimula::Fallo`]).
+pub trait Memoria {
+    fn leer(&mut self, dir: u64) -> Option<u32>;
+    fn escribir(&mut self, dir: u64, v: u32) -> bool;
+}
+
+/// Como acabo un trozo de un hilo: su EXIT, o (LI2f) un BAR.SYNC -- el
+/// grupo lo sigue cuando todos lleguen (`simula_grupo`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Parada {
+    Fin(usize),
+    Barrera(usize),
+}
+
+/// ** LI2f: lo que hace un atomico (`bmo_sm86::computo::Atomo`, sus
+/// numeros de 87..91), con su signo; el CAS es otro opcode. Devuelve lo
+/// nuevo; lo de antes lo da quien llama.
+fn atomo(op: u64, con_signo: bool, antes: u32, v: u32) -> Option<u32> {
+    Some(match op {
+        0 => antes.wrapping_add(v),
+        1 if con_signo => (antes as i32).min(v as i32) as u32,
+        2 if con_signo => (antes as i32).max(v as i32) as u32,
+        1 => antes.min(v),
+        2 => antes.max(v),
+        5 => antes & v,
+        6 => antes | v,
+        7 => antes ^ v,
+        8 => v,
+        _ => return None,
+    })
 }
 
 /// **El motivo con la palabra** (metal 12-10: `Instruccion(11)` decia DONDE
@@ -99,11 +137,18 @@ pub struct Maquina<'a> {
     pub inverso_ulp: i32,
     /// ** DL12: un KILL acabo el hilo (el `discard`): su pixel no queda.
     pub matado: bool,
+    /// ** LI2f (12-10): los ids del hilo en su grupo y del grupo (S2R).
+    pub tid: [u32; 3],
+    pub ctaid: [u32; 3],
+    /// La memoria global (LDG, STG, ATOMG) y la compartida del grupo (LDS,
+    /// STS, ATOMS); sin ellas, una de esas es [`NoSimula::Fallo`].
+    pub global: Option<&'a mut dyn Memoria>,
+    pub compartida: Option<&'a mut [u8]>,
 }
 
 impl<'a> Maquina<'a> {
     pub fn nueva(bancos: [&'a [u8]; 8]) -> Self {
-        Maquina { r: [0; 256], p: [false; 7], bancos, muestrear: None, leer_textura: None, inverso_ulp: 0, matado: false }
+        Maquina { r: [0; 256], p: [false; 7], bancos, muestrear: None, leer_textura: None, inverso_ulp: 0, matado: false, tid: [0; 3], ctaid: [0; 3], global: None, compartida: None }
     }
 
     fn reg(&self, i: usize) -> u32 {
@@ -124,6 +169,33 @@ impl<'a> Maquina<'a> {
     /// casa da fuera de un cbuffer, y la 3060 fuera de la medida del banco).
     fn palabra_de(&self, banco: usize, desp: usize) -> u32 {
         self.bancos.get(banco).and_then(|b| b.get(desp..desp.checked_add(4)?)).map_or(0, |b| u32::from_le_bytes([b[0], b[1], b[2], b[3]]))
+    }
+
+    /// La palabra `dir` de la compartida (alineada y dentro).
+    fn de_la_compartida(&self, dir: u32) -> Option<u32> {
+        let c = self.compartida.as_deref()?;
+        let d = dir as usize;
+        (d % 4 == 0).then_some(())?;
+        c.get(d..d.checked_add(4)?).map(|b| u32::from_le_bytes([b[0], b[1], b[2], b[3]]))
+    }
+
+    fn a_la_compartida(&mut self, dir: u32, v: u32) -> bool {
+        let Some(c) = self.compartida.as_deref_mut() else { return false };
+        let d = dir as usize;
+        match c.get_mut(d..d.saturating_add(4)) {
+            Some(b) if d % 4 == 0 && b.len() == 4 => {
+                b.copy_from_slice(&v.to_le_bytes());
+                true
+            }
+            _ => false,
+        }
+    }
+
+    /// La direccion de 64 bits de Ra, Ra+1 mas el inmediato de 24 bits con
+    /// signo (40..64).
+    fn direccion(&self, ra: usize, lo: u64) -> u64 {
+        let imm = ((lo >> 40) as i64) << 40 >> 40;
+        (self.reg(ra) as u64 | (self.reg(ra + 1) as u64) << 32).wrapping_add(imm as u64)
     }
 }
 
@@ -178,10 +250,22 @@ fn entera(m: &Maquina, lo: u64, forma: u64) -> Option<u32> {
 }
 
 /// **Correr** `codigo` sobre `m` hasta su EXIT. Devuelve cuantas instrucciones
-/// se ejecutaron.
+/// se ejecutaron. Un BAR.SYNC aqui (un hilo solo) no se sabe: esos van por
+/// [`crate::simula_grupo`].
 pub fn correr(codigo: &[(u64, u64)], m: &mut Maquina) -> Result<usize, NoSimula> {
     let mut pc = 0usize;
+    match correr_desde(codigo, m, &mut pc)? {
+        Parada::Fin(n) => Ok(n),
+        Parada::Barrera(_) => Err(NoSimula::Instruccion(pc - 1)),
+    }
+}
+
+/// ** LI2f: correr desde `*pc` hasta un EXIT o un BAR.SYNC (y `*pc` queda
+/// detras de el).
+pub fn correr_desde(codigo: &[(u64, u64)], m: &mut Maquina, pc_de: &mut usize) -> Result<Parada, NoSimula> {
+    let mut pc = *pc_de;
     for pasos in 1..=PASOS_MAXIMOS {
+        *pc_de = pc;
         let n = pc;
         let Some(&(lo, hi)) = codigo.get(pc) else { return Err(NoSimula::SinExit) };
         pc += 1;
@@ -447,12 +531,94 @@ pub fn correr(codigo: &[(u64, u64)], m: &mut Maquina) -> Result<usize, NoSimula>
                 }
                 m.palabra_de(banco, dir)
             }
-            0x14D => return Ok(pasos),
+            0x14D => {
+                *pc_de = pc;
+                return Ok(Parada::Fin(pasos));
+            }
+            // ** LI2f (12-10): lo del computo, las formas de `bmo_sm86::computo`
+            // (su oro). S2R: los ids del hilo y del grupo.
+            0x119 if forma == 4 && hi & ((1 << 41) - 1) & !0xFF00 == 0 && lo >> 24 == 0 => match bmo_sm86::computo::Sr::de((hi >> 8) as u8) {
+                Some(s) => {
+                    let k = s as usize & 3;
+                    if (s as u8) < 0x24 { m.tid[k - 1] } else { m.ctaid[k - 1] }
+                }
+                None => return Err(NoSimula::Instruccion(n)),
+            },
+            // BAR.SYNC 0: el grupo sigue cuando todos lleguen.
+            0x11D if lo & !0xF000 == 0xb1d && hi & ((1 << 41) - 1) == 1 << 16 => {
+                *pc_de = pc;
+                return Ok(Parada::Barrera(pasos));
+            }
+            // LDG.E Rd, [Ra.64 + imm] y STG.E [Ra.64 + imm], Rb.
+            0x181 if lo >> 32 & 0xFF == 4 && hi & ((1 << 41) - 1) == 0x0c1e_1900 => {
+                let dir = m.direccion(ra, lo);
+                match m.global.as_deref_mut().and_then(|g| g.leer(dir)) {
+                    Some(v) => v,
+                    None => return Err(NoSimula::Fallo(n)),
+                }
+            }
+            0x186 if hi & ((1 << 41) - 1) == 0x0c10_1904 => {
+                let (dir, v) = (m.direccion(ra, lo), m.reg((lo >> 32 & 0xFF) as usize));
+                if !m.global.as_deref_mut().is_some_and(|g| g.escribir(dir, v)) {
+                    return Err(NoSimula::Fallo(n));
+                }
+                continue;
+            }
+            // STS [Ra + imm], Rb y LDS Rd, [Ra + imm].
+            0x188 if hi & ((1 << 41) - 1) == 0x800 => {
+                let dir = m.reg(ra).wrapping_add((lo >> 40) as u32);
+                let v = m.reg((lo >> 32 & 0xFF) as usize);
+                if !m.a_la_compartida(dir, v) {
+                    return Err(NoSimula::Fallo(n));
+                }
+                continue;
+            }
+            0x184 if lo >> 32 & 0xFF == 0 && hi & ((1 << 41) - 1) == 0x800 => {
+                let dir = m.reg(ra).wrapping_add((lo >> 40) as u32);
+                m.de_la_compartida(dir).ok_or(NoSimula::Fallo(n))?
+            }
+            // ATOMS(.CAS) y ATOMG(.CAS): lo de antes en Rd.
+            0x18C | 0x18D if lo >> 40 == 0 => {
+                let (dir, v) = (m.reg(ra), m.reg((lo >> 32 & 0xFF) as usize));
+                let antes = m.de_la_compartida(dir).ok_or(NoSimula::Fallo(n))?;
+                let nuevo = if op == 0x18D {
+                    if hi & ((1 << 41) - 1) & !0xFF != 0 {
+                        return Err(NoSimula::Instruccion(n));
+                    }
+                    if antes == v { m.reg((hi & 0xFF) as usize) } else { antes }
+                } else {
+                    if hi & ((1 << 41) - 1) & !(0xF << 23 | 1 << 9) != 0 {
+                        return Err(NoSimula::Instruccion(n));
+                    }
+                    atomo(hi >> 23 & 0xF, hi >> 9 & 1 != 0, antes, v).ok_or(NoSimula::Instruccion(n))?
+                };
+                m.a_la_compartida(dir, nuevo);
+                antes
+            }
+            0x1A8 | 0x1A9 if lo >> 40 == 0 => {
+                let (dir, v) = (m.direccion(ra, lo), m.reg((lo >> 32 & 0xFF) as usize));
+                let nuevo_de = |antes: u32, m: &Maquina| -> Option<u32> {
+                    if op == 0x1A9 {
+                        (hi & ((1 << 41) - 1) & !0xFF == 0x001e_e100).then(|| if antes == v { m.reg((hi & 0xFF) as usize) } else { antes })
+                    } else if hi & ((1 << 41) - 1) & !(0xF << 23 | 1 << 9) == 0x081e_e1c4 & !(0xF << 23) {
+                        atomo(hi >> 23 & 0xF, hi >> 9 & 1 != 0, antes, v)
+                    } else {
+                        None
+                    }
+                };
+                let antes = m.global.as_deref_mut().and_then(|g| g.leer(dir)).ok_or(NoSimula::Fallo(n))?;
+                let nuevo = nuevo_de(antes, m).ok_or(NoSimula::Instruccion(n))?;
+                if !m.global.as_deref_mut().is_some_and(|g| g.escribir(dir, nuevo)) {
+                    return Err(NoSimula::Fallo(n));
+                }
+                antes
+            }
             // ** DL12: KILL (su guarda ya se miro arriba) -- solo la forma de
             // `codifica::kill` --: el hilo acaba y su pixel no queda.
             0x15B if lo & !0xF000 == 0x95B && hi & ((1 << 41) - 1) == 7 << 23 => {
                 m.matado = true;
-                return Ok(pasos);
+                *pc_de = pc;
+                return Ok(Parada::Fin(pasos));
             }
             0x118 => continue,
             _ => return Err(NoSimula::Instruccion(n)),

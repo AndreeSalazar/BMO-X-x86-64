@@ -61,7 +61,7 @@ use crate::cubo::{self as cu, con_control, mov, ALU};
 use crate::lienzo::sombreador_va;
 use crate::raster::{bit, SPH};
 use crate::sass::juez::{MAX_INSTRUCCIONES, RESERVADOS};
-use crate::tuberia::{carga, espera, iadd3_acarreo, imad_shl, imad_x, ipa, ldg, sph_pixel as sph_pixel_v0, sph_vertice as sph_vertice_v0, IPA_CONTROL, IPA_ULTIMO, REGISTROS, TABLA};
+use crate::tuberia::{carga, espera, iadd3_acarreo, imad_shl, imad_x, ipa, ldg, sph_pixel as sph_pixel_v0, sph_vertice as sph_vertice_v0, IPA_CONTROL, IPA_ULTIMO, MAX_REGISTROS, TABLA};
 
 /// Lo que el pegamento carga antes del cuerpo (lo que `bmo-proton-x-sm86`
 /// llama `Precarga`, dicho aqui sin nombrarlo: el driver no depende de
@@ -355,7 +355,7 @@ pub const fn generico(salida: u32, posicion: u32) -> Option<u8> {
 pub enum NoPega {
     /// No cabe en `juez::MAX_INSTRUCCIONES`.
     Instrucciones,
-    /// El cuerpo y el pegamento no caben en `tuberia::REGISTROS`.
+    /// El cuerpo y el pegamento no caben en `tuberia::MAX_REGISTROS`.
     Registros,
     /// Una carga fuera de los datos, o que el de pixel no puede recibir (la
     /// posicion, o un generico que no hay).
@@ -500,7 +500,9 @@ const fn al_menos(w: (u64, u64), ciclos: u64) -> (u64, u64) {
 fn propios(registros: u32) -> Result<(u64, u64, u64, u64, u32), NoPega> {
     let a = (registros as u64 + 1) & !1;
     let total = a as u32 + 7;
-    if total + RESERVADOS > REGISTROS {
+    // LI2b (12-10): hasta lo mas que da la tuberia; las ordenes piden lo que
+    // de verdad se usa (`tuberia::registros_para`).
+    if total + RESERVADOS > MAX_REGISTROS {
         return Err(NoPega::Registros);
     }
     Ok((a, a + 2, a + 4, a + 6, total))
@@ -726,7 +728,7 @@ pub fn pixel_en(g: &mut Pegado, cuerpo: &[(u64, u64)], registros: u32, cargas: &
 /// [`pixel_en`] con la LIBRETA (9d): el apunte va antes del EXIT del
 /// cuerpo, que espera ademas su lectura.
 pub fn pixel_con_libreta_en(g: &mut Pegado, cuerpo: &[(u64, u64)], registros: u32, cargas: &[Carga], datos: Datos, genericos: &[Option<u8>], termometro: Option<u8>) -> Result<(), NoPega> {
-    pixel_entero_en(g, cuerpo, registros, cargas, datos, genericos, termometro, Redondeo::NADA, None)
+    pixel_entero_en(g, cuerpo, registros, cargas, datos, genericos, termometro, Redondeo::NADA, None, 1)
 }
 
 /// [`pixel_con_libreta_en`] con el REDONDEO de la salida 0 al formato del
@@ -735,7 +737,12 @@ pub fn pixel_con_libreta_en(g: &mut Pegado, cuerpo: &[(u64, u64)], registros: u3
 ///
 /// ** 12-10: con `mezcla` (no trivial), tras el cuerpo, lo que ya esta en
 /// ESE destino mezclado con el pixel nuevo (`mezcla`), antes del redondeo.
-pub fn pixel_entero_en(g: &mut Pegado, cuerpo: &[(u64, u64)], registros: u32, cargas: &[Carga], datos: Datos, genericos: &[Option<u8>], termometro: Option<u8>, redondeo: Redondeo, mezcla: Option<(crate::mezcla::Mezcla, crate::destino::Destino)>) -> Result<(), NoPega> {
+pub fn pixel_entero_en(g: &mut Pegado, cuerpo: &[(u64, u64)], registros: u32, cargas: &[Carga], datos: Datos, genericos: &[Option<u8>], termometro: Option<u8>, redondeo: Redondeo, mezcla: Option<(crate::mezcla::Mezcla, crate::destino::Destino, u32)>, objetivos: u32) -> Result<(), NoPega> {
+    // LI2d (12-10): los render targets que escribe (1..=8): el k sale de
+    // R4k..R4k+3 (lo deja asi el emisor, `4 * salidas` desde R0).
+    if objetivos == 0 || objetivos > 8 {
+        return Err(NoPega::Salidas);
+    }
     g.n = 0;
     let (resto, exit) = partir(cuerpo)?;
     cargas_propias(cargas, registros)?;
@@ -743,6 +750,9 @@ pub fn pixel_entero_en(g: &mut Pegado, cuerpo: &[(u64, u64)], registros: u32, ca
     let (a, d, v, _, total) = propios(registros)?;
     let mut o = Poner { g, lleno: false };
     let mut sph = sph_pixel_v0_sin_generico();
+    // LI2d: OmapTarget, 4 bits (R G B A) por target desde el 576 (la SPH de
+    // V0 trae los del 0).
+    sph[18] |= if objetivos == 8 { u32::MAX } else { (1u32 << (4 * objetivos)) - 1 };
     // ** DL12: un cuerpo que tira pixeles (KILL) lo dice en su SPH; si no,
     // su KILL seria un NOP y una excepcion (y el juez lo para: R5).
     if cuerpo.iter().any(|w| w.0 & 0xFFF == 0x95B) {
@@ -786,8 +796,8 @@ pub fn pixel_entero_en(g: &mut Pegado, cuerpo: &[(u64, u64)], registros: u32, ca
         sph[0] |= crate::raster::LEE_O_ESCRIBE;
     }
     let mascara = if entradas > 0 { 1 << 0 } else { 0 } | if filas { 1 << B_CARGAS } else { 0 };
-    let mezcla = mezcla.filter(|(m, _)| !m.trivial());
-    if let Some((m, _)) = mezcla {
+    let mezcla = mezcla.filter(|(m, _, _)| !m.trivial());
+    if let Some((m, _, _)) = mezcla {
         if m.valida().is_err() {
             return Err(NoPega::Carga);
         }
@@ -795,13 +805,13 @@ pub fn pixel_entero_en(g: &mut Pegado, cuerpo: &[(u64, u64)], registros: u32, ca
     // La mezcla (12-10): tras el cuerpo, con a..a+8 de trabajo (las filas ya
     // se leyeron; el apunte de la libreta pone los suyos).
     let mezclar = |o: &mut Poner, sph: &mut [u32; SPH]| {
-        let Some((m, dst)) = mezcla else { return };
+        let Some((m, dst, desplazamiento)) = mezcla else { return };
         o.p(ipa(a, ATRIBUTO_POSICION, IPA_CONTROL));
         o.p(ipa(a + 1, ATRIBUTO_POSICION + 1, IPA_ULTIMO));
         sph[5] |= 0b11 << (BIT_IMAP_POSICION_X - 160);
         sph[0] |= crate::raster::LEE_O_ESCRIBE;
         let mut primera = true;
-        crate::mezcla::leer_destino(&dst, a, &mut |w| {
+        crate::mezcla::leer_destino(&dst, desplazamiento, a, &mut |w| {
             o.p(if primera { esperando(w, 1 << 0) } else { w });
             primera = false;
         });
@@ -879,6 +889,8 @@ pub const fn sph_vertice(genericos: u32) -> [u32; SPH] {
 
 #[cfg(test)]
 mod pruebas {
+    #[allow(unused_imports)]
+    use crate::tuberia::REGISTROS;
     extern crate std;
 
     use super::*;
@@ -896,6 +908,7 @@ mod pruebas {
                 Precarga::Fila { fila, reg } => Carga::Fila { fila, reg },
                 // Los cubos no muestrean: la unica textura seria la 0.
                 Precarga::Asa { reg, .. } | Precarga::AsaPar { reg, .. } => Carga::Asa { textura: 0, reg },
+                Precarga::Uav { .. } => unreachable!("un dibujo no lleva UAV"),
             })
             .collect()
     }
@@ -1063,7 +1076,9 @@ mod pruebas {
         let (pv, ev) = emitido("sombras/f3ef42a0.cso");
         let cs = cargas(&ev);
         assert_eq!(vertice(&ev.codigo, ev.registros, &cs, Datos::float4(3, 3), pv.salidas as u32, 0).unwrap_err(), NoPega::Carga);
-        assert_eq!(vertice(&ev.codigo, 60, &cs, DATOS, pv.salidas as u32, 0).unwrap_err(), NoPega::Registros);
+        // LI2b (12-10): 60 ya caben (hasta `tuberia::MAX_REGISTROS`); 241 no.
+        assert!(vertice(&ev.codigo, 60, &cs, DATOS, pv.salidas as u32, 0).is_ok());
+        assert_eq!(vertice(&ev.codigo, 241, &cs, DATOS, pv.salidas as u32, 0).unwrap_err(), NoPega::Registros);
         assert_eq!(vertice(&ev.codigo[..3], ev.registros, &cs, DATOS, 3, 0).unwrap_err(), NoPega::Cuerpo);
         assert_eq!(vertice(&ev.codigo, ev.registros, &cs, DATOS, 3, 3).unwrap_err(), NoPega::Salidas);
         let (_, ep) = emitido("sombras/4d67f5e4.cso");

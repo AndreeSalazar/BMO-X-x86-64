@@ -181,7 +181,7 @@ fn los_formatos_de_vertice_van_a_la_3060() {
         let reglas = bmo_proton_x::trama::Reglas { viewport: [0.0, 0.0, 1280.0, 720.0, 0.0, 1.0], tijera: [0, 0, 1280, 720], descarte: 1, antihorario: false, profundidad: None, mezcla: bmo_proton_x::mezcla::Mezclas::NINGUNA, z_del_sombreador: false, stencil: None };
         let l = lote::Lote { enlace: &en, entradas: &ia, vertices: &vertices, paso, ids: &[0, 1, 2], topologia: lote::Topologia::Lista, cb: &cb, reglas, limpiar_z: None, limpiar_rt: None, recursos: bmo_proton_x::textura::Recursos::NINGUNO, oclusion: false, otros: &[], instancias: 1, primera_instancia: 0, base_vertice: 0, uavs: None };
         let mut p = Puerta::nueva();
-        let blanco = Blanco { va: 0x4000_0000, ancho: 1280, alto: 720, bgra: true, cadena: false, flotante: None };
+        let blanco = Blanco { va: 0x4000_0000, ancho: 1280, alto: 720, bgra: true, cadena: false, flotante: None, mas: crate::puerta::SIN_MAS };
         let n = p.preparar(&l, blanco).unwrap_or_else(|m| panic!("normal {normal}, color {color}: {m}"));
         let r = bmo_gpu_ga10x::receta::leer(&p.caja[..n]).expect("el kernel lee la receta");
         let formatos: Vec<u8> = r.elementos().iter().map(|x| x.formato).collect();

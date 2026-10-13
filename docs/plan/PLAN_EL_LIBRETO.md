@@ -227,8 +227,20 @@ y `puerta.rs`; el juez en `platform/drivers/gpu/ga10x/src/sass/juez.rs`):
         en los dos ABI, el pegamento y el juez enteros, y el juez en vivo;
         lo de mas de 4096, por la CPU), `tuberia_vram.rs` (el largo en su
         region, el corto deja su pagina limpia, las ordenes apuntan alli).
-      **Falta:** el metal (Cyberpunk con `smp all` y `personal 3060`); los
-      registros siguen en 64 (lo que pasa de ahi lo dice el emisor); y un
+      **12-10, LOS REGISTROS** (el censo: "mas registros de los que da la
+      tuberia", 2 lotes): `tuberia::MAX_REGISTROS` = 248 (8 bits de
+      `REGISTER_COUNT`, R255 es RZ, a multiplo de 8). El emisor tiene hasta
+      238 (`puerta::REGISTROS`), el pegamento hasta 248, y CADA DIBUJO pide
+      lo que usan sus dos programas (`registros_para`: nunca menos de 64, lo
+      de siempre); el KERNEL lo mide al pegar (`Taller::registros`), el juez
+      juzga con ESE numero y el paquete lo lleva a las ordenes
+      (`Dibujo::registros`; la app no lo elige). Pruebas: lo que cabia en 64
+      sale IGUAL byte a byte (mas de 40 sombreadores del banco), 100 valores
+      vivos van a la 3060 con los bits de la CPU (y con 64 el juez lo para),
+      `una_receta_de_mas_de_64_registros` (las ordenes dan los suyos).
+      *Lo que se mira en el metal:* que la 3060 acepta un `REGISTER_COUNT`
+      de mas de 64 en el pipeline grafico (NVK lo usa; aqui no se probo).
+      **Falta:** el metal (Cyberpunk con `smp all` y `personal 3060`); y un
       programa cambiado se reescribe ENTERO por PRAMIN en cada dibujo frio
       (hasta 64 KiB): si el metal lo dice lento, una cache de programas en
       la VRAM (cada uno subido UNA vez) es la pieza siguiente.
@@ -255,6 +267,24 @@ y `puerta.rs`; el juez en `platform/drivers/gpu/ga10x/src/sass/juez.rs`):
       punto y borde: 0 pixeles distintos --; saboteado (la uv lineal en la
       pantalla, el lineal como punto): cae. La huella de BMOX-12 no se
       movio.
+      **12-10, lo del censo de Cyberpunk que es EXACTO sin el metal:**
+      - Las RANURAS de 1 MiB a **16 MiB** (`texturas::RANURA`): la de
+        1920x1088 que paro el censo (8 MiB) cabe; 32 tablas mas de la IOMMU,
+        dentro de sus 128. Y la RAM de la reserva se presta (LI2k).
+      - La vista de OTRA mip de una 2D: el plano que lee la CPU
+        (`Textura::plano_visto` de prometeo), con SUS medidas y desde su
+        primer texel; con una sola mip en la vista. Prueba:
+        `la_vista_de_otra_mip_va_a_la_3060`.
+      **Lo que se queda en la CPU, y por que:** sRGB y BC los decodifica la
+      casa con SUS tablas (`SRGB_A_LINEAL`, `bc`) y la 3060 con las suyas: no
+      se promete el mismo bit (DL10) hasta medirlo en el metal. Los floats
+      con punto o `Load` serian exactos, pero sus formatos de TIC nunca
+      corrieron: van con su banco en el metal (`gpu verrano textura`).
+      - "t0 sin atar": la TEXTURA NULA (`puerta::Nula`): 8x1 a ceros con un
+        muestreador propio de punto, en el monton de la app; la CPU da ceros
+        ahi (el SRV nulo). Solo sin TEXTURA: con textura y sin muestreador,
+        por la CPU (`Load` la leeria). Pruebas:
+        `la_textura_sin_atar_va_a_la_3060_a_ceros`, `la_nula_son_ceros_a_32_b`.
 - [ ] **LI2d -- varios render targets y la profundidad** (N5.8; V2/M1 de
       `PLAN_VERRANO.md`). El G-buffer: hasta 8 destinos y el z-buffer en la
       VRAM. **Como se sabe:** la escena 3D dura (A11) pintada por la 3060
@@ -302,6 +332,36 @@ y `puerta.rs`; el juez en `platform/drivers/gpu/ga10x/src/sass/juez.rs`):
       y en RGBA16F, por la puerta, la receta y el pegado del kernel con su
       juez; y cada NO con su porque. **Falta:** el metal; las particulas y
       lo que se pisa (el ROP, medido en el metal, o por la CPU).
+      **12-10, VARIOS RENDER TARGETS por la 3060, SIN Z** (el G-buffer; pedido
+      del propietario: "sin Z, en el emulador hasta el limite"):
+      - `destino`: 4 RANURAS de 16 MiB (`OBJETIVOS`, `va_de`, `iova_de`),
+        seguidas en la VA y en la IOVA; las texturas pasan a la IOVA
+        0x5C00_0000. La IOMMU: ~92 tablas de sus 128.
+      - Las ordenes (`clc797.h`): `SET_COLOR_TARGET_A(k)` (0x0800 + 64 k),
+        su LAYER, COMPRESSION, BLEND a 0 y `SET_CT_WRITE(k)`; y
+        `SET_CT_SELECT` con la cuenta y la salida k al target k.
+      - El pegamento: OmapTarget de cada target en la SPH (4 bits desde el
+        576); el emisor deja la salida k en R4k. El 0 lleva la mezcla y el
+        redondeo; los demas, de 8 bits o de float SIN redondeo (R32, RGBA32F).
+      - La receta: +88 bit 3 y un bloque de medida fija (`receta::MAS`). La
+        huella del caliente y la clave del pegado los llevan. El kernel presta
+        cada uno en su ranura y los devuelve TODOS (`devolver_destinos`); la
+        pantalla directa, solo con uno.
+      - La puerta: `objetivos_de` -- el SV_Target0 primero y los demas en
+        orden, con huecos (`gbuffer.hlsl` escribe 0, 1 y 3: en la 3060 la
+        ranura k es la k-esima salida, los huecos de D3D no existen) --,
+        hasta 4. `Blanco::mas` (los SV_Target 1..7 de la trama).
+      - Pruebas: `una_receta_de_tres_render_targets` (ga10x) y
+        `el_g_buffer_de_dxc_va_a_la_3060`: dxc, la puerta, la receta, el
+        pegado del kernel con su juez, las ordenes de cada ranura y el
+        SIMULADOR de la 3060 contra la CPU en las tres salidas; y sus NO (un
+        RTV nulo, un half en el 1, fuera de 128 B).
+      **Lo que NO prueba el emulador (se mira en el metal):** que la 3060
+      acepte `SET_CT_SELECT` con mas de uno y los arrays por target (nunca
+      corrieron); que escriba cada salida en su ranura (el banco solo ve las
+      ordenes); y el coste de prestar 3 o 4 destinos por lote.
+      **Falta:** con la Z (una sombra y una copia por target), la mezcla en
+      los demas, los floats con redondeo en los demas, y mas de 4.
 - [~] **LI2e -- la entrada de vertices de verdad**: formatos de 8 y 16 bits
       (UNORM, SNORM, half) y `SV_VertexID` / `SV_InstanceID`. **Como se
       sabe:** las instancias de N5.19 por la 3060, con su huella.
@@ -351,6 +411,60 @@ y `puerta.rs`; el juez en `platform/drivers/gpu/ga10x/src/sass/juez.rs`):
       (un grupo menos, el SRV sin su paso): cae. **Falta la mitad de la
       3060:** el emisor aun rechaza `EscribeUav`, la memoria compartida, los
       atomicos y las barreras, y el PSO de computo no va al QMD.
+      **13-10, la mitad de la 3060 HECHA en el anfitrion** (la 3060 de
+      mentira y el juez; NADA en el metal todavia):
+      - el ORO del computo (`bmo_sm86::computo`, de `ptxas` 12.9 y
+        `nvdisasm` 13.4): S2R, BAR.SYNC, STS/LDS, LDG/STG, ATOMS/ATOMG y sus
+        CAS; el simulador los corre, grupo a grupo, en el orden de la casa
+        (`simula_grupo`).
+      - el EMISOR (`proton-x-sm86`: `uav.rs`, `compartida.rs`,
+        `uniforme.rs`): los ids, la barrera donde el control es UNIFORME
+        (se demuestra; si no, la CPU), los UAV y los SRV de bufer crudos y
+        estructurados -- leer, escribir, los `Interlocked*`, GetDimensions
+        --, y la compartida (a cero en un prologo: la 3060 no la limpia).
+        Cada direccion, SUJETA: `base + min(x & ~3, tope)` para un bufer, y
+        `4 * min(x, tope)` en la compartida.
+      - el JUEZ (`sass/juez_computo.rs`, R7): cada LDG/STG/ATOMG detras de
+        su cadena fija contra la base y el tope que pone el kernel (que el
+        cuerpo no puede pisar), un SRV de solo leer, la compartida contra
+        sus bytes, S2R y BAR en su forma.
+      - **Como se supo:** nBodyGravity (Microsoft) entero -- 18993
+        instrucciones, sus dos barreras en el bucle de los tiles --, 256
+        particulas: los MISMOS bytes que `Programa::despachar`, y juzgado.
+        Cada trampa al juez (otro tope, la base pisada, un salto en la
+        cadena, escribir un SRV), su NO.
+      - [!] Lo que NO da los mismos bits: una palabra sin alinear de un
+        crudo (D3D12 no la define; dxc no la emite).
+      - **13-10, lo PURO del despacho:** la receta de computo **VRC1**
+        (`trabajos/receta_computo.rs`: leer y comprobar, los valores de las
+        precargas, los permisos del juez), el QMD con la rejilla y el grupo
+        en 3D y la compartida con su configuracion de la SM, y el pegado
+        (`trabajos/computo_app.rs`). nBody por ese camino -- emitir, VRC1,
+        leer, juzgar, valores, pegar -- y la 3060 de mentira corriendo lo
+        pegado sin ayuda: los mismos bytes que la CPU.
+      - **13-10, el KERNEL y PROTON-X:** la TERCERA puerta estrecha,
+        `IOMMU_OP_GPU_COMPUTO` (`gpu_trabajo/computo.rs`): la receta se
+        COPIA antes de juzgarla (lo juzgado es lo que se sube), R7 y R0..R6,
+        las precargas las pone el kernel, los UAV prestados escribibles en
+        las ranuras del destino y los SRV solo leer en las de las texturas,
+        devueltos salga como salga, el GR con su cerrojo, el vigilante.
+        El codigo del computo en su region (`vram::CODIGO_COMPUTO`, 140
+        paginas). Cinco porques nuevos. El guardian `la-3060` (P2) exige
+        todo eso (saboteado: cae). PROTON-X: `Plataforma::computar` y
+        `computo3060.rs` -- con `--3060`, cada `Dispatch` va a la puerta; lo
+        que no se emite o el kernel niega, por la CPU con su porque.
+      - **13-10, el CONTADOR** (`Append`, `Consume`): un ATOMG.ADD sobre su
+        palabra, prestada como un bufer mas (`CONTADOR | u`); los mismos
+        bytes y el mismo contador que la CPU.
+      - **COMO SE PRUEBA EN EL METAL:** `proton-x --prueba-computo` (con el
+        escritorio y `gpu lienzo` hechos) corre nBody por la puerta y por la
+        CPU y dice PERFECTO, cuantas particulas distintas, o el porque del NO.
+      **La corrida siguiente, que correr y que traer:**
+      [`METAL_2026-10-13.md`](../metal/METAL_2026-10-13.md).
+      **Falta:** EL METAL (el primer `Dispatch` lo dira: el QMD de la
+      compartida y la rejilla en 3D son nuevos), los UAV con tipo y de
+      textura (los de formato: cuantizar como la casa), y un cuerpo de mas
+      de 24 Ki instrucciones.
 - [ ] **LI2g -- DECISION DEL PROPIETARIO: los bits exactos o la tolerancia
       de D3D.** La regla de la casa es "los mismos bits que la CPU". La 3060
       APROXIMA la division, la raiz y el filtrado; D3D lo permite (unos
@@ -424,6 +538,45 @@ y `puerta.rs`; el juez en `platform/drivers/gpu/ga10x/src/sass/juez.rs`):
       juego de otra medida"). Abrirlos es Q0a1 (la puerta de otras medidas),
       no esta casilla. Y el juez en vivo tiraba un PSO por un `Load` (TLD) que
       el simulador SI sabe: le faltaba la textura nula (arreglado, con prueba).
+
+- [~] **LI2k -- LA RAM DEL JUEGO, PRESTADA ENTERA, y el PORQUE de cada NO**
+      (metal 12-10, 12:58). El censo dijo que 22 de 32 lotes de Cyberpunk
+      "irian", y la 3060 dibujo 0: el kernel dijo `motivo 79` a los dos
+      primeros y PROTON-X la dejo. El 79 salia por cuarenta caminos, y la
+      mitad no dejaba nada en `cabina`. **El fondo:** el kernel solo prestaba
+      a la 3060 un BLOQUE del proceso (`memory::fisica_de`), y lo de 64 KiB o
+      mas de un juego (sus render targets, sus texturas, sus `ID3D12Heap`, y
+      el monton de PROTON-X cuando pasa de 64 MiB, con la receta dentro)
+      vive en la VENTANA DE RESERVA: marcos sueltos que no son de ningun
+      bloque. La casa ya lo sabia ("una pagina de la reserva no esta ahi") y
+      solo mandaba a bloques prestables la cadena y texturas de hasta 4 MiB.
+      **Hecho (12-10), como piezas:**
+      - `bmo_gpu_ga10x::porque` + `INFO_GPU_PORQUE` (0xD4): cada NO de la
+        puerta apunta SU porque (23, con sus casos: el paso de `preparar`, la
+        ranura, el lado) y PROTON-X lo dice con palabras y el censo los
+        cuenta. Solo a quien recibio el NO.
+      - El prestamo PAGINA A PAGINA: `amdvi::Dominio::prestar_marcos` (todo o
+        nada, con prueba), `iommu::prestar_gpu_marcos` (una invalidacion, el
+        oraculo relee cada pagina) y `obj::reserva::marco` (en la ventana,
+        de usuario, escribible si se pide, PROPIA: nunca un aparato). El
+        destino y las texturas de la reserva se prestan asi; la receta de
+        la reserva se COPIA al kernel (200 KiB estaticos, bajo el taller).
+      - **R-DMA-3 con el respiro:** DESHACER la reserva y SOLTAR un bloque
+        pasan por la puerta de la 3060 (`respiro::fuera_de_la_gpu`): la
+        titular, apartada en su respiro, puede tener esa RAM prestada. Si en
+        2 s no suelta, no se devuelve nada (`RESERVA_GPU_VIENDO`).
+      **Como se sabe:** el metal con Cyberpunk: `smp all`, `personal 3060`,
+      y la linea `[3060]` con lotes dibujados; si el kernel dice NO, el censo
+      dice el porque con palabras (ya no hace falta `cabina fallos`).
+      **Q0a1b (12-10): el render target a mitad de pagina** (el censo: "no
+      empieza en pagina", un mip de 80x45 en ...d400). La 3060 ya dibujaba
+      un color que empieza a 128 B (la ventana del cubo en la pantalla, X5).
+      `destino::ALINEA` = 128: la ventana va en `destino::VA` + lo que se
+      mete en la pagina (`ventana_en`), el kernel presta desde la pagina de
+      la base (`paginas_en`), la mezcla lo pone en el inmediato de sus LDG,
+      y la huella del caliente y la clave del pegado lo llevan. Pruebas:
+      `q0a1b_el_destino_a_mitad_de_pagina`, `leer_destino_a_mitad_de_pagina`,
+      `el_render_target_a_mitad_de_pagina_va_a_la_3060`.
 
 ## 4.3 PROTON-X habla VERRANO
 

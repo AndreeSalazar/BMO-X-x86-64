@@ -1,0 +1,165 @@
+// oro_computo.ptx -- el PTX de las PALABRAS DE ORO del COMPUTO de una app
+// (LI2f, 12-10: `ORO_COMPUTO` en bmo-sm86/src/codifica.rs).
+// Rehacerlas (CUDA 12.9 y nvdisasm 13.4, de PyPI, como las demas):
+//   ptxas -arch=sm_86 -O3 oro_computo.ptx -o oro.cubin
+//   nvdisasm -hex oro.cubin
+// `ids`: los seis S2R (SR_TID.X/Y/Z y SR_CTAID.X/Y/Z), cada uno a memoria.
+// `barrera`: BAR.SYNC 0. `compartida`: STS y LDS con un registro y un
+// desplazamiento. `atomicos`: ATOMS.ADD (compartida) y ATOMG.ADD (global)
+// con su valor de antes. `bytes`: STS y LDS con la direccion en un registro
+// (sin escalar). `atomicos_s` y `atomicos_g`: los Interlocked* de HLSL --
+// add, min y max (con y sin signo), and, or, xor, exch y cas -- en la
+// compartida y en la global, cada hilo en su direccion (para que ptxas no
+// los junte por warp). `global`: LDG.E y STG.E con un desplazamiento.
+.version 8.0
+.target sm_86
+.address_size 64
+.visible .entry ids(.param .u64 pout)
+{
+  .reg .u32 %r<8>;
+  .reg .u64 %rd<4>;
+  ld.param.u64 %rd1, [pout];
+  mov.u32 %r1, %tid.x;
+  mov.u32 %r2, %tid.y;
+  mov.u32 %r3, %tid.z;
+  mov.u32 %r4, %ctaid.x;
+  mov.u32 %r5, %ctaid.y;
+  mov.u32 %r6, %ctaid.z;
+  st.global.u32 [%rd1], %r1;
+  st.global.u32 [%rd1+4], %r2;
+  st.global.u32 [%rd1+8], %r3;
+  st.global.u32 [%rd1+12], %r4;
+  st.global.u32 [%rd1+16], %r5;
+  st.global.u32 [%rd1+20], %r6;
+  ret;
+}
+.visible .entry barrera(.param .u64 pout)
+{
+  .reg .u32 %r<4>;
+  .reg .u64 %rd<4>;
+  .shared .align 4 .b32 s[256];
+  ld.param.u64 %rd1, [pout];
+  mov.u32 %r1, %tid.x;
+  shl.b32 %r2, %r1, 2;
+  mov.u32 %r3, s;
+  add.u32 %r3, %r3, %r2;
+  st.shared.u32 [%r3], %r1;
+  bar.sync 0;
+  ld.shared.u32 %r1, [%r3+4];
+  st.global.u32 [%rd1], %r1;
+  ret;
+}
+.visible .entry atomicos(.param .u64 pout)
+{
+  .reg .u32 %r<6>;
+  .reg .u64 %rd<4>;
+  .shared .align 4 .b32 s[64];
+  ld.param.u64 %rd1, [pout];
+  mov.u32 %r1, %tid.x;
+  shl.b32 %r2, %r1, 2;
+  mov.u32 %r3, s;
+  add.u32 %r3, %r3, %r2;
+  atom.shared.add.u32 %r4, [%r3], %r1;
+  atom.global.add.u32 %r5, [%rd1], %r4;
+  st.global.u32 [%rd1+4], %r5;
+  ret;
+}
+
+.visible .entry bytes(.param .u64 pout, .param .u32 poff)
+{
+  .reg .u32 %r<8>;
+  .reg .u64 %rd<4>;
+  .shared .align 4 .b32 s[256];
+  ld.param.u64 %rd1, [pout];
+  ld.param.u32 %r1, [poff];
+  mov.u32 %r2, %tid.x;
+  xor.b32 %r4, %r1, %r2;
+  st.shared.u32 [%r4], %r2;
+  bar.sync 0;
+  ld.shared.u32 %r3, [%r4+8];
+  st.global.u32 [%rd1], %r3;
+  ret;
+}
+.visible .entry atomicos_s(.param .u64 pout, .param .u32 poff)
+{
+  .reg .u32 %r<40>;
+  .reg .u64 %rd<8>;
+  .shared .align 4 .b32 s[1024];
+  ld.param.u64 %rd1, [pout];
+  ld.param.u32 %r1, [poff];
+  mov.u32 %r2, %tid.x;
+  shl.b32 %r3, %r2, 2;
+  add.u32 %r4, %r1, %r3;
+  cvt.u64.u32 %rd2, %r4;
+  add.u64 %rd3, %rd1, %rd2;
+  atom.shared.add.u32 %r10, [%r4], %r2;
+  st.global.u32 [%rd1+0], %r10;
+  atom.shared.min.u32 %r11, [%r4], %r2;
+  st.global.u32 [%rd1+4], %r11;
+  atom.shared.max.u32 %r12, [%r4], %r2;
+  st.global.u32 [%rd1+8], %r12;
+  atom.shared.min.s32 %r13, [%r4], %r2;
+  st.global.u32 [%rd1+12], %r13;
+  atom.shared.max.s32 %r14, [%r4], %r2;
+  st.global.u32 [%rd1+16], %r14;
+  atom.shared.and.b32 %r15, [%r4], %r2;
+  st.global.u32 [%rd1+20], %r15;
+  atom.shared.or.b32 %r16, [%r4], %r2;
+  st.global.u32 [%rd1+24], %r16;
+  atom.shared.xor.b32 %r17, [%r4], %r2;
+  st.global.u32 [%rd1+28], %r17;
+  atom.shared.exch.b32 %r18, [%r4], %r2;
+  st.global.u32 [%rd1+32], %r18;
+  atom.shared.cas.b32 %r19, [%r4], %r2, %r3;
+  st.global.u32 [%rd1+36], %r19;
+  ret;
+}
+.visible .entry atomicos_g(.param .u64 pout, .param .u32 poff)
+{
+  .reg .u32 %r<40>;
+  .reg .u64 %rd<8>;
+  .shared .align 4 .b32 s[1024];
+  ld.param.u64 %rd1, [pout];
+  ld.param.u32 %r1, [poff];
+  mov.u32 %r2, %tid.x;
+  shl.b32 %r3, %r2, 2;
+  add.u32 %r4, %r1, %r3;
+  cvt.u64.u32 %rd2, %r4;
+  add.u64 %rd3, %rd1, %rd2;
+  atom.global.add.u32 %r10, [%rd3], %r2;
+  st.global.u32 [%rd1+0], %r10;
+  atom.global.min.u32 %r11, [%rd3], %r2;
+  st.global.u32 [%rd1+4], %r11;
+  atom.global.max.u32 %r12, [%rd3], %r2;
+  st.global.u32 [%rd1+8], %r12;
+  atom.global.min.s32 %r13, [%rd3], %r2;
+  st.global.u32 [%rd1+12], %r13;
+  atom.global.max.s32 %r14, [%rd3], %r2;
+  st.global.u32 [%rd1+16], %r14;
+  atom.global.and.b32 %r15, [%rd3], %r2;
+  st.global.u32 [%rd1+20], %r15;
+  atom.global.or.b32 %r16, [%rd3], %r2;
+  st.global.u32 [%rd1+24], %r16;
+  atom.global.xor.b32 %r17, [%rd3], %r2;
+  st.global.u32 [%rd1+28], %r17;
+  atom.global.exch.b32 %r18, [%rd3], %r2;
+  st.global.u32 [%rd1+32], %r18;
+  atom.global.cas.b32 %r19, [%rd3], %r2, %r3;
+  st.global.u32 [%rd1+36], %r19;
+  ret;
+}
+
+.visible .entry global(.param .u64 pin, .param .u64 pout)
+{
+  .reg .u32 %r<8>;
+  .reg .u64 %rd<8>;
+  ld.param.u64 %rd1, [pin];
+  ld.param.u64 %rd2, [pout];
+  mov.u32 %r1, %tid.x;
+  mul.wide.u32 %rd3, %r1, 4;
+  add.u64 %rd4, %rd1, %rd3;
+  add.u64 %rd5, %rd2, %rd3;
+  ld.global.u32 %r2, [%rd4+16];
+  st.global.u32 [%rd5+8], %r2;
+  ret;
+}

@@ -425,6 +425,13 @@ impl<'a> Textura<'a> {
         Some(Plano { texeles, ancho: w, alto: h, como: self.como, srgb: self.srgb })
     }
 
+    /// **El plano que mira la vista** (12-10, LI2c para la 3060): los
+    /// texeles de su mip y su capa (la rebanada 0), y sus medidas -- lo
+    /// mismo que lee [`Textura::muestrear`] --. `None` si la memoria no llega.
+    pub fn plano_visto(&self) -> Option<(&'a [u32], u32, u32)> {
+        self.plano(self.mip, self.capa, 0).map(|p| (p.texeles, p.ancho, p.alto))
+    }
+
     /// **`Sample(s, (u, v))`** en la mip y la capa de la vista, con su mapeo.
     pub fn muestrear(&self, m: &Muestreador, u: f32, v: f32) -> [f32; 4] {
         match self.plano(self.mip, self.capa, 0) {

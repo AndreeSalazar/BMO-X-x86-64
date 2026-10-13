@@ -18,7 +18,7 @@ const CUADRO_VS: &[u8] = include_bytes!("../../proton-x/prueba/flotante1_vs.dxil
 const COLOR_PS: &[u8] = include_bytes!("../../proton-x/prueba/flotante1_color.dxil");
 
 fn blanco(ancho: u32, alto: u32) -> Blanco {
-    Blanco { va: 0x4000_0000, ancho, alto, bgra: true, cadena: false, flotante: None }
+    Blanco { va: 0x4000_0000, ancho, alto, bgra: true, cadena: false, flotante: None, mas: crate::puerta::SIN_MAS }
 }
 
 /// El cuadro de pantalla completa en un blanco de `b`, con o sin la Z.
@@ -53,8 +53,8 @@ fn lo_que_la_puerta_no_dibuja_todavia() {
     assert!(por_la_puerta(blanco(1280, 720), true).is_ok(), "1280x720 con la Z, como siempre");
     let m = por_la_puerta(blanco(100, 100), false).unwrap_err();
     assert!(m.contains("128 B"), "{m}");
-    let m = por_la_puerta(Blanco { va: 0x4000_0400, ..blanco(256, 256) }, false).unwrap_err();
-    assert!(m.contains("pagina"), "{m}");
+    let m = por_la_puerta(Blanco { va: 0x4000_0410, ..blanco(256, 256) }, false).unwrap_err();
+    assert!(m.contains("no empieza a 128 B"), "{m}");
     assert_eq!(medida(&blanco(4096, 1100), Flotante::No, false), Err(NoMedida::Grande), "17,6 MiB: mas que el mapa");
     assert_eq!(medida(&blanco(8192, 1), Flotante::No, false), Err(NoMedida::Grande), "un lado de mas");
     assert_eq!(medida(&blanco(1920, 1080), Flotante::Rgba32, false), Err(NoMedida::Grande), "1920x1080 de float: 31,6 MiB");
@@ -69,4 +69,16 @@ fn el_pegado_vacio_es_ceros() {
     let b = crate::pso::pegado_vacio();
     assert_eq!((b.n, b.registros, b.sph, b.codigo.len()), (v.n, v.registros, v.sph, v.codigo.len()));
     assert!(b.codigo.iter().zip(v.codigo.iter()).all(|(a, b)| a == b));
+}
+
+/// ** Q0a1b (12-10): el render target a mitad de pagina (el mip de 80x45 de
+/// Cyberpunk en ...d400): la receta lleva SU va entera, y el kernel la lee.
+#[test]
+fn el_render_target_a_mitad_de_pagina_va_a_la_3060() {
+    let b = Blanco { va: 0x2_0040_d400, ..blanco(96, 45) };
+    let d = por_la_puerta(b, false).expect("a 128 B, pasa");
+    assert_eq!((d.ancho, d.alto, d.fila), (96, 45, 384));
+    assert!(d.valido_en(b.va) && d.paginas_en(b.va) == (0x400 + 384 * 45u64).div_ceil(4096));
+    let lleno = Blanco { va: 0x2_0040_0f80, ..blanco(4096, 1024) };
+    assert_eq!(medida(&lleno, Flotante::No, false), Err(NoMedida::Grande), "lo que se mete en la pagina cuenta en el mapa");
 }

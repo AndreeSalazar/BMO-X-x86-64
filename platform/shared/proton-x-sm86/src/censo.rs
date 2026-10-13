@@ -229,8 +229,8 @@ pub fn del_pso(en: &Enlace, ia: &[ElementoIa], paso: u32) -> Vec<String> {
     if pso::posicion_zw(en) {
         poner!("SV_Position.z o .w en el de pixeles".into());
     }
-    if en.objetivos != [0] {
-        poner!("varios render targets (o uno que no es el 0, o SV_Depth)".into());
+    if let Err(m) = crate::puerta::objetivos_de(en) {
+        poner!(m.into());
     }
     let mut emitio = true;
     for (p, que) in [(&en.vs, "vertice"), (&en.ps, "pixel")] {

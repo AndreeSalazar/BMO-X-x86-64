@@ -80,6 +80,7 @@ fn cargas(nombre: &str, precargas: &[Precarga]) -> Result<Vec<Carga>, String> {
             Precarga::Entrada { elemento, componente, reg } => Ok(Carga::Entrada { elemento, componente, reg }),
             Precarga::Fila { fila, reg } => Ok(Carga::Fila { fila, reg }),
             Precarga::Asa { .. } | Precarga::AsaPar { .. } => Err(format!("`{}` muestrea una textura: {} no la pega todavia en una gpu fn", nombre, NOMBRE)),
+            Precarga::Uav { .. } => Err(format!("`{}` usa un UAV: {} no lo pega todavia en una gpu fn", nombre, NOMBRE)),
         })
         .collect()
 }

@@ -360,11 +360,15 @@ const MAX_PRESTABLES: u32 = 2;
 
 /// **Memoria PRESTABLE a la 3060** (tanda 45, 02-10): `bytes` a cero, a
 /// PAGINA, dentro de un BLOQUE de la plataforma -- en BMO-X un bloque del
-/// kernel, contiguo, que es lo unico que `IOMMU_OP_GPU_DIBUJAR` sabe prestar
-/// (el kernel lo busca con `fisica_de` entre los bloques del proceso; una
-/// pagina de la ventana de reserva no esta ahi). Lo reparte un monton propio
-/// en bloques de 64 MiB, como mucho [`MAX_PRESTABLES`]. `None` si no cabe:
-/// quien llama tira de [`pedir_paginas`], que la CPU dibuja igual.
+/// kernel, contiguo: el kernel lo presta a la 3060 de UNA vez. Lo reparte un
+/// monton propio en bloques de 64 MiB, como mucho [`MAX_PRESTABLES`]. `None`
+/// si no cabe: quien llama tira de [`pedir_paginas`].
+///
+/// ** Desde el 12-10 la ventana de reserva TAMBIEN se presta (el kernel la
+/// presta pagina a pagina: `obj::reserva::marco`). Hasta entonces una pagina
+/// de la reserva no era de ningun bloque y el kernel decia `motivo 79` a todo
+/// render target de mas de 4 MiB: el metal de Cyberpunk (12-10 12:58). Lo
+/// prestable se queda porque prestar un bloque seguido cuesta menos.
 fn pedir_prestable(bytes: u64) -> Option<u64> {
     let e = estado();
     let bytes = bytes.max(1);

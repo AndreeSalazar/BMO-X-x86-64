@@ -10,6 +10,8 @@
 
 pub mod juez;
 pub mod corpus;
+/// LI2f (12-10): R7 para el computo de una app (ids, barrera, sus UAV).
+pub mod juez_computo;
 #[cfg(test)]
 mod juez_saltos;
 #[cfg(test)]

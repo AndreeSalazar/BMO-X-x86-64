@@ -114,7 +114,7 @@ fn igual(p: &Programa, e: &Emitido, rec: &Recursos, entradas: &[[f32; 4]; 2], en
                 let k = pares.iter().position(|&x| x == (textura, muestreador)).unwrap() as u32;
                 m.r[reg as usize] = bmo_gpu_ga10x::texturas::asa(k, k);
             }
-            Precarga::Fila { .. } => panic!("sin cbuffer"),
+            Precarga::Fila { .. } | Precarga::Uav { .. } => panic!("sin cbuffer ni UAV"),
         }
     }
     correr(&e.codigo, &mut m).unwrap_or_else(|x| panic!("{x:?}"));
@@ -349,7 +349,7 @@ fn igual_tres(p: &Programa, e: &Emitido, rec: &Recursos, entradas: &[[f32; 4]; 3
                 let k = pares.iter().position(|&x| x == (textura, muestreador)).unwrap() as u32;
                 m.r[reg as usize] = bmo_gpu_ga10x::texturas::asa(k, k);
             }
-            Precarga::Fila { .. } => panic!("sin cbuffer"),
+            Precarga::Fila { .. } | Precarga::Uav { .. } => panic!("sin cbuffer ni UAV"),
         }
     }
     correr(&e.codigo, &mut m).unwrap_or_else(|x| panic!("{x:?}"));

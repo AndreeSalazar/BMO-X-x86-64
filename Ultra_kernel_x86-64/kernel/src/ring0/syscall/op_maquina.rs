@@ -748,6 +748,16 @@ fn iommu_puerta(arg0: u64, arg1: u64) -> BmoStatus {
             Ok(v) => BmoStatus::ok_value(v),
             Err(m) => BmoStatus::negado(m, 0),
         }
+    } else if arg0 == IOMMU_OP_GPU_COMPUTO {
+        // ** LI2f (13-10): la TERCERA puerta estrecha -- una app corre SU
+        // computo: la receta se copia y se juzga (R7 y R0..R6), las
+        // direcciones las pone el kernel, los buferes son suyos y se
+        // devuelven, el GR con su cerrojo. El guardian `la-3060` (P2) exige
+        // todo eso en `computo_de_app`.
+        match crate::ring0::dev::gpu_trabajo::computo_de_app(arg1) {
+            Ok(v) => BmoStatus::ok_value(v),
+            Err(m) => BmoStatus::negado(m, 0),
+        }
     } else {
         iommu_(arg0, arg1)
     };

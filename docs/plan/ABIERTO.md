@@ -1,14 +1,14 @@
 <!-- GENERADO por toolchain/tools/planes. No se edita a mano. -->
 
-# LO QUE FALTA -- las casillas abiertas de los 80 planes
+# LO QUE FALTA -- las casillas abiertas de los 81 planes
 
 > Generado por `toolchain/tools/planes`. **El build comprueba que
 > este fichero y los planes dicen lo mismo**, asi que no puede
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   766 casillas ABIERTAS en 71 planes
-   607 hechas
+   771 casillas ABIERTAS en 72 planes
+   608 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -63,7 +63,7 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] V3a -- VERRANO POR CATEGORIAS: el dibujo con PROGRAMAS (11-10,
 - ... y 42 mas
 
-## [`PLAN_LA_LUDOTECA.md`](PLAN_LA_LUDOTECA.md) -- 32 abiertas, 14 hechas
+## [`PLAN_LA_LUDOTECA.md`](PLAN_LA_LUDOTECA.md) -- 32 abiertas, 15 hechas
 
 *PLAN LA LUDOTECA -- los juegos que compraste, en BMO-X, y por donde NO*
 
@@ -90,14 +90,14 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] IL2 -- LA REJILLA DE VECINOS: cada particula a su celda, ordenadas por celda (un conteo y un ord
 - ... y 27 mas
 
-## [`PLAN_LA_3060_AFINADA.md`](PLAN_LA_3060_AFINADA.md) -- 22 abiertas, 6 hechas
+## [`PLAN_LA_3060_AFINADA.md`](PLAN_LA_3060_AFINADA.md) -- 23 abiertas, 6 hechas
 
 *PLAN LA 3060 AFINADA -- aislar mas, medir, y solo entonces optimizar*
 
 - [ ] A3 -- esperar a la 3060 con INTERRUPCION, y el trinquete E a cero
 - [ ] A4 -- los CARRILES de la 3060: una carpeta que no mezcla
 - [ ] A5 -- cada prestamo a la 3060 dice quien lo devuelve
-- ... y 19 mas
+- ... y 20 mas
 
 ## [`PLAN_FASE.md`](PLAN_FASE.md) -- 19 abiertas, 3 hechas
 
@@ -529,6 +529,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] Paso 0b -- el lanzador que inyecta en el juego
 - [ ] Paso 1 -- las DLL del juego y las que llegan tarde
 - [ ] Paso 2 -- las vigiladas, con sus datos
+- ... y 1 mas
+
+## [`PLAN_LA_LENTE.md`](PLAN_LA_LENTE.md) -- 4 abiertas, 0 hechas
+
+*PLAN -- LA LENTE: BMO-X lee cada programa y dice que es y por que*
+
+- [ ] LE0 -- las reglas, escritas. La lista cerrada, cada una con su
+- [ ] LE1 -- la lectura de un PE/ELF, en texto. Un lector puro en Ring 3
+- [ ] LE2 -- el veredicto, en la puerta. Lanzar un programa pasa por la
 - ... y 1 mas
 
 ## [`PLAN_LA_RAM_SALE_DEL_KERNEL.md`](PLAN_LA_RAM_SALE_DEL_KERNEL.md) -- 4 abiertas, 3 hechas

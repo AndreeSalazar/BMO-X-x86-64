@@ -931,6 +931,31 @@ pub fn fisica_para_escribir(pid: u32, va: u64, len: u64) -> Option<u64> {
     None
 }
 
+/// **POR QUE `fisica_para_escribir` dijo `None`** (12-10, el porque de la
+/// 3060): 1 = `va` no cae en ningun bloque de `pid`; 2 = cae en uno y
+/// `[va, va+len)` se sale de el; 3 = toca lo sellado; 0 = si se puede (o el
+/// proceso no tiene cuentas). Los numeros son los de
+/// `bmo_gpu_ga10x::porque::DESTINO`. Solo mira.
+pub fn por_que_no_escribir(pid: u32, va: u64, len: u64) -> u8 {
+    let Some(slot) = slot(pid) else { return 1 };
+    let fin = va.saturating_add(len);
+    unsafe {
+        let c = &(*core::ptr::addr_of!(CUENTAS))[slot];
+        for b in c.bloques.iter() {
+            if b.base != 0 && va >= b.base && va < b.base + b.bytes {
+                return if fin > b.base + b.bytes {
+                    2
+                } else if bmo_imagen_juicio::sello::toca_sellado(b.base, b.sellado, va) {
+                    3
+                } else {
+                    0
+                };
+            }
+        }
+    }
+    1
+}
+
 /// El bloque que empieza en `base` esta sellado? Lo pregunta `OFRECER`: prestar
 /// con escritura un bloque de codigo es devolverle la W por la puerta de atras.
 pub fn esta_sellado(pid: u32, base: u64) -> bool {
@@ -1188,7 +1213,11 @@ pub fn operation(base: u64, operation: u64, pid: u32) -> Option<u64> {
         // programa un DMA, y un aparato escribiendo en codigo es la W por otra
         // puerta (2026-09-23, `MEM_OP_SELLAR`).
         MEM_OP_FISICA => fisica_para_escribir(pid, base, 1),
-        MEM_OP_SOLTAR => soltar(pid, base),
+        // 12-10: por la puerta de la 3060, como DESHACER la reserva: el
+        // bloque puede ser el destino PRESTADO de una receta cuya titular esta
+        // apartada en el respiro. Si en 2 s no suelta, el bloque NO se suelta
+        // ("no existe aqui", y se puede volver a pedir).
+        MEM_OP_SOLTAR => crate::ring0::dev::respiro::fuera_de_la_gpu(|| soltar(pid, base)).flatten(),
         _ => None,
     }
 }

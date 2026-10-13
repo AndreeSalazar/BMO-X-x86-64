@@ -790,6 +790,9 @@ pub const RESERVA_SIN_RAM: u32 = 4;
 /// El valor: cuantos bytes SI se hicieron (y se quedan hechos).
 pub const RESERVA_SIN_MARCOS: u32 = 5;
 pub const RESERVA_NO_MAPEA: u32 = 6;
+/// DESHACER con la 3060 viendo esa RAM (una puerta suya apartada en el
+/// respiro) mas de 2 s: no se devuelve nada (12-10).
+pub const RESERVA_GPU_VIENDO: u32 = 7;
 pub const IOMMU_OP_ENCENDER: u64 = 0x01;
 pub const IOMMU_OP_APAGAR: u64 = 0x02;
 /// Cegar la 3060 (M0e): su DMA no alcanza la RAM; sus interrupciones si pasan.
@@ -1133,6 +1136,15 @@ pub const IOMMU_OP_GPU_COMPLETA: u64 = 0x50;
 /// `bmo_gpu_ga10x::completa::empaquetar` con las pasadas hechas; lo que
 /// salio lo juzga la app (`bmo_verrano::completa::del_bloque`).
 pub const IOMMU_OP_GPU_COMPLETAR: u64 = 0x51;
+/// LI2f (13-10): **LA PUERTA ESTRECHA DEL COMPUTO** -- una APP, sin la
+/// autoridad `MAQUINA`, corre un `Dispatch` de D3D12 en la 3060: `arg1` = la
+/// VA de una RECETA DE COMPUTO (VRC1, `bmo_gpu_ga10x::receta_computo`) en un
+/// bloque o en la reserva del que llama. El kernel la copia, la juzga (R7 y
+/// R0..R6), pone las precargas, presta sus buferes (los UAV escribibles, los
+/// SRV solo para leer) y los devuelve antes de volver. `Ok` =
+/// `computo_app::empaquetar(us, lanzado, pagado)`; un NO dice su porque
+/// (`INFO_GPU_PORQUE`).
+pub const IOMMU_OP_GPU_COMPUTO: u64 = 0x52;
 /// P1: EL PASE de la GPU, neutro (`bmo_pase_gpu::orden`): ABRIR con la VA del
 /// lienzo (el lienzo prestado para quedarse, `Ok` = la VA del buzon), CERRAR
 /// o ESTADO en los bits 63..60 de `arg1`.

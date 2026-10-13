@@ -25,7 +25,7 @@ const FORMATOS: [u32; 6] = [2, 6, 10, 16, 34, 54];
 fn epilogo(r: Redondeo) -> Vec<(u64, u64)> {
     let cuerpo = [bmo_gpu_ga10x::cubo::mov(5, 0), bmo_gpu_ga10x::cubo::EXIT];
     let mut g = pegamento::Pegado::VACIO;
-    pegamento::pixel_entero_en(&mut g, &cuerpo, 8, &[], Datos { filas: 0, paso: 0, elementos: &[] }, &[], None, r, None).expect("se pega");
+    pegamento::pixel_entero_en(&mut g, &cuerpo, 8, &[], Datos { filas: 0, paso: 0, elementos: &[] }, &[], None, r, None, 1).expect("se pega");
     let mut v: Vec<(u64, u64)> = g
         .codigo()
         .iter()
@@ -103,7 +103,7 @@ fn un_cuadro_en_un_rgba16f_va_a_la_3060() {
     let cb = std::vec![0x3Fu8; 16 * en.vs.filas_cb.max(en.ps.filas_cb).max(1) as usize];
     let ids = [0, 1, 2, 3, 4, 5];
     let l = Lote { enlace: &en, entradas: &[], vertices: &[], paso: 0, ids: &ids, topologia: Topologia::Lista, cb: &cb, reglas: reglas(), limpiar_z: None, limpiar_rt: None, recursos: bmo_proton_x::textura::Recursos::NINGUNO, oclusion: false, otros: &[], instancias: 1, primera_instancia: 0, base_vertice: 0, uavs: None };
-    let b = Blanco { va: 0x4000_0000, ancho: 1280, alto: 720, bgra: false, cadena: false, flotante: Some((10, 4)) };
+    let b = Blanco { va: 0x4000_0000, ancho: 1280, alto: 720, bgra: false, cadena: false, flotante: Some((10, 4)), mas: crate::puerta::SIN_MAS };
     let mut p = Puerta::nueva();
     let n = p.preparar(&l, b).unwrap_or_else(|m| panic!("el RGBA16F va a la 3060: {m}"));
     let r = bmo_gpu_ga10x::receta::leer(&p.caja[..n]).expect("el kernel lee la receta");
@@ -116,4 +116,18 @@ fn un_cuadro_en_un_rgba16f_va_a_la_3060() {
     assert_eq!(Puerta::nueva().preparar(&Lote { reglas: con_z, ..l }, b).unwrap_err(), Z_CON_FLOAT);
     assert!(Puerta::nueva().preparar(&Lote { limpiar_rt: Some(0), ..l }, b).is_err());
     assert!(Puerta::nueva().preparar(&l, Blanco { cadena: true, ..b }).is_err());
+}
+
+/// ** Metal 12-10: el censo decia "un formato que la casa no conoce (DXGI
+/// 32571392)": era la MARCA de la casa (`bufer::CUATRO_FLOATS`) con la vista
+/// arriba. Desempaquetada: un RGBA16F guardado en cuatro floats VA; uno visto
+/// con otro formato lo dice por su nombre.
+#[test]
+fn la_marca_de_cuatro_floats_se_desempaqueta() {
+    use bmo_proton_x::bufer::{con_vista, CUATRO_FLOATS};
+    let (f, _) = crate::puerta::de_flotante(10 | CUATRO_FLOATS, 4).expect("RGBA16F en cuatro floats");
+    assert_eq!(f, bmo_gpu_ga10x::destino::Flotante::Rgba32);
+    assert_eq!(32571392 & CUATRO_FLOATS, CUATRO_FLOATS, "la del metal");
+    assert_eq!(crate::puerta::de_flotante(32571392, 4).unwrap_err(), crate::puerta::FLOTANTE_OTRA_VISTA);
+    assert_eq!(crate::puerta::de_flotante(con_vista(10, 34), 4).unwrap_err(), crate::puerta::FLOTANTE_OTRA_VISTA);
 }

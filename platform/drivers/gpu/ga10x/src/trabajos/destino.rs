@@ -40,10 +40,37 @@ pub const TABLAS: u64 = 0x0470_0000;
 /// texturas (`texturas::IOVA`), sin pisarla.
 pub const PTS: usize = 8;
 pub const MAX_BYTES: u64 = PTS as u64 * (2 << 20);
+/// ** LI2d (12-10): VARIOS RENDER TARGETS -- el G-buffer de un motor
+/// diferido escribe 3 o 4 a la vez. Cada uno tiene SU ranura de
+/// [`MAX_BYTES`], seguidas en la VA y en la IOVA: el `k` en [`va_de`] y
+/// [`iova_de`]. D3D12 deja 8; aqui 4 (lo que mide un G-buffer): cada ranura
+/// son 8 tablas de la IOMMU, y las del dominio de la 3060 son 128. Lo que
+/// pide mas, por la CPU con su porque.
+pub const OBJETIVOS: usize = 4;
+/// Las PT de todas las ranuras.
+pub const PTS_TODAS: usize = PTS * OBJETIVOS;
+
+/// Donde ve la 3060 el render target `k` (el 0, [`VA`]).
+pub const fn va_de(k: usize) -> u64 {
+    VA + k as u64 * MAX_BYTES
+}
+
+/// Donde lo presta la IOMMU (el 0, [`IOVA`]).
+pub const fn iova_de(k: usize) -> u64 {
+    IOVA + k as u64 * MAX_BYTES
+}
 /// Lo mas largo de un lado: 4096 (los campos de 16 bits del recorte dan
 /// mas; el mapa, [`MAX_BYTES`], es el que de verdad acota).
 pub const MAX_LADO: u32 = 4096;
 const PAGINA: u64 = 0x1000;
+/// **Q0a1b (12-10): donde puede EMPEZAR un destino**: a 128 B, no a pagina.
+/// La 3060 ya dibuja en un color pitch que empieza a mitad de pagina: la
+/// ventana del cubo en la pantalla (`cubo::ventana`, x0 a 32 pixeles = 128
+/// B), visto en el metal desde X5. Un render target del juego que empieza a
+/// mitad de pagina (un mip de 80x45 en ...d400) va igual: su ventana empieza
+/// en [`VA`] + lo que se mete en la pagina, y la IOMMU presta desde la
+/// pagina de su base.
+pub const ALINEA: u64 = 128;
 
 /// **Como guarda el destino cada pixel** (LI2d-HDR, 12-10). Un render target
 /// de float del juego lo guarda la casa en floats de 32 bits YA redondeados a
@@ -132,6 +159,18 @@ impl Destino {
         self.ancho >= 1 && self.alto >= 1 && self.ancho <= MAX_LADO && self.alto <= MAX_LADO && self.fila as u64 >= self.flotante.bytes() as u64 * self.ancho as u64 && self.fila % 128 == 0 && self.bytes() <= MAX_BYTES
     }
 
+    /// **Q0a1b**: [`valido`](Self::valido) y que la VA de la app empiece a
+    /// [`ALINEA`], con lo que se mete en la pagina DENTRO del mapa.
+    pub const fn valido_en(&self, va_app: u64) -> bool {
+        self.valido() && va_app % ALINEA == 0 && va_app % PAGINA + self.bytes() <= MAX_BYTES
+    }
+
+    /// Las paginas que se prestan para un destino en `va_app`: desde la de
+    /// su base hasta la de su ultimo byte.
+    pub const fn paginas_en(&self, va_app: u64) -> u64 {
+        (va_app % PAGINA + self.bytes()).div_ceil(PAGINA)
+    }
+
     /// La de VERRANO: 1280x720 (la de la sombra y la de la Z).
     pub const fn es_la_de_verrano(&self) -> bool {
         self.ancho == crate::cubo::ANCHO && self.alto == crate::cubo::ALTO
@@ -140,7 +179,19 @@ impl Destino {
     /// Como lo ven las ordenes de VERRANO: una ventana en el (0, 0) de [`VA`],
     /// de SU medida.
     pub const fn ventana(&self) -> Ventana {
-        Ventana { x0: 0, y0: 0, va: VA, fila: self.fila, rgb: self.rgb, flotante: self.flotante, ancho: self.ancho, alto: self.alto }
+        self.ventana_en(0)
+    }
+
+    /// **Q0a1b**: la ventana de un destino en `va_app`: empieza en [`VA`] +
+    /// lo que `va_app` se mete en su pagina (la IOMMU presta desde la pagina
+    /// de la base: `IOVA` es esa pagina).
+    pub const fn ventana_en(&self, va_app: u64) -> Ventana {
+        self.ventana_de(0, va_app)
+    }
+
+    /// **LI2d**: la ventana del render target `k` (su ranura, [`va_de`]).
+    pub const fn ventana_de(&self, k: usize, va_app: u64) -> Ventana {
+        Ventana { x0: 0, y0: 0, va: va_de(k) + va_app % PAGINA, fila: self.fila, rgb: self.rgb, flotante: self.flotante, ancho: self.ancho, alto: self.alto }
     }
 }
 
@@ -159,7 +210,7 @@ pub fn mapear<R: Registros>(r: &mut R) -> Option<(u32, u32)> {
         return None;
     }
     let pt = |k: usize| TABLAS + PAGINA * (1 + k as u64);
-    for k in 0..=PTS {
+    for k in 0..=PTS_TODAS {
         a_cero(r, TABLAS + PAGINA * k as u64);
     }
     let (mut n, mut bien) = (0u32, 0u32);
@@ -168,11 +219,12 @@ pub fn mapear<R: Registros>(r: &mut R) -> Option<(u32, u32)> {
         n += 1;
         bien += (leer64(r, dir) == v) as u32;
     };
-    for q in 0..MAX_BYTES / PAGINA {
+    // LI2d: las ranuras de los OBJETIVOS, seguidas.
+    for q in 0..OBJETIVOS as u64 * MAX_BYTES / PAGINA {
         poner(r, pt((q / 512) as usize) + 8 * (q % 512), pte_sistema(IOVA + q * PAGINA));
     }
     let i0 = indices(VA)[3] as u64;
-    for k in 0..PTS {
+    for k in 0..PTS_TODAS {
         poner(r, TABLAS + 16 * (i0 + k as u64) + 8, pde_vram(pt(k)));
     }
     poner(r, entrada_pd1(), pde_vram(TABLAS));
@@ -183,8 +235,9 @@ pub fn mapear<R: Registros>(r: &mut R) -> Option<(u32, u32)> {
 const _: () = assert!(VA % (2 << 20) == 0 && indices(VA)[2] != indices(crate::pantalla::VA)[2]);
 const _: () = assert!(indices(VA)[2] != indices(crate::volcado::VA)[2] && indices(VA)[2] != indices(crate::video::VA)[2]);
 const _: () = assert!(IOVA >= crate::video::IOVA + crate::video::MAX_BYTES);
-const _: () = assert!(IOVA + MAX_BYTES <= crate::texturas::IOVA, "el destino no pisa las texturas");
-const _: () = assert!(TABLAS >= crate::video::TABLAS + (1 + crate::video::PTS as u64) * PAGINA && TABLAS + (1 + PTS as u64) * PAGINA <= 0x0800_0000);
+const _: () = assert!(iova_de(OBJETIVOS) <= crate::texturas::IOVA, "los destinos no pisan las texturas");
+const _: () = assert!(TABLAS >= crate::video::TABLAS + (1 + crate::video::PTS as u64) * PAGINA && TABLAS + (1 + PTS_TODAS as u64) * PAGINA <= 0x0800_0000);
+const _: () = assert!(indices(VA)[3] as usize + PTS_TODAS <= 512 && (va_de(OBJETIVOS) - 1) >> 32 == VA >> 32, "en la PD0, y con los 32 bits altos de VA");
 
 #[cfg(test)]
 mod pruebas {

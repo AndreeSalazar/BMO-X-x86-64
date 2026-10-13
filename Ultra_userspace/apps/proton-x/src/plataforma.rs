@@ -66,6 +66,8 @@ pub fn de_bmo() -> Plataforma {
         cuaderno: Some(bmo_proton_x_casa::Cuaderno { abrir: abrir_cuaderno, sellar_hasta: sellar_cuaderno }),
         // H4.3: los otros nucleos pintan en franjas (`obreros.rs`).
         obreros: Some(bmo_proton_x_casa::Obreros { cuantos: super::obreros::cuantos, repartir: super::obreros::repartir, en_parte: super::monton::en_parte }),
+        // LI2f: el computo, por la 3060 si se puede (con `--3060`).
+        computar: Some(super::computo3060::computar),
     }
 }
 

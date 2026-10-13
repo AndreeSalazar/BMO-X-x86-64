@@ -355,7 +355,7 @@ fn salir(codigo: u32) -> ! {
 }
 
 fn plataforma() -> Plataforma {
-    Plataforma { escribir, salir, superficie, mostrar, presentar, evento, dormir, poner_gs, ahora_ns, dibujar: dibujar_y_la_3060, sellar_codigo, soltar_codigo, leer_fichero, escribir_fichero, memoria, fecha, listar, carpetas: Some(CARPETAS_DEL_BANCO), reserva: Some(de_hoy::reserva_del_banco()), trozos: Some(de_hoy::TROZOS_DEL_BANCO), sonido: None, cuaderno: None, obreros: Some(bandas::OBREROS_DEL_BANCO) }
+    Plataforma { escribir, salir, superficie, mostrar, presentar, evento, dormir, poner_gs, ahora_ns, dibujar: dibujar_y_la_3060, sellar_codigo, soltar_codigo, leer_fichero, escribir_fichero, memoria, fecha, listar, carpetas: Some(CARPETAS_DEL_BANCO), reserva: Some(de_hoy::reserva_del_banco()), trozos: Some(de_hoy::TROZOS_DEL_BANCO), sonido: None, cuaderno: None, obreros: Some(bandas::OBREROS_DEL_BANCO), computar: None }
 }
 
 /// Codigo SELLADO, como `MEM_OP_SELLAR`: memoria nueva, los bytes, y de
@@ -1154,7 +1154,7 @@ fn comprobar_la_3060(b: &mut La3060, l: &lote::Lote) {
                         m.r[reg as usize + k] = f32_de(16 * fila as usize + 4 * k);
                     }
                 }
-                Precarga::Asa { .. } | Precarga::AsaPar { .. } => panic!("un de vertice no muestrea"),
+                Precarga::Asa { .. } | Precarga::AsaPar { .. } | Precarga::Uav { .. } => panic!("un de vertice no muestrea ni lleva UAV"),
             }
         }
         correr(&ev.codigo, &mut m).unwrap();
@@ -1174,7 +1174,7 @@ fn comprobar_la_3060(b: &mut La3060, l: &lote::Lote) {
     // leida y pegada como la pega el kernel, sube a la 3060 los MISMOS dos
     // programas (byte a byte) que `pso::traducir` -- los del metal.
     use bmo_gpu_ga10x::receta;
-    let blanco = bmo_proton_x_sm86::puerta::Blanco { va: 0x7000_0000, ancho: 1280, alto: 720, bgra: true, cadena: true, flotante: None };
+    let blanco = bmo_proton_x_sm86::puerta::Blanco { va: 0x7000_0000, ancho: 1280, alto: 720, bgra: true, cadena: true, flotante: None, mas: bmo_proton_x_sm86::puerta::SIN_MAS };
     b.z_limpias += l.limpiar_z.is_some() as usize;
     b.rt_limpios += l.limpiar_rt.is_some() as usize;
     // La puerta de la APP (la de siempre) SI manda un lote con Z: el kernel

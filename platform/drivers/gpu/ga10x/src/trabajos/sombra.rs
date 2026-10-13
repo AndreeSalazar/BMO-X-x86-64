@@ -211,7 +211,7 @@ pub fn plan(v: &Ventana, d: &crate::tuberia::Dibujo) -> Option<(Ventana, bool)> 
         // Z1: acaba en la pantalla; si la app no limpia, lo de debajo es lo
         // que ya se ve.
         Some(_) if d.pantalla => (*v, d.color.is_none()),
-        Some((_, dst)) => (dst.ventana(), d.color.is_none()),
+        Some((va, dst)) => (dst.ventana_en(va), d.color.is_none()),
         None => (*v, false),
     })
 }

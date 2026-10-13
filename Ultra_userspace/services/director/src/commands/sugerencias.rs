@@ -138,6 +138,7 @@ const LISTA: &[(&[u8], &[u8])] = &[
     (b"cache", b"L1, L2 y L3 medidas"),
     (b"captura", b"la pantalla a capturas/"),
     (b"fraps", b"FRAPS-X: los FPS en una esquina (fraps banco: el banco)"),
+    (b"fraps grabar", b"FRAPS-X GRABA la pantalla a capturas/vidNNNNN.avi (MJPEG, lo abre YouTube); otra vez o Ctrl+Shift+R para parar. [fps] [mitad] [calidad N]"),
     (b"aspecto", b"el editor de colores del escritorio"),
     (b"calc", b"la calculadora"),
     (b"perf", b"lo que cuesta pintar"),

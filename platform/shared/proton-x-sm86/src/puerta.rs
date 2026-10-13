@@ -48,8 +48,13 @@ pub use bmo_gpu_ga10x::cubo::{a_pantalla, copia_us, desempaquetar, preparado, ra
 use crate::vivo::{Origen, Recuerdo, Vivos};
 use crate::{emitir_con, Abi};
 
-/// Los registros que se le dan al emisor (los de VERRANO, `tuberia::REGISTROS`).
-const REGISTROS: u32 = 64;
+/// Los registros que se le dan al emisor. ** LI2b (12-10): lo mas que deja
+/// el pegamento -- `tuberia::MAX_REGISTROS` menos los `RESERVADOS` y los 8
+/// del pegamento (a par) --, no los 64 de VERRANO: el censo de Cyberpunk
+/// paraba lotes por "mas registros de los que da la tuberia". El emisor usa
+/// los que necesita (de abajo arriba) y el kernel pide esos
+/// (`tuberia::registros_para`): un programa que cabia en 64 sale igual.
+pub const REGISTROS: u32 = bmo_gpu_ga10x::tuberia::MAX_REGISTROS - bmo_gpu_ga10x::sass::juez::RESERVADOS - 8;
 
 /// **La Z por la 3060, en la SOMBRA del kernel** (P3b4c.6b). El metal
 /// (28-09 20:31): `gpu verrano bmox12 30 z` dio Xid 69 (error de clase del
@@ -122,10 +127,8 @@ pub fn cuerpos_con_libreta(en: &Enlace, ia: &[ElementoIa], recuerdo: Option<&mut
     if crate::pso::posicion_zw(en) {
         return Err(NoVa::Entrada("SV_Position.z o .w en el de pixeles"));
     }
-    // N5.8: la 3060 pinta UN render target todavia: el G-buffer, por la CPU.
-    if en.objetivos != [0] {
-        return Err(NoVa::Entrada("varios render targets (o uno que no es el 0, o SV_Depth)"));
-    }
+    // LI2d (12-10): SV_Target0..n, hasta 4 (el G-buffer sin Z).
+    objetivos_de(en).map_err(NoVa::Entrada)?;
     // Con libreta, y si su termometro no cabe en los registros, sin ella.
     let emitir = |p: &bmo_proton_x::dxil::programa::Programa, que: &'static str| {
         let sin = || emitir_con(p, REGISTROS, Abi::Registros).map_err(|e| NoVa::Emisor(que, e));
@@ -190,11 +193,56 @@ pub struct Blanco {
     /// (`trama::Destino::flotante`) y cuantas palabras guarda la casa por
     /// texel (4, o 1 en un R32_FLOAT) --, o `None`: 8 bits por canal.
     pub flotante: Option<(u32, u32)>,
+    /// ** LI2d (12-10): los render targets 1..7 del lote (`trama::Otro`: el
+    /// `k` es el SV_Target `k + 1`), de la medida del 0; `None`, un RTV nulo
+    /// (o ninguno).
+    pub mas: MasDelLote,
+}
+
+use bmo_gpu_ga10x::destino::OBJETIVOS;
+
+/// **Un render target 1.. del lote** (LI2d): donde estan sus pixeles en la
+/// app, su orden de bytes y, si es de float, como `Blanco::flotante`.
+#[derive(Clone, Copy, Debug)]
+pub struct Mas {
+    pub va: u64,
+    pub bgra: bool,
+    pub flotante: Option<(u32, u32)>,
+}
+
+/// Los render targets 1..7 de un lote (los SV_Target 1..7 de D3D12).
+pub type MasDelLote = [Option<Mas>; bmo_proton_x::trama::OBJETIVOS - 1];
+
+/// Un lote de UN render target.
+pub const SIN_MAS: MasDelLote = [None; bmo_proton_x::trama::OBJETIVOS - 1];
+
+/// **Los render targets que escribe el de pixel** (LI2d): sus SV_Target, el
+/// 0 el primero y los demas en orden (`gbuffer.hlsl` escribe 0, 1 y 3: el 2
+/// se salta). La salida `k` (el emisor la deja en R4k) va a la RANURA `k` de
+/// la 3060 (`destino::va_de`), con la memoria del SV_Target que escribe: en
+/// la 3060 los huecos de D3D no existen. Hasta `destino::OBJETIVOS`.
+pub fn objetivos_de(en: &bmo_proton_x::lote::Enlace) -> Result<usize, &'static str> {
+    let n = en.objetivos.len();
+    if en.objetivos.iter().any(|&o| o as usize >= bmo_proton_x::trama::OBJETIVOS) {
+        return Err("SV_Depth o SV_StencilRef en el de pixel: la 3060 no los escribe todavia");
+    }
+    if en.objetivos.first() != Some(&0) || en.objetivos.windows(2).any(|w| w[0] >= w[1]) {
+        return Err("un de pixel que no escribe el SV_Target0, o los escribe desordenados: la 3060 los lleva el 0 primero y en orden");
+    }
+    if n > OBJETIVOS {
+        return Err("mas de 4 render targets: la 3060 tiene 4 ranuras de destino");
+    }
+    Ok(n)
 }
 
 /// Un render target de float de un formato que `formato_ia` no sabe leer (el
 /// censo le pone su numero DXGI).
 pub const FLOTANTE_DESCONOCIDO: &str = "un render target de float de un formato que la casa no conoce";
+
+/// Uno que el juego ve con OTRO formato que el guardado (D2.7: un SNORM8
+/// sobre un TYPELESS, el truco de los posprocesos): la CPU pasa los floats a
+/// los bytes de la vista y de vuelta; la 3060 todavia no.
+pub const FLOTANTE_OTRA_VISTA: &str = "un render target de float que el juego ve con OTRO formato (una vista sobre un TYPELESS): la CPU lo traduce, la 3060 todavia no";
 
 /// **Un render target de float, como lo escribe la 3060** (LI2d-HDR, 12-10):
 /// en floats de 32 (`destino::Flotante`), con la salida redondeada canal a
@@ -203,6 +251,18 @@ pub const FLOTANTE_DESCONOCIDO: &str = "un render target de float de un formato 
 /// 3060 no sabe redondear todavia (11 y 10 bits, UNORM, SNORM), su porque.
 pub fn de_flotante(formato: u32, palabras: u32) -> Result<(Flotante, Redondeo), &'static str> {
     use bmo_proton_x::formato_ia::{forma, Clase};
+    // ** Metal 12-10: la casa guarda un render target de float como CUATRO
+    // floats con su marca (`bufer::CUATRO_FLOATS`) y, si se ve con otro
+    // formato, el de la vista arriba (`bufer::con_vista`). Sin desempaquetar,
+    // el censo decia "DXGI 32571392": era la marca, no un formato.
+    let formato = if formato & bmo_proton_x::bufer::CUATRO_FLOATS != 0 {
+        match bmo_proton_x::bufer::guardado_y_vista(formato) {
+            (g, None) => g,
+            (_, Some(_)) => return Err(FLOTANTE_OTRA_VISTA),
+        }
+    } else {
+        formato
+    };
     let Some(f) = forma(formato) else { return Err(FLOTANTE_DESCONOCIDO) };
     if f.clase != Clase::Float {
         return Err("un render target de UNORM o SNORM de mas de 8 bits (R10G10B10A2, RGBA16_UNORM...): la 3060 redondea floats de 32 y 16 todavia");
@@ -288,7 +348,7 @@ impl NoMedida {
         match self {
             NoMedida::Filas => "un render target cuyas filas no van de 128 en 128 B (la casa las guarda juntas; la 3060 escribe filas de 128 B)",
             NoMedida::Grande => "un render target que no cabe en el mapa del destino de la 3060 (16 MiB, 4096 por lado)",
-            NoMedida::Pagina => "un render target que no empieza en pagina (la IOMMU presta paginas enteras)",
+            NoMedida::Pagina => "un render target que no empieza a 128 B (el color de la 3060 empieza a 128 B; Q0a1b)",
             NoMedida::ConZ => "un render target de otra medida que 1280x720 con la Z (la Z y la sombra de la 3060 miden 1280x720)",
         }
     }
@@ -310,19 +370,49 @@ pub fn medida(b: &Blanco, flotante: Flotante, con_z: bool) -> Result<Destino, No
     if dst.fila % 128 != 0 {
         return Err(NoMedida::Filas);
     }
-    if b.va % 4096 != 0 {
+    // Q0a1b (12-10): a mitad de pagina vale, si empieza a 128 B; lo que se
+    // mete en la pagina cuenta en el mapa.
+    if b.va % bmo_gpu_ga10x::destino::ALINEA != 0 {
         return Err(NoMedida::Pagina);
+    }
+    if b.va % 4096 + dst.bytes() > MAX_BYTES {
+        return Err(NoMedida::Grande);
     }
     if con_z && !dst.es_la_de_verrano() {
         return Err(NoMedida::ConZ);
     }
-    debug_assert!(dst.valido());
+    debug_assert!(dst.valido_en(b.va));
     Ok(dst)
 }
 
 /// **Escribir la receta de un lote** en `caja` (con `datos` de apoyo).
 /// `Err` = por que este lote NO va a la 3060 (va a la CPU, y se dice).
-pub fn escribir(c: &Cuerpos, l: &Lote, b: Blanco, limpiar_z: Option<u32>, datos: &mut Vec<u8>, caja: &mut [u8]) -> Result<usize, String> {
+/// **LA TEXTURA NULA** (12-10, el censo de Cyberpunk: "t0 sin atar"): lo
+/// que lee la 3060 donde el lote no ata textura o muestreador. La CPU da
+/// CEROS ahi (`Recursos::muestrear`, el SRV nulo de D3D12); la 3060 lee 8x1
+/// texeles a cero (una fila de 32 B, lo que pide su TIC) con un muestreador
+/// PROPIO de punto y repetir -- nunca el del lote: su color de borde no daria
+/// ceros --. `Sample`, `SampleLevel` y `Load` dan (0, 0, 0, 0) en todo punto.
+/// Vive en el monton de la app (la memoria que el kernel sabe prestar).
+#[repr(C, align(32))]
+pub struct Nula([u32; 8]);
+
+impl Nula {
+    pub fn nueva() -> Box<Nula> {
+        Box::new(Nula([0; 8]))
+    }
+
+    pub fn texeles(&self) -> &[u32; 8] {
+        &self.0
+    }
+
+    /// Como viaja en la receta.
+    pub fn de_app(&self) -> DeApp {
+        DeApp { va: self.0.as_ptr() as u64, ancho: 8, alto: 1, fila: 32, bgra: false, muestreo: Muestreo { lineal: false, u: 1, v: 1, borde: [0.0; 4] } }
+    }
+}
+
+pub fn escribir(c: &Cuerpos, l: &Lote, b: Blanco, limpiar_z: Option<u32>, nula: &Nula, datos: &mut Vec<u8>, caja: &mut [u8]) -> Result<usize, String> {
     // ** 12-10: la TIRA, como LISTA -- los triangulos de la CPU
     // (`lote::triangulos`: el impar se da la vuelta, para que su cara sea la
     // misma), con los mismos ids --: la 3060 dibuja listas.
@@ -355,6 +445,38 @@ pub fn escribir(c: &Cuerpos, l: &Lote, b: Blanco, limpiar_z: Option<u32>, datos:
     }
     // ** Q0a1 (12-10): cualquier medida que el destino de la 3060 sepa.
     let dst = medida(&b, flotante, l.reglas.profundidad.is_some()).map_err(|m| format!("el render target de {}x{} (VA {:#x}): {}", b.ancho, b.alto, b.va, m.motivo()))?;
+    // ** LI2d (12-10): los render targets 1.. -- cada uno de la medida del
+    // 0, con su VA, su orden de bytes y su float; un float que pide
+    // redondeo (half) no: el pegamento redondea solo el 0. Y sin mezcla ni
+    // mascara (la del sombreador es la del 0). Sin Z: la sombra es una.
+    let objetivos = objetivos_de(l.enlace).map_err(String::from)?;
+    let mut mas = [(0u64, bmo_gpu_ga10x::destino::Destino::default()); OBJETIVOS - 1];
+    for k in 1..objetivos {
+        // La salida k escribe el SV_Target `s`: su memoria va a la ranura k.
+        let s = l.enlace.objetivos[k] as usize;
+        let Some(m) = b.mas[s - 1] else {
+            return Err(format!("el render target {s} es un RTV nulo (lo que escribe se pierde): la 3060 escribe en todos"));
+        };
+        if l.reglas.profundidad.is_some() {
+            return Err(String::from("varios render targets con la Z: la sombra en bloque de la 3060 es UNA todavia"));
+        }
+        if l.limpiar_rt.is_some() || b.cadena {
+            return Err(String::from("varios render targets con la limpieza en el lote, o en la cadena: la 3060 no lo lleva todavia"));
+        }
+        if !l.reglas.mezcla.rt[s].trivial() {
+            return Err(format!("el render target {s} mezcla o enmascara: la 3060 mezcla solo el 0 todavia"));
+        }
+        let (f, red) = match m.flotante {
+            None => (Flotante::No, Redondeo::NADA),
+            Some((formato, palabras)) => de_flotante(formato, palabras).map_err(|x| format!("el render target {s}: {x}"))?,
+        };
+        if red != Redondeo::NADA {
+            return Err(format!("el render target {s} es de un float que se redondea (half, R11G11B10): el pegamento redondea solo el 0 todavia"));
+        }
+        let bk = Blanco { va: m.va, bgra: m.bgra, cadena: false, flotante: m.flotante, mas: SIN_MAS, ..b };
+        let dk = medida(&bk, f, false).map_err(|x| format!("el render target {s} (VA {:#x}): {}", m.va, x.motivo()))?;
+        mas[k - 1] = (m.va, dk);
+    }
     let r = &l.reglas;
     if r.viewport != [0.0, 0.0, b.ancho as f32, b.alto as f32, 0.0, 1.0] {
         return Err(format!("un viewport que no es el back buffer entero ({:?})", r.viewport));
@@ -423,20 +545,37 @@ pub fn escribir(c: &Cuerpos, l: &Lote, b: Blanco, limpiar_z: Option<u32>, datos:
     }
     let mut texturas = [DeApp::NINGUNA; MAX_TEXTURAS];
     for (k, &(tn, sm)) in c.texturas.iter().enumerate() {
-        let (Some(Some(t)), Some(Some(m))) = (l.recursos.texturas.get(tn as usize), l.recursos.muestreadores.get(sm as usize)) else {
-            return Err(format!("el sombreador muestrea t{tn} con s{sm} y el lote no los tiene atados"));
+        // Sin TEXTURA atada: ceros, como la CPU (con `Sample` y con `Load`).
+        // Con textura y sin muestreador, no: `Load` la leeria (no usa
+        // muestreador) y aqui no se sabe cual de las dos es esta pareja.
+        let Some(Some(t)) = l.recursos.texturas.get(tn as usize) else {
+            texturas[k] = nula.de_app();
+            continue;
+        };
+        let Some(Some(m)) = l.recursos.muestreadores.get(sm as usize) else {
+            return Err(format!("el sombreador muestrea t{tn} con s{sm} y el lote no tiene s{sm} atado"));
         };
         // 02-10: la 3060 lee aqui RGBA/BGRA de 8 bits, lineales y con el
-        // mapeo de siempre; un BC, un float, un sRGB o un mapeo, en la CPU.
-        if !matches!(t.como, Como::Rgba8 | Como::Bgra8) || t.srgb || t.mapeo & 0xFFF != Textura::MAPEO & 0xFFF || t.clase != Clase::Plana || (t.mip, t.capa) != (0, 0) {
-            return Err(format!("la textura t{tn} es BC, float, sRGB, con otro mapeo o una vista que no es la mip 0 de una 2D: la 3060 todavia lee solo eso"));
+        // mapeo de siempre; un BC, un float, un sRGB o un mapeo, en la CPU
+        // (la casa los decodifica con SUS tablas: la 3060, con las suyas, no
+        // se promete igual hasta medirlo -- DL10 --).
+        if !matches!(t.como, Como::Rgba8 | Como::Bgra8) || t.srgb || t.mapeo & 0xFFF != Textura::MAPEO & 0xFFF || t.clase != Clase::Plana {
+            return Err(format!("la textura t{tn} es BC, float, sRGB, con otro mapeo o no es una 2D: la 3060 todavia lee solo RGBA/BGRA de 8 bits"));
         }
+        // ** 12-10: la vista de OTRA mip de una 2D (el censo de Cyberpunk):
+        // el plano que ella mira, como lo lee la CPU (`plano_visto`), es una
+        // 2D mas -- su direccion y sus medidas --; con una sola mip en la
+        // vista (eso ya lo mira `mip_importa`, abajo).
+        let Some((plano, ancho, alto)) = t.plano_visto() else {
+            return Err(format!("la textura t{tn}: su mip {} no esta en la memoria que dio la casa", t.mip));
+        };
         let muestreo = Muestreo { lineal: m.filtro == Filtro::Lineal, u: d3d(m.u), v: d3d(m.v), borde: m.borde };
-        let d = DeApp { va: t.texeles.as_ptr() as u64, ancho: t.ancho, alto: t.alto, fila: 4 * t.ancho, bgra: t.bgra(), muestreo };
-        if t.texeles.len() < (t.ancho * t.alto) as usize || !d.valida() {
+        let d = DeApp { va: plano.as_ptr() as u64, ancho, alto, fila: 4 * ancho, bgra: t.bgra(), muestreo };
+        if plano.len() < (ancho * alto) as usize || !d.valida() {
             return Err(format!(
-                "la textura t{tn} ({}x{}, VA {:#x}): la 3060 la lee con filas de 32 B, desde 32 B y en 1 MiB; esta no",
-                t.ancho, t.alto, d.va
+                "la textura t{tn} ({ancho}x{alto}, VA {:#x}): la 3060 la lee con filas de 32 B, desde 32 B y en {} MiB; esta no",
+                d.va,
+                bmo_gpu_ga10x::texturas::RANURA >> 20
             ));
         }
         texturas[k] = d;
@@ -460,7 +599,7 @@ pub fn escribir(c: &Cuerpos, l: &Lote, b: Blanco, limpiar_z: Option<u32>, datos:
         genericos: [None; MAX_GENERICOS],
         n_genericos: c.genericos.len(),
         datos,
-        dibujo: Dibujo { indices: Some(desde as u32), vertices: vertices as u32, descarte, antihorario: r.antihorario, destino: Some((b.va, dst)), z, color: l.limpiar_rt, texturas: c.texturas.len() as u8, cadena: b.cadena, pantalla: false, banco: if c.banco { 16 * c.filas } else { 0 }, redondeo, mezcla: mezcla_de(&l.reglas.mezcla).map_err(String::from)? },
+        dibujo: Dibujo { indices: Some(desde as u32), vertices: vertices as u32, descarte, antihorario: r.antihorario, destino: Some((b.va, dst)), z, color: l.limpiar_rt, texturas: c.texturas.len() as u8, cadena: b.cadena, pantalla: false, banco: if c.banco { 16 * c.filas } else { 0 }, redondeo, mezcla: mezcla_de(&l.reglas.mezcla).map_err(String::from)?, registros: 0, mas, n_mas: objetivos as u8 - 1 },
         texturas,
         termometro_vs: c.termometro_vs,
         termometro_ps: c.termometro_ps,
@@ -489,6 +628,8 @@ pub struct Puerta {
     pub caja: Vec<u8>,
     datos: Vec<u8>,
     taller: Box<Taller>,
+    /// La textura nula ([`Nula`]): lo que lee la 3060 donde no hay nada atado.
+    nula: Box<Nula>,
     /// La Z de la 3060 tiene lo ultimo (ver la cabecera).
     pub z_viva: bool,
     /// Mandar lotes con Z a la 3060 ([`Z_EN_LA_SOMBRA`]): el kernel los
@@ -523,7 +664,7 @@ impl Default for Puerta {
 
 impl Puerta {
     pub fn nueva() -> Self {
-        Puerta { cuerpos: Vec::new(), probados: Vec::new(), caja: alloc::vec![0; receta::MAX_RECETA], datos: Vec::new(), taller: Box::new(Taller::nuevo()), z_viva: false, z_a_la_3060: Z_EN_LA_SOMBRA, recuerdo: None, traducidos: 0, recordados: 0, vigia_cada: VIGIA_CADA, revisados: 0, corregidos: 0, apuntados: 0, sin_libreta: 0 }
+        Puerta { cuerpos: Vec::new(), probados: Vec::new(), caja: alloc::vec![0; receta::MAX_RECETA], datos: Vec::new(), taller: Box::new(Taller::nuevo()), nula: Nula::nueva(), z_viva: false, z_a_la_3060: Z_EN_LA_SOMBRA, recuerdo: None, traducidos: 0, recordados: 0, vigia_cada: VIGIA_CADA, revisados: 0, corregidos: 0, apuntados: 0, sin_libreta: 0 }
     }
 
     /// **La receta de este lote**, en `self.caja[..n]`: `Ok(n)`, o por que
@@ -629,7 +770,7 @@ impl Puerta {
             Ok((c, _)) => c,
             Err(e) => return Err(format!("el PSO no va a la 3060: {e:?}")),
         };
-        let mut n = escribir(c, l, b, l.limpiar_z, &mut self.datos, &mut self.caja)?;
+        let mut n = escribir(c, l, b, l.limpiar_z, &self.nula, &mut self.datos, &mut self.caja)?;
         let con_libreta = c.termometro_vs.is_some() || c.termometro_ps.is_some();
         // UNA vez por PSO y paso: el pegado de prueba, como lo hara el kernel.
         if !self.probados.iter().any(|p| p.0 == clave && p.1 == l.paso) {
@@ -642,7 +783,7 @@ impl Puerta {
                     self.sin_libreta += 1;
                     self.cuerpos[i].1 = Ok((c2, v2));
                     if let Ok((c2, _)) = &self.cuerpos[i].1 {
-                        n = escribir(c2, l, b, l.limpiar_z, &mut self.datos, &mut self.caja)?;
+                        n = escribir(c2, l, b, l.limpiar_z, &self.nula, &mut self.datos, &mut self.caja)?;
                         prueba = self.pegar_de_prueba(n);
                     }
                 }

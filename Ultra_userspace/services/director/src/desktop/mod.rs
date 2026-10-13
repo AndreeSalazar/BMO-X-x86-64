@@ -76,6 +76,8 @@ pub(crate) mod globo;
 pub(crate) mod brillo;
 /// FRAPS-X: el contador de FPS encima de todo y el banco de pruebas.
 pub(crate) mod fraps;
+/// FRAPS-X graba: la pantalla a un video MJPEG en AVI (13-10).
+pub(crate) mod grabar;
 /// **ABRIR Y CERRAR**: que ventana nacio o se fue en este fotograma (2026-09-25).
 pub(crate) mod transicion;
 // El borde vivo de las ventanas sin marco (01-10).

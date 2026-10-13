@@ -52,7 +52,10 @@
 //!         (`ConstantesEn`): el kernel ata el banco `tuberia::BANCO_APP` a
 //!         sus `16 x filas` primeros bytes de los DATOS, y el juez R7 los
 //!         deja leer ESE banco y nada mas alla de esa medida; bit 2 (12-10):
-//!         trae la MEZCLA (`mezcla::Mezcla`, 24 B detras de las texturas)
+//!         trae la MEZCLA (`mezcla::Mezcla`, 24 B detras de las texturas);
+//!         bit 3 (LI2d, 12-10): trae los RENDER TARGETS 1.. ([`MAS`] detras
+//!         de la mezcla: cuantos, y por cada uno su VA, su fila, su medida y
+//!         su bandera como la del 0)
 //!    +92  9d, LA LIBRETA: el registro del TERMOMETRO del de vertice + 1
 //!         (0 = sin libreta) | el del de pixel + 1 << 8; cada uno, de SU
 //!         cuerpo. Los 16 de arriba, a 0. Ver `libreta`
@@ -80,7 +83,23 @@ pub const MAX_GENERICOS: usize = 16;
 /// Un cuerpo: 128 instrucciones de 16 bytes.
 pub const MAX_CUERPO: usize = 16 * MAX_INSTRUCCIONES;
 /// Lo mas que mide una receta: la caja que la app reserva.
-pub const MAX_RECETA: usize = CABECERA_2 + 2 * MAX_CUERPO + 8 * MAX_ELEMENTOS + 4 * 2 * MAX_CARGAS + MAX_GENERICOS + BYTES_DE_APP * MAX_TEXTURAS + crate::mezcla::BYTES + 16 + DATOS_MAX;
+pub const MAX_RECETA: usize = CABECERA_2 + 2 * MAX_CUERPO + 8 * MAX_ELEMENTOS + 4 * 2 * MAX_CARGAS + MAX_GENERICOS + BYTES_DE_APP * MAX_TEXTURAS + crate::mezcla::BYTES + MAS + 16 + DATOS_MAX;
+
+/// LI2d: lo que mide un render target 1.. en la receta (VA, fila, ancho |
+/// alto << 16, bandera), y el bloque entero: cuantos y los de la ranura.
+pub const BYTES_DE_MAS: usize = 20;
+pub const MAS: usize = 4 + BYTES_DE_MAS * (crate::destino::OBJETIVOS - 1);
+
+/// Lo que mide el bloque de los render targets 1.. de `n` (0 = no viaja):
+/// siempre [`MAS`] entero (las ranuras de sobra, a cero), para que la
+/// cabecera sola diga cuanto mide la receta (`medida`).
+const fn bloque_mas(n: usize) -> usize {
+    if n == 0 {
+        0
+    } else {
+        MAS
+    }
+}
 /// Un generico que no hay (la entrada es la posicion).
 const SIN_GENERICO: u8 = 0xFF;
 /// Lo mas que se acepta de filas del cbuffer (64 KiB de DATOS / 16).
@@ -152,7 +171,7 @@ impl<'a> Receta<'a> {
     }
     /// Lo que ocupa detras de la cabecera, hasta los DATOS (con el relleno).
     fn medio(&self) -> usize {
-        (self.vs.len() + self.ps.len() + 8 * self.n_elementos + 4 * (self.n_cargas_vs + self.n_cargas_ps) + self.n_genericos + BYTES_DE_APP * self.texturas().len() + if self.dibujo.mezcla.trivial() { 0 } else { crate::mezcla::BYTES }).next_multiple_of(16)
+        (self.vs.len() + self.ps.len() + 8 * self.n_elementos + 4 * (self.n_cargas_vs + self.n_cargas_ps) + self.n_genericos + BYTES_DE_APP * self.texturas().len() + if self.dibujo.mezcla.trivial() { 0 } else { crate::mezcla::BYTES } + bloque_mas(self.dibujo.mas().len())).next_multiple_of(16)
     }
     /// Lo que mide la receta entera.
     pub fn medida(&self) -> usize {
@@ -201,7 +220,9 @@ pub fn medida(cabecera: &[u8]) -> Option<usize> {
         return None;
     }
     let mezcla = if u32le(cabecera, 88) & 4 != 0 { crate::mezcla::BYTES } else { 0 };
-    Some(CABECERA_2 + (bvs + bps + 8 * n_elementos + 4 * (cv + cp) + n_genericos + BYTES_DE_APP * n_texturas + mezcla).next_multiple_of(16) + bdatos)
+    // LI2d: los render targets 1.., en su bloque de medida fija.
+    let mas = if u32le(cabecera, 88) & 8 != 0 { MAS } else { 0 };
+    Some(CABECERA_2 + (bvs + bps + 8 * n_elementos + 4 * (cv + cp) + n_genericos + BYTES_DE_APP * n_texturas + mezcla + mas).next_multiple_of(16) + bdatos)
 }
 
 /// **Leer una receta**, comprobandolo todo lo que se puede sin pegar: las
@@ -209,7 +230,7 @@ pub fn medida(cabecera: &[u8]) -> Option<usize> {
 /// cada carga dentro de lo que hay, los DATOS con todos los vertices dentro
 /// y cada indice de un vertice que esta. `None` si algo no se sostiene.
 pub fn leer(b: &[u8]) -> Option<Receta<'_>> {
-    if b.len() < CABECERA_2 || u32le(b, 0) != MAGIA_2 || u32le(b, 4) != 0 || u32le(b, 20) > 1 || (u32le(b, 20) == 0 && u32le(b, 24) != 0) || u32le(b, 84) as usize > MAX_TEXTURAS || u32le(b, 88) > 7 || u32le(b, 92) >> 16 != 0 {
+    if b.len() < CABECERA_2 || u32le(b, 0) != MAGIA_2 || u32le(b, 4) != 0 || u32le(b, 20) > 1 || (u32le(b, 20) == 0 && u32le(b, 24) != 0) || u32le(b, 84) as usize > MAX_TEXTURAS || u32le(b, 88) > 15 || u32le(b, 92) >> 16 != 0 {
         return None;
     }
     let n_texturas = u32le(b, 84) as usize;
@@ -222,7 +243,7 @@ pub fn leer(b: &[u8]) -> Option<Receta<'_>> {
     let (registros_vs, registros_ps, salidas, posicion) = (regs & 0xFF, regs >> 8 & 0xFF, regs >> 16 & 0xFF, regs >> 24);
     let (filas, n_elementos, n_genericos) = (medidas & 0xFFFF, (medidas >> 16 & 0xFF) as usize, (medidas >> 24) as usize);
     let (n_cargas_vs, n_cargas_ps) = ((cargas & 0xFFFF) as usize, (cargas >> 16) as usize);
-    if registros_vs == 0 || registros_ps == 0 || registros_vs >= tu::REGISTROS || registros_ps >= tu::REGISTROS || salidas == 0 || salidas > 8 || posicion >= salidas {
+    if registros_vs == 0 || registros_ps == 0 || registros_vs >= tu::MAX_REGISTROS || registros_ps >= tu::MAX_REGISTROS || salidas == 0 || salidas > 8 || posicion >= salidas {
         return None;
     }
     if filas > MAX_FILAS || paso % 4 != 0 || n_elementos > MAX_ELEMENTOS || n_genericos > MAX_GENERICOS || n_cargas_vs > MAX_CARGAS || n_cargas_ps > MAX_CARGAS {
@@ -296,6 +317,34 @@ pub fn leer(b: &[u8]) -> Option<Receta<'_>> {
     } else {
         crate::mezcla::Mezcla::NINGUNA
     };
+    // LI2d: los render targets 1.., si los trae: de 1 a OBJETIVOS - 1, cada
+    // uno con su forma (lo demas lo mira `cabe`), y las ranuras de sobra a 0.
+    let mut mas = [(0u64, crate::destino::Destino::default()); crate::destino::OBJETIVOS - 1];
+    let mut n_mas = 0u8;
+    if u32le(b, 88) & 8 != 0 {
+        let x = b.get(i..i + MAS)?;
+        let n = u32le(x, 0) as usize;
+        if n == 0 || n >= crate::destino::OBJETIVOS {
+            return None;
+        }
+        for (k, m) in mas.iter_mut().enumerate() {
+            let y = &x[4 + BYTES_DE_MAS * k..4 + BYTES_DE_MAS * (k + 1)];
+            if k >= n {
+                if y.iter().any(|&c| c != 0) {
+                    return None;
+                }
+                continue;
+            }
+            let (medidas, bandera) = (u32le(y, 12), u32le(y, 16));
+            let flotante = crate::destino::Flotante::de_numero(bandera >> 1)?;
+            if bandera >> 3 != 0 {
+                return None;
+            }
+            *m = (u32le(y, 0) as u64 | (u32le(y, 4) as u64) << 32, crate::destino::Destino { fila: u32le(y, 8), ancho: medidas & 0xFFFF, alto: medidas >> 16, rgb: bandera & 1 != 0, flotante });
+        }
+        n_mas = n as u8;
+        i += MAS;
+    }
     // El relleno, a cero, hasta 16; y los DATOS, justo hasta el final.
     let desde_datos = i.next_multiple_of(16);
     if b.get(i..desde_datos)?.iter().any(|&x| x != 0) || b.len() != desde_datos + bdatos {
@@ -311,6 +360,7 @@ pub fn leer(b: &[u8]) -> Option<Receta<'_>> {
     dibujo.texturas = n_texturas as u8;
     dibujo.cadena = u32le(b, 88) & 1 == 1;
     dibujo.mezcla = mezcla;
+    (dibujo.mas, dibujo.n_mas) = (mas, n_mas);
     // LI2d-HDR: con el color y la cadena ya puestos, lo que admite un destino
     // de float (sin Z, sin limpieza, fuera de la pantalla); y la mezcla (sin
     // Z ni limpieza).
@@ -396,7 +446,7 @@ pub fn escribir(out: &mut [u8], r: &Receta) -> Option<usize> {
     let d = r.dibujo;
     let (dva, dst) = d.destino?;
     // Q0a1: la medida que quepa; con Z, la de VERRANO (`tuberia::cabe`).
-    if !dst.valido() || !tu::cabe(&d) {
+    if !dst.valido_en(dva) || !tu::cabe(&d) {
         return None;
     }
     let estado = match d.descarte {
@@ -432,7 +482,7 @@ pub fn escribir(out: &mut [u8], r: &Receta) -> Option<usize> {
         r.n_cargas_vs as u32 | (r.n_cargas_ps as u32) << 16,
         d.z.and_then(|z| z.limpiar).unwrap_or(0),
         d.texturas as u32,
-        d.cadena as u32 | ((d.banco != 0) as u32) << 1 | (!d.mezcla.trivial() as u32) << 2,
+        d.cadena as u32 | ((d.banco != 0) as u32) << 1 | (!d.mezcla.trivial() as u32) << 2 | (!d.mas().is_empty() as u32) << 3,
         r.termometro_vs.map_or(0, |t| t as u32 + 1) | r.termometro_ps.map_or(0, |t| t as u32 + 1) << 8,
     ];
     out[..total].fill(0);
@@ -464,6 +514,16 @@ pub fn escribir(out: &mut [u8], r: &Receta) -> Option<usize> {
     if !d.mezcla.trivial() {
         poner(&d.mezcla.a_bytes());
     }
+    // LI2d: los render targets 1.., y las ranuras de sobra a cero.
+    if !d.mas().is_empty() {
+        poner(&(d.mas().len() as u32).to_le_bytes());
+        for k in 0..crate::destino::OBJETIVOS - 1 {
+            let (va, x) = d.mas().get(k).copied().unwrap_or((0, crate::destino::Destino::default()));
+            for w in [va as u32, (va >> 32) as u32, x.fila, x.ancho | x.alto << 16, x.rgb as u32 | x.flotante.numero() << 1] {
+                poner(&w.to_le_bytes());
+            }
+        }
+    }
     let desde_datos = i.next_multiple_of(16);
     out[desde_datos..total].copy_from_slice(r.datos);
     leer(&out[..total]).map(|_| total)
@@ -481,6 +541,9 @@ pub struct Taller {
     pub bytes_ps: usize,
     /// Instrucciones que el juez miro, las dos (con el pegamento).
     pub instrucciones: usize,
+    /// LI2b (12-10): los registros que piden los dos programas pegados
+    /// (`tuberia::registros_para`), con los que el juez los juzgo.
+    pub registros: u32,
     /// P3b4c.9 Z3: TODO lo que `pegar` leyo de la ultima receta que el juez
     /// aprobo ([`clave`]), byte a byte; `clave_n` 0 = nada aprobado.
     clave: [u8; MAX_CLAVE],
@@ -492,7 +555,7 @@ pub struct Taller {
 
 impl Taller {
     pub const fn nuevo() -> Self {
-        Taller { cuerpo: [(0, 0); MAX_INSTRUCCIONES], pegado: pegamento::Pegado::VACIO, vs: [0; HUECO], ps: [0; HUECO], bytes_vs: 0, bytes_ps: 0, instrucciones: 0, clave: [0; MAX_CLAVE], clave_n: 0, nueva: [0; MAX_CLAVE] }
+        Taller { cuerpo: [(0, 0); MAX_INSTRUCCIONES], pegado: pegamento::Pegado::VACIO, vs: [0; HUECO], ps: [0; HUECO], bytes_vs: 0, bytes_ps: 0, instrucciones: 0, registros: tu::REGISTROS, clave: [0; MAX_CLAVE], clave_n: 0, nueva: [0; MAX_CLAVE] }
     }
 }
 
@@ -531,9 +594,11 @@ pub fn clave(r: &Receta, out: &mut [u8; MAX_CLAVE]) -> usize {
     // 12-10: la mezcla cambia el pegado del de pixel (y el destino, su
     // medida y su formato: lo que lee).
     poner(&r.dibujo.mezcla.a_bytes());
-    let dst = r.dibujo.destino.map_or(crate::destino::Destino::default(), |(_, d)| d);
+    let (dva, dst) = r.dibujo.destino.unwrap_or((0, crate::destino::Destino::default()));
     poner(&dst.fila.to_le_bytes());
-    poner(&(dst.flotante.numero() | (dst.rgb as u32) << 8).to_le_bytes());
+    // Q0a1b: y donde empieza en su pagina (la mezcla lee desde alli).
+    // LI2d: y cuantos render targets (la SPH lleva sus bits).
+    poner(&(dst.flotante.numero() | (dst.rgb as u32) << 8 | ((dva % 4096) as u32) << 16 | r.dibujo.objetivos() << 28).to_le_bytes());
     poner(r.vs);
     poner(r.ps);
     for e in r.elementos() {
@@ -583,16 +648,21 @@ pub fn pegar(r: &Receta, t: &mut Taller) -> Result<(), NoReceta> {
     // E8f: el banco que el kernel va a atar, si la receta lo pidio.
     let banco = (r.dibujo.banco > 0).then_some(juez::BancoDeApp { numero: tu::BANCO_APP, bytes: r.dibujo.banco });
     let cuerpo = instrucciones(&mut t.cuerpo, r.vs);
-    juez::juzgar_cuerpo_con(cuerpo, r.registros_vs, juez::Permisos { asas: 0, banco }).map_err(|b| NoReceta::Cuerpo("vertice", b))?;
+    juez::juzgar_cuerpo_con(cuerpo, r.registros_vs, juez::Permisos { asas: 0, banco, ..juez::Permisos::default() }).map_err(|b| NoReceta::Cuerpo("vertice", b))?;
     pegamento::vertice_con_libreta_en(&mut t.pegado, cuerpo, r.registros_vs, r.cargas_vs(), datos, r.salidas, r.posicion, r.termometro_vs).map_err(|e| NoReceta::Pegamento("vertice", e))?;
     t.bytes_vs = t.pegado.bytes(&mut t.vs);
+    let usados_vs = t.pegado.registros;
     let cuerpo = instrucciones(&mut t.cuerpo, r.ps);
-    juez::juzgar_cuerpo_con(cuerpo, r.registros_ps, juez::Permisos { asas: pegamento::asas(r.cargas_ps()), banco }).map_err(|b| NoReceta::Cuerpo("pixel", b))?;
-    let mezcla = r.dibujo.destino.filter(|_| !r.dibujo.mezcla.trivial()).map(|(_, dst)| (r.dibujo.mezcla, dst));
-    pegamento::pixel_entero_en(&mut t.pegado, cuerpo, r.registros_ps, r.cargas_ps(), datos, r.genericos(), r.termometro_ps, r.dibujo.redondeo, mezcla).map_err(|e| NoReceta::Pegamento("pixel", e))?;
+    juez::juzgar_cuerpo_con(cuerpo, r.registros_ps, juez::Permisos { asas: pegamento::asas(r.cargas_ps()), banco, ..juez::Permisos::default() }).map_err(|b| NoReceta::Cuerpo("pixel", b))?;
+    let mezcla = r.dibujo.destino.filter(|_| !r.dibujo.mezcla.trivial()).map(|(va, dst)| (r.dibujo.mezcla, dst, (va % 4096) as u32));
+    pegamento::pixel_entero_en(&mut t.pegado, cuerpo, r.registros_ps, r.cargas_ps(), datos, r.genericos(), r.termometro_ps, r.dibujo.redondeo, mezcla, r.dibujo.objetivos()).map_err(|e| NoReceta::Pegamento("pixel", e))?;
     t.bytes_ps = t.pegado.bytes(&mut t.ps);
-    let jv = juez::juzgar_programa(&t.vs[..t.bytes_vs], tu::REGISTROS).map_err(|b| NoReceta::Juez("vertice", b))?;
-    let jp = juez::juzgar_programa(&t.ps[..t.bytes_ps], tu::REGISTROS).map_err(|b| NoReceta::Juez("pixel", b))?;
+    // LI2b: los registros de los DOS (las ordenes dan uno para los dos), y
+    // el juez juzga con ese numero: lo que use de mas, BODRIO.
+    let registros = tu::registros_para(usados_vs.max(t.pegado.registros));
+    let jv = juez::juzgar_programa(&t.vs[..t.bytes_vs], registros).map_err(|b| NoReceta::Juez("vertice", b))?;
+    let jp = juez::juzgar_programa(&t.ps[..t.bytes_ps], registros).map_err(|b| NoReceta::Juez("pixel", b))?;
+    t.registros = registros;
     t.instrucciones = jv.instrucciones + jp.instrucciones;
     t.clave_n = clave(r, &mut t.clave);
     Ok(())
@@ -601,7 +671,8 @@ pub fn pegar(r: &Receta, t: &mut Taller) -> Result<(), NoReceta> {
 /// **El paquete** de una receta pegada: los programas del taller, los DATOS
 /// de la receta y su dibujo; la ficha, la del GR que ponga el kernel.
 pub fn paquete<'a>(r: &Receta<'a>, t: &'a Taller, ficha: u32) -> Paquete<'a> {
-    Paquete { ficha, vs: &t.vs[..t.bytes_vs], ps: &t.ps[..t.bytes_ps], vertices: r.datos, n: r.n, limpiar: None, dibujo: r.dibujo }
+    // LI2b: los registros, los que midio el pegado (no los de la app).
+    Paquete { ficha, vs: &t.vs[..t.bytes_vs], ps: &t.ps[..t.bytes_ps], vertices: r.datos, n: r.n, limpiar: None, dibujo: Dibujo { registros: t.registros, ..r.dibujo } }
 }
 
 #[cfg(test)]
@@ -627,6 +698,160 @@ mod pruebas {
     use bmo_sm86::codifica as c;
 
     const ALU_1: u64 = 1 | 1 << 4 | 7 << 5 | 7 << 8;
+
+    /// ** LI2d (12-10): TRES render targets (el G-buffer, sin Z). La receta
+    /// los lleva y los relee iguales; el pegado del de pixel dice en su SPH
+    /// las salidas de los tres (OmapTarget, 4 bits cada uno desde el 576); y
+    /// las ordenes ponen cada uno en SU ranura y el CT_SELECT con los tres.
+    /// Lo que no cabe (otra medida, con Z, con limpieza), la receta no lo da.
+    #[test]
+    fn una_receta_de_tres_render_targets() {
+        let bytes = |w: &[(u64, u64)]| w.iter().flat_map(|&(lo, hi)| lo.to_le_bytes().into_iter().chain(hi.to_le_bytes())).collect::<std::vec::Vec<u8>>();
+        let vs = bytes(&[c::mov(0, c::r(0), 1), c::exit(0)]);
+        // R0..R11: las tres salidas del de pixel.
+        let ps = bytes(&[c::mov(8, c::r(4), 5), c::mov(0, c::r(8), 5), c::exit(5)]);
+        let datos = std::vec![0u8; 96];
+        let dst = Destino { fila: 5120, ancho: 1280, alto: 720, flotante: crate::destino::Flotante::No, rgb: false };
+        let r32 = Destino { flotante: crate::destino::Flotante::R32, ..dst };
+        let mut d = Dibujo { indices: None, vertices: 3, destino: Some((0x1000_0000, dst)), ..Dibujo::default() };
+        d.mas[0] = (0x2_0000_0400, Destino { rgb: true, ..dst });
+        d.mas[1] = (0x2_0400_0000, r32);
+        d.n_mas = 2;
+        let mut r = Receta {
+            n: 3,
+            vs: &vs,
+            ps: &ps,
+            registros_vs: 8,
+            registros_ps: 12,
+            salidas: 2,
+            posicion: 0,
+            filas: 0,
+            paso: 32,
+            elementos: [NINGUNO; MAX_ELEMENTOS],
+            n_elementos: 2,
+            cargas_vs: [NINGUNA; MAX_CARGAS],
+            n_cargas_vs: 8,
+            cargas_ps: [NINGUNA; MAX_CARGAS],
+            n_cargas_ps: 1,
+            genericos: [None; MAX_GENERICOS],
+            n_genericos: 1,
+            datos: &datos,
+            dibujo: d,
+            texturas: [DeApp::NINGUNA; MAX_TEXTURAS],
+            termometro_vs: None,
+            termometro_ps: None,
+        };
+        r.elementos[0] = Elemento::memoria(0, 4);
+        r.elementos[1] = Elemento::memoria(16, 4);
+        for k in 0..8u8 {
+            r.cargas_vs[k as usize] = Carga::Entrada { elemento: k / 4, componente: k % 4, reg: k };
+        }
+        r.cargas_ps[0] = Carga::Entrada { elemento: 0, componente: 0, reg: 4 };
+        r.genericos[0] = Some(0);
+        let mut caja = std::vec![0u8; MAX_RECETA];
+        let n = escribir(&mut caja, &r).expect("tres render targets: la receta se sostiene");
+        assert_eq!(u32le(&caja, 88) & 8, 8, "+88 bit 3");
+        assert_eq!(medida(&caja[..CABECERA_2]), Some(n), "la cabecera sola dice cuanto mide");
+        let l = leer(&caja[..n]).unwrap();
+        assert_eq!((l.dibujo.n_mas, l.dibujo.mas()), (2, d.mas()), "los relee iguales");
+        let mut taller = std::boxed::Box::new(Taller::nuevo());
+        pegar(&l, &mut taller).unwrap_or_else(|e| panic!("{e:?}"));
+        let sph18 = u32le(&taller.ps, 4 * 18);
+        assert_eq!(sph18 & 0xFFFF, 0x0FFF, "OmapTarget: los tres, RGBA");
+        let p = paquete(&l, &taller, 1);
+        let gop = crate::pantalla::Pantalla { vram: 0x100_0000, pitch: 1920, ancho: 1920, alto: 1080, rgb: false };
+        let v = crate::cubo::ventana(&gop).unwrap();
+        let o = tu::ordenes_dibujo(&v, 1, true, p.dibujo);
+        let w = &o.o[..o.n];
+        for (k, (va, x)) in [(1u32, d.mas[0]), (2, d.mas[1])] {
+            let cab = crate::copia::cabecera_en(0, crate::tresde::set_color_target_a(k), 8);
+            let i = w.iter().position(|&y| y == cab).unwrap_or_else(|| panic!("el target {k}"));
+            let en = crate::destino::va_de(k as usize) + va % 4096;
+            assert_eq!(&w[i + 1..i + 6], &[(en >> 32) as u32, en as u32, x.fila, x.alto, x.flotante.formato(x.rgb)], "el target {k}");
+        }
+        let sel = crate::copia::cabecera_en(0, crate::tresde::SET_CT_SELECT, 1);
+        let ultimo = w.iter().rposition(|&y| y == sel).unwrap();
+        assert_eq!(w[ultimo + 1], 3 | 1 << 7 | 2 << 10, "CT_SELECT: tres, la salida k al target k");
+        // Lo que no cabe.
+        for (que, mal) in [
+            ("otra medida", { let mut m = d; m.mas[1].1.alto = 360; m }),
+            ("con Z", Dibujo { z: Some(crate::profundidad::Z { funcion: 2, escribir: true, limpiar: None }), ..d }),
+            ("con limpieza", Dibujo { color: Some(0), ..d }),
+        ] {
+            assert!(!tu::cabe(&mal), "{que}");
+            assert!(escribir(&mut caja, &Receta { dibujo: mal, ..r }).is_none(), "{que}");
+        }
+        // Mas de los que hay ranuras (OBJETIVOS - 1 detras del 0), no.
+        assert!(!tu::cabe(&Dibujo { n_mas: crate::destino::OBJETIVOS as u8, ..d }));
+    }
+
+    /// ** LI2b, los registros (12-10): un cuerpo de pixel que usa R100 pasa
+    /// de los 64 de VERRANO. `pegar` mide lo que usan los dos (con el
+    /// pegamento), el juez juzga con ESO, el paquete lo lleva y las ordenes
+    /// lo dan a los dos programas (`SET_PIPELINE_REGISTER_COUNT`).
+    #[test]
+    fn una_receta_de_mas_de_64_registros() {
+        let bytes = |w: &[(u64, u64)]| w.iter().flat_map(|&(lo, hi)| lo.to_le_bytes().into_iter().chain(hi.to_le_bytes())).collect::<std::vec::Vec<u8>>();
+        let vs = bytes(&[c::mov(0, c::r(0), 1), c::exit(0)]);
+        let ps = bytes(&[c::mov(100, c::r(4), 5), c::mov(0, c::r(100), 5), c::exit(5)]);
+        let datos = std::vec![0u8; 96];
+        let dst = Destino { fila: 5120, ancho: 1280, alto: 720, flotante: crate::destino::Flotante::No, rgb: false };
+        let mut r = Receta {
+            n: 3,
+            vs: &vs,
+            ps: &ps,
+            registros_vs: 8,
+            registros_ps: 101,
+            salidas: 2,
+            posicion: 0,
+            filas: 0,
+            paso: 32,
+            elementos: [NINGUNO; MAX_ELEMENTOS],
+            n_elementos: 2,
+            cargas_vs: [NINGUNA; MAX_CARGAS],
+            n_cargas_vs: 8,
+            cargas_ps: [NINGUNA; MAX_CARGAS],
+            n_cargas_ps: 1,
+            genericos: [None; MAX_GENERICOS],
+            n_genericos: 1,
+            datos: &datos,
+            dibujo: Dibujo { indices: None, vertices: 3, destino: Some((0x1000_0000, dst)), ..Dibujo::default() },
+            texturas: [DeApp::NINGUNA; MAX_TEXTURAS],
+            termometro_vs: None,
+            termometro_ps: None,
+        };
+        r.elementos[0] = Elemento::memoria(0, 4);
+        r.elementos[1] = Elemento::memoria(16, 4);
+        for k in 0..8u8 {
+            r.cargas_vs[k as usize] = Carga::Entrada { elemento: k / 4, componente: k % 4, reg: k };
+        }
+        r.cargas_ps[0] = Carga::Entrada { elemento: 0, componente: 0, reg: 4 };
+        r.genericos[0] = Some(0);
+        let mut caja = std::vec![0u8; MAX_RECETA];
+        let n = escribir(&mut caja, &r).expect("101 registros: la receta se sostiene");
+        let l = leer(&caja[..n]).unwrap();
+        let mut taller = std::boxed::Box::new(Taller::nuevo());
+        pegar(&l, &mut taller).unwrap_or_else(|e| panic!("se pega y el juez la aprueba con SUS registros: {e:?}"));
+        assert!(taller.registros > tu::REGISTROS && taller.registros <= tu::MAX_REGISTROS && taller.registros % 8 == 0, "{}", taller.registros);
+        assert!(juez::juzgar_programa(&taller.ps[..taller.bytes_ps], tu::REGISTROS).is_err(), "con 64, BODRIO");
+        let p = paquete(&l, &taller, 1);
+        assert_eq!(p.dibujo.registros, taller.registros, "lo lleva el paquete, no la app");
+        let gop = crate::pantalla::Pantalla { vram: 0x100_0000, pitch: 1920, ancho: 1920, alto: 1080, rgb: false };
+        let v = crate::cubo::ventana(&gop).unwrap();
+        let o = tu::ordenes_dibujo(&v, 1, true, p.dibujo);
+        for j in [crate::raster::VERTICE, crate::raster::PIXEL] {
+            let cab = crate::copia::cabecera_en(0, crate::raster::set_pipeline_shader(j) + 0x0c, 2);
+            let w = &o.o[..o.n];
+            let i = w.iter().position(|&x| x == cab).unwrap();
+            assert_eq!(w[i + 1], taller.registros, "el programa {j}: sus registros");
+        }
+        // Y una receta de pocos sigue pidiendo 64 (lo de siempre).
+        let ps8 = bytes(&[c::mov(0, c::r(4), 5), c::exit(5)]);
+        let l8 = Receta { ps: &ps8, registros_ps: 8, ..r };
+        let n = escribir(&mut caja, &l8).unwrap();
+        pegar(&leer(&caja[..n]).unwrap(), &mut taller).unwrap();
+        assert_eq!(taller.registros, tu::REGISTROS);
+    }
 
     /// P3b4c.8 T2: una receta con UNA textura, de punta a punta: se escribe,
     /// se relee igual, se pega (el MOV del asa lo pone el pegamento, el TEX
@@ -792,8 +1017,13 @@ mod pruebas {
         mala.cargas_ps[2] = Carga::Asa { textura: 1, reg: 6 };
         assert!(escribir(&mut caja, &mala).is_none());
         let mut mala = r;
-        mala.texturas[0].alto = 2048;
-        assert!(escribir(&mut caja, &mala).is_none(), "2 MiB no caben en la ranura de 1 MiB");
+        // 12-10: la ranura mide 16 MiB: 2 MiB caben; lo que pasa, no.
+        let mut cabe = r;
+        cabe.texturas[0].alto = 2048;
+        assert!(escribir(&mut caja, &cabe).is_some(), "2 MiB caben en la ranura de 16 MiB");
+        // 16384 filas de 1056 B (alto y fila validos): 16,5 MiB.
+        (mala.texturas[0].alto, mala.texturas[0].fila) = (16384, 1056);
+        assert!(escribir(&mut caja, &mala).is_none(), "lo que pasa de la ranura, no");
         let ps_malo = bytes(&[tex(0, 4, 7, crate::tuberia::carga(0)), c::exit(ALU_1 | 1 << 11)]);
         let mala = Receta { ps: &ps_malo, ..r };
         let n = escribir(&mut caja, &mala).unwrap();

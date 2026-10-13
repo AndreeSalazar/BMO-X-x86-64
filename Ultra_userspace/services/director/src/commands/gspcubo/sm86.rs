@@ -464,7 +464,7 @@ impl Backend for Aparato<'_> {
                 (tu::Descarte::Traseras, None)
             };
             let color = destino.map(|_| cu::PIXEL_FONDO);
-            let dibujo = tu::Dibujo { indices: Some(desde as u32), vertices: bmo_cubo::NUM_VERTICES as u32, descarte, antihorario: self.antihorario, destino, z, color, texturas: 0, cadena: false, pantalla: false, banco: 0, redondeo: bmo_gpu_ga10x::pegamento::Redondeo::NADA, mezcla: bmo_gpu_ga10x::mezcla::Mezcla::NINGUNA };
+            let dibujo = tu::Dibujo { indices: Some(desde as u32), vertices: bmo_cubo::NUM_VERTICES as u32, descarte, antihorario: self.antihorario, destino, z, color, texturas: 0, cadena: false, pantalla: false, banco: 0, redondeo: bmo_gpu_ga10x::pegamento::Redondeo::NADA, mezcla: bmo_gpu_ga10x::mezcla::Mezcla::NINGUNA, registros: 0, mas: Default::default(), n_mas: 0 };
             tu::escribir_paquete_dibujo(self.paquete, self.ficha as u32, vs, self.ps, n, &datos[..bytes], dibujo).ok_or(Error::Vertices)?;
         } else if let Some(destino) = en_ram {
             // ** Q0a2 (EL_FOCO, 10-10): los vertices de V0 -- los de la LAMINA

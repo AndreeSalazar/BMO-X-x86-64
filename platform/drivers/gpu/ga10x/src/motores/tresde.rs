@@ -64,6 +64,34 @@ pub const GRUPO_PIXEL: u32 = 4;
 /// `SET_CLEAR_SURFACE_CONTROL_USE_CLEAR_RECT` (bit 4).
 pub const USAR_RECT: u32 = 1 << 4;
 pub const SET_CT_SELECT: u32 = 0x121c;
+
+// ** LI2d (12-10): VARIOS render targets, los arrays de `clc797.h`:
+// `SET_COLOR_TARGET_A(j)` = 0x0800 + 64 j (A, B, WIDTH, HEIGHT, FORMAT,
+// MEMORY, THIRD_DIMENSION, ARRAY_PITCH, y +0x20 LAYER); `SET_CT_WRITE(i)` =
+// 0x1a00 + 4 i; `SET_CT_SELECT`: TARGET_COUNT en 3:0 y TARGETn en los 3 bits
+// desde el 4 + 3 n (que salida va a que target: aqui, la n a la n). Nunca
+// corrieron en el metal con mas de un target.
+
+/// `SET_COLOR_TARGET_A(j)`.
+pub const fn set_color_target_a(j: u32) -> u32 {
+    SET_COLOR_TARGET_A0 + 0x40 * j
+}
+
+/// `SET_CT_WRITE(i)`.
+pub const fn set_ct_write(i: u32) -> u32 {
+    SET_CT_WRITE0 + 4 * i
+}
+
+/// `SET_CT_SELECT` con `n` targets, la salida `k` al target `k`.
+pub const fn ct_select(n: u32) -> u32 {
+    let mut v = n & 0xF;
+    let mut k = 0;
+    while k < n && k < 8 {
+        v |= k << (4 + 3 * k);
+        k += 1;
+    }
+    v
+}
 pub const CLEAR_SURFACE: u32 = 0x19d0;
 pub const SET_CT_WRITE0: u32 = 0x1a00;
 pub const SET_REPORT_SEMAPHORE_A: u32 = 0x1b00;
