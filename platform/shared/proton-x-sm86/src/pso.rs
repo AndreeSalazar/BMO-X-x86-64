@@ -91,13 +91,15 @@ pub(crate) fn cargas_con_posicion(e: &Emitido, pos: Option<usize>) -> Vec<Carga>
     let pares = texturas_de(e);
     e.precargas
         .iter()
-        .map(|p| match *p {
-            Precarga::Entrada { elemento, componente, reg } if pos == Some(elemento as usize) => Carga::Posicion { componente, reg },
-            Precarga::Entrada { elemento, componente, reg } => Carga::Entrada { elemento, componente, reg },
-            Precarga::Fila { fila, reg } => Carga::Fila { fila, reg },
+        .filter_map(|p| match *p {
+            Precarga::Entrada { elemento, componente, reg } if pos == Some(elemento as usize) => Some(Carga::Posicion { componente, reg }),
+            Precarga::Entrada { elemento, componente, reg } => Some(Carga::Entrada { elemento, componente, reg }),
+            Precarga::Fila { fila, reg } => Some(Carga::Fila { fila, reg }),
             // La pareja (tN, sM) es la textura k de la receta: su puesto.
             // E8g: el par (asa, nivel) se carga igual: el nivel es del cuerpo.
-            Precarga::Asa { textura, muestreador, reg } | Precarga::AsaPar { textura, muestreador, reg } => Carga::Asa { textura: pares.iter().position(|&x| x == (textura, muestreador)).unwrap_or(0) as u8, reg },
+            Precarga::Asa { textura, muestreador, reg } | Precarga::AsaPar { textura, muestreador, reg } => Some(Carga::Asa { textura: pares.iter().position(|&x| x == (textura, muestreador)).unwrap_or(0) as u8, reg }),
+            // LI2f: un UAV es de computo (`emitir` no lo pide en un dibujo).
+            Precarga::Uav { .. } => None,
         })
         .collect()
 }

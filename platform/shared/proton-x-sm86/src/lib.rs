@@ -109,6 +109,10 @@ pub mod libreta;
 /// P3b4c.8 T0: el muestreador y la textura de la casa en el TSC y el TIC de
 /// la 3060 (29-09).
 pub mod muestreo;
+/// LI2f (12-10): el computo de una app -- los ids, la barrera y los UAV
+/// crudos y estructurados, con la direccion SUJETA.
+mod uav;
+pub use uav::DelUav;
 
 use alloc::vec;
 use alloc::vec::Vec;
@@ -158,6 +162,10 @@ pub enum Precarga {
     /// van juntos en Rb, Rb+1). Una por lectura: el nivel de una no pisa el
     /// de otra mientras la 3060 aun lo lee.
     AsaPar { textura: u8, muestreador: u8, reg: u8 },
+    /// ** LI2f (12-10): lo que el KERNEL dice del UAV `u` ([`DelUav`]), en
+    /// `reg` (la base, en el par `reg`, `reg + 1`). Fijo todo el programa:
+    /// el cuerpo no lo puede pisar (R7), y con el se SUJETA cada direccion.
+    Uav { u: u8, que: DelUav, reg: u8 },
 }
 
 /// Como se cronometra una instruccion (las clases del juez que emite esto).
@@ -459,8 +467,9 @@ impl Emisor<'_> {
         }
         let n = match pedida {
             Precarga::Fila { .. } => 4,
-            // ** E8g: el par lo pide `precarga_par`, nunca compartido.
-            Precarga::AsaPar { .. } => return Err(NoEmite::Registros),
+            // ** E8g: el par lo pide `precarga_par`, nunca compartido; LI2f:
+            // lo de un UAV, `precarga_uav`.
+            Precarga::AsaPar { .. } | Precarga::Uav { .. } => return Err(NoEmite::Registros),
             _ => 1,
         };
         // n seguidos (una fila va con un LDG.128: alineada a 4 registros).
@@ -482,7 +491,7 @@ impl Emisor<'_> {
             Precarga::Entrada { elemento, componente, .. } => Precarga::Entrada { elemento, componente, reg },
             Precarga::Fila { fila, .. } => Precarga::Fila { fila, reg },
             Precarga::Asa { textura, muestreador, .. } => Precarga::Asa { textura, muestreador, reg },
-            Precarga::AsaPar { .. } => unreachable!("arriba"),
+            Precarga::AsaPar { .. } | Precarga::Uav { .. } => unreachable!("arriba"),
         });
         Ok(reg)
     }
@@ -649,6 +658,11 @@ fn emitir_modo(p: &Programa, registros: u32, abi: Abi, libreta: bool, frugal: bo
                 // ** E8g: un par (asa, nivel) por lectura con nivel o Load.
                 Op::Lee { t, s, como: bmo_proton_x::dxil::programa::Lectura::Nivel | bmo_proton_x::dxil::programa::Lectura::Carga { .. }, .. } if t != bmo_proton_x::dxil::programa::DINAMICA => {
                     e.pares[i_op] = Some(e.precarga_par(t, s)?);
+                    continue;
+                }
+                // ** LI2f: lo que el kernel dice de cada UAV, fijo.
+                Op::LeeUav { u, modo, .. } | Op::EscribeUav { u, modo, .. } => {
+                    e.precargas_uav(u, modo, i_op)?;
                     continue;
                 }
                 _ => continue,
@@ -982,8 +996,13 @@ fn emitir_modo(p: &Programa, registros: u32, abi: Abi, libreta: bool, frugal: bo
             Op::Lee { d, t, s, como, c: co, nivel, desp } => e.lee_textura(d, t, s, como, co, nivel, desp, i, &mut paso)?,
             // N5.4: elegir la textura al correr, la 3060 todavia no.
             Op::EligeTextura { .. } => return Err(NoEmite::Operacion(i)),
-            // N5.5: el computo, todavia no en la 3060 (va por la CPU).
-            Op::IdHilo { .. } | Op::Barrera | Op::LeeCompartida { .. } | Op::EscribeCompartida { .. } | Op::AtomicoCompartido { .. } | Op::EscribeUav { .. } | Op::LeeUav { .. } | Op::MedidasUav { .. } => return Err(NoEmite::Operacion(i)),
+            // ** LI2f (12-10): el computo (`uav.rs`): los ids, la barrera y
+            // los UAV crudos y estructurados; lo demas, por la CPU todavia.
+            Op::IdHilo { d, que, c: comp } => e.id_hilo(d, que, comp, i, &mut paso)?,
+            Op::Barrera => e.barrera(i)?,
+            Op::LeeUav { d, u, modo, i: indice, desp, .. } => e.lee_uav(d, u, modo, indice, desp, i, &mut paso)?,
+            Op::EscribeUav { u, modo, i: indice, desp, v, mascara, .. } => e.escribe_uav(u, modo, indice, desp, v, mascara, i, &mut paso)?,
+            Op::LeeCompartida { .. } | Op::EscribeCompartida { .. } | Op::AtomicoCompartido { .. } | Op::MedidasUav { .. } => return Err(NoEmite::Operacion(i)),
             // E2.3b: el sombreador de geometria, igual (va por la CPU).
             Op::EntradaDe { .. } | Op::Emite { .. } | Op::Corta { .. } => return Err(NoEmite::Operacion(i)),
             // E2.4: el contador de un UAV, igual; y (05-10) sus Interlocked.
@@ -1086,6 +1105,8 @@ mod pruebas_registros;
 mod pruebas_mrt;
 #[cfg(test)]
 mod pruebas_simula_computo;
+#[cfg(test)]
+mod pruebas_uav;
 #[cfg(test)]
 mod pruebas_mezcla;
 #[cfg(test)]

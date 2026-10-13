@@ -908,6 +908,7 @@ mod pruebas {
                 Precarga::Fila { fila, reg } => Carga::Fila { fila, reg },
                 // Los cubos no muestrean: la unica textura seria la 0.
                 Precarga::Asa { reg, .. } | Precarga::AsaPar { reg, .. } => Carga::Asa { textura: 0, reg },
+                Precarga::Uav { .. } => unreachable!("un dibujo no lleva UAV"),
             })
             .collect()
     }
