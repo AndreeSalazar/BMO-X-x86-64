@@ -786,6 +786,10 @@ pub(crate) fn compose(dsk: &mut Desktop, p: &bmo::Pantalla, dead: usize) {
         dsk.save_under.place(&p, dsk.tick.ax, dsk.tick.ay, shape);
     }
 
+    // ** FRAPS-X GRABA (13-10): el fotograma ya esta entero en el lienzo
+    // (con su contador y su cursor): al video, si toca.
+    crate::desktop::grabar::vuelta(p, dsk.tick.will_paint);
+
     // * Y ahora EMPUJARLO a la pantalla.
     //
     // El framebuffer esta mapeado en write-combining: el CPU acumula las

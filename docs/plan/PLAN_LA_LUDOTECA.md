@@ -1342,6 +1342,25 @@ capturas (Impr Pant, PNG propio) ya existian.
       que estaba pasando, y cada uno se explica; si es (b), el banco deja de
       contarlo y el 1 % bajo sube a lo que el ojo ve.
 
+- [x] **G0 -- GRABAR YA, por la CPU (13-10).** El propietario: *"fijate si
+      FRAPS-X graba bien ... para grabar y subir a YouTube y presentar
+      algo"*. **No grababa** (contaba FPS, el banco y la captura PNG). Ahora:
+      `Ctrl+Shift+R` o `fraps grabar [fps] [mitad] [calidad N]` graba el
+      LIENZO (el juego compuesto, el contador y el cursor) a
+      `capturas/vidNNNNN.avi`: **MJPEG en AVI**, lo que YouTube, VLC y
+      Windows abren tal cual. Las piezas, puras y probadas en el anfitrion:
+      `bmo_imagen::jpeg_escribir` (JPEG baseline 4:2:0, entero; contra
+      Pillow 12.3, el mismo error y tamano que libjpeg) y `bmo_fraps::avi`
+      (el contenedor; ffprobe: 60 fotogramas, 30/1, 2,000 s). Cada
+      fotograma es el del instante `k / fps`: lo que no se pinto o no llego a
+      tiempo va vacio (repite), y el video dura lo que duro de verdad.
+      **Lo que cuesta:** el JPEG lo hace el nucleo del escritorio; al parar
+      se dice cuantos ms por fotograma (a 1920x1080, decenas: `mitad` cuesta
+      la cuarta parte). **Como se sabe en el metal:** un minuto grabado se
+      sube a YouTube sin convertir. [!] Sin sonido todavia, y con la
+      pantalla directa de la 3060 (Z1) el juego no pasa por el lienzo.
+      NVENC (abajo) es lo que lo hara sin gastar CPU.
+
 ### NVENC en la 3060: SI es razonable, y lo que cambio
 
 Lo que decia el 25-09 al principio del dia --*"su interfaz es cerrada"*-- era lo que

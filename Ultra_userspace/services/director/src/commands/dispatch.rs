@@ -57,6 +57,16 @@ pub(crate) fn dispatch(dsk: &mut Desktop, p: &bmo::Pantalla, cmd: Command) -> Af
             }
             After::Settle
         }
+        Command::Grabar(op) => {
+            dsk.field.n = 0;
+            match op {
+                Some(op) => crate::desktop::grabar::alternar(dsk, p, op),
+                None => {
+                    dsk.out.grid.text(b"  fraps grabar [fps 1..60] [mitad] [calidad 10..100]: empieza; otra vez (o Ctrl+Shift+R), para y guarda en capturas/vidNNNNN.avi\n");
+                }
+            }
+            After::Settle
+        }
         Command::Fraps(banco) => {
             dsk.field.n = 0;
             if banco {
