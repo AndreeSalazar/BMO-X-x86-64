@@ -468,6 +468,31 @@ en una codificacion a mano se veria ANTES de arrancar el Ryzen.
       la pieza entera. **Como se sabe:** `gpu verrano` sale N veces de N tras
       arranques en frio y en caliente.
 
+### La 3060 que muere en el juego (13-10): G1, G2 y G3
+
+El 13-10 el canal de GR murio en el primer lote de Cyberpunk 2077 y lo unico
+que quedo fue "esta MUERTO" ([`METAL_2026-10-13.md`](../metal/METAL_2026-10-13.md),
+seccion 5). Comparado con lo que hace un driver de verdad, faltaban tres
+piezas; las tres estan escritas y NINGUNA ha corrido en el metal:
+
+- [x] **G1 -- el fallo, dicho entero (13-10).** El `RC_TRIGGERED` leido
+      campo a campo (`platform/drivers/gpu/ga10x/src/rm/rc.rs`, de
+      `rpc_rc_triggered_v17_02` de la 570.144): motor, Xid con su nombre, la
+      VA y el tipo de un fallo de memoria, y la frase de `OS_ERROR_LOG`. El
+      kernel lo guarda la primera vez que lo ve (`gpu_trabajo/parte.rs`,
+      `INFO_GPU_RC*`) y PROTON-X lo imprime. Y la ESCALERA para los lotes del
+      juego: `personal escalera <ruta>` (`--3060-escalera`), un semaforo por
+      escalon para saber DONDE se para.
+- [x] **G2 (E7b) -- revivir sin reiniciar (13-10).** `gpu revivir`: el `FREE`
+      de AMPERE_B, AMPERE_COMPUTE_B y el canal (`rm/liberar.rs`, solo esos
+      tres en el contrato), el kernel lo olvida (`gpu_trabajo/revivir.rs`) y
+      `canalgr` .. `lienzo` otra vez. **Como se sabe:** tras un canal muerto,
+      `gpu revivir` y despues `gpu verrano` pinta.
+- [x] **G3 -- el vigilante, distinguible (13-10).** Si el vigilante corta un
+      lote, el parte lo dice y cuantos ms llevaba sin volver: un lote lento y
+      un Xid no son lo mismo. La RAM de la app se sigue devolviendo tras un
+      corte: es lo seguro (la IOMMU deja de traducirla).
+
 ---
 
 ## 5c. EL PASE DE LA 3060 (P) -- la burocracia una vez, y el radar en cada barrido

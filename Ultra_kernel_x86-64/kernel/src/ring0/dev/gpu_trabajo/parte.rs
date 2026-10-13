@@ -19,7 +19,9 @@
 //!    INFO_GPU_RC        bit 63 hay parte; [0..8) Xid; [8..16) motor;
 //!                       [16..24) tipo de fallo de memoria; [24..32) nivel;
 //!                       [32..40) quien lo dijo (1 el GSP-RM, 2 el vigilante
-//!                       sin RC a la vista); bit 40 hay frase
+//!                       sin RC a la vista); bit 40 hay frase; [48..64) los
+//!                       ms que el lote llevaba sin volver si lo corto el
+//!                       vigilante
 //!    INFO_GPU_RC_VA     la direccion del fallo de memoria (Xid 31)
 //!    INFO_GPU_RC_TEXTO  | trozo << 8: 8 bytes de la frase de NVIDIA
 //! ```
@@ -39,6 +41,14 @@ static VA: AtomicU64 = AtomicU64::new(0);
 static mut FRASE: [u8; rc::TEXTO] = [0; rc::TEXTO];
 static FRASE_N: AtomicU64 = AtomicU64::new(0);
 static ESCRITA: AtomicBool = AtomicBool::new(false);
+/// Los us que llevaba sin volver el trabajo que el vigilante corto.
+static ESPERADO_US: AtomicU64 = AtomicU64::new(0);
+
+/// **El vigilante va a cortar** un trabajo que lleva `us` sin volver: para
+/// el parte (un lote lento pero bueno y un Xid no son lo mismo).
+pub(super) fn vencido(us: u64) {
+    ESPERADO_US.store(us, Ordering::Release);
+}
 
 /// **Guardar el parte del canal `chid`**, si aun no se guardo. `quien`:
 /// [`POR_EL_GSP`] o [`POR_EL_VIGILANTE`]. Lo dice en CABINA con nombres.
@@ -59,7 +69,8 @@ pub(super) fn guardar(chid: u32, quien: u64) {
     }
     VA.store(va, Ordering::Release);
     let hay_frase = (FRASE_N.load(Ordering::Acquire) != 0) as u64;
-    PARTE.store(1 << 63 | (xid & 0xFF) as u64 | ((motor & 0xFF) as u64) << 8 | ((tipo & 0xFF) as u64) << 16 | ((nivel & 0xFF) as u64) << 24 | (quien & 0xFF) << 32 | hay_frase << 40, Ordering::Release);
+    let ms = (ESPERADO_US.load(Ordering::Acquire) / 1000).min(0xFFFF);
+    PARTE.store(1 << 63 | (xid & 0xFF) as u64 | ((motor & 0xFF) as u64) << 8 | ((tipo & 0xFF) as u64) << 16 | ((nivel & 0xFF) as u64) << 24 | (quien & 0xFF) << 32 | hay_frase << 40 | ms << 48, Ordering::Release);
     let c = crate::ring0::cabina::warn;
     if p.rc.is_some() {
         c("gpu", rc::nombre_xid(xid), xid as u64);
@@ -108,4 +119,5 @@ pub(super) fn olvidar() {
     VA.store(0, Ordering::Release);
     FRASE_N.store(0, Ordering::Release);
     ESCRITA.store(false, Ordering::Release);
+    ESPERADO_US.store(0, Ordering::Release);
 }

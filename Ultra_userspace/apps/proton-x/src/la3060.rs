@@ -392,6 +392,7 @@ fn soltar_pantalla(e: &mut Estado) {
 /// memoria, y la frase de NVIDIA. Vacio si el kernel no guardo ninguno.
 pub(crate) fn el_parte() -> String {
     use bmo_proton_x_sm86::rc;
+    // Los bits, en el ABI (`INFO_GPU_RC`).
     let p = bmo::info(bmo::INFO_GPU_RC);
     if p >> 63 == 0 {
         return String::new();
@@ -400,7 +401,12 @@ pub(crate) fn el_parte() -> String {
     let mut s = if quien == 1 {
         alloc::format!("PROTON-X: el parte del GSP-RM: Xid {xid} = {} (motor {motor})", rc::nombre_xid(xid))
     } else {
-        String::from("PROTON-X: el parte: el canal se dio por muerto SIN un RC del GSP-RM a la vista (el vigilante lo corto: un lote que no volvio en su plazo, o el mensaje se perdio)")
+        let ms = p >> 48 & 0xFFFF;
+        if ms != 0 {
+            alloc::format!("PROTON-X: el parte: el VIGILANTE corto el canal -- un lote llevaba {ms} ms sin volver, y el GSP-RM no conto un Xid (un sombreador que no acaba, o un lote lento de verdad)")
+        } else {
+            String::from("PROTON-X: el parte: el canal se dio por muerto SIN un RC del GSP-RM a la vista (el mensaje se perdio, o lo corto el vigilante)")
+        }
     };
     let va = bmo::info(bmo::INFO_GPU_RC_VA);
     if xid == 31 || va != 0 {
