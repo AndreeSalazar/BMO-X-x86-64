@@ -179,6 +179,12 @@ pub fn del_lote(l: &Lote, z_a_la_3060: bool) -> Vec<&'static str> {
     if crate::mips::nivel_sin_mips(&l.enlace.ps) && l.recursos.mip_importa() {
         v.push("SampleLevel o Load de un array o una 3D de varias mips");
     }
+    // Metal 13-10 17:53: lo que la puerta mira de cada TEXTURA que lee el
+    // de pixeles, con su nombre (el censo no lo veia: "es BC, float o
+    // sRGB" salia en la consola y no en el censo).
+    for q in texturas_del_lote(l) {
+        v.push(q);
+    }
     if l.instancias != 1 || l.entradas.iter().any(|e| e.por_instancia.is_some()) {
         v.push("varias instancias o datos por instancia");
     }
@@ -191,6 +197,36 @@ pub fn del_lote(l: &Lote, z_a_la_3060: bool) -> Vec<&'static str> {
     }
     if l.reglas.profundidad.is_some() && !z_a_la_3060 {
         v.push("la Z sin la sombra en bloque");
+    }
+    v
+}
+
+/// **Lo que para un lote en sus TEXTURAS** (lo de `puerta::escribir`), por
+/// la clase de cada una: lo que la 3060 todavia no lee, para saber CUAL abrir.
+fn texturas_del_lote(l: &Lote) -> Vec<&'static str> {
+    use bmo_proton_x::dxil::programa::Op;
+    use bmo_proton_x::textura::{Clase, Como, Textura};
+    let mut v = Vec::new();
+    for o in &l.enlace.ps.ops {
+        let (t, s, muestrea) = match *o {
+            Op::Muestra { t, s, .. } => (t, s, true),
+            Op::Lee { t, s, .. } => (t, s, false),
+            _ => continue,
+        };
+        let Some(Some(tx)) = l.recursos.texturas.get(t as usize) else { continue };
+        let q = match tx.como {
+            Como::Bloques(_) => "una textura comprimida BC (la 3060 la lee: falta medir que da los bits de la casa)",
+            Como::Flotante | Como::Flotantes4 => "una textura de float (R32, RGBA16F...)",
+            Como::Stencil8 => "el stencil visto como textura",
+            _ if tx.srgb => "una textura sRGB",
+            _ if tx.mapeo & 0xFFF != Textura::MAPEO & 0xFFF => "una textura con otro mapeo de canales",
+            _ if tx.clase != Clase::Plana => "una textura que no es 2D (array, 3D o cubo)",
+            _ if muestrea && !matches!(l.recursos.muestreadores.get(s as usize), Some(Some(_))) => "un muestreador sin atar",
+            _ => continue,
+        };
+        if !v.contains(&q) {
+            v.push(q);
+        }
     }
     v
 }

@@ -197,13 +197,12 @@ pub fn traducir(en: &Enlace, ia: &[ElementoIa], paso: u32) -> Result<ParaLa3060,
     let ev = emitir(&en.vs, "vertice")?;
     let ep = emitir(&en.ps, "pixel")?;
     let els = elementos(en, ia)?;
+    // G5: con las filas de las mips detras del cbuffer, como la puerta (la
+    // puerta las escribe en cada lote; aqui solo cuentan para pegar y
+    // juzgar). Metal 13-10 17:53: este camino las RECHAZABA, y el censo
+    // -- que pega por aqui -- se invento una puerta que la 3060 no tiene.
     let filas_cb = en.vs.filas_cb.max(en.ps.filas_cb) as u32;
-    // G5: las filas de las mips, detras (este camino no las escribe: un PSO
-    // que elige su mip va por la puerta, `puerta::escribir`).
-    if filas_con_mips(filas_cb, &ep) != filas_cb {
-        return Err(NoVa::Entrada("un SampleLevel o un Load de una 2D con mips: va por la puerta"));
-    }
-    let filas = filas_cb;
+    let filas = filas_con_mips(filas_cb, &ep);
     let datos = Datos { filas, paso, elementos: &els };
     // ** LI2a (12-10): el de pixeles que lee SV_Position ya va a la 3060 si
     // lee su x y su y (`Carga::Posicion`); la z y la w, por la CPU todavia.
@@ -217,7 +216,7 @@ pub fn traducir(en: &Enlace, ia: &[ElementoIa], paso: u32) -> Result<ParaLa3060,
     pegamento::vertice_con_libreta_en(&mut v, &ev.codigo, ev.registros, &cargas(&ev), datos, en.vs.salidas as u32, posicion, ev.termometro).map_err(|e| NoVa::Pegamento("vertice", e))?;
     let genericos: Vec<Option<u8>> = en.desde_vs.iter().map(|o| o.and_then(|o| pegamento::generico(o as u32, posicion))).collect();
     let mut p = pegado_vacio();
-    pegamento::pixel_con_libreta_en(&mut p, &ep.codigo, ep.registros, &cargas_con_posicion(&ep, en.pos_ps, filas), datos, &genericos, ep.termometro).map_err(|e| NoVa::Pegamento("pixel", e))?;
+    pegamento::pixel_con_libreta_en(&mut p, &ep.codigo, ep.registros, &cargas_con_posicion(&ep, en.pos_ps, filas_cb), datos, &genericos, ep.termometro).map_err(|e| NoVa::Pegamento("pixel", e))?;
     let (vs, ps) = (bytes(&v), bytes(&p));
     // LI2b: con los registros que pediria el kernel (`receta::pegar`).
     let registros = tuberia::registros_para(v.registros.max(p.registros));
