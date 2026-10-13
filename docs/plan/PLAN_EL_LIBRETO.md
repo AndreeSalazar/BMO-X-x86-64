@@ -435,11 +435,19 @@ y `puerta.rs`; el juez en `platform/drivers/gpu/ga10x/src/sass/juez.rs`):
         cadena, escribir un SRV), su NO.
       - [!] Lo que NO da los mismos bits: una palabra sin alinear de un
         crudo (D3D12 no la define; dxc no la emite).
-      **Falta:** el despacho en el KERNEL -- la receta de computo, el QMD con
-      la compartida y los registros, prestar cada UAV y SRV (su IOVA) y
-      cargar sus precargas (`DelUav::valor`) --, la puerta `Dispatch` de
-      PROTON-X, los UAV con tipo y de textura, el contador (`Append`), y el
-      metal.
+      - **13-10, lo PURO del despacho:** la receta de computo **VRC1**
+        (`trabajos/receta_computo.rs`: leer y comprobar, los valores de las
+        precargas, los permisos del juez), el QMD con la rejilla y el grupo
+        en 3D y la compartida con su configuracion de la SM, y el pegado
+        (`trabajos/computo_app.rs`). nBody por ese camino -- emitir, VRC1,
+        leer, juzgar, valores, pegar -- y la 3060 de mentira corriendo lo
+        pegado sin ayuda: los mismos bytes que la CPU.
+      **Falta:** el despacho en el KERNEL de verdad -- la operacion que
+      recibe la VRC1, prestar cada UAV y SRV por la IOMMU (un SRV, solo
+      para leer), mapearlos en la 3060, el programa (de hasta 32 Ki
+      instrucciones) y el QMD en su sitio, lanzar y esperar con el
+      vigilante --, la puerta `Dispatch` de PROTON-X, los UAV con tipo y de
+      textura, el contador (`Append`), y el metal.
 - [ ] **LI2g -- DECISION DEL PROPIETARIO: los bits exactos o la tolerancia
       de D3D.** La regla de la casa es "los mismos bits que la CPU". La 3060
       APROXIMA la division, la raiz y el filtrado; D3D lo permite (unos
