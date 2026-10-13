@@ -33,6 +33,65 @@
 use crate::motores::sombreador::{campo, qmd_rejilla, QMD_PALABRAS};
 use crate::trabajos::cubo::mov;
 
+/// **Lo que el KERNEL pone de cada UAV o SRV de bufer** en los registros que
+/// el cuerpo pidio (`Precarga::Uav` de `bmo-proton-x-sm86`, su `uav.rs`):
+///
+/// ```text
+///    Base       el par (lo, hi): la VA del bufer en la 3060, alineada
+///    Tope       la mayor direccion de palabra que se puede tocar, desde la
+///               base: lo prestado menos 4 (alineado). LA SEGURIDAD
+///    Limite     crudo: las palabras que valen empiezan antes de esto
+///    Elementos  estructurado: los elementos (0 si el paso es 0)
+///    Paso       estructurado: los bytes de un elemento
+///    Medida     lo que dice `GetDimensions`
+/// ```
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[repr(u8)]
+pub enum DelUav {
+    Base = 0,
+    Tope = 1,
+    Limite = 2,
+    Elementos = 3,
+    Paso = 4,
+    /// Lo que dice `GetDimensions`: los elementos de la vista (en un crudo,
+    /// sus bytes), sin mirar lo prestado.
+    Medida = 5,
+}
+
+impl DelUav {
+    pub const TODOS: [DelUav; 6] = [DelUav::Base, DelUav::Tope, DelUav::Limite, DelUav::Elementos, DelUav::Paso, DelUav::Medida];
+
+    /// El de un numero (el de la receta y el del .bsf vivo).
+    pub fn de(n: u8) -> Option<DelUav> {
+        DelUav::TODOS.into_iter().find(|q| *q as u8 == n)
+    }
+
+    /// **Lo que el KERNEL pone** en este registro (la base: el par entero)
+    /// para un UAV de `bytes` prestados a la 3060 desde `base`, con su vista
+    /// (`elementos`, en un crudo palabras; y `paso` si es estructurado): las
+    /// reglas de la casa (`bufer::Uav`). Una vez, aqui: lo usan el kernel y
+    /// las pruebas. `None`: no se presta (menos de una palabra, o la base sin
+    /// alinear). [!] Un estructurado cuyo ultimo elemento no cabe entero en
+    /// lo prestado lo pierde entero (la casa leeria sus palabras de dentro).
+    pub fn valor(self, base: u64, bytes: u32, elementos: u32, paso: u32) -> Option<u64> {
+        if bytes < 4 || base % 4 != 0 {
+            return None;
+        }
+        Some(match self {
+            DelUav::Base => base,
+            DelUav::Tope => (bytes & !3) as u64 - 4,
+            DelUav::Limite => (4 * elementos as u64).min(bytes as u64).saturating_sub(3),
+            DelUav::Elementos if paso == 0 => 0,
+            DelUav::Elementos => elementos.min(bytes / paso) as u64,
+            DelUav::Paso => paso as u64,
+            // La de la casa (`Bufer::medidas`): un crudo, en bytes.
+            DelUav::Medida if paso == 0 => elementos.saturating_mul(4) as u64,
+            DelUav::Medida => elementos as u64,
+        })
+    }
+}
+
+
 /// Hilos por grupo, como mucho (D3D12 y la 3060).
 pub const MAX_HILOS: u32 = 1024;
 /// Grupos por eje, como mucho (D3D12).
