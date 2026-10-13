@@ -356,6 +356,9 @@ pub const IOMMU_OP_GPU_COMPLETA: u64 = 0x50;
 pub const IOMMU_OP_GPU_COMPLETAR: u64 = 0x51;
 /// LI2f: la puerta estrecha del COMPUTO, para una app (ver el ABI).
 pub const IOMMU_OP_GPU_COMPUTO: u64 = 0x52;
+/// E7b: revivir el canal de GR sin reiniciar (ver el ABI).
+pub const IOMMU_OP_GPU_LIBERAR_GR: u64 = 0x53;
+pub const IOMMU_OP_GPU_REVIVIR_GR: u64 = 0x54;
 pub const COMPLETA_DE_B: u64 = 1 << 3;
 pub const COMPLETA_CARGAR: u64 = 1 << 4;
 pub const CUBO_LEER: u64 = 1 << 63;
@@ -456,6 +459,8 @@ pub const IOMMU_NO_IMAGEN: u32 = 88;
 pub const IOMMU_NO_COMPLETA: u32 = 92;
 /// P3b4c: el canal de GR tomo una excepcion (Xid): MUERTO hasta reiniciar.
 pub const IOMMU_NO_CANAL_MUERTO: u32 = 90;
+/// E7b: revivir el canal de GR no se puede (ver el ABI).
+pub const IOMMU_NO_REVIVIR: u32 = 93;
 pub const IOMMU_NO_REINTENTO: u32 = 91;
 pub const IOMMU_NO_GPU_CALIENTE: u32 = 67;
 /// Mover el fader (1/256 dB con signo).

@@ -29,6 +29,10 @@
 //!    UNLOADING_GUEST_DRIVER 47  L0c5: la despedida del GSP-RM, SOLO la
 //!                           descarga normal (sus 8 B a cero: ni suspender
 //!                           ni GC6, nivel 0)
+//!    FREE              10   E7b (13-10): SOLO los tres objetos del canal de
+//!                           GR0 (AMPERE_B, AMPERE_COMPUTE_B y el canal),
+//!                           para pedirlo otra vez tras un Xid sin reiniciar
+//!                           (`liberar::permitida`)
 //! ```
 //!
 //! Agrandar la lista es una decision, y se toma aqui: con su prueba.
@@ -74,6 +78,7 @@ pub fn permitido(m: &[u8]) -> Result<u32, No> {
         // La descarga normal y NADA mas: una suspension dejaria al GSP-RM
         // esperando una vuelta que este sistema no sabe dar.
         descarga::UNLOADING_GUEST_DRIVER if d == descarga::DATOS => Ok(h.funcion),
+        crate::liberar::FREE if crate::liberar::permitida(d) => Ok(h.funcion),
         GSP_RM_ALLOC => {
             if d.len() < 16 {
                 return Err(No::Objeto);
@@ -220,7 +225,7 @@ mod pruebas {
     #[test]
     fn lo_de_fuera_no_sale() {
         let mut h = [0u8; 4096];
-        // Una funcion que no esta: FREE (10).
+        // Un FREE (10) que NO es de los tres del canal de GR0 (E7b): no sale.
         let n = orden::componer(&mut h, 5, 10, 16, |_| {}).unwrap();
         assert_eq!(permitido(&h[..n]), Err(No::Funcion(10)));
         // Un ALLOC de otra clase (un canal, 0xC56F) con nuestras asas.

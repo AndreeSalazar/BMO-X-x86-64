@@ -524,6 +524,11 @@ pub(crate) const IOMMU_OP_GPU_COMPLETAR: u64 = 0x51;
 /// `Dispatch` en la 3060 con una receta de computo (VRC1). `arg1` = su VA.
 /// Ver `dev/gpu_trabajo/computo.rs`.
 pub(crate) const IOMMU_OP_GPU_COMPUTO: u64 = 0x52;
+/// E7b (13-10): REVIVIR EL CANAL DE GR -- el `FREE` de sus tres objetos (0, 1,
+/// 2 en `arg1`) y olvidarlo. Solo `MAQUINA`, solo muerto. Ver
+/// `dev/gpu_trabajo/revivir.rs`.
+pub(crate) const IOMMU_OP_GPU_LIBERAR_GR: u64 = 0x53;
+pub(crate) const IOMMU_OP_GPU_REVIVIR_GR: u64 = 0x54;
 
 /// **ARMAR Y SONDEAR LA RED desde donde vive el propietario.** `arg0` = `RED_OP_*`.
 ///
@@ -1092,6 +1097,8 @@ pub(crate) fn nombre_iommu(op: u64) -> &'static str {
         IOMMU_OP_GPU_COMPLETA => "GPU_COMPLETA",
         IOMMU_OP_GPU_COMPLETAR => "GPU_COMPLETAR",
         IOMMU_OP_GPU_COMPUTO => "GPU_COMPUTO",
+        IOMMU_OP_GPU_LIBERAR_GR => "GPU_LIBERAR_GR",
+        IOMMU_OP_GPU_REVIVIR_GR => "GPU_REVIVIR_GR",
         _ => "?",
     }
 }

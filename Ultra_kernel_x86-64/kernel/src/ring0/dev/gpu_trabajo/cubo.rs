@@ -943,6 +943,21 @@ fn vaciar_con_cerrojo() -> Result<u64, u32> {
 /// **Soltar el anillo** para otro trabajo del GR (`gr_ocupado`, con el
 /// cerrojo ya tomado): lo que quedo en vuelo, pagado, y el anillo olvidado
 /// -- el otro va a escribir en el mismo tramo (programas, tabla, ordenes).
+/// **E7b (13-10): olvidar lo caliente y el anillo** de un canal de GR que se
+/// libero: sus entradas del GPFIFO ya no existen (el canal nuevo empieza en
+/// la primera), y nada de lo "ya escrito" vale. Lo mapeado (la pagina del
+/// anillo, la Z, las texturas, el destino) sigue: es del espacio de
+/// direcciones, que no se libero.
+pub(super) fn olvidar() {
+    CALIENTE_HUELLA.store(0, Ordering::Release);
+    CALIENTE_ENTRADA.store(u32::MAX, Ordering::Release);
+    CALIENTE_PROGRAMAS.store(0, Ordering::Release);
+    ANILLO_HUELLA.store(0, Ordering::Release);
+    ANILLO_ENTRADA.store(u32::MAX, Ordering::Release);
+    ANILLO_NUMERO.store(0, Ordering::Release);
+    ANILLO_PAGADO.store(0, Ordering::Release);
+}
+
 pub(super) fn soltar_anillo() -> Result<(), u32> {
     if ANILLO_HUELLA.load(Ordering::Acquire) == 0 && !en_vuelo() {
         return Ok(());

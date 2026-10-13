@@ -134,6 +134,9 @@ pub(crate) fn gpu(dsk: &mut Desktop, p: &bmo::Pantalla, arg: &[u8]) -> After {
     if arg == b"grmem" {
         return super::gspgr::orden_memoria(dsk, p);
     }
+    if arg == b"revivir" {
+        return super::gsprevivir::orden(dsk, p);
+    }
     if arg == b"canalgr" {
         return super::gspcanalgr::orden(dsk, p);
     }

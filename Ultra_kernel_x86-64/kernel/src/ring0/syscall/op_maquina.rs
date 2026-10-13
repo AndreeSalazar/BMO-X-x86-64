@@ -986,6 +986,9 @@ fn iommu_(arg0: u64, arg1: u64) -> BmoStatus {
             }
         }
         IOMMU_OP_GSP_COMPUTO => crate::ring0::dev::gpu_trabajo::pedir_computo(),
+        // ** E7b (13-10): revivir el canal de GR sin reiniciar. Solo muerto.
+        IOMMU_OP_GPU_LIBERAR_GR => crate::ring0::dev::gpu_trabajo::liberar_gr(arg1),
+        IOMMU_OP_GPU_REVIVIR_GR => crate::ring0::dev::gpu_trabajo::revivir_gr(),
         // ** M5d S3: la primera vez que el MOTOR GRAFICO ejecuta algo nuestro.
         // El FLUSH, como la copia.
         IOMMU_OP_GPU_TRABAJO_GR => {

@@ -48,7 +48,7 @@ pub mod arranque;
 pub use arranque::{falcon, vbios, fwsec, booter, elf, wpr, libos, secuenciador, correr, descarga};
 /// LA CONVERSACION CON EL GSP-RM: mensajes, y la lista cerrada de lo que sale.
 pub mod rm;
-pub use rm::{rpc, rc, orden, estatica, objeto, control, contrato, vigilante};
+pub use rm::{rpc, rc, orden, estatica, objeto, control, contrato, vigilante, liberar};
 /// LA MEMORIA DE LA TARJETA: la ventana PRAMIN y las tablas de la MMU.
 pub mod memoria;
 pub use memoria::{vram, mmu};

@@ -101,6 +101,20 @@ struct Computo {
 
 static mut ESTADO: Option<Computo> = None;
 
+/// **E7b (13-10): olvidar el computo, la ficha, el primer trabajo, el sombreo
+/// y el lienzo** (`gpu revivir`): el canal nuevo los da otra vez, en orden.
+pub(crate) fn olvidar() {
+    con(|c| {
+        c.pedido = None;
+        c.ficha = None;
+        c.lista = None;
+        c.trabajo = None;
+        c.timbre = None;
+        c.sombreo = None;
+        c.lienzo = None;
+    });
+}
+
 fn estado() -> Computo {
     // SAFETY: el escritorio es un solo hilo; esto solo se toca desde sus ordenes.
     unsafe { *core::ptr::addr_of!(ESTADO) }.unwrap_or_default()

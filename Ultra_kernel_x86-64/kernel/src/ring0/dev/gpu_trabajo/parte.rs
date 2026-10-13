@@ -100,3 +100,12 @@ pub fn info_texto(trozo: u64) -> u64 {
     }
     u64::from_le_bytes(w)
 }
+
+/// **E7b: olvidar el parte** de un canal que se revivio: el siguiente que
+/// muera guarda el suyo.
+pub(super) fn olvidar() {
+    PARTE.store(0, Ordering::Release);
+    VA.store(0, Ordering::Release);
+    FRASE_N.store(0, Ordering::Release);
+    ESCRITA.store(false, Ordering::Release);
+}

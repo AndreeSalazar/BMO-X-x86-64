@@ -59,6 +59,9 @@ pub use porque::info as info_porque;
 /// la frase de NVIDIA), guardado en cuanto se ve (`INFO_GPU_RC*`).
 mod parte;
 pub use parte::{info as info_rc, info_texto as info_rc_texto, info_va as info_rc_va};
+/// E7b (13-10): revivir el canal de GR sin reiniciar (`FREE` y olvidar).
+mod revivir;
+pub use revivir::{liberar as liberar_gr, revivir as revivir_gr, IOMMU_NO_REVIVIR};
 
 // == M5d S1 y S3: EL COMPUTO Y EL PRIMER TRABAJO DEL GR (2026-09-24) ==========
 //
@@ -394,6 +397,25 @@ pub(super) fn marcar_muerto(xid: u32, por: &str) {
         // 13-10: el parte entero, antes de que el mensaje se pierda.
         parte::guardar(bmo_gpu_ga10x::canal::GR.chid, parte::POR_EL_VIGILANTE);
     }
+}
+
+/// **E7b: el canal vuelve a estar VIVO** (lo llama `revivir`, con todo lo
+/// demas ya olvidado).
+fn revivido() {
+    GR_MUERTO.store(0, Ordering::Release);
+}
+
+/// **E7b: lo de este fichero, como antes de `computo`**: sin computo, sin el
+/// primer trabajo, sin sombreo, sin lienzo y sin ficha; el GPFIFO desde su
+/// primera entrada. Lo prestado (el lienzo, el blur, el fractal) se queda:
+/// es memoria del PC ya mapeada, y el lienzo se vuelve a pintar entero.
+fn olvidar_trabajos() {
+    COMPUTO_PEDIDO.store(false, Ordering::Release);
+    TRABAJO_GR_HECHO.store(false, Ordering::Release);
+    SOMBREO_HECHO.store(false, Ordering::Release);
+    LIENZO_HECHO.store(false, Ordering::Release);
+    FICHA_GR.store(0, Ordering::Release);
+    BLUR_ENTRADA.store(bmo_gpu_ga10x::blur::PRIMERA_ENTRADA, Ordering::Release);
 }
 
 /// **El canal de GR, muerto**: `Some(xid)` (0 = sin Xid conocido). Mira la
