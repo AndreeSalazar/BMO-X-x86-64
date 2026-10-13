@@ -38,6 +38,8 @@ pub mod deflar;
 /// PNG para ESCRIBIR: RGB de 8 bits, filtro por fila, un IDAT. La captura de
 /// pantalla de BMO-X (2026-09-22).
 pub mod png_escribir;
+/// FRAPS-X (13-10): escribir JPEG baseline 4:2:0 (los fotogramas de un video MJPEG).
+pub mod jpeg_escribir;
 
 /// **Bytes de taller que piden los formatos comprimidos** (PNG hoy). Los
 /// formatos planos no lo necesitan; un PNG sin taller es `SinTaller`, y el
