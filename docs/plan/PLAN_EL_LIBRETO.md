@@ -453,10 +453,16 @@ y `puerta.rs`; el juez en `platform/drivers/gpu/ga10x/src/sass/juez.rs`):
         todo eso (saboteado: cae). PROTON-X: `Plataforma::computar` y
         `computo3060.rs` -- con `--3060`, cada `Dispatch` va a la puerta; lo
         que no se emite o el kernel niega, por la CPU con su porque.
+      - **13-10, el CONTADOR** (`Append`, `Consume`): un ATOMG.ADD sobre su
+        palabra, prestada como un bufer mas (`CONTADOR | u`); los mismos
+        bytes y el mismo contador que la CPU.
+      - **COMO SE PRUEBA EN EL METAL:** `proton-x --prueba-computo` (con el
+        escritorio y `gpu lienzo` hechos) corre nBody por la puerta y por la
+        CPU y dice PERFECTO, cuantas particulas distintas, o el porque del NO.
       **Falta:** EL METAL (el primer `Dispatch` lo dira: el QMD de la
       compartida y la rejilla en 3D son nuevos), los UAV con tipo y de
-      textura, el contador (`Append`), y un cuerpo de mas de 24 Ki
-      instrucciones.
+      textura (los de formato: cuantizar como la casa), y un cuerpo de mas
+      de 24 Ki instrucciones.
 - [ ] **LI2g -- DECISION DEL PROPIETARIO: los bits exactos o la tolerancia
       de D3D.** La regla de la casa es "los mismos bits que la CPU". La 3060
       APROXIMA la division, la raiz y el filtrado; D3D lo permite (unos
