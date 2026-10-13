@@ -93,7 +93,7 @@ fn con_el_estado(e: &mut Estado, p: &Programa, grupos: [u32; 3], cb: &[u8], bufe
             let emitido = match emitir_con(p, bmo_proton_x_sm86::puerta::REGISTROS, Abi::Registros) {
                 Ok(x) => Some(Box::new(x)),
                 Err(x) => {
-                    decir(e, alloc::format!("el emisor de la 3060 no puede con su CS ({x:?})"));
+                    decir(e, alloc::format!("el emisor de la 3060 no puede con su CS: {} ({x:?})", bmo_proton_x_sm86::censo::motivo_emisor(p, x)));
                     None
                 }
             };

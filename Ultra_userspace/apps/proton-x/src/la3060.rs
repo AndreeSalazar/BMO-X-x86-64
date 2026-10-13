@@ -360,6 +360,12 @@ fn decir_censo(e: &mut Estado, ahora: u64) {
     for (porque, veces) in &e.porques {
         s.push_str(&alloc::format!("#   el kernel dijo NO {veces} vez/veces porque: {porque}\n"));
     }
+    // 13-10: las parejas de la puerta del render target de float visto con
+    // OTRO formato -- cual guarda la casa y cual ve el juego, en DXGI: lo que
+    // hay que saber para que la 3060 haga esa conversion.
+    for (guardado, vista) in bmo_proton_x_sm86::puerta::otras_vistas() {
+        s.push_str(&alloc::format!("#   la vista de otro formato: guardado DXGI {guardado}, visto como DXGI {vista}\n"));
+    }
     bmo::consola("PROTON-X: el censo de la 3060 (LI0):\n");
     let n = s.lines().count();
     for (k, linea) in s.lines().enumerate() {
@@ -386,7 +392,6 @@ fn soltar_pantalla(e: &mut Estado) {
     }
 }
 
-/// **El porque del ultimo NO del kernel** (`INFO_GPU_PORQUE`), en palabras.
 /// **El parte del canal muerto** (13-10), como lo guardo el kernel: el Xid
 /// con su nombre, quien lo dijo, la direccion y el tipo de un fallo de
 /// memoria, y la frase de NVIDIA. Vacio si el kernel no guardo ninguno.
@@ -429,6 +434,7 @@ pub(crate) fn el_parte() -> String {
     s
 }
 
+/// **El porque del ultimo NO del kernel** (`INFO_GPU_PORQUE`), en palabras.
 fn el_porque() -> String {
     let mut s = String::new();
     let _ = bmo_proton_x_sm86::porque::decir(bmo::info(bmo::INFO_GPU_PORQUE), &mut s);

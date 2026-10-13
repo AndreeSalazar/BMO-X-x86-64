@@ -63,13 +63,29 @@ pub(crate) fn de_ranuras(firma: &Firma, e: &Estado, cbuffers: &[bmo_proton_x::dx
     for (l, b) in cbuffers.iter().zip(constantes) {
         let quiere = b.filas as usize * 16;
         let nombre = || format!("el cbuffer b{} del espacio {}", l.registro, l.espacio);
+        // 13-10: el NO dice CUAL de los tres caminos fallo y con que direccion
+        // (Cyberpunk 2077: "el cbuffer b12 del espacio 0 no es un bufer de la
+        // casa", y no se sabia si era sin direccion, una direccion de fuera o
+        // una tabla sin CBV).
         let trozo = match donde::cbuffer(firma, *l) {
-            Some(Cb::Raiz(k)) => resolver_hasta(e.cbv.get(k).copied().unwrap_or(0), quiere).map(Cow::Borrowed),
+            Some(Cb::Raiz(k)) => {
+                let va = e.cbv.get(k).copied().unwrap_or(0);
+                if va == 0 {
+                    return Err(format!("{}: su CBV en la raiz (parametro {k}) no se puso (sin SetComputeRootConstantBufferView / SetGraphicsRoot...)", nombre()));
+                }
+                Some(resolver_hasta(va, quiere).map(Cow::Borrowed).ok_or_else(|| format!("{}: su CBV en la raiz (parametro {k}) apunta a {va:#x}, que no cae en ningun bufer de la casa", nombre()))?)
+            }
             Some(Cb::Constantes { desde, cuantas }) => {
                 let p = e.raiz32.0.get(desde..desde + cuantas as usize).ok_or_else(|| format!("{}: mas constantes de las que guarda la casa ({PALABRAS})", nombre()))?;
                 Some(Cow::Owned(p.iter().flat_map(|x| x.to_le_bytes()).collect()))
             }
-            Some(Cb::Tabla(k, i)) => cbv_de_tabla(e.tablas.get(k).copied().unwrap_or(0), i).and_then(|(va, n)| resolver_hasta(va, quiere.min(n))).map(Cow::Borrowed),
+            Some(Cb::Tabla(k, i)) => {
+                let base = e.tablas.get(k).copied().unwrap_or(0);
+                let Some((va, n)) = cbv_de_tabla(base, i) else {
+                    return Err(format!("{}: la tabla del parametro {k} {} en su ranura {i}", nombre(), if base == 0 { "no se puso (sin SetComputeRootDescriptorTable / SetGraphicsRoot...)" } else { "no tiene un CBV" }));
+                };
+                Some(resolver_hasta(va, quiere.min(n)).map(Cow::Borrowed).ok_or_else(|| format!("{}: el CBV de la tabla {k} ranura {i} apunta a {va:#x}, que no cae en ningun bufer de la casa", nombre()))?)
+            }
             None => return Err(format!("los sombreadores leen {} y la root signature no lo tiene", nombre())),
         };
         trozos.push(trozo.ok_or_else(|| format!("{} no es un bufer de la casa (o no se le dio direccion)", nombre()))?);
