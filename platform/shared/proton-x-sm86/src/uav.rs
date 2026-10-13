@@ -396,3 +396,22 @@ impl Emisor<'_> {
         Ok(())
     }
 }
+
+/// **La receta de computo (VRC1)** de un cuerpo emitido: sus precargas como
+/// las lee el kernel, sus `buferes` (la VA de cada uno en el proceso, su
+/// vista y su ranura: la del UAV, o `SRV | t`) y las filas del cbuffer.
+/// `None`: no cabe en `out`.
+pub fn receta_computo(out: &mut [u8], e: &super::Emitido, p: &bmo_proton_x::dxil::programa::Programa, grupos: [u32; 3], buferes: &[bmo_gpu_ga10x::trabajos::receta_computo::Bufer], filas: &[[u32; 4]]) -> Option<usize> {
+    use bmo_gpu_ga10x::trabajos::computo_app::Despacho;
+    let precargas: Vec<[u8; 4]> = e
+        .precargas
+        .iter()
+        .map(|q| match *q {
+            Precarga::Fila { fila, reg } => Some([1, fila as u8, (fila >> 8) as u8, reg]),
+            Precarga::Uav { u, que, reg } => Some([5, u, que as u8, reg]),
+            _ => None,
+        })
+        .collect::<Option<_>>()?;
+    let d = Despacho { grupos, hilos: p.computo.hilos, compartida: 4 * p.computo.compartida, registros: e.registros };
+    bmo_gpu_ga10x::trabajos::receta_computo::escribir(out, &d, &e.codigo, &precargas, buferes, filas)
+}

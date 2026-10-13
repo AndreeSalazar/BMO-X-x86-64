@@ -59,6 +59,8 @@ pub mod texturas;
 pub mod receta;
 /// LI2f: el COMPUTO de una app -- su QMD y su pegado (2026-10-13).
 pub mod computo_app;
+/// LI2f: la RECETA de computo (VRC1) que manda una app (2026-10-13).
+pub mod receta_computo;
 /// 9d: la LIBRETA de la 3060 -- lo que el pegamento del kernel apunta
 /// cuando el termometro de un cuerpo dice raro (2026-10-06).
 pub mod libreta;

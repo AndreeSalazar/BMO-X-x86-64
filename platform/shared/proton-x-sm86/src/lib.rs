@@ -116,7 +116,7 @@ mod uav;
 mod compartida;
 /// LI2f (12-10): lo que todo el grupo corre a la vez (para la barrera).
 mod uniforme;
-pub use uav::{permisos_computo, DelUav, SRV};
+pub use uav::{permisos_computo, receta_computo, DelUav, SRV};
 
 use alloc::vec;
 use alloc::vec::Vec;

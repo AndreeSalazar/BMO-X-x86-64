@@ -476,3 +476,50 @@ fn el_cs_de_nbody_corre_igual() {
     assert_eq!(gpu, casa, "los mismos bytes, particula a particula");
 }
 
+
+/// *** EL CAMINO DEL KERNEL, ENTERO Y PURO: nBody emitido -> su receta VRC1
+/// -> el kernel la LEE, saca los permisos y JUZGA el cuerpo (R0..R7), pone
+/// los VALORES de sus precargas (con la VA que le dio a cada bufer) y lo
+/// PEGA -> la 3060 de mentira corre lo pegado, sin que la prueba le cargue
+/// nada -> los mismos bytes que la CPU.
+#[test]
+fn nbody_por_el_camino_del_kernel() {
+    use bmo_gpu_ga10x::sass::juez::{juzgar_cuerpo_con, juzgar_drenado, Contexto, RESERVADOS};
+    use bmo_gpu_ga10x::trabajos::{computo_app, receta_computo as rc};
+    let p = bmo_proton_x::dxil::computo::preparar(include_bytes!("../../proton-x/prueba/muestras/nbody/nBodyGravityCS.cso")).unwrap().programa;
+    let n = 256usize;
+    let particulas: Vec<u32> = (0..n).flat_map(|k| [(k as f32 * 0.3).sin(), k as f32 * 0.01, 1.0, 1.0, 0.0, 0.0, 0.5, 0.0].map(f32::to_bits)).collect();
+    let srv = Vista { bytes: palabras(&particulas), modo: Modo::Estructurado, elementos: n as u32, paso: 32 };
+    let uav = Vista { bytes: vec![0; 32 * n], modo: Modo::Estructurado, elementos: n as u32, paso: 32 };
+    let filas = [[n as u32, (n / 128) as u32, 0, 0], [0.1f32.to_bits(), 1.0f32.to_bits(), 0, 0]];
+    let cb: Vec<u8> = filas.iter().flatten().flat_map(|w| w.to_le_bytes()).collect();
+    // La CPU.
+    let (casa, _) = las_dos_con(&p, core::slice::from_ref(&uav), core::slice::from_ref(&srv), &cb, 2);
+    // PROTON-X: emitir y armar la receta (las VA del PROCESO, que el kernel
+    // no usa para la 3060: le da otras).
+    let e = emitir_con(&p, 248, Abi::Registros).unwrap();
+    let buferes = [rc::Bufer { va: 0x7000_0000, bytes: uav.bytes.len() as u32, elementos: n as u32, paso: 32, ranura: 0 }, rc::Bufer { va: 0x7100_0000, bytes: srv.bytes.len() as u32, elementos: n as u32, paso: 32, ranura: crate::SRV }];
+    let mut bytes = vec![0u8; 512 * 1024];
+    let largo = crate::receta_computo(&mut bytes, &e, &p, [2, 1, 1], &buferes, &filas).unwrap();
+    // EL KERNEL: leer, juzgar, valores, pegar.
+    let r = rc::leer(&bytes[..largo]).unwrap_or_else(|x| panic!("{}", x.texto()));
+    let cuerpo: Vec<(u64, u64)> = (0..r.instrucciones()).map(|k| r.instruccion(k)).collect();
+    juzgar_cuerpo_con(&cuerpo, r.despacho.registros, rc::permisos(&r).unwrap()).unwrap_or_else(|b| panic!("R7: {b}"));
+    let va_3060 = |k: usize| BASE + if r.bufer(k).solo_lee() { 8 + (r.bufer(k).ranura & !rc::SRV) as u64 } else { r.bufer(k).ranura as u64 } * RANURA;
+    let mut v = [(0u8, 0u32); 64];
+    let nv = rc::valores(&r, va_3060, &mut v).unwrap();
+    let mut pegado = vec![(0u64, 0u64); r.instrucciones() + nv];
+    let np = computo_app::pegar(&mut pegado, &v[..nv], &cuerpo).unwrap();
+    juzgar_drenado(&pegado[..np], &Contexto { registros: r.despacho.registros + RESERVADOS, sph: None }).unwrap_or_else(|b| panic!("R0..R6 del pegado: {b}"));
+    computo_app::qmd(0x2_0000_0000, &r.despacho, 0, 0).unwrap();
+    // La 3060 de mentira, con lo pegado y nada mas.
+    let mut ventanas = vec![uav.bytes.clone()];
+    ventanas.resize(8, Vec::new());
+    ventanas.push(srv.bytes.clone());
+    let mut mem = Ventanas(ventanas);
+    for gx in 0..2 {
+        let mut compartida = vec![0x5Au8; r.despacho.compartida as usize];
+        correr_grupo(&pegado[..np], r.despacho.hilos, [gx, 0, 0], [&[]; 8], &mut compartida, &mut mem, |_, _| {}).unwrap_or_else(|x| panic!("{x:?}"));
+    }
+    assert_eq!(mem.0[0], casa[0], "los mismos bytes que la CPU, por el camino del kernel");
+}
