@@ -27,7 +27,7 @@ use alloc::vec::Vec;
 
 use bmo_proton_x::bufer::{Bufer, Uav};
 use bmo_proton_x::dxil::programa::Programa;
-use bmo_proton_x_sm86::{computo_app, emitir_con, vrc1, Abi, Emitido, Precarga, SRV};
+use bmo_proton_x_sm86::{computo_app, emitir_con, vrc1, Abi, Emitido, Precarga, CONTADOR, SRV};
 use bmo_userland as bmo;
 
 /// Lo emitido de un PSO, por su clave (`None`: no se emite, por la CPU).
@@ -109,19 +109,25 @@ fn con_el_estado(e: &mut Estado, p: &Programa, grupos: [u32; 3], cb: &[u8], bufe
         if lista.iter().any(|b| b.ranura == u) {
             continue;
         }
-        let (va, bytes, elementos, paso, modo_ok) = if u & SRV != 0 {
+        let (va, bytes, elementos, paso, modo_ok) = if u & CONTADOR != 0 && u & SRV == 0 {
+            // El contador oculto de un UAV: su palabra, como un crudo de una.
+            match uavs.get((u & !CONTADOR) as usize) {
+                Some(Some(Uav { contador: Some(c), .. })) => (&**c as *const u32 as u64, 4, 1, 0, true),
+                _ => (0, 0, 0, 0, false),
+            }
+        } else if u & SRV != 0 {
             match buferes.get((u & !SRV) as usize) {
                 Some(Some(b)) => (b.bytes.as_ptr() as u64, b.bytes.len(), b.elementos, b.paso, b.formato == 0),
                 _ => (0, 0, 0, 0, false),
             }
         } else {
             match uavs.get(u as usize) {
-                Some(Some(w)) => (w.bytes.as_ptr() as u64, w.bytes.len(), w.elementos, w.paso, w.formato == 0 && w.contador.is_none()),
+                Some(Some(w)) => (w.bytes.as_ptr() as u64, w.bytes.len(), w.elementos, w.paso, w.formato == 0),
                 _ => (0, 0, 0, 0, false),
             }
         };
         if !modo_ok || bytes < 4 || bytes > u32::MAX as usize || va % 4 != 0 {
-            decir(e, alloc::format!("un bufer (ranura {u:#x}) que la 3060 no puede ver: sin atar, con formato o contador, o sin alinear"));
+            decir(e, alloc::format!("un bufer (ranura {u:#x}) que la 3060 no puede ver: sin atar, con formato, o sin alinear"));
             return false;
         }
         lista.push(vrc1::Bufer { va, bytes: bytes as u32, elementos, paso, ranura: u });

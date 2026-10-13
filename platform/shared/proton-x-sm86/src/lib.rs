@@ -116,7 +116,7 @@ mod uav;
 mod compartida;
 /// LI2f (12-10): lo que todo el grupo corre a la vez (para la barrera).
 mod uniforme;
-pub use uav::{permisos_computo, receta_computo, DelUav, SRV};
+pub use uav::{permisos_computo, receta_computo, DelUav, CONTADOR, SRV};
 /// LI2f: la receta de computo y lo que contesta el kernel (del driver).
 pub use bmo_gpu_ga10x::trabajos::{computo_app, receta_computo as vrc1};
 
@@ -679,6 +679,11 @@ fn emitir_modo(p: &Programa, registros: u32, abi: Abi, libreta: bool, frugal: bo
                     e.precarga_medida(u, modo, i_op)?;
                     continue;
                 }
+                // ** LI2f: el contador de un UAV, una palabra cruda.
+                Op::Contador { u, .. } if u < CONTADOR => {
+                    e.precargas_uav(u | CONTADOR, bmo_proton_x::bufer::Modo::Crudo, i_op)?;
+                    continue;
+                }
                 // ** LI2f: un SRV de bufer se lee como un UAV (de solo leer).
                 Op::Lee { t, como: bmo_proton_x::dxil::programa::Lectura::Bufer(modo), .. } if t != bmo_proton_x::dxil::programa::DINAMICA && t < SRV => {
                     e.precargas_uav(t | SRV, modo, i_op)?;
@@ -1040,7 +1045,7 @@ fn emitir_modo(p: &Programa, registros: u32, abi: Abi, libreta: bool, frugal: bo
             // E2.3b: el sombreador de geometria, igual (va por la CPU).
             Op::EntradaDe { .. } | Op::Emite { .. } | Op::Corta { .. } => return Err(NoEmite::Operacion(i)),
             // E2.4: el contador de un UAV, igual; y (05-10) sus Interlocked.
-            Op::Contador { .. } => return Err(NoEmite::Operacion(i)),
+            Op::Contador { d, u, inc } => e.contador(d, u, inc, i, &mut paso)?,
             // ** E8 (09-10): las EXACTAS de la casa -- redondeos, frac, la
             // clase de un numero, los bits, los medios floats -- con sus
             // bits (`mates.rs`). ** DL13 (09-10): y las de series (sin, cos,

@@ -523,3 +523,60 @@ fn nbody_por_el_camino_del_kernel() {
     }
     assert_eq!(mem.0[0], casa[0], "los mismos bytes que la CPU, por el camino del kernel");
 }
+
+/// ** EL CONTADOR (`Append` y `Consume`): 2 grupos de 8; cada hilo sube el
+/// contador (da el de antes: su indice), escribe su id en esa palabra, y
+/// lo baja (da el de despues) y lo escribe en la de al lado + 16. Hilo a
+/// hilo, en el orden de la casa: los mismos bytes y el mismo contador. El
+/// contador vive en su ventana (la ranura `CONTADOR | 0`).
+#[test]
+fn el_contador_append_y_consume() {
+    use bmo_proton_x::bufer::Rebanadas;
+    let ops = vec![
+        Op::IdHilo { d: 0, que: 0, c: 0 },
+        Op::Contador { d: 1, u: 0, inc: 1 },
+        Op::Entera { d: 2, a: 1, b: 3, op: OpEntera::Shl },
+        Op::EscribeUav { u: 0, modo: Modo::Crudo, i: 2, desp: 4, z: 4, v: [0, 0, 0, 0], mascara: 1 },
+        Op::Contador { d: 5, u: 0, inc: -1 },
+        Op::Entera { d: 6, a: 5, b: 3, op: OpEntera::Shl },
+        Op::EscribeUav { u: 0, modo: Modo::Crudo, i: 6, desp: 7, z: 4, v: [1, 1, 1, 1], mascara: 1 },
+    ];
+    let mut ini = vec![0u32; 8];
+    ini[3] = 2;
+    ini[7] = 64;
+    let p = programa(ops, ini, 1, [8, 1, 1]);
+    // La CPU, con su contador a 5.
+    let mut casa = vec![0x11u8; 4 * 40];
+    let mut contador_casa = 5u32;
+    {
+        let mut uavs = [Some(Uav { bytes: &mut casa, formato: 0, paso: 0, elementos: 40, contador: Some(&mut contador_casa), rebanadas: Rebanadas::PLANA })];
+        let rec = Recursos { texturas: &[], muestreadores: &[], buferes: &[], dinamicas: None };
+        p.despachar([2, 1, 1], &[], &rec, &mut uavs);
+    }
+    // La 3060 de mentira: el UAV en la ranura 0 y su contador en la 1.
+    let e = emitir_con(&p, 64, Abi::Registros).unwrap_or_else(|x| panic!("{x:?}"));
+    {
+        use bmo_gpu_ga10x::sass::juez::{juzgar_cuerpo_con, juzgar_drenado, Contexto, RESERVADOS};
+        juzgar_drenado(&e.codigo, &Contexto { registros: e.registros + RESERVADOS, sph: None }).unwrap_or_else(|b| panic!("R0..R6: {b}"));
+        juzgar_cuerpo_con(&e.codigo, e.registros, crate::permisos_computo(&e, &p).unwrap()).unwrap_or_else(|b| panic!("R7: {b}"));
+    }
+    let mut mem = Ventanas(vec![vec![0x11u8; 4 * 40], 5u32.to_le_bytes().to_vec()]);
+    for gx in 0..2 {
+        correr_grupo(&e.codigo, [8, 1, 1], [gx, 0, 0], [&[]; 8], &mut [], &mut mem, |_, m| {
+            for q in &e.precargas {
+                if let Precarga::Uav { u, que, reg } = *q {
+                    let (ranura, bytes, elementos) = if u & crate::CONTADOR != 0 { (1u64, 4, 1) } else { (0, 160, 40) };
+                    let x = que.valor(BASE + ranura * RANURA, bytes, elementos, 0).unwrap();
+                    m.r[reg as usize] = x as u32;
+                    if que == DelUav::Base {
+                        m.r[reg as usize + 1] = (x >> 32) as u32;
+                    }
+                }
+            }
+        })
+        .unwrap_or_else(|x| panic!("{x:?}"));
+    }
+    assert_eq!(mem.0[0], casa, "los mismos bytes");
+    assert_eq!(u32::from_le_bytes(mem.0[1][..4].try_into().unwrap()), contador_casa, "el mismo contador al final");
+    assert_eq!(contador_casa, 5, "cada hilo sube y baja");
+}

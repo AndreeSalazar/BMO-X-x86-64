@@ -61,8 +61,11 @@
 //! escribe --. **`GetDimensions`** (`Op::MedidasUav`) lee lo que el kernel
 //! dice (`DelUav::Medida`: los elementos de la vista; en un crudo, sus bytes).
 //!
+//! **El contador** (`Op::Contador`: `Append`, `Consume`) es un ATOMG.ADD de
+//! +1 o -1 sobre su palabra (`u | CONTADOR`), por la misma cadena.
+//!
 //! Lo que NO va todavia (va por la CPU, con su indice): los UAV con tipo y
-//! de textura, el contador, y la barrera donde el control no es uniforme.
+//! de textura, y la barrera donde el control no es uniforme.
 
 use alloc::vec::Vec;
 
@@ -101,6 +104,11 @@ pub fn permisos_computo(e: &super::Emitido, p: &bmo_proton_x::dxil::programa::Pr
 /// en `Precarga::Uav`, `u | SRV` es el tN, que se LEE con la misma cadena y
 /// que el kernel presta solo para leer (el juez no deja escribirlo).
 pub const SRV: u8 = 0x80;
+
+/// ** El bit del CONTADOR oculto de un UAV (`Append`, `Consume`,
+/// `IncrementCounter`): `u | CONTADOR` es la palabra de su contador, que el
+/// kernel presta como un bufer crudo de una palabra (escribible).
+pub const CONTADOR: u8 = 0x40;
 
 /// Lo que el kernel pone de un UAV (ver el modulo): la regla es del driver
 /// (`bmo_gpu_ga10x::trabajos::computo_app::DelUav`), una vez, para el
@@ -376,6 +384,46 @@ impl Emisor<'_> {
         w.0 = w.0 & !(0xF << 12) | (P_VALE as u64) << 12;
         let lee_mas = [ri, None, None];
         self.poner_meta(w, Meta { lee_p: Some((P_VALE, true)), lee_tarde: true, lee_mas, ..Meta::de(Clase::Tex, Some(rd), [Some(a), Some(a + 1), Some(rv)]) });
+        self.poner_meta(c::sel(rd, rd, c::r(RZ), P_VALE, false, 0), Meta { lee_p: Some((P_VALE, false)), ..Meta::de(Clase::Alu, Some(rd), [Some(rd), None, None]) });
+        Ok(())
+    }
+
+    /// **El contador del UAV `u`** (`bufferUpdateCounter`): `inc` +1 sube y
+    /// da el de ANTES; -1 baja y da el de DESPUES (lo de D3D y de la casa,
+    /// `Uav::contar`). Un ATOMG.ADD sobre su palabra, por la misma cadena; sin
+    /// contador (el kernel lo presta con 0 elementos: no vale), 0 y nada.
+    pub(super) fn contador(&mut self, d: Reg, u: u8, inc: i8, k: usize, paso: &mut Vec<u8>) -> Result<(), NoEmite> {
+        self.hilos(k)?;
+        if u >= CONTADOR || !(inc == 1 || inc == -1) {
+            return Err(NoEmite::Operacion(k));
+        }
+        let una = |e: &Self, q: DelUav| {
+            e.precargas.iter().find_map(|p| match *p {
+                Precarga::Uav { u: u2, que, reg } if (u2, que) == (u | CONTADOR, q) => Some(reg),
+                _ => None,
+            })
+        };
+        let (Some(base), Some(tope), Some(limite)) = (una(self, DelUav::Base), una(self, DelUav::Tope), una(self, DelUav::Limite)) else {
+            return Err(NoEmite::Operacion(k));
+        };
+        // La palabra 0: s = 0.
+        let s = self.pedir()?;
+        paso.push(s);
+        self.poner(c::mov(s, Fuente::Imm(0), 0), Clase::Alu, Some(s), [None; 3]);
+        let gu = Guia { base, tope, como: Como::Crudo { s, limite } };
+        // El +1 o -1 ANTES de la cadena: la cadena va pegada a su ATOMG.
+        let v = self.pedir()?;
+        paso.push(v);
+        self.poner(c::mov(v, Fuente::Imm(inc as i32 as u32), 0), Clase::Alu, Some(v), [None; 3]);
+        let rd = self.destino(d, k)?;
+        let (a, x) = self.par_y_temporal(paso)?;
+        self.palabra(&gu, 0, a, x);
+        let mut w = g::atomg(g::Atomo::Add, false, rd, a, v, 0);
+        w.0 = w.0 & !(0xF << 12) | (P_VALE as u64) << 12;
+        self.poner_meta(w, Meta { lee_p: Some((P_VALE, true)), lee_tarde: true, ..Meta::de(Clase::Tex, Some(rd), [Some(a), Some(a + 1), Some(v)]) });
+        if inc < 0 {
+            self.poner(c::iadd3(rd, rd, Fuente::Imm(u32::MAX), 0), Clase::Alu, Some(rd), [Some(rd), None, None]);
+        }
         self.poner_meta(c::sel(rd, rd, c::r(RZ), P_VALE, false, 0), Meta { lee_p: Some((P_VALE, false)), ..Meta::de(Clase::Alu, Some(rd), [Some(rd), None, None]) });
         Ok(())
     }
