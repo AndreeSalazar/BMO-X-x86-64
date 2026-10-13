@@ -404,3 +404,18 @@ is a UEFI boot entry on its own partition, chosen by the motherboard.
 That distinction is not decoration. A system launched from inside a multi-boot
 loader can always be waved away as a payload. One the firmware itself boots
 cannot.
+
+![Cyberpunk 2077, the intro logo](35-cyberpunk-logo.png)
+![Cyberpunk 2077, the intro with its compute skipped](36-cyberpunk-intro.png)
+![Cyberpunk 2077, the census of the 3060 in the console](37-cyberpunk-censo.png)
+
+**`personal 3060 Cyberpunk2077.exe` -- the first AAA game on BMO-X (13-10).**
+Captured by BMO-X itself (`capturas/cap00004..6.png`, renamed here). The
+unmodified Windows game, read from the NTFS disk, draws its intro through
+PROTON-X: its loader, its Windows functions, its Direct3D 12. **On the CPU**,
+about 16 s per frame; 228 of 232 batches would pass every gate to the RTX
+3060, but its graphics channel was already dead (a Xid) and it drew none.
+Photo 36 is the same intro with the compute shaders PROTON-X cannot run yet
+skipped -- that is what the glitches are. Photo 37 is the console: the
+census, gate by gate, and `de verdad: la 3060 dibujo 0 lote(s)`. The run:
+[`METAL_2026-10-13.md`](../metal/METAL_2026-10-13.md).
