@@ -268,6 +268,13 @@ pub(crate) fn despachar(e: &Estado, grupos: [u32; 3]) {
         b
     };
     let rec = bmo_proton_x::textura::Recursos { texturas: &texturas, muestreadores: &muestreadores, buferes: &buferes, dinamicas: Some(bmo_proton_x::textura::Dinamicas(&buscar, Some(&buscar_bufer))) };
+    // ** LI2f (13-10): en la GPU si la plataforma puede (la 3060: el kernel
+    // copia, juzga y presta); si no, aqui.
+    if let Some(computar) = crate::plataforma().computar {
+        if computar(&p.programa, grupos, &cb, &buferes, &mut uavs) {
+            return;
+        }
+    }
     // E2.3b (05-10): con su traduccion a x86-64 si la hay (EXPRIMIR: 50
     // veces el interprete); si no, el interprete, que es su juez.
     if let Some(f) = pso.nativo.and_then(crate::nativo::computo) {

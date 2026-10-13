@@ -117,6 +117,8 @@ mod compartida;
 /// LI2f (12-10): lo que todo el grupo corre a la vez (para la barrera).
 mod uniforme;
 pub use uav::{permisos_computo, receta_computo, DelUav, SRV};
+/// LI2f: la receta de computo y lo que contesta el kernel (del driver).
+pub use bmo_gpu_ga10x::trabajos::{computo_app, receta_computo as vrc1};
 
 use alloc::vec;
 use alloc::vec::Vec;

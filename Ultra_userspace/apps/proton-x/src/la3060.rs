@@ -247,6 +247,24 @@ pub(crate) fn modo_3060() {
     MODO_3060.store(true, core::sync::atomic::Ordering::Relaxed);
 }
 
+/// LI2f: si la 3060 se dejo (un canal muerto, o tres NO seguidos): el
+/// computo tampoco va.
+pub(crate) fn apagada() -> bool {
+    // SAFETY: ver `Celda`.
+    unsafe { (*ESTADO.0.get()).apagada }
+}
+
+/// LI2f: dejar la 3060 (el computo vio el canal muerto).
+pub(crate) fn apagar() {
+    // SAFETY: ver `Celda`.
+    unsafe { (*ESTADO.0.get()).apagada = true };
+}
+
+/// LI2f: el porque del ultimo NO del kernel, para el computo.
+pub(crate) fn porque_del_kernel() -> String {
+    el_porque()
+}
+
 pub(crate) fn en_modo_3060() -> bool {
     MODO_3060.load(core::sync::atomic::Ordering::Relaxed)
 }

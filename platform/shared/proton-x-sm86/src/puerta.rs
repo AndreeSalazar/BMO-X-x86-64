@@ -54,7 +54,7 @@ use crate::{emitir_con, Abi};
 /// paraba lotes por "mas registros de los que da la tuberia". El emisor usa
 /// los que necesita (de abajo arriba) y el kernel pide esos
 /// (`tuberia::registros_para`): un programa que cabia en 64 sale igual.
-pub(crate) const REGISTROS: u32 = bmo_gpu_ga10x::tuberia::MAX_REGISTROS - bmo_gpu_ga10x::sass::juez::RESERVADOS - 8;
+pub const REGISTROS: u32 = bmo_gpu_ga10x::tuberia::MAX_REGISTROS - bmo_gpu_ga10x::sass::juez::RESERVADOS - 8;
 
 /// **La Z por la 3060, en la SOMBRA del kernel** (P3b4c.6b). El metal
 /// (28-09 20:31): `gpu verrano bmox12 30 z` dio Xid 69 (error de clase del

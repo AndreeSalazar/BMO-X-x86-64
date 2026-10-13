@@ -73,6 +73,8 @@ mod el_nulo;
 mod en_vivo;
 mod entorno_windows;
 mod la3060;
+/// LI2f (13-10): el computo del juego por la 3060.
+mod computo3060;
 mod monton;
 mod obreros;
 mod opciones;

@@ -442,12 +442,21 @@ y `puerta.rs`; el juez en `platform/drivers/gpu/ga10x/src/sass/juez.rs`):
         (`trabajos/computo_app.rs`). nBody por ese camino -- emitir, VRC1,
         leer, juzgar, valores, pegar -- y la 3060 de mentira corriendo lo
         pegado sin ayuda: los mismos bytes que la CPU.
-      **Falta:** el despacho en el KERNEL de verdad -- la operacion que
-      recibe la VRC1, prestar cada UAV y SRV por la IOMMU (un SRV, solo
-      para leer), mapearlos en la 3060, el programa (de hasta 32 Ki
-      instrucciones) y el QMD en su sitio, lanzar y esperar con el
-      vigilante --, la puerta `Dispatch` de PROTON-X, los UAV con tipo y de
-      textura, el contador (`Append`), y el metal.
+      - **13-10, el KERNEL y PROTON-X:** la TERCERA puerta estrecha,
+        `IOMMU_OP_GPU_COMPUTO` (`gpu_trabajo/computo.rs`): la receta se
+        COPIA antes de juzgarla (lo juzgado es lo que se sube), R7 y R0..R6,
+        las precargas las pone el kernel, los UAV prestados escribibles en
+        las ranuras del destino y los SRV solo leer en las de las texturas,
+        devueltos salga como salga, el GR con su cerrojo, el vigilante.
+        El codigo del computo en su region (`vram::CODIGO_COMPUTO`, 140
+        paginas). Cinco porques nuevos. El guardian `la-3060` (P2) exige
+        todo eso (saboteado: cae). PROTON-X: `Plataforma::computar` y
+        `computo3060.rs` -- con `--3060`, cada `Dispatch` va a la puerta; lo
+        que no se emite o el kernel niega, por la CPU con su porque.
+      **Falta:** EL METAL (el primer `Dispatch` lo dira: el QMD de la
+      compartida y la rejilla en 3D son nuevos), los UAV con tipo y de
+      textura, el contador (`Append`), y un cuerpo de mas de 24 Ki
+      instrucciones.
 - [ ] **LI2g -- DECISION DEL PROPIETARIO: los bits exactos o la tolerancia
       de D3D.** La regla de la casa es "los mismos bits que la CPU". La 3060
       APROXIMA la division, la raiz y el filtrado; D3D lo permite (unos
