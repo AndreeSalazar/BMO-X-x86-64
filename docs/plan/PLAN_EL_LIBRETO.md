@@ -459,6 +459,8 @@ y `puerta.rs`; el juez en `platform/drivers/gpu/ga10x/src/sass/juez.rs`):
       - **COMO SE PRUEBA EN EL METAL:** `proton-x --prueba-computo` (con el
         escritorio y `gpu lienzo` hechos) corre nBody por la puerta y por la
         CPU y dice PERFECTO, cuantas particulas distintas, o el porque del NO.
+      **La corrida siguiente, que correr y que traer:**
+      [`METAL_2026-10-13.md`](../metal/METAL_2026-10-13.md).
       **Falta:** EL METAL (el primer `Dispatch` lo dira: el QMD de la
       compartida y la rejilla en 3D son nuevos), los UAV con tipo y de
       textura (los de formato: cuantizar como la casa), y un cuerpo de mas
