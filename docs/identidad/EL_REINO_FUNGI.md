@@ -72,7 +72,7 @@ eso un hongo puede ser enorme sin un centro que lo mande.
 
 BMO-X tiene **dos puertas** con el kernel, `INVOKE` y `WAIT`, congeladas
 ([`ARQUITECTURA.md`](../../ARQUITECTURA.md)). La superficie no crece; lo que
-crece esta detras, en crates PUROS y pequenos (cada uno dice su `generacion`
+crece esta detras, en crates PUROS y chicos (cada uno dice su `generacion`
 y su `capa` en la cabecera) que se pasan cosas sin un centro que lo haga
 todo.
 
@@ -121,7 +121,7 @@ modelo:
                           (RESERVA_GPU_VIENDO, ...)
 ```
 
-Y el caso que lo enseno: hasta el 12-10 el kernel decia `motivo 79` por
+Y el caso que lo mostro: hasta el 12-10 el kernel decia `motivo 79` por
 **cuarenta caminos distintos**. El metal dio dos NO con ese numero y ninguna
 forma de saber cual. Un numero solo es un hongo que no dice donde le duele:
 la red no puede reaccionar. Desde que cada camino tiene su frase, el primer

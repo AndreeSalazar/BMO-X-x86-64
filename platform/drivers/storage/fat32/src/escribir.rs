@@ -224,7 +224,7 @@ impl FatVolume {
     /// **Reescribe el FSInfo** (Linux, `fat_clusters_flush`): los libres, si
     /// se saben, y el "proximo libre" donde se cogio el ultimo. Un sector, al
     /// final de cada escritura publica. Sin esto, `fsck.fat` decia "Free
-    /// cluster summary wrong" y Windows ensenaba un libre viejo.
+    /// cluster summary wrong" y Windows mostraba un libre viejo.
     pub(super) fn fsinfo_al_dia(&mut self) {
         if !self.fsinfo_sucio || self.fs_type != FsType::Fat32 || self.fsinfo == 0 || self.fsinfo == 0xFFFF {
             return;

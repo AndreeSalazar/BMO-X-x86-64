@@ -508,7 +508,7 @@ y `puerta.rs`; el juez en `platform/drivers/gpu/ga10x/src/sass/juez.rs`):
       PROTON-X le diga al juego que la pantalla mide 1280x720. **Como se
       sabe:** el censo sin esa puerta, y la 3060 con lotes de Cyberpunk.
       **Hecho el segundo camino (12-10), como pieza:** "BMO-X le da lo que
-      el juego quiere, y luego el dueno toma el control".
+      el juego quiere, y luego el propietario toma el control".
       - `proton-x-casa/src/pantalla.rs`: la pantalla que ve el juego deja de
         ser una constante (`PANTALLA = 1920x1080`) y la pone QUIEN CARGA.
         user32 (GetSystemMetrics, el area de trabajo, GetMonitorInfo,
@@ -520,7 +520,7 @@ y `puerta.rs`; el juez en `platform/drivers/gpu/ga10x/src/sass/juez.rs`):
       - `puerta::MEDIDA` (proton-x-sm86): la medida que la puerta dibuja, de
         `cubo::ANCHO/ALTO` de ga10x. Con `--3060`, PROTON-X le da esa al
         juego, sin barra de tareas; sin `--3060`, Full HD como siempre.
-      - El dueno manda: `--pantalla WxH` (cualquier orden con las otras) se
+      - El propietario manda: `--pantalla WxH` (cualquier orden con las otras) se
         queda aunque haya `--3060`, y la consola dice si es otra medida que
         la de la puerta (lo de otra medida va por la CPU). Y dentro del
         juego, su menu elige entre los modos que la casa ofrece.

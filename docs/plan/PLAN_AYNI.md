@@ -1,4 +1,4 @@
-# PLAN AYNI -- que la GPU gaste MENOS, con un cerebro pequeno en la CPU
+# PLAN AYNI -- que la GPU gaste MENOS, con un cerebro chico en la CPU
 
 > El propietario (12-10), despues de leer el plan de nitidez: *"y si mejor
 > inspirar eso en la red neuronal y redefinirlo por completo? porque no es mi
@@ -30,7 +30,7 @@ Tiene dos piezas con nombre propio:
 **Si, y tiene mas sentido que el plan de nitidez.** Lo que la red de DLSS
 hace de verdad es AHORRAR: deja dibujar menos pixeles y adivina el resto. Si
 FSR ya pone el reescalado, lo que queda por ganar es **decidir donde NO
-gastar**. Para eso no hace falta una red grande en la GPU: basta una pequena
+gastar**. Para eso no hace falta una red grande en la GPU: basta una chica
 en la CPU, porque BMO-X ve cada dibujo.
 
 | | DLSS | FSR | AYNI (BMO-X) |
@@ -76,7 +76,7 @@ AYNI tiene una capa por cada una, de la mas segura a la mas atrevida.
                         entrada se lee justo antes: menos input lag Y menos
                         trabajo). Sin red: solo reloj. Es lo que mas ahorra
    A1 EL MAPA DE UMA    la 3060 tiene sombreado variable POR HARDWARE (abajo):
-                        una imagen pequena, una casilla por baldosa de 16x16,
+                        una imagen chica, una casilla por baldosa de 16x16,
                         dice cuantas veces corre el sombreador ahi: 1 por
                         pixel, 1 por cada 2x2, 1 por cada 4x4... UMA escribe
                         esa imagen cada fotograma
@@ -119,7 +119,7 @@ que falta es quien lo escriba bien. Ese es UMA.
 
 **Lo que ya existe y se reconoce**: el "content adaptive shading" (NVIDIA,
 Wolfenstein: Youngblood, 2019) decide la tasa con reglas fijas sobre el
-fotograma anterior. AYNI anade dos cosas que un juego no tiene: **ve cada
+fotograma anterior. AYNI agrega dos cosas que un juego no tiene: **ve cada
 dibujo** (sabe donde hay interfaz, bordes de geometria, cuantos triangulos
 pasan por cada baldosa) y **aprende** del propio juego.
 
@@ -166,9 +166,9 @@ sabe hacia donde va el siguiente corte antes de que la GPU lo dibuje:
 
 Cambia **poco y concreto**: la 5D entra en el UMBRAL de cada baldosa (la
 velocidad de la mano y la distancia a donde va), no en la red. Por que: las
-maestras miden imagenes QUIETAS, asi que no pueden ensenar que la mano rapida
+maestras miden imagenes QUIETAS, asi que no pueden mostrar que la mano rapida
 emborrona; eso es una regla (`ayni.rs`, `relajo`), y la red aprende solo lo que
-se puede medir. No anade input lag: la entrada ya estaba leida para el juego.
+se puede medir. No agrega input lag: la entrada ya estaba leida para el juego.
 
 **La 5D que predice** (el propietario, despues: *"la CPU ya sabe que quiere
 el jugador ... cuando apunta con el puntero se crea una posibilidad propia,
@@ -179,7 +179,7 @@ divertida, y se puede, con una frontera clara:
   teclado y luego se los da a la app. Eso no es adivinar: es saber primero.
 * **El movimiento corto se predice bien**: la mano tiene inercia. Un puntero
   que frena sobre un sitio va a parar ahi (en interfaces se llama prediccion
-  del punto final, *endpoint prediction*, y se estudia desde hace anos).
+  del punto final, *endpoint prediction*, y se estudia desde hace anualidades).
   Unos pocos fotogramas hacia delante, no segundos.
 * **La decision NO se predice perfecta**: el jugador puede cambiar de idea
   en el ultimo milisegundo. Por eso cada prediccion lleva su **confianza**

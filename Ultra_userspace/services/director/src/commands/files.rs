@@ -30,7 +30,7 @@ pub(crate) fn make_dir(dsk: &mut Desktop, p: &bmo::Pantalla, ruta: &[u8]) -> Aft
             dsk.out.grid.text(ruta);
             dsk.out.grid.text(b"  (`ls ");
             dsk.out.grid.text(ruta);
-            dsk.out.grid.text(b"` la ensena)\n");
+            dsk.out.grid.text(b"` la muestra)\n");
         }
         Err(_) => {
             dsk.out.grid.with_ink(INK_ERR);

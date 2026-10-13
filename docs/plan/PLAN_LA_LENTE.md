@@ -5,7 +5,7 @@
 >
 > *"que mi kernel lea todo ... como .txt pero con lectura que lees con kernel
 > que te dice porque y razones y motivos porque no acepta, que hay trampa,
-> exponiendo todo hasta posible potencial que quiere danar mi BMO-X"* y
+> exponiendo todo hasta posible potencial que quiere perjudicar mi BMO-X"* y
 > *"mi kernel se convierte mi lente para leer todo que son y porque"*.
 
 ---

@@ -9,7 +9,7 @@
 //!       |  el juego pregunta: medidas, modos, el monitor
 //!       |  y elige: su ventana, su cadena (lo que QUIERE, de lo ofrecido)
 //!       v
-//!    el dueno manda despues: --pantalla WxH, o el menu del juego (entre
+//!    el propietario manda despues: --pantalla WxH, o el menu del juego (entre
 //!    los modos que la casa ofrece)
 //! ```
 //!
@@ -62,13 +62,13 @@ const COMUNES: [(u32, u32); 12] = [
 /// Cuantos modos puede haber como mucho: las comunes y la pantalla.
 pub const MAX_MODOS: usize = COMUNES.len() + 1;
 
-// ancho | alto << 16 | barra << 32 | puesta << 63 (la puso el dueno).
+// ancho | alto << 16 | barra << 32 | puesta << 63 (la puso el propietario).
 static ACTUAL: AtomicU64 = AtomicU64::new(empaquetar(FULL_HD, false));
 
-const DEL_DUENO: u64 = 1 << 63;
+const DEL_PROPIETARIO: u64 = 1 << 63;
 
-const fn empaquetar(p: Pantalla, dueno: bool) -> u64 {
-    p.ancho as u64 | (p.alto as u64) << 16 | (p.barra as u64) << 32 | if dueno { DEL_DUENO } else { 0 }
+const fn empaquetar(p: Pantalla, propietario: bool) -> u64 {
+    p.ancho as u64 | (p.alto as u64) << 16 | (p.barra as u64) << 32 | if propietario { DEL_PROPIETARIO } else { 0 }
 }
 
 /// La pantalla, si es una que la casa sabe presentar.
@@ -82,11 +82,11 @@ pub const fn valida(p: Pantalla) -> Result<Pantalla, &'static str> {
     Ok(p)
 }
 
-/// **Poner la pantalla** (quien carga, antes del `.exe`). `del_dueno`: la
-/// eligio el dueno (`--pantalla`), y quien carga ya no la cambia por la suya.
-pub fn poner(p: Pantalla, del_dueno: bool) -> Result<(), &'static str> {
+/// **Poner la pantalla** (quien carga, antes del `.exe`). `del_propietario`: la
+/// eligio el propietario (`--pantalla`), y quien carga ya no la cambia por la suya.
+pub fn poner(p: Pantalla, del_propietario: bool) -> Result<(), &'static str> {
     let p = valida(p)?;
-    ACTUAL.store(empaquetar(p, del_dueno), Ordering::Relaxed);
+    ACTUAL.store(empaquetar(p, del_propietario), Ordering::Relaxed);
     Ok(())
 }
 
@@ -96,12 +96,12 @@ pub fn actual() -> Pantalla {
     Pantalla { ancho: v as u32 & 0xFFFF, alto: (v >> 16) as u32 & 0xFFFF, barra: (v >> 32) as u32 & 0xFFFF }
 }
 
-/// La eligio el dueno.
-pub fn del_dueno() -> bool {
-    ACTUAL.load(Ordering::Relaxed) & DEL_DUENO != 0
+/// La eligio el propietario.
+pub fn del_propietario() -> bool {
+    ACTUAL.load(Ordering::Relaxed) & DEL_PROPIETARIO != 0
 }
 
-/// `WxH` (o `WXH`), como lo escribe el dueno: `1920x1080`.
+/// `WxH` (o `WXH`), como lo escribe el propietario: `1920x1080`.
 pub fn leer(texto: &[u8]) -> Option<(u32, u32)> {
     let k = texto.iter().position(|&c| c | 0x20 == b'x')?;
     let num = |t: &[u8]| -> Option<u32> {
@@ -154,7 +154,7 @@ mod pruebas {
     #[test]
     fn la_pantalla_la_pone_quien_carga_y_todo_windows_la_dice() {
         assert_eq!(actual(), FULL_HD);
-        assert!(!del_dueno());
+        assert!(!del_propietario());
         let mut m = [(0, 0); MAX_MODOS];
         let n = modos(&mut m);
         assert_eq!(&m[..n], &[(640, 480), (800, 600), (1024, 768), (1280, 720), (1280, 800), (1366, 768), (1600, 900), (1680, 1050), (1920, 1080)]);
@@ -171,7 +171,7 @@ mod pruebas {
 
         // Una que no es comun: la ultima de la lista.
         poner(Pantalla { ancho: 1440, alto: 900, barra: 40 }, true).unwrap();
-        assert!(del_dueno());
+        assert!(del_propietario());
         let n = modos(&mut m);
         assert_eq!(m[n - 1], (1440, 900));
         assert_eq!(m[n - 2], (1366, 768));
@@ -186,7 +186,7 @@ mod pruebas {
     }
 
     #[test]
-    fn lo_que_escribe_el_dueno() {
+    fn lo_que_escribe_el_propietario() {
         assert_eq!(leer(b"1920x1080"), Some((1920, 1080)));
         assert_eq!(leer(b"1280X720"), Some((1280, 720)));
         assert_eq!(leer(b"1280"), None);

@@ -51,6 +51,7 @@ pub mod juez;
 /// trazado de caminos en la CPU: luz de area, sombras suaves, luz
 /// indirecta, metal y vidrio, la curva del cine --.
 pub mod estudio;
+mod estudio_material;
 /// ESTUDIO VIVO (11-10): la luz de ESTUDIO en tiempo real porque se
 /// RECUERDA -- un cuarto de los pixeles por fotograma, la imagen que se
 /// acumula, y la memoria de la luz del mundo que sobrevive a la camara --.

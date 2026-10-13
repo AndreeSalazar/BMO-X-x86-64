@@ -77,7 +77,7 @@ pub(crate) fn cargas(e: &Emitido) -> Vec<Carga> {
     cargas_con_posicion(e, None)
 }
 
-/// **LI2a (12-10): ¿lee el de pixeles la z o la w de SV_Position?** Esas
+/// **LI2a (12-10): lee el de pixeles la z o la w de SV_Position?** Esas
 /// aun no van a la 3060 (la w es 1/w alli; la z, sin comprobar en el metal).
 pub fn posicion_zw(en: &Enlace) -> bool {
     en.pos_ps.is_some_and(|p| {

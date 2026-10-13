@@ -29,8 +29,8 @@ pub fn leer(todo: &[u8]) -> (&[u8], bool) {
             (todo, con_diario) = (r, true);
             la3060::modo_3060();
         } else if let Some(r) = todo.strip_prefix(b"--pantalla ") {
-            // ** LA PANTALLA DEL DUENO (LI2j, 12-10): `--pantalla 1920x1080`
-            // -- la que ve el juego, la elige el dueno (sin ella: 1920x1080,
+            // ** LA PANTALLA DEL PROPIETARIO (LI2j, 12-10): `--pantalla 1920x1080`
+            // -- la que ve el juego, la elige el propietario (sin ella: 1920x1080,
             // o con `--3060` la que dibuja la puerta). Sin barra de tareas si
             // es la de la 3060; si no, la de Windows (40).
             let k = r.iter().position(|&c| c == b' ').unwrap_or(r.len());

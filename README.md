@@ -428,7 +428,7 @@ BMO-X only when the master tiles prove it helps.**
 
 **The rule of the fifth dimension: predict to SAVE or PREPARE, never to
 ACT.** BMO-X sees the mouse before the game does, and the braking of a hand
-says where it will stop (`v²/2a`). That buys detail where the eye is going
+says where it will stop (`v^2/2a`). That buys detail where the eye is going
 and less where it is not. It never moves the pointer, clicks or aims: that
 would change the game, not the cost -- aim assist, and cheating in an online
 game. `mano::predecir` takes the input borrowed and immutable, and a test

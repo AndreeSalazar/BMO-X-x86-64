@@ -267,7 +267,7 @@ pub fn del_pso(en: &Enlace, ia: &[ElementoIa], paso: u32) -> Vec<String> {
 
 /// **Cuanto mide un programa largo**, por tramos (metal 12-10: el censo decia
 /// "mas de 128" y no si con 256 bastaba o hacian falta miles). Es lo que
-/// decide el tamano del hueco de LI2b.
+/// decide el medida del hueco de LI2b.
 pub fn tramo_largo(n: usize) -> String {
     let max = bmo_gpu_ga10x::sass::juez::MAX_INSTRUCCIONES;
     let mut techo = max * 2;

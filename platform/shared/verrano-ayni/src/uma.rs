@@ -20,11 +20,11 @@ use crate::pacha::ENTRADAS;
 
 pub const OCULTAS: usize = 16;
 pub const SALIDAS: usize = 4;
-/// El error mas alto que se ensena: por encima, toda tasa gruesa sobra.
+/// El error mas alto que se muestra: por encima, toda tasa gruesa sobra.
 pub const TOPE: f32 = 1.0;
 /// La semilla de los pesos.
 pub const SEMILLA: u32 = 0x4159_4E49; // "AYNI"
-/// El paso al aprender en vivo (pequeno: un fotograma raro no la tuerce).
+/// El paso al aprender en vivo (chico: un fotograma raro no la tuerce).
 pub const PASO_EN_VIVO: f32 = 0.01;
 
 #[derive(Clone)]
@@ -54,7 +54,7 @@ impl Dado {
 }
 
 impl Uma {
-    /// La red sin ensenar, con pesos de la semilla.
+    /// La red sin mostrar, con pesos de la semilla.
     pub fn en_blanco(semilla: u32) -> Self {
         let mut d = Dado(semilla);
         let mut u = Uma { w1: [[0.0; ENTRADAS]; OCULTAS], b1: [0.0; OCULTAS], w2: [[0.0; OCULTAS]; SALIDAS], b2: [0.0; SALIDAS], lecciones: 0, paso: PASO_EN_VIVO };
@@ -75,12 +75,12 @@ impl Uma {
         u
     }
 
-    /// **UMA al nacer**: la red de la semilla, ensenada con baldosas de
+    /// **UMA al nacer**: la red de la semilla, mostrada con baldosas de
     /// muestra (cielo, degradado, borde, textura, rayas, sombra). Sabe lo
     /// basico antes del primer fotograma; el juego la afina.
     pub fn nacer() -> Self {
         let mut u = Uma::en_blanco(SEMILLA);
-        crate::semilla::ensenar(&mut u, crate::semilla::PASOS_DE_NACER);
+        crate::semilla::mostrar(&mut u, crate::semilla::PASOS_DE_NACER);
         u.lecciones = 0;
         u.paso = PASO_EN_VIVO;
         u
