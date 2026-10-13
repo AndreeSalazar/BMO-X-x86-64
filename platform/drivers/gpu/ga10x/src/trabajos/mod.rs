@@ -57,6 +57,8 @@ pub mod texturas;
 /// P3b4c: la RECETA (VRN2) -- lo que manda una APP: los cuerpos y como se
 /// cargan; el pegamento lo pone el kernel (2026-09-28).
 pub mod receta;
+/// LI2f: el COMPUTO de una app -- su QMD y su pegado (2026-10-13).
+pub mod computo_app;
 /// 9d: la LIBRETA de la 3060 -- lo que el pegamento del kernel apunta
 /// cuando el termometro de un cuerpo dice raro (2026-10-06).
 pub mod libreta;
