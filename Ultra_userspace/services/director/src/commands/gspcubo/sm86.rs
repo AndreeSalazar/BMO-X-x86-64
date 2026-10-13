@@ -832,7 +832,7 @@ pub(super) fn textura(dsk: &mut Desktop, p: &bmo::Pantalla) -> After {
             Ok(v) => {
                 let (us, tris, etapas, lanzado) = cu::desempaquetar(v);
                 let mut t = Texto::nuevo();
-                t.t(b"  NO  la 3060 no pago la receta de ").t(pr::NOMBRES[m].as_bytes()).t(b": lanzado ").d(lanzado as u64).t(b", escalera ").d(etapas as u64).t(b", ").d(tris as u64).t(b" triangulos, ").d(us as u64).t(b" us (el `gsp aviso` de `gpu` dira si fue un Xid)");
+                t.t(b"  NO  la 3060 no pago la receta de ").t(pr::NOMBRES[m].as_bytes()).t(b": lanzado ").d(lanzado as u64).t(b", escalera ").d(etapas as u64).t(b", ").d(tris as u64).t(b" triangulos, ").d(us as u64).t(b" us (`gpu aviso` dira si fue un Xid)");
                 return linea(dsk, t.s(), INK_ERR);
             }
             Err(mo) => return motivo(dsk, mo),

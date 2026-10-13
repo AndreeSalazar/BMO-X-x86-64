@@ -324,6 +324,14 @@ pub fn mapear<R: crate::Registros>(r: &mut R, bytes: u64) -> Option<(u32, u32)> 
 // En el de ORO todos llevan SU memoria (`alloc = golden || !global`), y
 // UNRESTRICTED_PRIV_ACCESS_MAP SI va mapeado: solo el id 10 lleva
 // `bNonmapped`. Con UN solo canal de GR, el nuestro es a la vez el de oro.
+//
+// ** E7b (13-10, metal 13:35): un canal REVIVIDO no es el de oro. `gpu
+// revivir` mando la promocion de oro otra vez y el RM contesto "argumento
+// invalido" (0x1F). nouveau, para cada canal que no es el de oro
+// (`r535_gr_chan_new` -> `golden = false`): los globales NO se inician (solo
+// su VA, la memoria es la de oro), PRIV_ACCESS_MAP va MAPEADO, y el
+// UNRESTRICTED no va (`continue`): ocho entradas. Solo MAIN y PATCH -- los
+// del canal -- se inician con su fisica. [`forma_en`] lo dice por bufer.
 
 /// `NV2080_CTRL_CMD_GPU_PROMOTE_CTX`.
 pub const PROMOVER: u32 = 0x2080_012B;
@@ -344,31 +352,58 @@ fn poner64(d: &mut [u8], o: usize, v: u64) {
     d[o..o + 8].copy_from_slice(&v.to_le_bytes());
 }
 
+/// **Como va cada bufer en una promocion** (`r535_gr_promote_ctx`):
+/// `Some((bInitialize, bNonmapped))`, o `None` si no va (el UNRESTRICTED en
+/// un canal que no es el de oro). `dorado`: el canal del contexto de oro.
+pub const fn forma_en(promover: u8, global: bool, iniciar: bool, dorado: bool) -> Option<(bool, bool)> {
+    let alloc = dorado || !global;
+    if !alloc && promover == 11 {
+        return None;
+    }
+    Some((iniciar && alloc, alloc && sin_mapear(promover)))
+}
+
+/// Cuantas entradas lleva una promocion (9 la de oro, 8 la de un canal nuevo).
+pub const fn entradas(dorado: bool) -> usize {
+    let mut n = 0;
+    let mut k = 0;
+    while k < N {
+        if forma_en(TABLA[k].1, TABLA[k].3, TABLA[k].4, dorado).is_some() {
+            n += 1;
+        }
+        k += 1;
+    }
+    n
+}
+
 /// Una entrada, como la escribe nouveau: `(fisica, virtual, medida, attr,
-/// id, iniciar, sin_mapear)`.
-pub const fn entrada(c: &Colocado) -> (u64, u64, u64, u32, u16, bool, bool) {
-    let nm = sin_mapear(c.b.promover);
+/// id, iniciar, sin_mapear)`; `None` si no va.
+pub const fn entrada(c: &Colocado, dorado: bool) -> Option<(u64, u64, u64, u32, u16, bool, bool)> {
+    let Some((ini, nm)) = forma_en(c.b.promover, c.b.global, c.b.iniciar, dorado) else { return None };
     let va = if nm { 0 } else { c.va() };
-    if c.b.iniciar {
+    Some(if ini {
         (c.vram(), va, c.b.medida, ATRIBUTO, c.b.promover as u16, true, nm)
     } else {
         (0, va, 0, 0, c.b.promover as u16, false, nm)
-    }
+    })
 }
 
-/// **Los 560 B**: la cabecera y las nueve entradas en el orden de [`TABLA`]
-/// (el reparto las coloca en otro orden: se buscan por su id).
-pub fn parametros_promover(c: &[Colocado; N], p: &mut [u8]) -> Option<usize> {
+/// **Los 560 B**: la cabecera y las entradas en el orden de [`TABLA`] (el
+/// reparto las coloca en otro orden: se buscan por su id). `dorado`: la de
+/// oro (9) o la de un canal nuevo (8, [`forma_en`]).
+pub fn parametros_promover(c: &[Colocado; N], p: &mut [u8], dorado: bool) -> Option<usize> {
     let p = p.get_mut(..PROMOVER_MEDIDA)?;
     p.fill(0);
     poner(p, 0, MOTOR_GR0);
     poner(p, 12, crate::objeto::CLIENTE);
     poner(p, 16, crate::canal::GR.asa);
-    poner(p, 40, N as u32);
-    for (k, &(_, id, ..)) in TABLA.iter().enumerate() {
+    poner(p, 40, entradas(dorado) as u32);
+    let mut k = 0;
+    for &(_, id, ..) in TABLA.iter() {
         let x = c.iter().find(|x| x.b.promover == id)?;
-        let (fisica, va, medida, attr, bid, ini, nm) = entrada(x);
+        let Some((fisica, va, medida, attr, bid, ini, nm)) = entrada(x, dorado) else { continue };
         let o = PROMOVER_CABECERA + k * ENTRADA;
+        k += 1;
         poner64(p, o, fisica);
         poner64(p, o + 8, va);
         poner64(p, o + 16, medida);
@@ -380,10 +415,20 @@ pub fn parametros_promover(c: &[Colocado; N], p: &mut [u8]) -> Option<usize> {
     Some(PROMOVER_MEDIDA)
 }
 
-/// **La orden** (`GSP_RM_CONTROL`) en `hueco`, sobre nuestro subdispositivo.
+/// **La orden** (`GSP_RM_CONTROL`) en `hueco`, sobre nuestro subdispositivo:
+/// la de ORO (el primer canal del arranque).
 pub fn promover(hueco: &mut [u8], numero: u32, c: &[Colocado; N]) -> Option<usize> {
+    promover_con(hueco, numero, c, true)
+}
+
+/// **E7b: la de un canal REVIVIDO** (`golden = false` de nouveau).
+pub fn promover_nuevo(hueco: &mut [u8], numero: u32, c: &[Colocado; N]) -> Option<usize> {
+    promover_con(hueco, numero, c, false)
+}
+
+fn promover_con(hueco: &mut [u8], numero: u32, c: &[Colocado; N], dorado: bool) -> Option<usize> {
     let mut p = [0u8; PROMOVER_MEDIDA];
-    parametros_promover(c, &mut p)?;
+    parametros_promover(c, &mut p, dorado)?;
     orden::componer(hueco, numero, GSP_RM_CONTROL, CABECERA_CONTROL + PROMOVER_MEDIDA, |d| {
         poner(d, 0, crate::objeto::CLIENTE);
         poner(d, 4, crate::objeto::SUBDISPOSITIVO);
@@ -400,6 +445,12 @@ pub fn promover(hueco: &mut [u8], numero: u32, c: &[Colocado; N]) -> Option<usiz
 /// de [`VA`] y sin pasar de [`MAX_BYTES`]. Asi una promocion no puede darle
 /// al RM memoria que no es la de G2.
 pub fn promover_permitida(d: &[u8]) -> bool {
+    permitida_con(d, true) || permitida_con(d, false)
+}
+
+/// [`promover_permitida`] en una de sus dos formas (la de oro, o la de un
+/// canal revivido: [`forma_en`]).
+fn permitida_con(d: &[u8], dorado: bool) -> bool {
     if d.len() < CABECERA_CONTROL + PROMOVER_MEDIDA {
         return false;
     }
@@ -419,7 +470,7 @@ pub fn promover_permitida(d: &[u8]) -> bool {
         && u(p + 20) == 0
         && q(p + 24) == 0
         && q(p + 32) == 0
-        && u(p + 40) == N as u32
+        && u(p + 40) == entradas(dorado) as u32
         && u(p + 44) == 0;
     if !cabecera_bien {
         return false;
@@ -427,17 +478,20 @@ pub fn promover_permitida(d: &[u8]) -> bool {
     let dentro = |base: u64, dir: u64, medida: u64| {
         dir >= base && dir % 0x1000 == 0 && dir - base + medida <= MAX_BYTES
     };
-    for (k, &(_, id, _, _, iniciar, _)) in TABLA.iter().enumerate() {
+    let mut k = 0;
+    for &(_, id, _, global, iniciar, _) in TABLA.iter() {
+        let Some((iniciar, sin_map)) = forma_en(id, global, iniciar, dorado) else { continue };
         let o = p + PROMOVER_CABECERA + k * ENTRADA;
+        k += 1;
         let (fisica, va, medida, attr) = (q(o), q(o + 8), q(o + 16), u(o + 24));
         let bid = u16::from_le_bytes([d[o + 28], d[o + 29]]);
         let (ini, nm) = (d[o + 30], d[o + 31]);
-        if bid != id as u16 || ini != iniciar as u8 || nm != sin_mapear(id) as u8 {
+        if bid != id as u16 || ini != iniciar as u8 || nm != sin_map as u8 {
             return false;
         }
-        let va_bien = if sin_mapear(id) { va == 0 } else { dentro(VA, va, medida.max(0x1000)) };
+        let va_bien = if sin_map { va == 0 } else { dentro(VA, va, medida.max(0x1000)) };
         let fisica_bien = if iniciar {
-            attr == ATRIBUTO && medida != 0 && dentro(VRAM, fisica, medida) && (sin_mapear(id) || fisica - VRAM == va - VA)
+            attr == ATRIBUTO && medida != 0 && dentro(VRAM, fisica, medida) && (sin_map || fisica - VRAM == va - VA)
         } else {
             fisica == 0 && medida == 0 && attr == 0
         };
@@ -445,8 +499,8 @@ pub fn promover_permitida(d: &[u8]) -> bool {
             return false;
         }
     }
-    // Las siete entradas que sobran, a cero.
-    d[p + PROMOVER_CABECERA + N * ENTRADA..p + PROMOVER_MEDIDA].iter().all(|&b| b == 0)
+    // Las entradas que sobran, a cero.
+    d[p + PROMOVER_CABECERA + k * ENTRADA..p + PROMOVER_MEDIDA].iter().all(|&b| b == 0)
 }
 
 // == G4: AMPERE_B EN EL CANAL -- EL CONTEXTO DE ORO ==========================
@@ -641,6 +695,46 @@ mod pruebas {
                 assert_eq!((q(o), q(o + 16), u(o + 24)), (0, 0, 0));
             }
         }
+    }
+
+    /// E7b (13-10): la de un canal REVIVIDO, como `r535_gr_promote_ctx(..,
+    /// golden = false, ..)`: ocho entradas (sin el UNRESTRICTED), solo MAIN y
+    /// PATCH iniciadas con su fisica, PRIV_ACCESS_MAP MAPEADO, y el contrato
+    /// la deja salir. La de oro, igual que antes.
+    #[test]
+    fn la_promocion_de_un_canal_revivido_como_nouveau() {
+        let (c, ..) = repartir(&del_metal()).unwrap();
+        assert_eq!((entradas(true), entradas(false)), (9, 8));
+        let mut h = [0u8; 4096];
+        let n = promover_nuevo(&mut h, 31, &c).unwrap();
+        let d = &h[CABECERA..n];
+        assert!(promover_permitida(d));
+        let p = &d[CABECERA_CONTROL..];
+        let u = |o: usize| u32::from_le_bytes(p[o..o + 4].try_into().unwrap());
+        let q = |o: usize| u64::from_le_bytes(p[o..o + 8].try_into().unwrap());
+        assert_eq!(u(40), 8);
+        let ids: [u16; 8] = core::array::from_fn(|k| u16::from_le_bytes([p[PROMOVER_CABECERA + k * ENTRADA + 28], p[PROMOVER_CABECERA + k * ENTRADA + 29]]));
+        assert_eq!(ids, [0, 2, 3, 4, 5, 6, 9, 10], "sin el 11");
+        for (k, &id) in ids.iter().enumerate() {
+            let o = PROMOVER_CABECERA + k * ENTRADA;
+            let x = c.iter().find(|x| x.b.promover == id as u8).unwrap();
+            let propio = id == 0 || id == 2;
+            assert_eq!(p[o + 30], propio as u8, "solo MAIN y PATCH se inician");
+            assert_eq!(p[o + 31], 0, "nada sin mapear: PRIV_ACCESS_MAP con su VA");
+            assert_eq!(q(o + 8), x.va());
+            if propio {
+                assert_eq!((q(o), q(o + 16), u(o + 24)), (x.vram(), x.b.medida, 4));
+            } else {
+                assert_eq!((q(o), q(o + 16), u(o + 24)), (0, 0, 0));
+            }
+        }
+        // La novena entrada, a cero.
+        assert!(p[PROMOVER_CABECERA + 8 * ENTRADA..PROMOVER_MEDIDA].iter().all(|&b| b == 0));
+        // Mezclar: la de oro con ocho entradas no sale.
+        let mut m = [0u8; 4096];
+        let n2 = promover(&mut m, 30, &c).unwrap();
+        m[CABECERA + CABECERA_CONTROL + 40] = 8;
+        assert!(!promover_permitida(&m[CABECERA..n2]));
     }
 
     #[test]

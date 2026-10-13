@@ -574,8 +574,15 @@ pub(super) fn olvidar_gr() -> u64 {
     GR_TRESDE.store(false, Ordering::Release);
     GR_PROMOVIDO.store(false, Ordering::Release);
     CANAL_GR_PEDIDO.store(false, Ordering::Release);
+    // El canal nuevo NO es el de oro: su promocion es la de nouveau con
+    // `golden = false` (`gr::promover_nuevo`). Metal 13-10 13:35: con la de oro
+    // otra vez, el RM dijo "argumento invalido".
+    GR_REVIVIDO.store(true, Ordering::Release);
     ceros
 }
+
+/// E7b: el canal de GR0 ya no es el del contexto de oro (se revivio).
+static GR_REVIVIDO: core::sync::atomic::AtomicBool = core::sync::atomic::AtomicBool::new(false);
 
 /// **P3b4c (29-09): el Xid con el que el GSP-RM mato el canal `chid`**, si
 /// su `RC_TRIGGERED` sigue en la cola del GSP (sin moverla: la lee, no la
@@ -1201,7 +1208,7 @@ pub fn promover_gr() -> Result<u64, u32> {
     if GR_PROMOVIDO.swap(true, Ordering::AcqRel) {
         return Err(IOMMU_NO_GR_PROMOVER);
     }
-    match enviar(|h, n| gr::promover(h, n, &c)) {
+    match enviar(|h, n| if GR_REVIVIDO.load(Ordering::Acquire) { gr::promover_nuevo(h, n, &c) } else { gr::promover(h, n, &c) }) {
         Ok(v) => {
             crate::ring0::cabina::count("gpu", "M5 G3: PROMOTE_CTX pedido; buferes", gr::N as u64);
             Ok(v)

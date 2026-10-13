@@ -70,6 +70,7 @@ const LISTA: &[(&[u8], &[u8])] = &[
     (b"gpu cubo", b"el cubo del estudio D3D, por la CPU, igual bit a bit que la 3060 bajo Windows"),
     (b"gpu cubo 3060", b"X5: el mismo cubo dibujado por la 3060 SIN Windows, y su huella contra D3D12"),
     (b"gpu verrano bmox12", b"E5: la 3060 transforma e ilumina con los programas de BMOX-12 traducidos por PROTON-X (0, 30 o 60)"),
+    (b"gpu aviso", b"los avisos del GSP sin leer: el Xid de un canal muerto campo a campo (motor, la VA de un fallo de memoria) y la frase de NVIDIA"),
     (b"gpu revivir", b"el canal de GR MUERTO (un Xid), otra vez SIN REINICIAR: FREE de sus tres objetos y canalgr .. lienzo de nuevo (E7b)"),
     (b"gpu verrano", b"VERRANO V0: el cubo por la API de BMO-X, en la 3060 (programas del BSF) y en la CPU, comparados"),
     (b"gpu verrano banco", b"VERRANO V1: el cubo GIRANDO, 360 fotogramas seguidos por la 3060, con sus fps y el 30 juzgado contra D3D12"),

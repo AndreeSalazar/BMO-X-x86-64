@@ -458,7 +458,7 @@ fn no_pagado(r: u64) -> String {
     let si = |b: u32| if etapas & b != 0 { "SI" } else { "NO" };
     let donde = match (lanzado, etapas) {
         (false, _) => "no se lanzo: el kernel no pudo poner la receta en el canal",
-        (true, 0) => "no pago NI el estado: el canal GR ya estaba muerto (un Xid anterior; el `gsp aviso` de `gpu verrano` lo dice)",
+        (true, 0) => "no pago NI el estado: el canal GR ya estaba muerto (un Xid anterior; `gpu aviso` lo dice)",
         (true, 1) => "el estado SI, los vertices NO: se paro en el programa de VERTICES",
         (true, _) => "los vertices SI, el dibujo NO: se paro al RASTERIZAR o en el programa de PIXEL (un Xid 69 = un metodo o un valor que el motor no acepta)",
     };

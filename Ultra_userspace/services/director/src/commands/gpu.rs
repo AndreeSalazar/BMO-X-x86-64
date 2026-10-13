@@ -61,6 +61,17 @@ pub(crate) fn gpu(dsk: &mut Desktop, p: &bmo::Pantalla, arg: &[u8]) -> After {
     if arg == b"cola" {
         return super::gspcola::orden(dsk, p);
     }
+    // 13-10: las filas `gsp aviso` SOLAS (el Xid de un canal muerto, campo a
+    // campo, y la frase de NVIDIA), sin el informe entero de `gpu`. Se
+    // tecleaba `gsp aviso` y no era una orden.
+    if arg == b"aviso" || arg == b"avisos" {
+        let n = super::gspcola::avisos(&mut dsk.out.grid, 16);
+        if n > 16 {
+            dsk.out.grid.text(b"  (y mas: los 16 primeros)\n");
+        }
+        dsk.field.n = 0;
+        return After::Settle;
+    }
     if arg == b"vaciar" {
         return super::gspvaciar::orden(dsk, p);
     }

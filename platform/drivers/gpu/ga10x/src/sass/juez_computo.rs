@@ -125,6 +125,12 @@ pub(super) fn s2r_de_app(w: (u64, u64), k: usize) -> Result<(), Bodrio> {
     }
 }
 
+/// **13-10: el programa usa la barrera del grupo** (un `BAR.SYNC 0x0`): el
+/// QMD tiene que decirlo (`BARRIER_COUNT`, ver `computo_app::preparar`).
+pub fn usa_barrera(codigo: &[(u64, u64)]) -> bool {
+    codigo.iter().any(|&w| igual(w, BAR_SYNC))
+}
+
 /// La barrera del grupo, en su forma.
 pub(super) fn bar_de_app(w: (u64, u64), k: usize) -> Result<(), Bodrio> {
     if igual(w, BAR_SYNC) {

@@ -263,7 +263,16 @@ pub fn preparar<R: Registros>(r: &mut R, e: u32, pegado: &[(u64, u64)], d: &Desp
     if !crate::blur::entrada_valida(e) || pegado.is_empty() || pegado.len() > MAX_PEGADO {
         return false;
     }
-    let Ok(q) = qmd(CODIGO_COMPUTO_VA, d, sombreador_va(SEMAFORO_QMD), PAGA_QMD) else { return false };
+    let Ok(mut q) = qmd(CODIGO_COMPUTO_VA, d, sombreador_va(SEMAFORO_QMD), PAGA_QMD) else { return false };
+    // ** 13-10 (metal 13:35): nBody por la 3060 NO VOLVIO en 1 s y el
+    // vigilante corto el canal. Lo que si corrio antes en el metal
+    // (`sombreo`, `lienzo`) no tiene barreras; nBody si (`BAR.SYNC` con la
+    // compartida), y el QMD decia CERO barreras para el grupo.
+    // `NVC6C0_QMDV03_00_BARRIER_COUNT` = MW(767:763) (`clc6c0qmd.h` de
+    // open-gpu-doc): una, la 0, si el programa la usa.
+    if crate::sass::juez_computo::usa_barrera(pegado) {
+        campo(&mut q, 767, 763, 1);
+    }
     if escribir(r, SEMAFORO_QMD, &[0; 8]) != 8 {
         return false;
     }
@@ -387,6 +396,16 @@ mod pruebas {
         }
         assert_eq!(crate::motores::sombreador::leer_campo(&q, 1567, 1536) | crate::motores::sombreador::leer_campo(&q, 1584, 1568) << 32, CODIGO_COMPUTO_VA);
         assert_eq!(leer32(&mut r, GR.gpfifo + 8 * 7), entrada(sombreador_va(EMPUJE), ORDENES as u32) as u32);
+        assert_eq!(crate::motores::sombreador::leer_campo(&q, 767, 763), 0, "sin BAR.SYNC, cero barreras");
+        // 13-10: con un BAR.SYNC 0x0 en el programa, el QMD dice UNA barrera
+        // (`NVC6C0_QMDV03_00_BARRIER_COUNT`, MW(767:763)).
+        let mut con_barrera = pegado.clone();
+        con_barrera[5] = (0x7b1d, 1 << 16);
+        assert!(preparar(&mut r, 7, &con_barrera, &d()));
+        for (k, x) in q.iter_mut().enumerate() {
+            *x = leer32(&mut r, QMD + 4 * k as u64);
+        }
+        assert_eq!(crate::motores::sombreador::leer_campo(&q, 767, 763), 1);
         assert!(!preparar(&mut r, 7, &[], &d()), "sin pegado, nada");
     }
 
