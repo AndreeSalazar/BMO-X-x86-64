@@ -74,7 +74,7 @@ impl ParaLa3060 {
 }
 
 pub(crate) fn cargas(e: &Emitido) -> Vec<Carga> {
-    cargas_con_posicion(e, None)
+    cargas_con_posicion(e, None, 0)
 }
 
 /// **LI2a (12-10): lee el de pixeles la z o la w de SV_Position?** Esas
@@ -86,9 +86,12 @@ pub fn posicion_zw(en: &Enlace) -> bool {
 }
 
 /// [`cargas`] del de pixeles: la entrada `pos` (SV_Position, si la lee) es
-/// la posicion de la pantalla, no un generico (LI2a).
-pub(crate) fn cargas_con_posicion(e: &Emitido, pos: Option<usize>) -> Vec<Carga> {
+/// la posicion de la pantalla, no un generico (LI2a). ** G5 (13-10): las
+/// filas de las mips de la textura k van detras de las `filas` del cbuffer
+/// ([`filas_con_mips`]).
+pub(crate) fn cargas_con_posicion(e: &Emitido, pos: Option<usize>, filas: u32) -> Vec<Carga> {
     let pares = texturas_de(e);
+    let k_de = |textura, muestreador| pares.iter().position(|&x| x == (textura, muestreador)).unwrap_or(0) as u8;
     e.precargas
         .iter()
         .filter_map(|p| match *p {
@@ -97,20 +100,33 @@ pub(crate) fn cargas_con_posicion(e: &Emitido, pos: Option<usize>) -> Vec<Carga>
             Precarga::Fila { fila, reg } => Some(Carga::Fila { fila, reg }),
             // La pareja (tN, sM) es la textura k de la receta: su puesto.
             // E8g: el par (asa, nivel) se carga igual: el nivel es del cuerpo.
-            Precarga::Asa { textura, muestreador, reg } | Precarga::AsaPar { textura, muestreador, reg } => Some(Carga::Asa { textura: pares.iter().position(|&x| x == (textura, muestreador)).unwrap_or(0) as u8, reg }),
+            Precarga::Asa { textura, muestreador, reg } | Precarga::AsaPar { textura, muestreador, reg } => Some(Carga::Asa { textura: k_de(textura, muestreador), reg }),
+            // G5: la base de sus mips, y sus filas.
+            Precarga::Base { textura, muestreador, reg } => Some(Carga::Base { textura: k_de(textura, muestreador), reg }),
+            Precarga::Mips { textura, muestreador, fila, reg } => Some(Carga::Fila { fila: (filas + crate::mips::FILAS * k_de(textura, muestreador) as u32 + fila as u32) as u16, reg }),
             // LI2f: un UAV es de computo (`emitir` no lo pide en un dibujo).
             Precarga::Uav { .. } => None,
         })
         .collect()
 }
 
+/// ** G5: las filas de los DATOS con las de las mips: las del cbuffer y,
+/// si el de pixeles elige alguna mip, [`crate::mips::FILAS`] por textura.
+pub fn filas_con_mips(filas: u32, ps: &Emitido) -> u32 {
+    if ps.precargas.iter().any(|q| matches!(q, Precarga::Mips { .. })) {
+        filas + crate::mips::FILAS * texturas_de(ps).len() as u32
+    } else {
+        filas
+    }
+}
+
 /// **Las texturas de un programa emitido**, en el orden de la receta: la
-/// textura k es la pareja `(tN, sM)` de su k-esima asa.
+/// textura k es la pareja `(tN, sM)` de su k-esima asa (o base: G5).
 pub fn texturas_de(e: &Emitido) -> Vec<(u8, u8)> {
     let mut v: Vec<(u8, u8)> = Vec::new();
     for p in &e.precargas {
         // E8g: una pareja leida por varias lecturas es UNA textura.
-        if let Precarga::Asa { textura, muestreador, .. } | Precarga::AsaPar { textura, muestreador, .. } = *p {
+        if let Precarga::Asa { textura, muestreador, .. } | Precarga::AsaPar { textura, muestreador, .. } | Precarga::Base { textura, muestreador, .. } | Precarga::Mips { textura, muestreador, .. } = *p {
             if !v.contains(&(textura, muestreador)) {
                 v.push((textura, muestreador));
             }
@@ -181,7 +197,13 @@ pub fn traducir(en: &Enlace, ia: &[ElementoIa], paso: u32) -> Result<ParaLa3060,
     let ev = emitir(&en.vs, "vertice")?;
     let ep = emitir(&en.ps, "pixel")?;
     let els = elementos(en, ia)?;
-    let filas = en.vs.filas_cb.max(en.ps.filas_cb) as u32;
+    let filas_cb = en.vs.filas_cb.max(en.ps.filas_cb) as u32;
+    // G5: las filas de las mips, detras (este camino no las escribe: un PSO
+    // que elige su mip va por la puerta, `puerta::escribir`).
+    if filas_con_mips(filas_cb, &ep) != filas_cb {
+        return Err(NoVa::Entrada("un SampleLevel o un Load de una 2D con mips: va por la puerta"));
+    }
+    let filas = filas_cb;
     let datos = Datos { filas, paso, elementos: &els };
     // ** LI2a (12-10): el de pixeles que lee SV_Position ya va a la 3060 si
     // lee su x y su y (`Carga::Posicion`); la z y la w, por la CPU todavia.
@@ -195,7 +217,7 @@ pub fn traducir(en: &Enlace, ia: &[ElementoIa], paso: u32) -> Result<ParaLa3060,
     pegamento::vertice_con_libreta_en(&mut v, &ev.codigo, ev.registros, &cargas(&ev), datos, en.vs.salidas as u32, posicion, ev.termometro).map_err(|e| NoVa::Pegamento("vertice", e))?;
     let genericos: Vec<Option<u8>> = en.desde_vs.iter().map(|o| o.and_then(|o| pegamento::generico(o as u32, posicion))).collect();
     let mut p = pegado_vacio();
-    pegamento::pixel_con_libreta_en(&mut p, &ep.codigo, ep.registros, &cargas_con_posicion(&ep, en.pos_ps), datos, &genericos, ep.termometro).map_err(|e| NoVa::Pegamento("pixel", e))?;
+    pegamento::pixel_con_libreta_en(&mut p, &ep.codigo, ep.registros, &cargas_con_posicion(&ep, en.pos_ps, filas), datos, &genericos, ep.termometro).map_err(|e| NoVa::Pegamento("pixel", e))?;
     let (vs, ps) = (bytes(&v), bytes(&p));
     // LI2b: con los registros que pediria el kernel (`receta::pegar`).
     let registros = tuberia::registros_para(v.registros.max(p.registros));

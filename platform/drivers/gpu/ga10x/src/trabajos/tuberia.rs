@@ -949,12 +949,13 @@ pub fn ordenes_dibujo(v: &Ventana, n: usize, ligero: bool, d: Dibujo) -> cu::Ord
             e.m(bind_group_constant_buffer(g), &[1 | (BANCO_APP as u32) << 4]);
         }
     }
-    // P3b4c.8 T2: las piscinas de las texturas (el TIC y el TSC k de la
-    // textura k), con sus caches invalidadas: el kernel acaba de escribirlas.
+    // P3b4c.8 T2: las piscinas de las texturas (G5: los 16 TIC de la
+    // textura k, `mips`, y su TSC k), con sus caches invalidadas: el kernel
+    // acaba de escribirlas.
     if d.texturas > 0 {
         let n = d.texturas as u32;
         let t = crate::texturas::PISCINAS_VA;
-        crate::texturas::ordenes(&mut e, t, n, t + crate::texturas::TSC_DESDE, n);
+        crate::texturas::ordenes(&mut e, t, crate::mips::HUECOS * n, t + crate::texturas::TSC_DESDE, n);
     }
     match d.indices {
         None => e.dibujo_de(3 * n as u32),

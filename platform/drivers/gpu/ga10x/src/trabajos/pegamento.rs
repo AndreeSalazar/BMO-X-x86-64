@@ -72,10 +72,16 @@ pub enum Carga {
     Entrada { elemento: u8, componente: u8, reg: u8 },
     /// La fila `fila` del cbuffer, en `reg`..`reg + 3`.
     Fila { fila: u16, reg: u8 },
-    /// P3b4c.8 T2: el ASA de la textura `textura` (`texturas::asa(k, k)`),
-    /// en `reg`. La pone el pegamento con un MOV: la app no elige que TIC ni
-    /// que TSC lee la 3060. Solo en el de pixel.
+    /// P3b4c.8 T2: el ASA de la textura `textura` (`texturas::asa(16 k,
+    /// k)`: el hueco de la mip de su vista, `mips::HUECO_VISTA`), en `reg`.
+    /// La pone el pegamento con un MOV: la app no elige que TIC ni que TSC
+    /// lee la 3060. Solo en el de pixel.
     Asa { textura: u8, reg: u8 },
+    /// ** G5 (13-10): la BASE de las mips de la textura `textura` (el asa
+    /// del hueco de su mip 0, `mips::HUECO_BASE`), en `reg`. El cuerpo le
+    /// suma la mip SUJETA a `mips::TOPE` (el juez R7 lo exige): no sale de los
+    /// 16 huecos de su textura.
+    Base { textura: u8, reg: u8 },
     /// ** LI2a (12-10): `SV_Position` en el de PIXEL, su componente
     /// `componente` (0 = x, 1 = y) en `reg`: un IPA de `a[0x70 + 4c]` y su
     /// bit en la SPH (`ImapPositionX/Y`, bits 188 y 189: la tabla 9 de
@@ -193,12 +199,29 @@ fn redondear(o: &mut Poner, r: Redondeo) {
     }
 }
 
-/// Los registros que llevan un asa (la mascara que pide el juez R7).
+/// Los registros que llevan un asa (la mascara que pide el juez R7): las
+/// de la vista y (G5) las bases.
 pub fn asas(cargas: &[Carga]) -> u64 {
     cargas.iter().fold(0, |m, c| match *c {
-        Carga::Asa { reg, .. } if reg < 64 => m | 1 << reg,
+        Carga::Asa { reg, .. } | Carga::Base { reg, .. } if reg < 64 => m | 1 << reg,
         _ => m,
     })
+}
+
+/// ** G5: los registros con la BASE de unas mips (`Carga::Base`): de los
+/// que el juez deja calcular un asa.
+pub fn bases(cargas: &[Carga]) -> u64 {
+    cargas.iter().fold(0, |m, c| match *c {
+        Carga::Base { reg, .. } if reg < 64 => m | 1 << reg,
+        _ => m,
+    })
+}
+
+/// El asa que pone el pegamento para la textura `k`: la de la vista, o la
+/// base de sus mips (G5).
+pub const fn asa_de(k: u32, base: bool) -> u32 {
+    let hueco = if base { crate::mips::HUECO_BASE } else { crate::mips::HUECO_VISTA };
+    crate::texturas::asa(crate::mips::HUECOS * k + hueco, k)
 }
 
 /// Donde esta un elemento de entrada dentro de un vertice (del input layout
@@ -458,7 +481,7 @@ fn cargas_propias(cargas: &[Carga], registros: u32) -> Result<(), NoPega> {
                 (reg as u32, 1)
             }
             Carga::Fila { reg, .. } => (reg as u32, 4),
-            Carga::Asa { textura, reg } => {
+            Carga::Asa { textura, reg } | Carga::Base { textura, reg } => {
                 if textura as usize >= crate::texturas::MAX_TEXTURAS {
                     return Err(NoPega::Carga);
                 }
@@ -761,8 +784,10 @@ pub fn pixel_entero_en(g: &mut Pegado, cuerpo: &[(u64, u64)], registros: u32, ca
     // Las asas de las texturas: un MOV cada una (acoplado: su latencia la
     // cubre su propia espera de 6 ciclos, `mov`).
     for c in cargas {
-        if let Carga::Asa { textura, reg } = *c {
-            o.p(mov(reg as u64, crate::texturas::asa(textura as u32, textura as u32)));
+        match *c {
+            Carga::Asa { textura, reg } => o.p(mov(reg as u64, asa_de(textura as u32, false))),
+            Carga::Base { textura, reg } => o.p(mov(reg as u64, asa_de(textura as u32, true))),
+            _ => {}
         }
     }
     // Los IPA; el ultimo con el control largo de T2a.
@@ -909,6 +934,7 @@ mod pruebas {
                 // Los cubos no muestrean: la unica textura seria la 0.
                 Precarga::Asa { reg, .. } | Precarga::AsaPar { reg, .. } => Carga::Asa { textura: 0, reg },
                 Precarga::Uav { .. } => unreachable!("un dibujo no lleva UAV"),
+                Precarga::Base { .. } | Precarga::Mips { .. } => unreachable!("los cubos no eligen mips"),
             })
             .collect()
     }

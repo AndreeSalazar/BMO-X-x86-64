@@ -54,6 +54,9 @@ pub mod sombra;
 /// P3b4c.8 T0: las TEXTURAS de la 3060 -- sus descriptores (TIC y TSC) y
 /// las piscinas; el `TEX` y el kernel, despues (2026-09-29).
 pub mod texturas;
+/// G5: las MIPS en streaming -- un TIC por mip, cada una leida de la RAM
+/// del juego; la cola de mips chicas, en los DATOS (2026-10-13).
+pub mod mips;
 /// P3b4c: la RECETA (VRN2) -- lo que manda una APP: los cuerpos y como se
 /// cargan; el pegamento lo pone el kernel (2026-09-28).
 pub mod receta;

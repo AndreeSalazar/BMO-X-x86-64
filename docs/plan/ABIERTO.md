@@ -8,7 +8,7 @@
 
 ```text
    771 casillas ABIERTAS en 72 planes
-   611 hechas
+   612 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -90,7 +90,7 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] IL2 -- LA REJILLA DE VECINOS: cada particula a su celda, ordenadas por celda (un conteo y un ord
 - ... y 27 mas
 
-## [`PLAN_LA_3060_AFINADA.md`](PLAN_LA_3060_AFINADA.md) -- 23 abiertas, 9 hechas
+## [`PLAN_LA_3060_AFINADA.md`](PLAN_LA_3060_AFINADA.md) -- 23 abiertas, 10 hechas
 
 *PLAN LA 3060 AFINADA -- aislar mas, medir, y solo entonces optimizar*
 

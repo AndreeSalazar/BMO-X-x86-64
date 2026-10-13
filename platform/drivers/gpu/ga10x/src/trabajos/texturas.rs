@@ -241,7 +241,8 @@ pub const fn asa(tic: u32, tsc: u32) -> u32 {
 //             ranuras con PTE de SISTEMA hacia su IOVA, y detras la pagina
 //             de las PISCINAS
 //    PISCINAS una pagina de VRAM (0x04A0_4000): los TIC en +0, los TSC en
-//             +0x800; la textura k usa el TIC k y el TSC k (su asa, `asa(k, k)`)
+//             +0x800; la textura k usa los TIC 16 k .. 16 k + 15 (G5, 13-10:
+//             uno por mip, `mips`) y el TSC k (su asa, `asa(16 k, k)`)
 //    TABLAS   la PD0 y las 33 PT en VRAM 0x04A0_0000 (tras las de la sombra)
 // ```
 
@@ -267,15 +268,26 @@ pub const PISCINAS_VA: u64 = VA + MAX_TEXTURAS as u64 * RANURA;
 pub const TSC_DESDE: u64 = 0x800;
 const PAGINA: u64 = 0x1000;
 
-/// **Una textura que manda una app** en su receta: donde esta en SU memoria,
-/// como es y con que se muestrea.
+/// **Una textura que manda una app** en su receta: donde esta en SU memoria
+/// (la mip 0 de su capa, con las demas detras, como las guarda la casa),
+/// como es, que mip mira la vista, donde puso la puerta la cola de mips que
+/// no caen en 32 B (`mips`) y con que se muestrea.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct DeApp {
-    /// Su VA en la app (la de sus texeles).
+    /// Su VA en la app: la de la mip 0.
     pub va: u64,
+    /// Las medidas de la mip 0, y su fila en bytes (la casa: `4 x ancho`;
+    /// con varias mips, tiene que serlo: las demas van sin relleno).
     pub ancho: u32,
     pub alto: u32,
     pub fila: u32,
+    /// ** G5 (13-10): las mips del recurso (1..=`mips::MAX_MIPS`) y la que
+    /// mira la vista (el hueco 0: lo que lee un `Sample`).
+    pub mips: u32,
+    pub vista: u32,
+    /// ** G5: donde empieza la COLA en los DATOS de la receta (bytes; la
+    /// escribe la puerta con filas de 32). Sin cola, 0.
+    pub cola_en: u32,
     pub bgra: bool,
     pub muestreo: Muestreo,
 }
@@ -284,37 +296,70 @@ pub struct DeApp {
 pub const BYTES_DE_APP: usize = 48;
 
 impl DeApp {
-    pub const NINGUNA: DeApp = DeApp { va: 0, ancho: 0, alto: 0, fila: 0, bgra: false, muestreo: Muestreo { lineal: false, u: 1, v: 1, borde: [0.0; 4] } };
+    pub const NINGUNA: DeApp = DeApp { va: 0, ancho: 0, alto: 0, fila: 0, mips: 0, vista: 0, cola_en: 0, bgra: false, muestreo: Muestreo { lineal: false, u: 1, v: 1, borde: [0.0; 4] } };
 
-    /// Lo que ocupan sus texeles.
+    /// La primera mip que va en la cola (`mips::cola_desde`): la decide la
+    /// direccion, no la app.
+    pub const fn cola(&self) -> u32 {
+        crate::mips::cola_desde(self.va, self.ancho, self.alto, self.fila, self.mips)
+    }
+
+    /// Lo que se presta de la RAM de la app: las mips de antes de la cola.
     pub const fn bytes(&self) -> u64 {
-        self.fila as u64 * self.alto as u64
+        crate::mips::desde(self.ancho, self.alto, self.fila, self.cola())
     }
 
-    /// Cabe y se puede decir: su TIC (con la VA de la ranura, que guarda el
-    /// desplazamiento en la pagina) y su TSC, y los texeles en UNA ranura.
+    /// Lo que mide la cola en los DATOS.
+    pub const fn bytes_cola(&self) -> u64 {
+        crate::mips::bytes_cola(self.ancho, self.alto, self.cola(), self.mips)
+    }
+
+    /// Cabe y se puede decir: medidas de 1..=16384, de 1 a `MAX_MIPS` mips
+    /// (y no mas de las que tiene la cadena), la de la vista entre ellas, lo
+    /// prestado en UNA ranura, la cola en 32 B y no mas de `MAX_COLA`, y su
+    /// TSC. La cola dentro de los DATOS lo mira `receta::leer`.
     pub fn valida(&self) -> bool {
-        let en_ranura = Imagen { va: VA + self.va % PAGINA, ancho: self.ancho, alto: self.alto, fila: self.fila, bgra: self.bgra };
-        self.va != 0 && self.va % 32 == 0 && en_ranura.valida() && self.va % PAGINA + self.bytes() <= RANURA && tsc(&self.muestreo).is_some()
+        use crate::mips::{todas, MAX_COLA, MAX_MIPS};
+        (1..=16384).contains(&self.ancho)
+            && (1..=16384).contains(&self.alto)
+            && (1..=MAX_MIPS.min(todas(self.ancho, self.alto))).contains(&self.mips)
+            && self.vista < self.mips
+            && self.fila as u64 >= 4 * self.ancho as u64
+            && (self.mips == 1 || self.fila == 4 * self.ancho)
+            && self.va < 1 << 48
+            && (self.bytes() == 0 || self.va != 0)
+            && self.va % PAGINA + self.bytes() <= RANURA
+            && self.cola_en % 32 == 0
+            && self.bytes_cola() <= MAX_COLA as u64
+            && (self.bytes_cola() > 0 || self.cola_en == 0)
+            && tsc(&self.muestreo).is_some()
     }
 
-    /// Las paginas que se prestan (desde la de su primer texel).
+    /// Las paginas que se prestan (desde la de su primer texel; 0 si todo
+    /// va en la cola).
     pub const fn paginas(&self) -> u64 {
-        (self.va % PAGINA + self.bytes()).div_ceil(PAGINA)
+        if self.bytes() == 0 {
+            0
+        } else {
+            (self.va % PAGINA + self.bytes()).div_ceil(PAGINA)
+        }
     }
 
-    /// El TIC que la 3060 lee para la textura `k` (en su ranura).
-    pub const fn tic(&self, k: usize) -> Option<[u32; 8]> {
-        tic(&Imagen { va: VA + k as u64 * RANURA + self.va % PAGINA, ancho: self.ancho, alto: self.alto, fila: self.fila, bgra: self.bgra })
+    /// **Los 16 TIC de la textura `k`** (`mips::tics`): sus mips en su
+    /// ranura (que guarda el desplazamiento en la pagina) y su cola en los
+    /// DATOS.
+    pub fn tics(&self, k: usize) -> Option<[[u32; 8]; crate::mips::HUECOS as usize]> {
+        let en_ranura = VA + k as u64 * RANURA + self.va % PAGINA;
+        crate::mips::tics(en_ranura, crate::vram::DATOS_VA + self.cola_en as u64, self.ancho, self.alto, self.fila, self.mips, self.vista, self.cola(), self.bgra)
     }
 
-    /// Como viaja: la VA, las medidas, la bandera (bit 0 BGRA, bit 1
-    /// lineal, U en 4..7 y V en 8..11, los numeros de D3D12), el borde y
-    /// ceros hasta 48.
+    /// Como viaja: la VA, las medidas, la fila, la bandera (bit 0 BGRA, bit 1
+    /// lineal, U en 4..7 y V en 8..11, los numeros de D3D12), el borde, donde
+    /// va la cola y (G5) las mips (8 bits) con la de la vista (<< 8).
     pub fn escribir(&self, out: &mut [u8]) {
         let m = &self.muestreo;
         let bandera = self.bgra as u32 | (m.lineal as u32) << 1 | (m.u & 0xF) << 4 | (m.v & 0xF) << 8;
-        let w = [self.va as u32, (self.va >> 32) as u32, self.ancho, self.alto, self.fila, bandera, m.borde[0].to_bits(), m.borde[1].to_bits(), m.borde[2].to_bits(), m.borde[3].to_bits(), 0, 0];
+        let w = [self.va as u32, (self.va >> 32) as u32, self.ancho, self.alto, self.fila, bandera, m.borde[0].to_bits(), m.borde[1].to_bits(), m.borde[2].to_bits(), m.borde[3].to_bits(), self.cola_en, self.mips | self.vista << 8];
         for (k, x) in w.iter().enumerate() {
             out[4 * k..4 * k + 4].copy_from_slice(&x.to_le_bytes());
         }
@@ -323,12 +368,12 @@ impl DeApp {
     /// Leida de sus 48 bytes, o `None` si algo no se sostiene.
     pub fn leer(b: &[u8]) -> Option<DeApp> {
         let w = |k: usize| u32::from_le_bytes([b[4 * k], b[4 * k + 1], b[4 * k + 2], b[4 * k + 3]]);
-        if b.len() < BYTES_DE_APP || w(5) >> 12 != 0 || w(10) != 0 || w(11) != 0 {
+        if b.len() < BYTES_DE_APP || w(5) >> 12 != 0 || w(11) >> 16 != 0 {
             return None;
         }
         let bandera = w(5);
         let borde = [f32::from_bits(w(6)), f32::from_bits(w(7)), f32::from_bits(w(8)), f32::from_bits(w(9))];
-        let t = DeApp { va: w(0) as u64 | (w(1) as u64) << 32, ancho: w(2), alto: w(3), fila: w(4), bgra: bandera & 1 != 0, muestreo: Muestreo { lineal: bandera & 2 != 0, u: bandera >> 4 & 0xF, v: bandera >> 8 & 0xF, borde } };
+        let t = DeApp { va: w(0) as u64 | (w(1) as u64) << 32, ancho: w(2), alto: w(3), fila: w(4), mips: w(11) & 0xFF, vista: w(11) >> 8, cola_en: w(10), bgra: bandera & 1 != 0, muestreo: Muestreo { lineal: bandera & 2 != 0, u: bandera >> 4 & 0xF, v: bandera >> 8 & 0xF, borde } };
         t.valida().then_some(t)
     }
 }
@@ -370,15 +415,17 @@ pub fn mapear<R: Registros>(r: &mut R) -> Option<(u32, u32)> {
     Some((n, bien))
 }
 
-/// **Escribir las piscinas** de un dibujo: el TIC y el TSC de cada textura,
-/// en su sitio, RELEIDOS. `false` si una no se puede decir o no quedo.
+/// **Escribir las piscinas** de un dibujo: los 16 TIC de cada textura
+/// (G5: `mips`, la textura k en `16 k ..`) y su TSC k, en su sitio,
+/// RELEIDOS. `false` si una no se puede decir o no quedo.
 pub fn escribir_piscinas<R: Registros>(r: &mut R, texturas: &[DeApp]) -> bool {
     if texturas.len() > MAX_TEXTURAS {
         return false;
     }
-    texturas.iter().enumerate().all(|(k, t)| match (t.tic(k), tsc(&t.muestreo)) {
+    let huecos = crate::mips::HUECOS as usize;
+    texturas.iter().enumerate().all(|(k, t)| match (t.tics(k), tsc(&t.muestreo)) {
         (Some(ti), Some(ts)) => {
-            crate::copia::escribir(r, PISCINAS + (BYTES * k) as u64, &ti) == 8 && crate::copia::escribir(r, PISCINAS + TSC_DESDE + (BYTES * k) as u64, &ts) == 8
+            ti.iter().enumerate().all(|(h, x)| crate::copia::escribir(r, PISCINAS + (BYTES * (huecos * k + h)) as u64, x) == 8) && crate::copia::escribir(r, PISCINAS + TSC_DESDE + (BYTES * k) as u64, &ts) == 8
         }
         _ => false,
     })
@@ -691,7 +738,7 @@ pub mod prueba {
         let nv = bytes(&[mov_r(0, 0), exit(0)], &mut vs);
         let np = bytes(&[tex(0, 4, 6, carga(1)), exit(1 << 1)], &mut ps);
         let dst = Destino { fila: 4 * 1280, ancho: 1280, alto: 720, flotante: crate::destino::Flotante::No, rgb: true };
-        let t = DeApp { va: va_textura, ancho: ANCHO, alto: 4, fila: FILA, bgra: false, muestreo: Muestreo { lineal, u: modo, v: modo, borde: BORDE } };
+        let t = DeApp { va: va_textura, ancho: ANCHO, alto: 4, fila: FILA, mips: 1, vista: 0, cola_en: 0, bgra: false, muestreo: Muestreo { lineal, u: modo, v: modo, borde: BORDE } };
         let mut r = Receta {
             n: VERTICES,
             vs: &vs[..nv],

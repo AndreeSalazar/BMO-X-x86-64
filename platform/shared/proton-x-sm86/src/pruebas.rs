@@ -209,7 +209,7 @@ pub(crate) fn igual_en_registros(p: &Programa, e: &Emitido, entradas: &[[f32; 4]
                     m.r[reg as usize + k] = cb.get(o..o + 4).map_or(0, |b| u32::from_le_bytes([b[0], b[1], b[2], b[3]]));
                 }
             }
-            Precarga::Asa { .. } | Precarga::AsaPar { .. } | Precarga::Uav { .. } => panic!("un programa sin texturas no pide asas (ni UAV)"),
+            Precarga::Asa { .. } | Precarga::AsaPar { .. } | Precarga::Base { .. } | Precarga::Mips { .. } | Precarga::Uav { .. } => panic!("un programa sin texturas no pide asas (ni UAV)"),
         }
     }
     correr(&e.codigo, &mut m).unwrap();
@@ -301,7 +301,7 @@ fn el_pixel_de_hellotexture_es_un_tex() {
                 match q {
                     Precarga::Entrada { elemento, componente, reg } => m.r[reg as usize] = entradas[elemento as usize][componente as usize & 3].to_bits(),
                     Precarga::Asa { reg, .. } => m.r[reg as usize] = bmo_gpu_ga10x::texturas::asa(0, 0),
-                    Precarga::Fila { .. } | Precarga::AsaPar { .. } | Precarga::Uav { .. } => panic!("no lee cbuffer ni con nivel"),
+                    Precarga::Fila { .. } | Precarga::AsaPar { .. } | Precarga::Base { .. } | Precarga::Mips { .. } | Precarga::Uav { .. } => panic!("no lee cbuffer ni con nivel"),
                 }
             }
             correr(&e.codigo, &mut m).unwrap();

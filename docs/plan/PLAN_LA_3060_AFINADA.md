@@ -492,6 +492,27 @@ piezas; las tres estan escritas y NINGUNA ha corrido en el metal:
       lote, el parte lo dice y cuantos ms llevaba sin volver: un lote lento y
       un Xid no son lo mismo. La RAM de la app se sigue devolviendo tras un
       corte: es lo seguro (la IOMMU deja de traducirla).
+- [x] **G5 -- la puerta `[3]`: las mips en STREAMING (13-10).** Lo pidio el
+      propietario: nada de copiar las texturas a la VRAM. `clb097tex.h` (el
+      TIC PITCH tiene UNA direccion y UN paso: no dice donde esta la mip 1)
+      cierra el camino de las mips en un solo TIC sin copiar. Asi que cada
+      mip es un TIC de un nivel leido de la RAM del juego (16 huecos por
+      textura: el 0 la mip de la vista, del 1 al 14 las del recurso, el 15
+      ceros; `platform/drivers/gpu/ga10x/src/trabajos/mips.rs`), y el
+      SOMBREADOR elige la mip con las cuentas de la casa
+      (`platform/shared/proton-x-sm86/src/mips.rs`: el clamp de `sujetar`,
+      `fijo`, dos TEX `.LZ` y la mezcla `x + (y - x) * f`). Las mips de filas
+      que no caen en 32 B (la COLA: 224 B en una de 1024x1024, 11,6 KiB en
+      una de 1920x1088) viajan en los DATOS del lote. El juez R7 deja un asa
+      CALCULADA solo como `base + IMNMX.U32(k, 14)` (`sass/juez_asas.rs`): no
+      sale de los 16 huecos de su textura. **Como se sabe (banco):**
+      `SampleLevel` en 2D -- tres vistas, cinco muestreadores, 16 niveles con
+      NaN e infinitos -- y `niveles.hlsl` de dxc, bit a bit contra la casa.
+      De paso salio un fallo VIEJO del planificador (una barrera de lectura
+      liberada dos veces olvidaba a quien la usaba despues; R4 lo cazo). **Falta:**
+      el `Sample` con la mip de sus DERIVADAS (las del cuadro, que el emisor
+      no saca todavia) y las de un array o una 3D: el censo las cuenta aparte.
+      NADA de esto ha corrido en el metal.
 
 ---
 

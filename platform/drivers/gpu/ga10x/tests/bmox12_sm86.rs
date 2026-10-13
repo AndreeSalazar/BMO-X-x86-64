@@ -41,6 +41,7 @@ fn pegados() -> (Pegado, Pegado) {
                 // Los cubos no muestrean: la unica textura seria la 0.
                 Precarga::Asa { reg, .. } | Precarga::AsaPar { reg, .. } => Carga::Asa { textura: 0, reg },
                 Precarga::Uav { .. } => unreachable!("un dibujo no lleva UAV"),
+                Precarga::Base { .. } | Precarga::Mips { .. } => unreachable!("los cubos no eligen mips"),
             })
             .collect()
     };
@@ -185,6 +186,7 @@ fn la_receta_pega_lo_mismo_que_el_metal() {
         Precarga::Fila { fila, reg } => Carga::Fila { fila, reg },
         Precarga::Asa { reg, .. } | Precarga::AsaPar { reg, .. } => Carga::Asa { textura: 0, reg },
         Precarga::Uav { .. } => unreachable!("un dibujo no lleva UAV"),
+                Precarga::Base { .. } | Precarga::Mips { .. } => unreachable!("los cubos no eligen mips"),
     };
     let (cv, cp) = (cuerpo(&ev), cuerpo(&ep));
     let mut b = vec![0u8; tuberia::DATOS_MAX];

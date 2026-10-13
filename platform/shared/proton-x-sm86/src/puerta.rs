@@ -78,7 +78,10 @@ pub struct Cuerpos {
     pub registros_ps: u32,
     pub salidas: u32,
     pub posicion: u32,
+    /// Las filas de los DATOS: las del cbuffer ([`Cuerpos::filas_cb`]) y,
+    /// G5, detras las de las mips (`mips::FILAS` por textura).
     pub filas: u32,
+    pub filas_cb: u32,
     pub elementos: Vec<Elemento>,
     pub cargas_vs: Vec<Carga>,
     pub cargas_ps: Vec<Carga>,
@@ -86,6 +89,9 @@ pub struct Cuerpos {
     /// P3b4c.8 T2b: las texturas del de pixel, en el orden de la receta: la
     /// k es la pareja (tN, sM) de su k-esima asa.
     pub texturas: Vec<(u8, u8)>,
+    /// ** G5: el de pixeles elige la mip de alguna (`mips.rs`): la puerta
+    /// escribe sus filas y sus colas.
+    pub mips: bool,
     /// 9d: el registro del TERMOMETRO de cada cuerpo (con libreta).
     pub termometro_vs: Option<u8>,
     pub termometro_ps: Option<u8>,
@@ -155,7 +161,7 @@ pub fn cuerpos_con_libreta(en: &Enlace, ia: &[ElementoIa], recuerdo: Option<&mut
     };
     let vivos = crate::vivo::cuerpos_vivos(en, recuerdo, emitir)?;
     let (ev, ep) = (&vivos.vs, &vivos.ps);
-    if ev.precargas.iter().any(|q| matches!(q, crate::Precarga::Asa { .. } | crate::Precarga::AsaPar { .. })) {
+    if ev.precargas.iter().any(|q| matches!(q, crate::Precarga::Asa { .. } | crate::Precarga::AsaPar { .. } | crate::Precarga::Base { .. } | crate::Precarga::Mips { .. })) {
         return Err(NoVa::Emisor("vertice", crate::NoEmite::Operacion(0)));
     }
     let posicion = en.posicion as u32;
@@ -167,12 +173,16 @@ pub fn cuerpos_con_libreta(en: &Enlace, ia: &[ElementoIa], recuerdo: Option<&mut
         registros_ps: ep.registros,
         salidas: en.vs.salidas as u32,
         posicion,
-        filas: en.vs.filas_cb.max(en.ps.filas_cb) as u32,
+        // G5: con las filas de las mips detras del cbuffer (`mips::FILAS`
+        // por textura, si el de pixeles elige alguna).
+        filas: crate::pso::filas_con_mips(en.vs.filas_cb.max(en.ps.filas_cb) as u32, ep),
+        filas_cb: en.vs.filas_cb.max(en.ps.filas_cb) as u32,
         elementos: elementos(en, ia)?,
         cargas_vs: cargas(ev),
-        cargas_ps: crate::pso::cargas_con_posicion(ep, en.pos_ps),
+        cargas_ps: crate::pso::cargas_con_posicion(ep, en.pos_ps, en.vs.filas_cb.max(en.ps.filas_cb) as u32),
         genericos,
         texturas: crate::pso::texturas_de(ep),
+        mips: ep.precargas.iter().any(|q| matches!(q, crate::Precarga::Mips { .. })),
         termometro_vs: ev.termometro,
         termometro_ps: ep.termometro,
         banco: ev.usa_banco() || ep.usa_banco(),
@@ -459,7 +469,7 @@ impl Nula {
 
     /// Como viaja en la receta.
     pub fn de_app(&self) -> DeApp {
-        DeApp { va: self.0.as_ptr() as u64, ancho: 8, alto: 1, fila: 32, bgra: false, muestreo: Muestreo { lineal: false, u: 1, v: 1, borde: [0.0; 4] } }
+        DeApp { va: self.0.as_ptr() as u64, ancho: 8, alto: 1, fila: 32, mips: 1, vista: 0, cola_en: 0, bgra: false, muestreo: Muestreo { lineal: false, u: 1, v: 1, borde: [0.0; 4] } }
     }
 }
 
@@ -604,6 +614,9 @@ pub fn escribir(c: &Cuerpos, l: &Lote, b: Blanco, limpiar_z: Option<u32>, nula: 
         // muestreador) y aqui no se sabe cual de las dos es esta pareja.
         let Some(Some(t)) = l.recursos.texturas.get(tn as usize) else {
             texturas[k] = nula.de_app();
+            if c.mips {
+                crate::mips::poner_filas(datos, c.filas_cb, k, &[[0; 4]; 2]);
+            }
             continue;
         };
         let Some(Some(m)) = l.recursos.muestreadores.get(sm as usize) else {
@@ -616,23 +629,25 @@ pub fn escribir(c: &Cuerpos, l: &Lote, b: Blanco, limpiar_z: Option<u32>, nula: 
         if !matches!(t.como, Como::Rgba8 | Como::Bgra8) || t.srgb || t.mapeo & 0xFFF != Textura::MAPEO & 0xFFF || t.clase != Clase::Plana {
             return Err(format!("la textura t{tn} es BC, float, sRGB, con otro mapeo o no es una 2D: la 3060 todavia lee solo RGBA/BGRA de 8 bits"));
         }
-        // ** 12-10: la vista de OTRA mip de una 2D (el censo de Cyberpunk):
-        // el plano que ella mira, como lo lee la CPU (`plano_visto`), es una
-        // 2D mas -- su direccion y sus medidas --; con una sola mip en la
-        // vista (eso ya lo mira `mip_importa`, abajo).
-        let Some((plano, ancho, alto)) = t.plano_visto() else {
-            return Err(format!("la textura t{tn}: su mip {} no esta en la memoria que dio la casa", t.mip));
-        };
+        // ** G5 (13-10): la textura como la lee la 3060 (`mips::de_app`): si
+        // el de pixeles elige su mip, la CADENA entera desde la RAM del
+        // juego y sus dos filas de constantes; si no, el plano de la vista
+        // (12-10: la vista de OTRA mip, el censo de Cyberpunk). Lo que no cae
+        // en 32 B, a la cola en los DATOS.
+        if c.mips && m.lod.min.is_some_and(|f| f != m.filtro) {
+            return Err(format!("t{tn} con s{sm}: el filtro de lejos (MIN) no es el de cerca (MAG), y la 3060 elige la mip con uno solo todavia"));
+        }
         let muestreo = Muestreo { lineal: m.filtro == Filtro::Lineal, u: d3d(m.u), v: d3d(m.v), borde: m.borde };
-        let d = DeApp { va: plano.as_ptr() as u64, ancho, alto, fila: 4 * ancho, bgra: t.bgra(), muestreo };
-        if plano.len() < (ancho * alto) as usize || !d.valida() {
-            return Err(format!(
-                "la textura t{tn} ({ancho}x{alto}, VA {:#x}): la 3060 la lee con filas de 32 B, desde 32 B y en {} MiB; esta no",
-                d.va,
-                bmo_gpu_ga10x::texturas::RANURA >> 20
-            ));
+        let d = crate::mips::de_app(t, muestreo, c.mips, datos, tn)?;
+        if c.mips {
+            crate::mips::poner_filas(datos, c.filas_cb, k, &crate::mips::filas(t, m));
         }
         texturas[k] = d;
+    }
+    // G5: con las colas, los DATOS siguen en 16 y caben.
+    datos.resize(datos.len().next_multiple_of(16), 0);
+    if datos.len() > DATOS_MAX {
+        return Err(format!("{} bytes de DATOS con las colas de mips: no caben en los {DATOS_MAX} de la 3060", datos.len()));
     }
     let mut rec = Receta {
         n,
@@ -664,6 +679,13 @@ pub fn escribir(c: &Cuerpos, l: &Lote, b: Blanco, limpiar_z: Option<u32>, nula: 
     rec.genericos[..c.genericos.len()].copy_from_slice(&c.genericos);
     receta::escribir(caja, &rec).ok_or_else(|| String::from("la receta no se sostiene (lo que lee el pegamento no cae en los DATOS)"))
 }
+
+/// **La puerta `[3]` del censo, partida en dos** (G5, 13-10): un `Sample`
+/// saca la mip de las derivadas del cuadro (la 3060 no las emite todavia);
+/// un `SampleLevel` o un `Load` de un array o una 3D, de la mip 0 del TIC.
+/// Los de una 2D ya van (`mips`).
+pub const MIPS_DE_DERIVADAS: &str = "muestrea (Sample) una textura de varias mips con la mip de sus derivadas (o MIN y MAG distintos): la 3060 no saca las derivadas del cuadro todavia";
+pub const MIPS_SIN_2D: &str = "lee con SampleLevel o Load un array o una 3D de varias mips (o MIN y MAG distintos): la 3060 elige la mip solo en 2D todavia";
 
 /// A9c: de cada cuantos lotes de un PSO revisa uno el vigia (el primero,
 /// siempre). Revisar son unos pocos vertices en el simulador: en 256 lotes,
@@ -752,14 +774,13 @@ impl Puerta {
             return Err(String::from("sus sombreadores usan las derivadas (ddx, ddy, fwidth): la 3060 no las lleva todavia"));
         }
         if l.enlace.ps.mip_por_derivadas() && l.recursos.mip_importa() {
-            return Err(String::from("muestrea con la mip de sus derivadas una textura de varias mips (o con MIN y MAG distintos): la 3060 lee la mip 0 todavia"));
+            return Err(String::from(MIPS_DE_DERIVADAS));
         }
-        // ** E8g (10-10): SampleLevel y Load leen la mip que les dicen, y la
-        // 3060 tiene en su TIC (PITCH) la mip 0 de cada textura: con una
-        // vista de varias mips, o un muestreador que filtra distinto de lejos,
-        // daria otra cosa. Hasta el TIC de bloques (Ring 0), por la CPU.
-        if l.enlace.ps.lee_con_nivel() && l.recursos.mip_importa() {
-            return Err(String::from("lee con SampleLevel o Load una textura de varias mips (o con MIN y MAG distintos): la 3060 tiene la mip 0 todavia"));
+        // ** E8g (10-10) / G5 (13-10): SampleLevel y Load de una 2D eligen
+        // su mip en el sombreador, cada mip un TIC leido de la RAM del juego
+        // (`mips`); los de un array o una 3D, todavia la mip 0 del TIC.
+        if crate::mips::nivel_sin_mips(&l.enlace.ps) && l.recursos.mip_importa() {
+            return Err(String::from(MIPS_SIN_2D));
         }
         // N5.13: la receta lleva UNA instancia y los elementos por vertice.
         if l.instancias != 1 || l.entradas.iter().any(|e| e.por_instancia.is_some()) {

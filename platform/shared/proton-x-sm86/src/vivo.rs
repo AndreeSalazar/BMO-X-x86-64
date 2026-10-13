@@ -75,7 +75,13 @@ use crate::{Emitido, Precarga};
 /// emisor o su ABI de registros dan otro codigo para el mismo Programa. Un
 /// .bsf de otra version tiene otro nombre (y ademas se vuelve a comprobar
 /// bit a bit al cargarlo: una version que se olvido de subir no pasa).
-pub const VERSION_EMISOR: u32 = 2;
+/// 3 (13-10, G5): un `SampleLevel` o un `Load` de 2D elige su mip en el
+/// cuerpo (`mips.rs`); el `.LL` de antes leia la mip del TIC, que no la tiene.
+pub const VERSION_EMISOR: u32 = 3;
+
+/// G5: las filas de las mips con las que corre el vigia (sesgo 0, lo y hi
+/// 0, mip PUNTO; la vista 0 y sin peso: cada fila, la misma).
+const FILAS_NULAS: [u32; 4] = [0, 0, 0, 0x4300_0000];
 
 /// **Quien guarda y lee los .bsf** (en BMO-X, ESTRATOS: `proton-x/<juego>/bsf/`;
 /// en el banco, la memoria). `nombre` es el de [`nombre`].
@@ -155,6 +161,10 @@ fn cuerpo(e: &Emitido) -> Vec<u8> {
             // LI2f: lo que el kernel dice de un UAV (un lector de antes no
             // lo lee: lo vuelve a emitir).
             Precarga::Uav { u, que, reg } => [5, u, que as u8, reg],
+            // G5: la base de unas mips (6) y sus filas (7 y 8; un lector de
+            // antes no las lee: lo vuelve a emitir).
+            Precarga::Base { textura, muestreador, reg } => [6, textura, muestreador, reg],
+            Precarga::Mips { textura, muestreador, fila, reg } => [7 + (fila & 1), textura, muestreador, reg],
         });
     }
     // 9d: el termometro de la libreta, como una entrada mas (3): un .bsf de
@@ -186,6 +196,8 @@ fn de_cuerpo(b: &[u8], registros: u32) -> Option<Emitido> {
             2 => Precarga::Asa { textura: x[1], muestreador: x[2], reg: x[3] },
             4 => Precarga::AsaPar { textura: x[1], muestreador: x[2], reg: x[3] },
             5 => Precarga::Uav { u: x[1], que: crate::DelUav::de(x[2])?, reg: x[3] },
+            6 => Precarga::Base { textura: x[1], muestreador: x[2], reg: x[3] },
+            7 | 8 => Precarga::Mips { textura: x[1], muestreador: x[2], fila: x[0] - 7, reg: x[3] },
             3 if termometro.is_none() => {
                 termometro = Some(x[3]);
                 continue;
@@ -271,7 +283,10 @@ pub fn comprobar(p: &Programa, e: &Emitido, que: &str) -> Result<usize, String> 
                     }
                 }
                 // El asa: un numero cualquiera (`cero` no lo mira).
-                Precarga::Asa { reg, .. } | Precarga::AsaPar { reg, .. } | Precarga::Uav { reg, .. } => m.r[reg as usize] = 0,
+                Precarga::Asa { reg, .. } | Precarga::AsaPar { reg, .. } | Precarga::Base { reg, .. } | Precarga::Uav { reg, .. } => m.r[reg as usize] = 0,
+                // G5: unas filas de mips cualesquiera que se sostienen (la
+                // textura es la nula: da ceros en cualquier mip).
+                Precarga::Mips { reg, .. } => m.r[reg as usize..reg as usize + 4].copy_from_slice(&FILAS_NULAS),
             }
         }
         correr(&e.codigo, &mut m).map_err(|x| format!("el {que}: el simulador de la 3060 no sabe correr lo emitido ({})", crate::simula::decir(&e.codigo, x)))?;
@@ -390,7 +405,8 @@ pub fn revisar(en: &Enlace, els: &[bmo_gpu_ga10x::pegamento::Elemento], vs: &Emi
                         m.r[reg as usize + k] = palabra(l.cb, 16 * fila as usize + 4 * k);
                     }
                 }
-                Precarga::Asa { reg, .. } | Precarga::AsaPar { reg, .. } | Precarga::Uav { reg, .. } => m.r[reg as usize] = 0,
+                Precarga::Asa { reg, .. } | Precarga::AsaPar { reg, .. } | Precarga::Base { reg, .. } | Precarga::Uav { reg, .. } => m.r[reg as usize] = 0,
+                Precarga::Mips { reg, .. } => m.r[reg as usize..reg as usize + 4].copy_from_slice(&FILAS_NULAS),
             }
         }
         m

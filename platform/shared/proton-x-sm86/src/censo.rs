@@ -171,8 +171,13 @@ pub fn del_lote(l: &Lote, z_a_la_3060: bool) -> Vec<&'static str> {
     if l.enlace.vs.deriva() || l.enlace.ps.deriva() {
         v.push("las derivadas (ddx, ddy, fwidth)");
     }
-    if (l.enlace.ps.mip_por_derivadas() || l.enlace.ps.lee_con_nivel()) && l.recursos.mip_importa() {
-        v.push("una textura de varias mips (la 3060 tiene la mip 0)");
+    // G5 (13-10): la de las mips, en sus dos motivos (la de una 2D con
+    // nivel ya va: `mips`).
+    if l.enlace.ps.mip_por_derivadas() && l.recursos.mip_importa() {
+        v.push("Sample de una textura de varias mips (las derivadas del cuadro)");
+    }
+    if crate::mips::nivel_sin_mips(&l.enlace.ps) && l.recursos.mip_importa() {
+        v.push("SampleLevel o Load de un array o una 3D de varias mips");
     }
     if l.instancias != 1 || l.entradas.iter().any(|e| e.por_instancia.is_some()) {
         v.push("varias instancias o datos por instancia");
