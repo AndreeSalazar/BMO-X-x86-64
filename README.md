@@ -23,6 +23,7 @@ by whole nodes, not lines.
 ![estratos](https://img.shields.io/badge/ESTRATOS-every_write_a_version-2ea043)
 ![gpu](https://img.shields.io/badge/GPU-RTX_3060_driven_from_scratch-76b900)
 ![0x15](https://img.shields.io/badge/case_0x15-solved-76b900)
+![cyberpunk](https://img.shields.io/badge/Cyberpunk_2077-starts_(CPU%2C_16_s%2Fframe)-fcee0a)
 ![license](https://img.shields.io/badge/license-Apache_2.0-d29922)
 
 <p align="center">
@@ -32,6 +33,42 @@ by whole nodes, not lines.
 what the RTX 3060 is doing right now, or a shortcut of the house -- it opens with a
 cartoon bounce, types itself out and closes. Every pixel of it is BMO-X's own code
 (<a href="#the-desktop-talks-back">how this image was made</a>).</sub></p>
+
+## Cyberpunk 2077 starts on BMO-X (2026-10-13)
+
+<p align="center">
+  <img src="docs/evidencia/35-cyberpunk-logo.png" alt="The Cyberpunk 2077 intro logo, drawn inside a BMO-X window by PROTON-X, beside its console" width="100%">
+</p>
+<p align="center"><sub>Captured by BMO-X itself (its own <code>capturas/</code>), on the Ryzen 5 5600X,
+2026-10-13 03:39. The window is PROTON-X; the console on the right is what it says about every frame.</sub></p>
+
+**The unmodified Windows `Cyberpunk2077.exe`, read from an NTFS disk and drawing
+its own intro -- with no Windows, no Linux, no Wine and no DXVK underneath.**
+Every layer between the game and the screen is BMO-X's own code:
+
+| layer | what does it, here |
+|---|---|
+| the `.exe` and the DLLs it imports | PROTON-X's own PE loader and its own `kernel32`, `ucrt`, `dxgi`... (no code copied from Wine) |
+| Direct3D 12 | PROTON-X translates DXIL shaders and runs the frame |
+| the window, the disk, the threads | the BMO-X kernel and desktop: 12 threads paint the frame in bands |
+| the RTX 3060 | driven from scratch through its GSP (below); the game's draws are **not** on it yet |
+
+**Why it stands out:** an AAA DirectX 12 game is the hardest client a new system
+can have -- hundreds of Windows functions, compute shaders, HDR render targets.
+Getting its own pixels on the screen is the proof that the loader, the Windows
+layer, the shader translator and the kernel all hold together at once.
+
+**And what is normal about it -- said plainly, because only green counts:**
+
+- It is **not playable**: the CPU draws each frame in about **16 seconds**.
+- The game's draws are **not on the GPU yet**: 228 of 232 batches would pass
+  every gate to the RTX 3060, but its graphics channel was dead before the
+  first one (a Xid) and the 3060 drew 0 of them. Finding who kills it is next.
+- Some compute shaders the translator does not know yet; their `Dispatch`
+  are skipped (the glitches in [this frame](docs/evidencia/36-cyberpunk-intro.png)).
+
+The run, line by line: [`METAL_2026-10-13.md`](docs/metal/METAL_2026-10-13.md);
+the console census of that night: [photo](docs/evidencia/37-cyberpunk-censo.png).
 
 Written from scratch in Rust -- the boot chain, the kernel, the drivers, the
 filesystem, **six native compilers** and the executable format they emit. It

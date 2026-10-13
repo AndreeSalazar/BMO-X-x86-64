@@ -144,7 +144,7 @@ impl Porque {
             Porque::TallerOcupado => "el taller del kernel estaba en uso (otra receta a la vez)",
             Porque::GrOcupado => "el GR de la 3060 estaba ocupado (otro trabajo en marcha)",
             Porque::SinEscritorio => "el escritorio no preparo la 3060 (`gpu verrano`, hasta `lienzo`)",
-            Porque::CanalMuerto => "el canal de GR de la 3060 esta muerto (tomo un Xid)",
+            Porque::CanalMuerto => "el canal de GR de la 3060 esta muerto hasta reiniciar (tomo un Xid; el detalle es su numero en hexadecimal, 0x45 = Xid 69; sin detalle, lo corto el vigilante sin Xid conocido)",
             Porque::ComputoReceta => "la receta de computo (VRC1) no es de quien la manda, o no se sostiene",
             Porque::BuferNoEsSuyo => "un bufer del computo no es de quien lo manda (o un UAV no es escribible)",
             Porque::BuferNoSePresta => "un bufer del computo no se pudo prestar a la 3060 (o pasa de los 16 MiB de su ranura)",

@@ -169,7 +169,10 @@ fn despachar(bar0: u64, ficha: u32, va: u64, copia: &mut [u8], pegado: &mut [(u6
     }
     // El GR, con el cerrojo de todos; desde aqui se suelta en TODA salida.
     if gr_ocupado() {
-        return Err(no(if super::gr_muerto().is_some() { Porque::CanalMuerto } else { Porque::GrOcupado }, 0, 0));
+        return Err(match super::gr_muerto() {
+            Some(xid) => no(Porque::CanalMuerto, 0, xid as u64),
+            None => no(Porque::GrOcupado, 0, 0),
+        });
     }
     let hecho = con_el_gr(bar0, ficha, pid, &r, programa);
     BLUR_EN_MARCHA.store(false, Ordering::Release);

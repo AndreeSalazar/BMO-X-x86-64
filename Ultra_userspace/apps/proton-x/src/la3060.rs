@@ -565,7 +565,7 @@ pub fn dibujar(l: &Lote, d: &mut Destino) -> Result<Cuenta, NoDibuja> {
                         NO_DEL_KERNEL.fetch_add(1, core::sync::atomic::Ordering::Relaxed);
                         p.despues(l, false);
                         e.apagada = true;
-                        bmo::consola("PROTON-X: el kernel dice que el canal de GR de la 3060 esta MUERTO (tomo un Xid; el numero, en `cabina`): la 3060 se deja YA; el resto, por la CPU. Reinicia para recuperarla\n");
+                        bmo::consola(&alloc::format!("PROTON-X: el kernel dice que el canal de GR de la 3060 esta MUERTO: {}. La 3060 se deja YA; el resto, por la CPU. Reinicia para recuperarla\n", el_porque()));
                     }
                     Err(m) => {
                         NO_DEL_KERNEL.fetch_add(1, core::sync::atomic::Ordering::Relaxed);

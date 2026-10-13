@@ -629,8 +629,9 @@ fn en_frio(bar0: u64, pid: u32, e: u32, p: &bmo_gpu_ga10x::pantalla::Pantalla, v
     use bmo_gpu_ga10x::tuberia as tu;
     let (p, v, paquete) = (*p, *v, *paquete);
     // P3b4c (29-09): un canal MUERTO dice NO al instante, con SU motivo.
-    if super::gr_muerto().is_some() {
-        apuntar(Porque::CanalMuerto, 0, 0);
+    // 13-10: con SU Xid en el detalle: el juego lo dice en su consola.
+    if let Some(xid) = super::gr_muerto() {
+        apuntar(Porque::CanalMuerto, 0, xid as u64);
         return Err(super::IOMMU_NO_CANAL_MUERTO);
     }
     if !bmo_gpu_ga10x::blur::entrada_valida(e) || gr_ocupado() {

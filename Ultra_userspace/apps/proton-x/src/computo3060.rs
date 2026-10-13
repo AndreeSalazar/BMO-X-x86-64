@@ -154,7 +154,7 @@ fn con_el_estado(e: &mut Estado, p: &Programa, grupos: [u32; 3], cb: &[u8], bufe
         }
         Err(m) if m == bmo::IOMMU_NO_CANAL_MUERTO => {
             crate::la3060::apagar();
-            bmo::consola("PROTON-X: el kernel dice que el canal de GR de la 3060 esta MUERTO: el computo, por la CPU\n");
+            bmo::consola(&alloc::format!("PROTON-X: el kernel dice que el canal de GR de la 3060 esta MUERTO: {}. El computo, por la CPU\n", crate::la3060::porque_del_kernel()));
             false
         }
         Err(m) => {
