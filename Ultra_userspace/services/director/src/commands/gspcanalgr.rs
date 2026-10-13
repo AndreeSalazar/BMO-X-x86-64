@@ -83,6 +83,13 @@ pub(crate) fn pedir() -> Result<u64, u32> {
     }
 }
 
+/// **E7b (13-10): olvidar el canal de GR0** (`gpu revivir`): liberado, se
+/// vuelve a pedir y a encender como en el arranque.
+pub(crate) fn olvidar() {
+    // SAFETY: como `estado`.
+    unsafe { *core::ptr::addr_of_mut!(ESTADO) = None };
+}
+
 /// Lo pregunta `save mode`.
 pub(crate) fn pedido() -> bool {
     pedido_bien(&estado().pedido)

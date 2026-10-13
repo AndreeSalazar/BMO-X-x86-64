@@ -101,6 +101,8 @@ pub mod censo;
 /// 12-10: el PORQUE de cada NO del kernel (el vocabulario es del driver:
 /// `bmo_gpu_ga10x::porque`; PROTON-X lo lee y lo dice).
 pub use bmo_gpu_ga10x::porque;
+/// 13-10: el parte del canal muerto (los nombres de los Xid y de los fallos).
+pub use bmo_gpu_ga10x::rc;
 
 // A9 (06-10): el .bsf vivo: generar, comprobar bit a bit y recordar.
 pub mod vivo;

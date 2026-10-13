@@ -326,6 +326,13 @@ fn con_oro(f: impl FnOnce(&mut Oro)) {
     f(unsafe { &mut *core::ptr::addr_of_mut!(ORO) })
 }
 
+/// **E7b (13-10): olvidar el PROMOTE_CTX y el AMPERE_B** (`gpu revivir`): el
+/// canal nuevo los pide otra vez. Lo de G0 (las medidas) y G2 (los buferes,
+/// mapeados) se queda: es de la tarjeta, no del canal.
+pub(crate) fn olvidar_oro() {
+    con_oro(|o| *o = Oro::default());
+}
+
 /// El RM contesto al PROMOTE_CTX, pero no con NV_OK.
 pub(crate) const NO_GR_NO_PROMOVIDO: u32 = 0x135;
 /// El RM contesto al AMPERE_B, pero no con NV_OK.

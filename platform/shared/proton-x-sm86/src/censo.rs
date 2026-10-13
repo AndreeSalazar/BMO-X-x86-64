@@ -282,7 +282,7 @@ pub fn tramo_largo(n: usize) -> String {
 }
 
 /// El motivo del emisor con NOMBRE: la operacion que no sabe, no su indice.
-fn motivo_emisor(p: &crate::Programa, e: NoEmite) -> String {
+pub fn motivo_emisor(p: &crate::Programa, e: NoEmite) -> String {
     match e {
         NoEmite::Operacion(i) => {
             let op = p.ops.get(i).map(|o| format!("{o:?}")).unwrap_or_default();

@@ -956,10 +956,18 @@ fn pintar(e: &Estado, pso: &Pso, cuantos: u32, instancias: u32, primero: u32, ba
             continue;
         }
         let v = e.vertices[r];
-        match (v.va != 0).then(|| resolver(v.va, v.bytes as usize)).flatten() {
+        // ** 13-10 (Cyberpunk 2077): una ranura SIN bufer (`IASetVertexBuffers`
+        // con una vista nula) es de D3D12: lo que se lee de ella son CEROS, y
+        // el dibujo va. Hasta hoy no se dibujaba. El flujo vacio ya da eso
+        // (`lote::entrada`: lo que cae fuera del bufer, ceros).
+        if v.va == 0 {
+            aviso(&format!("Draw: el input layout lee la ranura {r} y no tiene bufer de vertices: lee CEROS, como D3D12 con una vista nula"));
+            continue;
+        }
+        match resolver(v.va, v.bytes as usize) {
             Some(b) => flujos[r] = bmo_proton_x::lote::Flujo { bytes: b, paso: v.paso_o_formato as usize },
             None => {
-                aviso(&format!("Draw: el input layout lee la ranura {r} y no tiene un bufer de vertices de la casa"));
+                aviso(&format!("Draw: el input layout lee la ranura {r} y su bufer ({:#x}, {} B) no es de la casa: no se dibuja", v.va, v.bytes));
                 return;
             }
         }

@@ -367,6 +367,10 @@ pub struct Dibujo {
     /// (la receta, +88 bit 0): lo que la app muestra en `Present`, y nada mas
     /// lo lee. Solo eso puede ir directo a la pantalla.
     pub cadena: bool,
+    /// 13-10: la app pide la ESCALERA de T1c (un semaforo por escalon:
+    /// estado, vertices, dibujo) para saber DONDE se para la 3060 si no
+    /// paga. Mas lento; para diagnosticar (`--3060-escalera`).
+    pub escalera: bool,
     /// P3b4c.9 Z1: lo decide el KERNEL, nunca la app (la receta no lo
     /// lleva): el dibujo va a la ventana de la pantalla que el ESCRITORIO le
     /// dio (`gpu_trabajo::pantalla_para`), no a la RAM de la app; el destino
@@ -596,7 +600,7 @@ pub(crate) fn dibujo_de_campos(cabecera: &[u8], n: usize, datos: usize) -> Optio
     };
     let z = z_de(estado).ok()?;
     let redondeo = crate::pegamento::Redondeo::de_numero(bandera >> 8 & 0xFF)?;
-    let d = Dibujo { indices, vertices, descarte, antihorario: estado & 4 != 0, destino, z, color: None, texturas: 0, cadena: false, pantalla: false, banco: 0, redondeo, mezcla: crate::mezcla::Mezcla::NINGUNA, registros: 0, mas: Default::default(), n_mas: 0 };
+    let d = Dibujo { indices, vertices, descarte, antihorario: estado & 4 != 0, destino, z, color: None, texturas: 0, cadena: false, escalera: false, pantalla: false, banco: 0, redondeo, mezcla: crate::mezcla::Mezcla::NINGUNA, registros: 0, mas: Default::default(), n_mas: 0 };
     cabe(&d).then_some(d)
 }
 
@@ -1215,7 +1219,7 @@ mod pruebas {
         for (k, i) in [0u32, 1, 2, 0, 2, 3].iter().enumerate() {
             datos[64 + 4 * k..68 + 4 * k].copy_from_slice(&i.to_le_bytes());
         }
-        let d = Dibujo { indices: Some(64), vertices: 4, descarte: Descarte::Traseras, antihorario: false, destino: None, z: None, color: None, texturas: 0, cadena: false, pantalla: false, banco: 0, redondeo: crate::pegamento::Redondeo::NADA, mezcla: crate::mezcla::Mezcla::NINGUNA, registros: 0, mas: Default::default(), n_mas: 0 };
+        let d = Dibujo { indices: Some(64), vertices: 4, descarte: Descarte::Traseras, antihorario: false, destino: None, z: None, color: None, texturas: 0, cadena: false, escalera: false, pantalla: false, banco: 0, redondeo: crate::pegamento::Redondeo::NADA, mezcla: crate::mezcla::Mezcla::NINGUNA, registros: 0, mas: Default::default(), n_mas: 0 };
         let mut caja = std::vec![0u8; MAX_PAQUETE];
         let n = escribir_paquete_dibujo(&mut caja, 7, &vs, &ps, 6, &datos, d).unwrap();
         assert_eq!(medida(&caja[..CABECERA_MAX]), Some(n));
@@ -1357,7 +1361,7 @@ mod pruebas {
         let (vs, ps) = (programa_de(&vertice()), programa_de(&pixel()));
         let datos = std::vec![0u8; 96];
         let dst = Destino { fila: 1280 * 4, ancho: 1280, alto: 720, flotante: crate::destino::Flotante::No, rgb: false };
-        let d = Dibujo { indices: None, vertices: 3, descarte: Descarte::Ninguna, antihorario: false, destino: Some((0x1234_5000, dst)), z: None, color: None, texturas: 0, cadena: false, pantalla: false, banco: 0, redondeo: crate::pegamento::Redondeo::NADA, mezcla: crate::mezcla::Mezcla::NINGUNA, registros: 0, mas: Default::default(), n_mas: 0 };
+        let d = Dibujo { indices: None, vertices: 3, descarte: Descarte::Ninguna, antihorario: false, destino: Some((0x1234_5000, dst)), z: None, color: None, texturas: 0, cadena: false, escalera: false, pantalla: false, banco: 0, redondeo: crate::pegamento::Redondeo::NADA, mezcla: crate::mezcla::Mezcla::NINGUNA, registros: 0, mas: Default::default(), n_mas: 0 };
         let mut caja = std::vec![0u8; MAX_PAQUETE];
         let n = escribir_paquete_dibujo(&mut caja, 7, &vs, &ps, 3, &datos, d).unwrap();
         assert_eq!(leer(&caja[..n]).unwrap().dibujo, d);

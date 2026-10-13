@@ -100,6 +100,21 @@ fn bytes(codigo: &[(u64, u64)]) -> Vec<u8> {
 
 /// **Los cuerpos de un PSO**: el emisor, con el ABI de registros (y A9,
 /// comprobados bit a bit contra la CPU: [`crate::vivo`]).
+/// **13-10: la ESCALERA, pedida por la app** (`--3060-escalera`): cada lote
+/// va con un semaforo por escalon (estado, vertices, dibujo), para que un
+/// lote que la 3060 no paga diga DONDE se paro. Mas lento: para
+/// diagnosticar, no para jugar.
+static ESCALERA: core::sync::atomic::AtomicBool = core::sync::atomic::AtomicBool::new(false);
+
+/// Pedir (o dejar de pedir) la escalera en los lotes siguientes.
+pub fn pedir_escalera(si: bool) {
+    ESCALERA.store(si, core::sync::atomic::Ordering::Relaxed);
+}
+
+fn escalera() -> bool {
+    ESCALERA.load(core::sync::atomic::Ordering::Relaxed)
+}
+
 pub fn cuerpos(en: &Enlace, ia: &[ElementoIa]) -> Result<Cuerpos, NoVa> {
     cuerpos_con(en, ia, None).map(|(c, _)| c)
 }
@@ -244,6 +259,31 @@ pub const FLOTANTE_DESCONOCIDO: &str = "un render target de float de un formato 
 /// los bytes de la vista y de vuelta; la 3060 todavia no.
 pub const FLOTANTE_OTRA_VISTA: &str = "un render target de float que el juego ve con OTRO formato (una vista sobre un TYPELESS): la CPU lo traduce, la 3060 todavia no";
 
+/// **13-10: las parejas `(guardado, vista)` que pararon esa puerta**, para el
+/// censo: la conversion que la 3060 tendria que hacer es de BITS (pasar lo
+/// que escribe el de pixel en el formato de la vista a los bytes del
+/// guardado), y es una por pareja. Antes de escribirla, saber cuales pide el
+/// juego. Hasta [`MAX_VISTAS`] distintas; 0 = libre.
+pub const MAX_VISTAS: usize = 8;
+static VISTAS: [core::sync::atomic::AtomicU32; MAX_VISTAS] = [const { core::sync::atomic::AtomicU32::new(0) }; MAX_VISTAS];
+
+fn apuntar_vista(guardado: u32, vista: u32) {
+    use core::sync::atomic::Ordering;
+    let x = (guardado & 0xFFFF) | (vista & 0xFFFF) << 16;
+    for v in &VISTAS {
+        match v.compare_exchange(0, x, Ordering::AcqRel, Ordering::Acquire) {
+            Ok(_) => return,
+            Err(y) if y == x => return,
+            Err(_) => {}
+        }
+    }
+}
+
+/// Las parejas `(guardado, vista)` en DXGI vistas hasta ahora.
+pub fn otras_vistas() -> impl Iterator<Item = (u32, u32)> {
+    VISTAS.iter().map(|v| v.load(core::sync::atomic::Ordering::Acquire)).filter(|&x| x != 0).map(|x| (x & 0xFFFF, x >> 16))
+}
+
 /// **Un render target de float, como lo escribe la 3060** (LI2d-HDR, 12-10):
 /// en floats de 32 (`destino::Flotante`), con la salida redondeada canal a
 /// canal a lo que la CPU guarda (`formato_ia::cuantizar`: de 32 bits igual,
@@ -258,7 +298,10 @@ pub fn de_flotante(formato: u32, palabras: u32) -> Result<(Flotante, Redondeo), 
     let formato = if formato & bmo_proton_x::bufer::CUATRO_FLOATS != 0 {
         match bmo_proton_x::bufer::guardado_y_vista(formato) {
             (g, None) => g,
-            (_, Some(_)) => return Err(FLOTANTE_OTRA_VISTA),
+            (g, Some(v)) => {
+                apuntar_vista(g, v);
+                return Err(FLOTANTE_OTRA_VISTA);
+            }
         }
     } else {
         formato
@@ -599,7 +642,7 @@ pub fn escribir(c: &Cuerpos, l: &Lote, b: Blanco, limpiar_z: Option<u32>, nula: 
         genericos: [None; MAX_GENERICOS],
         n_genericos: c.genericos.len(),
         datos,
-        dibujo: Dibujo { indices: Some(desde as u32), vertices: vertices as u32, descarte, antihorario: r.antihorario, destino: Some((b.va, dst)), z, color: l.limpiar_rt, texturas: c.texturas.len() as u8, cadena: b.cadena, pantalla: false, banco: if c.banco { 16 * c.filas } else { 0 }, redondeo, mezcla: mezcla_de(&l.reglas.mezcla).map_err(String::from)?, registros: 0, mas, n_mas: objetivos as u8 - 1 },
+        dibujo: Dibujo { indices: Some(desde as u32), vertices: vertices as u32, descarte, antihorario: r.antihorario, destino: Some((b.va, dst)), z, color: l.limpiar_rt, texturas: c.texturas.len() as u8, cadena: b.cadena, escalera: escalera(), pantalla: false, banco: if c.banco { 16 * c.filas } else { 0 }, redondeo, mezcla: mezcla_de(&l.reglas.mezcla).map_err(String::from)?, registros: 0, mas, n_mas: objetivos as u8 - 1 },
         texturas,
         termometro_vs: c.termometro_vs,
         termometro_ps: c.termometro_ps,

@@ -147,7 +147,7 @@ pub(crate) fn complete(path: &mut [u8; PATH_MAX], n: usize, output: &mut Output)
 fn ruta_personal(linea: &[u8]) -> Option<usize> {
     let resto = linea.strip_prefix(b"personal ")?;
     let mut desde = linea.len() - resto.len();
-    for sub in [&b"ls "[..], b"dir ", b"lee ", b"cat ", b"censo ", b"diario ", b"3060 ", b"gpu "] {
+    for sub in [&b"ls "[..], b"dir ", b"lee ", b"cat ", b"censo ", b"diario ", b"3060 ", b"escalera ", b"gpu "] {
         if resto.starts_with(sub) {
             desde += sub.len();
             break;

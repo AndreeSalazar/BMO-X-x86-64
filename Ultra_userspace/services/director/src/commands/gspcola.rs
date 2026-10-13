@@ -340,18 +340,6 @@ const fn es_aviso(f: u32) -> bool {
     matches!(f, 0x1004..=0x1006 | 0x1021 | 0x1022)
 }
 
-/// El nombre de unos numeros "Xid" de NVIDIA.
-fn xid(t: u32) -> &'static [u8] {
-    match t {
-        13 => b"excepcion del motor grafico (un sombreador o el estado 3D)",
-        31 => b"FALLO DE PAGINA de la MMU de la GPU",
-        43 => b"el canal se paro",
-        69 => b"error de clase del motor grafico (un metodo o un valor que no acepta)",
-        109 => b"el cambio de contexto no volvio",
-        _ => b"?",
-    }
-}
-
 /// 4 bytes de los datos del mensaje en `pagina` (tras sus 80 de cabecera).
 fn dato32(pagina: u64, o: u64) -> u32 {
     let d = CABECERA as u64 + o;
@@ -424,26 +412,35 @@ pub(crate) fn avisos(s: &mut Output, max: u32) -> u32 {
 /// Lo que dice cada uno.
 fn aviso(s: &mut Output, p: u64, m: &Mensaje) {
     match m.funcion {
-        // ** Metal 24-09 18:27: leido como v17_02 (motor, canal, TIPO) dio
-        // "Xid 0": la 570 trae mas campos entre el canal y el tipo. Se dan las
-        // 8 primeras palabras CRUDAS y el Xid probable: la primera, despues
-        // del canal, que es un Xid conocido.
+        // ** 13-10: campo a campo (`bmo_gpu_ga10x::rc`, de
+        // `rpc_rc_triggered_v17_02` de la 570.144): el Xid es el
+        // `exceptType` (+16). Hasta hoy se adivinaba "la primera palabra
+        // conocida de la 2 a la 7"; el 24-09 18:27 leido como la v17_02 vieja
+        // (sin gfid ni nivel) dio "Xid 0". Siguen las 8 palabras CRUDAS.
         0x1004 => {
+            let r = bmo_gpu_ga10x::rc::rc_de(|o| dato32(p, o as u64), m.datos());
             s.text(b": motor 0x");
             s.hex(dato32(p, 0) as u64, 2);
             s.text(b", canal ");
             s.dec(dato32(p, 4) as u64);
+            if let Some(r) = r {
+                s.text(b"; Xid ");
+                s.dec(r.xid as u64);
+                s.text(b" = ");
+                s.with_ink(INK_ECHO);
+                s.text(bmo_gpu_ga10x::rc::nombre_xid(r.xid).as_bytes());
+                s.with_ink(INK_PLAIN);
+                if r.xid == 31 || r.va != 0 {
+                    s.text(b"; el fallo en la VA 0x");
+                    s.hex(r.va, 10);
+                    s.text(b": ");
+                    s.text(bmo_gpu_ga10x::rc::nombre_fallo(r.tipo_fallo).as_bytes());
+                }
+            }
             s.text(b"; crudo");
             for k in 0..8 {
                 s.text(b" ");
                 s.hex(dato32(p, 4 * k) as u64, 8);
-            }
-            if let Some(t) = (2..8).map(|k| dato32(p, 4 * k)).find(|&t| xid(t) != b"?") {
-                s.text(b"; Xid ");
-                s.dec(t as u64);
-                s.text(b" = ");
-                s.with_ink(INK_ECHO);
-                s.text(xid(t));
             }
             // ** Metal 24-09 18:27: tras esto, el `gpu giro` tecleado dio 0 de 32
             // y parecia que la esfera fallaba. No: el GSP-RM RECUPERA el canal

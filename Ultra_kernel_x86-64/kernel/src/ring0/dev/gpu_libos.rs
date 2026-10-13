@@ -537,13 +537,60 @@ fn rpc_lista() -> bool {
     GSPMEM_F.load(Ordering::Acquire) != 0 && crate::ring0::dev::gpu::bar0() != 0 && d::info_secuencia() >> 24 & d::SEC_HECHO != 0
 }
 
+// == E7b: EL CANAL DE GR0, LIBERADO Y COMO RECIEN ARRANCADO (2026-10-13) ======
+//
+// Tras un Xid el GSP-RM deja el canal MUERTO; los drivers de verdad lo
+// liberan y lo piden otra vez. Aqui: el `FREE` de sus tres objetos (la lista
+// del contrato, `bmo_gpu_ga10x::liberar`) y lo que de este fichero recuerda
+// que el canal ya se pidio, se promovio y tiene su 3D. El tramo, los buferes
+// de GR (mapeados) y el espacio de direcciones NO se tocan: siguen vivos.
+
+/// **E7b: el `FREE` de uno de los tres.** `Ok(pagina | numero << 32)`, como
+/// todas: la respuesta la espera el escritorio.
+pub(super) fn liberar_gr(que: bmo_gpu_ga10x::liberar::Liberable) -> Result<u64, u32> {
+    if !rpc_lista() {
+        return Err(IOMMU_NO_RPC_ANTES);
+    }
+    enviar(|h, n| bmo_gpu_ga10x::liberar::armar(h, n, que))
+}
+
+/// **E7b: lo de este fichero, como antes de `canalgr`**: el canal sin
+/// pedir, sin promover y sin 3D; su USERD (su hueco de 0x200, no la pagina:
+/// la comparte con el de copia) y los buferes que el RM llena, otra vez a
+/// cero (como `nvkm_chan_new`). Devuelve las paginas a cero.
+pub(super) fn olvidar_gr() -> u64 {
+    use bmo_gpu_ga10x::canal::{GR, USERD_MEDIDA};
+    let mut r = crate::ring0::dev::gpu_prestamo::Bar0(crate::ring0::dev::gpu::bar0());
+    for k in 0..USERD_MEDIDA / 8 {
+        bmo_gpu_ga10x::vram::escribir64(&mut r, GR.userd + 8 * k, 0);
+    }
+    let cero = GR_BYTES.load(Ordering::Acquire) >> 32;
+    let mut ceros = 0u64;
+    for k in 0..cero / PAGINA {
+        if bmo_gpu_ga10x::vram::a_cero(&mut r, bmo_gpu_ga10x::gr::VRAM + k * PAGINA) as usize == bmo_gpu_ga10x::vram::PALABRAS {
+            ceros += 1;
+        }
+    }
+    GR_TRESDE.store(false, Ordering::Release);
+    GR_PROMOVIDO.store(false, Ordering::Release);
+    CANAL_GR_PEDIDO.store(false, Ordering::Release);
+    ceros
+}
+
 /// **P3b4c (29-09): el Xid con el que el GSP-RM mato el canal `chid`**, si
 /// su `RC_TRIGGERED` sigue en la cola del GSP (sin moverla: la lee, no la
 /// consume; como `gpu` en el director). `Some(0)` = muerto, Xid desconocido.
 pub(super) fn rc_del_canal(chid: u32) -> Option<u32> {
+    parte_del_canal(chid).rc.map(|r| r.xid)
+}
+
+/// **13-10: el PARTE entero del canal `chid`**: su `RC_TRIGGERED` campo a
+/// campo (motor, Xid, la direccion y el tipo de un fallo de memoria) y el
+/// ultimo `OS_ERROR_LOG` suyo (la frase de NVIDIA). Sin mover la cola.
+pub(super) fn parte_del_canal(chid: u32) -> bmo_gpu_ga10x::rc::Parte {
     let f = GSPMEM_F.load(Ordering::Acquire);
     if f == 0 {
-        return None;
+        return bmo_gpu_ga10x::rc::Parte::default();
     }
     let u32_en = |fisica: u64| {
         // SAFETY: dentro de GspMem (marcos NEUTRO de este fichero), que el
@@ -555,7 +602,7 @@ pub(super) fn rc_del_canal(chid: u32) -> Option<u32> {
     let datos = f + lb::COLA_GSP + PAGINA;
     let bytes = lb::MSGQ_PAGINAS * PAGINA;
     let mut leer = |p: u64, o: usize| u32_en(datos + (p * PAGINA + o as u64) % bytes);
-    bmo_gpu_ga10x::rpc::rc_del_canal(&mut leer, leido, escrito, lb::MSGQ_PAGINAS, chid)
+    bmo_gpu_ga10x::rc::buscar(&mut leer, leido, escrito, lb::MSGQ_PAGINAS, chid)
 }
 
 /// **Una pregunta a la cola de la CPU**: la arma `armar` en la pagina

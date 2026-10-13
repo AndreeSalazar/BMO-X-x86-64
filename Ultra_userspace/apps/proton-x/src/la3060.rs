@@ -360,6 +360,12 @@ fn decir_censo(e: &mut Estado, ahora: u64) {
     for (porque, veces) in &e.porques {
         s.push_str(&alloc::format!("#   el kernel dijo NO {veces} vez/veces porque: {porque}\n"));
     }
+    // 13-10: las parejas de la puerta del render target de float visto con
+    // OTRO formato -- cual guarda la casa y cual ve el juego, en DXGI: lo que
+    // hay que saber para que la 3060 haga esa conversion.
+    for (guardado, vista) in bmo_proton_x_sm86::puerta::otras_vistas() {
+        s.push_str(&alloc::format!("#   la vista de otro formato: guardado DXGI {guardado}, visto como DXGI {vista}\n"));
+    }
     bmo::consola("PROTON-X: el censo de la 3060 (LI0):\n");
     let n = s.lines().count();
     for (k, linea) in s.lines().enumerate() {
@@ -384,6 +390,48 @@ fn soltar_pantalla(e: &mut Estado) {
         e.sin_pantalla = true;
         bmo::consola("PROTON-X: la pantalla directa se suelta (Z1): el escritorio vuelve a componer la ventana\n");
     }
+}
+
+/// **El parte del canal muerto** (13-10), como lo guardo el kernel: el Xid
+/// con su nombre, quien lo dijo, la direccion y el tipo de un fallo de
+/// memoria, y la frase de NVIDIA. Vacio si el kernel no guardo ninguno.
+pub(crate) fn el_parte() -> String {
+    use bmo_proton_x_sm86::rc;
+    // Los bits, en el ABI (`INFO_GPU_RC`).
+    let p = bmo::info(bmo::INFO_GPU_RC);
+    if p >> 63 == 0 {
+        return String::new();
+    }
+    let (xid, motor, tipo, quien) = ((p & 0xFF) as u32, (p >> 8 & 0xFF) as u32, (p >> 16 & 0xFF) as u32, p >> 32 & 0xFF);
+    let mut s = if quien == 1 {
+        alloc::format!("PROTON-X: el parte del GSP-RM: Xid {xid} = {} (motor {motor})", rc::nombre_xid(xid))
+    } else {
+        let ms = p >> 48 & 0xFFFF;
+        if ms != 0 {
+            alloc::format!("PROTON-X: el parte: el VIGILANTE corto el canal -- un lote llevaba {ms} ms sin volver, y el GSP-RM no conto un Xid (un sombreador que no acaba, o un lote lento de verdad)")
+        } else {
+            String::from("PROTON-X: el parte: el canal se dio por muerto SIN un RC del GSP-RM a la vista (el mensaje se perdio, o lo corto el vigilante)")
+        }
+    };
+    let va = bmo::info(bmo::INFO_GPU_RC_VA);
+    if xid == 31 || va != 0 {
+        s.push_str(&alloc::format!("; el fallo de memoria: VA {va:#x}, {} (tipo {tipo})", rc::nombre_fallo(tipo)));
+    }
+    if p >> 40 & 1 == 1 {
+        let mut frase = alloc::vec::Vec::new();
+        for trozo in 0..(rc::TEXTO as u64 / 8) {
+            let w = bmo::info(bmo::INFO_GPU_RC_TEXTO | trozo << 8);
+            if w == 0 {
+                break;
+            }
+            frase.extend(w.to_le_bytes().iter().copied().filter(|&b| b != 0));
+        }
+        s.push_str("\nPROTON-X: lo que dijo NVIDIA: \"");
+        s.push_str(core::str::from_utf8(&frase).unwrap_or("?"));
+        s.push('"');
+    }
+    s.push('\n');
+    s
 }
 
 /// **El porque del ultimo NO del kernel** (`INFO_GPU_PORQUE`), en palabras.
@@ -560,12 +608,14 @@ pub fn dibujar(l: &Lote, d: &mut Destino) -> Result<Cuenta, NoDibuja> {
                         p.despues(l, false);
                         e.apagada = true;
                         bmo::consola(&no_pagado(r));
+                        bmo::consola(&el_parte());
                     }
                     Err(m) if m == bmo::IOMMU_NO_CANAL_MUERTO => {
                         NO_DEL_KERNEL.fetch_add(1, core::sync::atomic::Ordering::Relaxed);
                         p.despues(l, false);
                         e.apagada = true;
-                        bmo::consola(&alloc::format!("PROTON-X: el kernel dice que el canal de GR de la 3060 esta MUERTO: {}. La 3060 se deja YA; el resto, por la CPU. Reinicia para recuperarla\n", el_porque()));
+                        bmo::consola(&alloc::format!("PROTON-X: el kernel dice que el canal de GR de la 3060 esta MUERTO: {}. La 3060 se deja YA; el resto, por la CPU. Para recuperarla sin reiniciar: sal del juego y en el escritorio `gpu revivir`\n", el_porque()));
+                        bmo::consola(&el_parte());
                     }
                     Err(m) => {
                         NO_DEL_KERNEL.fetch_add(1, core::sync::atomic::Ordering::Relaxed);

@@ -1145,6 +1145,15 @@ pub const IOMMU_OP_GPU_COMPLETAR: u64 = 0x51;
 /// `computo_app::empaquetar(us, lanzado, pagado)`; un NO dice su porque
 /// (`INFO_GPU_PORQUE`).
 pub const IOMMU_OP_GPU_COMPUTO: u64 = 0x52;
+/// E7b (13-10): REVIVIR EL CANAL DE GR sin reiniciar. Con la autoridad
+/// `MAQUINA` y solo con el canal MUERTO: `LIBERAR_GR` con `arg1` = 0 (el 3D),
+/// 1 (el computo) y 2 (el canal), en ese orden, pide su `FREE` al GSP-RM
+/// (`Ok` como cualquier RPC: la respuesta la espera quien la pidio); con los
+/// tres, `REVIVIR_GR` olvida el canal en el kernel (`Ok` = paginas a cero |
+/// veces << 32) y se levanta otra vez desde `canalgr`. Ver
+/// `dev/gpu_trabajo/revivir.rs`.
+pub const IOMMU_OP_GPU_LIBERAR_GR: u64 = 0x53;
+pub const IOMMU_OP_GPU_REVIVIR_GR: u64 = 0x54;
 /// P1: EL PASE de la GPU, neutro (`bmo_pase_gpu::orden`): ABRIR con la VA del
 /// lienzo (el lienzo prestado para quedarse, `Ok` = la VA del buzon), CERRAR
 /// o ESTADO en los bits 63..60 de `arg1`.
@@ -1368,6 +1377,10 @@ pub const IOMMU_NO_COMPLETA: u32 = 92;
 /// P3b4c: el canal de GR tomo una excepcion (un Xid; el GSP-RM lo mato): todo
 /// trabajo del GR dice NO al instante hasta reiniciar.
 pub const IOMMU_NO_CANAL_MUERTO: u32 = 90;
+/// E7b (13-10): revivir el canal de GR no se puede: no esta muerto, falta un
+/// `FREE` antes (el 3D, el computo, el canal: en ese orden), el GR esta en uso,
+/// o el `RC_TRIGGERED` viejo sigue en la cola del GSP.
+pub const IOMMU_NO_REVIVIR: u32 = 93;
 /// El reintento limpio del GSP: no hay un booter parado con error que
 /// deshacer, un paso fuera de orden, o la WPR2 no bajo.
 pub const IOMMU_NO_REINTENTO: u32 = 91;

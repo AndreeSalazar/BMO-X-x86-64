@@ -24,8 +24,15 @@
 //!    la prueba (`gpu eterno`)             un computo que salta a si mismo
 //! ```
 //!
-//! Volver a levantar el canal de GR sin reiniciar es E7b: pedirle al RM otro
-//! canal y rehacer su contexto (G1..G4, S1).
+//! Volver a levantar el canal de GR sin reiniciar es E7b (13-10,
+//! `revivir.rs`): `gpu revivir` libera el canal y lo pide otra vez. Y el
+//! parte dice si lo corto el vigilante y cuantos ms llevaba el lote sin
+//! volver (`parte::vencido`): un lote lento y un Xid no son lo mismo.
+//!
+//! [!] La RAM de la app se devuelve aunque el corte acabe en "sigue": es lo
+//! SEGURO. Devuelta, la IOMMU ya no la traduce y la 3060 no puede escribir
+//! en ella; quedarsela prestada seria dejar que una tarjeta descontrolada
+//! siguiera tocando memoria que el proceso ya reusa.
 
 use core::sync::atomic::{AtomicU32, Ordering};
 
@@ -50,6 +57,7 @@ pub(super) fn vigilar(que: &'static str, lanzado: bool, pagado: bool, us: u64, p
         crate::ring0::cabina::warn("gpu", "E7: el canal de GR ya estaba MUERTO (RC del GSP-RM): nada que cortar; Xid", xid as u64);
         return None;
     }
+    super::parte::vencido(us);
     Some(cortar())
 }
 
