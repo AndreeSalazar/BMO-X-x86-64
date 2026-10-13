@@ -87,6 +87,10 @@ pub enum Flotante {
     Rgba32,
     /// Un float de 32 bits por pixel.
     R32,
+    /// 13-10 (Cyberpunk 2077, la puerta [1]): cuatro ENTEROS de 8 bits sin
+    /// signo por pixel -- un RGBA8 que el juego ve como `R8G8B8A8_UINT`
+    /// (DXGI 31): el de pixel escribe enteros y el ROP guarda sus 8 bits.
+    Uint8,
 }
 
 impl Flotante {
@@ -94,7 +98,7 @@ impl Flotante {
     pub const fn bytes(self) -> u32 {
         match self {
             Flotante::Rgba32 => 16,
-            Flotante::No | Flotante::R32 => 4,
+            Flotante::No | Flotante::R32 | Flotante::Uint8 => 4,
         }
     }
 
@@ -104,6 +108,7 @@ impl Flotante {
             Flotante::No => 0,
             Flotante::Rgba32 => 1,
             Flotante::R32 => 2,
+            Flotante::Uint8 => 3,
         }
     }
 
@@ -112,6 +117,7 @@ impl Flotante {
             0 => Some(Flotante::No),
             1 => Some(Flotante::Rgba32),
             2 => Some(Flotante::R32),
+            3 => Some(Flotante::Uint8),
             _ => None,
         }
     }
@@ -123,6 +129,7 @@ impl Flotante {
             Flotante::No => crate::tresde::FORMATO,
             Flotante::Rgba32 => FORMATO_RGBA32F,
             Flotante::R32 => FORMATO_R32F,
+            Flotante::Uint8 => FORMATO_RGBA8_UINT,
         }
     }
 }
@@ -130,6 +137,8 @@ impl Flotante {
 /// `SET_COLOR_TARGET_FORMAT_V_RF32_GF32_BF32_AF32` y `_V_RF32` (`clc797.h`).
 pub const FORMATO_RGBA32F: u32 = 0xC0;
 pub const FORMATO_R32F: u32 = 0xE5;
+/// `SET_COLOR_TARGET_FORMAT_V_AU8BU8GU8RU8` (`clc797.h` de open-gpu-doc).
+pub const FORMATO_RGBA8_UINT: u32 = 0xD9;
 
 /// Un destino: la RAM de la app, fila a fila.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
@@ -273,9 +282,12 @@ mod pruebas {
         assert!(!Destino { fila: 1920 * 16, ancho: 1920, alto: 1080, ..f }.valido(), "1920x1080 de float no cabe en 16 MiB");
         assert!(Destino { flotante: Flotante::R32, ..d }.valido(), "un R32 son 4 B por pixel");
         assert_eq!((Flotante::Rgba32.formato(false), Flotante::R32.formato(true), Flotante::No.formato(true)), (0xC0, 0xE5, 0xD5));
-        for f in [Flotante::No, Flotante::Rgba32, Flotante::R32] {
+        for f in [Flotante::No, Flotante::Rgba32, Flotante::R32, Flotante::Uint8] {
             assert_eq!(Flotante::de_numero(f.numero()), Some(f));
         }
-        assert_eq!(Flotante::de_numero(3), None);
+        assert_eq!(Flotante::de_numero(4), None);
+        // 13-10: el RGBA8 visto como R8G8B8A8_UINT: 4 B por pixel, AU8BU8GU8RU8.
+        assert_eq!((Flotante::Uint8.bytes(), Flotante::Uint8.formato(false)), (4, 0xD9));
+        assert!(Destino { flotante: Flotante::Uint8, ..d }.valido());
     }
 }

@@ -247,6 +247,9 @@ pub fn mezclar(m: &Mezcla, dst: &Destino, s: u64, o: &mut impl FnMut((u64, u64))
             o(mov(w.d(3), 0x3F80_0000));
         }
         Flotante::Rgba32 => {}
+        // Un render target de ENTEROS no mezcla en D3D12; `tuberia::cabe` no
+        // deja llegar aqui una mezcla con el.
+        Flotante::Uint8 => {}
     }
     for c in 0..4u64 {
         if m.mascara & (1 << c) == 0 {
@@ -413,6 +416,7 @@ mod contra_la_cpu {
                                     Flotante::No => bmo_proton_x::trama::desempaquetar(a[0], !rgb),
                                     Flotante::R32 => [f32::from_bits(a[0]), 0.0, 0.0, 1.0],
                                     Flotante::Rgba32 => a.map(f32::from_bits),
+                                    Flotante::Uint8 => unreachable!("un destino de enteros no mezcla (`tuberia::cabe`)"),
                                 };
                                 let c = a_la_cpu(&m).aplicar(o, d, k);
                                 for x in 0..4 {

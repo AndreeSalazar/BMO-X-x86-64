@@ -81,10 +81,22 @@ pub(crate) fn de_ranuras(firma: &Firma, e: &Estado, cbuffers: &[bmo_proton_x::dx
             }
             Some(Cb::Tabla(k, i)) => {
                 let base = e.tablas.get(k).copied().unwrap_or(0);
-                let Some((va, n)) = cbv_de_tabla(base, i) else {
-                    return Err(format!("{}: la tabla del parametro {k} {} en su ranura {i}", nombre(), if base == 0 { "no se puso (sin SetComputeRootDescriptorTable / SetGraphicsRoot...)" } else { "no tiene un CBV" }));
-                };
-                Some(resolver_hasta(va, quiere.min(n)).map(Cow::Borrowed).ok_or_else(|| format!("{}: el CBV de la tabla {k} ranura {i} apunta a {va:#x}, que no cae en ningun bufer de la casa", nombre()))?)
+                if base == 0 {
+                    return Err(format!("{}: la tabla del parametro {k} no se puso (sin SetComputeRootDescriptorTable / SetGraphicsRoot...)", nombre()));
+                }
+                match cbv_de_tabla(base, i) {
+                    Some((va, n)) => Some(resolver_hasta(va, quiere.min(n)).map(Cow::Borrowed).ok_or_else(|| format!("{}: el CBV de la tabla {k} ranura {i} apunta a {va:#x}, que no cae en ningun bufer de la casa", nombre()))?),
+                    // ** 13-10 (Cyberpunk 2077, metal 14:04: "la tabla del
+                    // parametro 0 no tiene un CBV en su ranura 12"): una
+                    // ranura de la tabla SIN un CBV es un descriptor NULO en
+                    // D3D12 (`CreateConstantBufferView` sin direccion, o la
+                    // ranura sin escribir), y se lee como CEROS. Hasta hoy el
+                    // Dispatch no se hacia.
+                    None => {
+                        crate::aviso(&format!("{}: la ranura {i} de la tabla del parametro {k} no tiene un CBV: se lee como CEROS, como un descriptor nulo de D3D12", nombre()));
+                        Some(Cow::Owned(alloc::vec![0u8; quiere]))
+                    }
+                }
             }
             None => return Err(format!("los sombreadores leen {} y la root signature no lo tiene", nombre())),
         };

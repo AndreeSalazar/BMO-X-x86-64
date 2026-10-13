@@ -265,6 +265,8 @@ pub const FLOTANTE_OTRA_VISTA: &str = "un render target de float que el juego ve
 /// guardado), y es una por pareja. Antes de escribirla, saber cuales pide el
 /// juego. Hasta [`MAX_VISTAS`] distintas; 0 = libre.
 pub const MAX_VISTAS: usize = 8;
+/// `DXGI_FORMAT_R8G8B8A8_UINT`.
+const R8G8B8A8_UINT: u32 = 31;
 static VISTAS: [core::sync::atomic::AtomicU32; MAX_VISTAS] = [const { core::sync::atomic::AtomicU32::new(0) }; MAX_VISTAS];
 
 fn apuntar_vista(guardado: u32, vista: u32) {
@@ -298,6 +300,12 @@ pub fn de_flotante(formato: u32, palabras: u32) -> Result<(Flotante, Redondeo), 
     let formato = if formato & bmo_proton_x::bufer::CUATRO_FLOATS != 0 {
         match bmo_proton_x::bufer::guardado_y_vista(formato) {
             (g, None) => g,
+            // ** 13-10 (Cyberpunk 2077, metal 14:04): `guardado DXGI 0, visto
+            // como DXGI 31` -- un RGBA8 que la casa guarda TAL CUAL (la palabra
+            // es la memoria) y el juego pinta como R8G8B8A8_UINT. En la 3060,
+            // el render target en AU8BU8GU8RU8: el de pixel escribe enteros y
+            // el ROP guarda sus 8 bits. El vigia compara con la CPU.
+            (0, Some(R8G8B8A8_UINT)) if palabras == 1 => return Ok((Flotante::Uint8, Redondeo::NADA)),
             (g, Some(v)) => {
                 apuntar_vista(g, v);
                 return Err(FLOTANTE_OTRA_VISTA);
@@ -484,6 +492,9 @@ pub fn escribir(c: &Cuerpos, l: &Lote, b: Blanco, limpiar_z: Option<u32>, nula: 
         }
         if l.limpiar_rt.is_some() || b.cadena {
             return Err(String::from("un render target de float que se limpia en el lote o se muestra: la 3060 lo dibuja sin limpiar y fuera de la pantalla todavia"));
+        }
+        if flotante == Flotante::Uint8 && !mezcla_de(&l.reglas.mezcla).map_err(String::from)?.trivial() {
+            return Err(String::from("la mezcla o la mascara sobre un render target de ENTEROS (R8G8B8A8_UINT): D3D12 no mezcla enteros; por la CPU"));
         }
     }
     // ** Q0a1 (12-10): cualquier medida que el destino de la 3060 sepa.
