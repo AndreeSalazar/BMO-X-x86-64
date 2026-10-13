@@ -98,9 +98,27 @@ pub const CODIGO_PAGINAS: usize = 2 * CODIGO_PAGINAS_UNO;
 pub const CODIGO_PT: usize = DATOS_PT + DATOS_PAGINAS;
 /// Donde lo ve la GPU.
 pub const CODIGO_VA: u64 = TRAMO_VA + CODIGO_PT as u64 * 0x1000;
-/// Lo que se mapea de la VRAM, seguido desde [`TRAMO`]: el tramo, los DATOS y
-/// el CODIGO (lo que el escritorio pregunta si es usable).
-pub const MAPEADO_BYTES: u64 = 0x1000 * (TRAMO_PAGINAS + DATOS_PAGINAS + CODIGO_PAGINAS) as u64;
+
+// -- LI2f: EL CODIGO DEL COMPUTO DE UNA APP (13-10) --------------------------
+//
+// Un CS de un juego es largo (el de nBody, 18993 instrucciones): su PROPIA
+// region, detras del CODIGO de la tuberia en la VRAM (libre hasta las tablas
+// de GR) y en la PT del tramo (las entradas 370..509): el pegado entero -- un
+// MOV por precarga y el cuerpo, de hasta `receta_computo::MAX_INSTRUCCIONES`
+// --, juzgado donde esta.
+
+/// El codigo del computo, en VRAM.
+pub const CODIGO_COMPUTO: u64 = CODIGO + CODIGO_PAGINAS as u64 * 0x1000;
+/// Sus paginas: 35 840 instrucciones.
+pub const CODIGO_COMPUTO_PAGINAS: usize = 140;
+/// Su primera entrada en la PT del tramo.
+pub const CODIGO_COMPUTO_PT: usize = CODIGO_PT + CODIGO_PAGINAS;
+/// Donde lo ve la GPU.
+pub const CODIGO_COMPUTO_VA: u64 = TRAMO_VA + CODIGO_COMPUTO_PT as u64 * 0x1000;
+/// Lo que se mapea de la VRAM, seguido desde [`TRAMO`]: el tramo, los DATOS,
+/// el CODIGO y (LI2f) el del computo (lo que el escritorio pregunta si es
+/// usable).
+pub const MAPEADO_BYTES: u64 = 0x1000 * (TRAMO_PAGINAS + DATOS_PAGINAS + CODIGO_PAGINAS + CODIGO_COMPUTO_PAGINAS) as u64;
 
 /// **La ventana para `dir`**: `(valor del registro, desplazamiento en ella)`.
 pub const fn ventana(dir: u64) -> (u32, u32) {
@@ -220,8 +238,21 @@ pub fn mapear_tramo<R: Registros>(r: &mut R) -> Option<(u32, u32)> {
     for &(dir, v) in todas.clone() {
         escribir64(r, dir, v);
     }
-    let bien = todas.clone().filter(|&&(dir, v)| leer64(r, dir) == v).count() as u32;
-    Some(((n + DATOS_PAGINAS + CODIGO_PAGINAS) as u32, bien))
+    let mut bien = todas.clone().filter(|&&(dir, v)| leer64(r, dir) == v).count() as u32;
+    // LI2f: y el codigo del computo, de 64 en 64 paginas (lo que mapea cada
+    // `mapear_tramo`).
+    let mut hecho = 0;
+    while hecho < CODIGO_COMPUTO_PAGINAS {
+        let m = (CODIGO_COMPUTO_PAGINAS - hecho).min(crate::mmu::MAX_TRAMO);
+        let off = hecho as u64 * 0x1000;
+        let (k, _) = crate::mmu::mapear_tramo(DIRECTORIO, TABLAS, CODIGO_COMPUTO_VA + off, CODIGO_COMPUTO + off, m)?;
+        for &(dir, v) in &k[..m] {
+            escribir64(r, dir, v);
+            bien += (leer64(r, dir) == v) as u32;
+        }
+        hecho += m;
+    }
+    Some(((n + DATOS_PAGINAS + CODIGO_PAGINAS + CODIGO_COMPUTO_PAGINAS) as u32, bien))
 }
 
 /// La prueba cabe en un `u64` para el escritorio: `buenas | devueltas << 16 |
@@ -241,7 +272,12 @@ const _: () = assert!(DATOS_PT >= crate::anillo::PT_PRIMERA + crate::anillo::PAG
 const _: () = assert!(DATOS_PT >= TRAMO_PAGINAS);
 // LI2b: el codigo, detras de los DATOS en la VRAM y en la PT, sin llegar a
 // las tablas de GR ni salirse de la PT (ni de lo que mapea `mapear_tramo`).
-const _: () = assert!(CODIGO + CODIGO_PAGINAS as u64 * 0x1000 <= 0x0430_0000 && TRAMO + MAPEADO_BYTES == CODIGO + CODIGO_PAGINAS as u64 * 0x1000);
+const _: () = assert!(CODIGO + CODIGO_PAGINAS as u64 * 0x1000 <= 0x0430_0000);
+// LI2f: el del computo, detras del CODIGO, sin llegar a las tablas de GR ni
+// salirse de la PT; cabe el pegado mas largo.
+const _: () = assert!(CODIGO_COMPUTO + CODIGO_COMPUTO_PAGINAS as u64 * 0x1000 <= 0x0430_0000 && TRAMO + MAPEADO_BYTES == CODIGO_COMPUTO + CODIGO_COMPUTO_PAGINAS as u64 * 0x1000);
+const _: () = assert!(CODIGO_COMPUTO_PT + CODIGO_COMPUTO_PAGINAS <= 512);
+const _: () = assert!(CODIGO_COMPUTO_PAGINAS * 256 >= crate::receta_computo::MAX_INSTRUCCIONES + 4 * crate::receta_computo::MAX_PRECARGAS);
 const _: () = assert!(CODIGO_PT + CODIGO_PAGINAS <= 512 && CODIGO_PAGINAS <= crate::mmu::MAX_TRAMO);
 
 #[cfg(test)]
@@ -350,8 +386,12 @@ mod pruebas {
         let mut g = Grande { ventana: 0xFFF0, vram };
         let (n, bien) = mapear_tramo(&mut g).unwrap();
         // 16 PTE del tramo + 4 PDE + 16 PTE de los DATOS (P3b4b) + 34 del
-        // CODIGO (LI2b).
-        assert_eq!((n, bien), (70, 70));
+        // CODIGO (LI2b) + 140 del codigo del computo (LI2f).
+        assert_eq!((n, bien), (210, 210));
+        for k in 0..CODIGO_COMPUTO_PAGINAS as u64 {
+            assert_eq!(leer64(&mut g, TABLAS[3] + 8 * (CODIGO_COMPUTO_PT as u64 + k)), crate::mmu::pte_vram(CODIGO_COMPUTO + 4096 * k), "el codigo del computo, pagina {k}");
+        }
+        assert_eq!(crate::mmu::indices(CODIGO_COMPUTO_VA)[4], CODIGO_COMPUTO_PT);
         for k in 0..CODIGO_PAGINAS as u64 {
             assert_eq!(leer64(&mut g, TABLAS[3] + 8 * (CODIGO_PT as u64 + k)), crate::mmu::pte_vram(CODIGO + 4096 * k), "el CODIGO, pagina {k}");
         }

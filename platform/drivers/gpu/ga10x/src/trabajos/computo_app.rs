@@ -30,8 +30,25 @@
 //! dira. El QMD de la compartida y de la rejilla en 3D es nuevo; el resto,
 //! el de `blur` y `fractal`, que si corrieron.
 
-use crate::motores::sombreador::{campo, qmd_rejilla, QMD_PALABRAS};
+use crate::canal::GR;
+use crate::copia::{entrada, escribir, invalidar, leer32, GP_GET, GP_PUT, TIMBRE};
+use crate::lienzo::sombreador_va;
+use crate::motores::sombreador::{campo, ordenes_con, qmd_rejilla, EMPUJE, ORDENES, QMD, QMD_PALABRAS, SEMAFOROS};
 use crate::trabajos::cubo::mov;
+use crate::vram::{CODIGO_COMPUTO, CODIGO_COMPUTO_PAGINAS, CODIGO_COMPUTO_VA};
+use crate::Registros;
+
+/// Los semaforos del despacho, en la pagina de los semaforos (libre desde el
+/// 0x870: `completa` acaba sus parametros en el 0x86B), y lo que pagan.
+pub const SEMAFORO_QMD: u64 = SEMAFOROS + 0x880;
+pub const SEMAFORO_FIN: u64 = SEMAFOROS + 0x890;
+pub const PAGA_QMD: u32 = 0x3060_C510;
+pub const PAGA_FIN: u32 = 0x3060_C5F0;
+/// Las instrucciones del pegado, como mucho (las de su region).
+pub const MAX_PEGADO: usize = CODIGO_COMPUTO_PAGINAS * 256;
+/// Los registros del banco de una SM: los hilos de un grupo por los
+/// registros de cada uno no pueden pasar (si no, el grupo no se lanza).
+pub const BANCO_DE_REGISTROS: u32 = 64 * 1024;
 
 /// **Lo que el KERNEL pone de cada UAV o SRV de bufer** en los registros que
 /// el cuerpo pidio (`Precarga::Uav` de `bmo-proton-x-sm86`, su `uav.rs`):
@@ -136,7 +153,7 @@ impl NoDespacha {
             NoDespacha::Hilos => "los hilos de un grupo: 0, o mas de 1024 (1024 x 1024 x 64)",
             NoDespacha::Grupos => "los grupos: 0, o mas de 65535 en un eje",
             NoDespacha::Compartida => "la compartida de un grupo pasa de 32 KiB",
-            NoDespacha::Registros => "mas registros por hilo de los que da la 3060",
+            NoDespacha::Registros => "mas registros por hilo de los que da la 3060 (o los hilos del grupo por sus registros pasan de los 64 Ki de la SM)",
             NoDespacha::NoCabe => "el programa pegado no cabe en su hueco",
             NoDespacha::Cuerpo => "el cuerpo esta vacio o no acaba en EXIT",
         }
@@ -164,10 +181,11 @@ pub fn qmd(programa: u64, d: &Despacho, sem: u64, paga: u32) -> Result<[u32; QMD
     if d.compartida > MAX_COMPARTIDA {
         return Err(NoDespacha::Compartida);
     }
-    if d.registros == 0 || d.registros > 255 {
+    let registros = crate::tuberia::registros_para(d.registros);
+    if d.registros == 0 || registros > crate::tuberia::MAX_REGISTROS || hx * hy * hz * registros > BANCO_DE_REGISTROS {
         return Err(NoDespacha::Registros);
     }
-    let mut q = qmd_rejilla(programa, hx, d.grupos[0], d.grupos[1], sem, paga, d.registros);
+    let mut q = qmd_rejilla(programa, hx, d.grupos[0], d.grupos[1], sem, paga, registros);
     campo(&mut q, 463, 448, d.grupos[2] as u64); // CTA_RASTER_DEPTH
     campo(&mut q, 623, 608, hy as u64); // CTA_THREAD_DIMENSION1
     campo(&mut q, 639, 624, hz as u64); // CTA_THREAD_DIMENSION2
@@ -196,6 +214,53 @@ pub fn pegar(out: &mut [(u64, u64)], cargas: &[(u8, u32)], cuerpo: &[(u64, u64)]
     Ok(n)
 }
 
+/// **Preparar un despacho** con la entrada `e` del GPFIFO de GR: los
+/// semaforos a cero, el PEGADO en su region (lo que sobra de su ultima pagina
+/// a cero), el QMD, las ordenes y la entrada, todo escrito por la ventana de
+/// la VRAM.
+pub fn preparar<R: Registros>(r: &mut R, e: u32, pegado: &[(u64, u64)], d: &Despacho) -> bool {
+    if !crate::blur::entrada_valida(e) || pegado.is_empty() || pegado.len() > MAX_PEGADO {
+        return false;
+    }
+    let Ok(q) = qmd(CODIGO_COMPUTO_VA, d, sombreador_va(SEMAFORO_QMD), PAGA_QMD) else { return false };
+    if escribir(r, SEMAFORO_QMD, &[0; 8]) != 8 {
+        return false;
+    }
+    // El pegado, de 16 en 16 instrucciones (64 palabras), y su ultima pagina
+    // con ceros detras.
+    let mut w = [0u32; 64];
+    let paginas = (pegado.len() * 16).div_ceil(0x1000);
+    for k in 0..paginas * 256 / 16 {
+        for j in 0..16 {
+            let (lo, hi) = pegado.get(16 * k + j).copied().unwrap_or((0, 0));
+            w[4 * j..4 * j + 4].copy_from_slice(&[lo as u32, (lo >> 32) as u32, hi as u32, (hi >> 32) as u32]);
+        }
+        if escribir(r, CODIGO_COMPUTO + 256 * k as u64, &w) != 64 {
+            return false;
+        }
+    }
+    let o = ordenes_con(sombreador_va(QMD), sombreador_va(SEMAFORO_FIN), PAGA_FIN);
+    let en = entrada(sombreador_va(EMPUJE), ORDENES as u32);
+    escribir(r, QMD, &q) == QMD_PALABRAS && escribir(r, EMPUJE, &o) == ORDENES && escribir(r, GR.gpfifo + 8 * e as u64, &[en as u32, (en >> 32) as u32]) == 2
+}
+
+/// Tocar el timbre (como `completa::lanzar`).
+pub fn lanzar<R: Registros>(r: &mut R, ficha: u32, e: u32) -> bool {
+    let puesto = crate::blur::entrada_valida(e) && invalidar(r) && escribir(r, GR.userd + GP_PUT, &[crate::blur::siguiente(e)]) == 1;
+    if puesto {
+        r.escribir(TIMBRE, ficha);
+    }
+    puesto
+}
+
+/// `(GP_GET, el semaforo del QMD, el del fin)`.
+pub fn mirar<R: Registros>(r: &mut R) -> (u32, u32, u32) {
+    (leer32(r, GR.userd + GP_GET), leer32(r, SEMAFORO_QMD), leer32(r, SEMAFORO_FIN))
+}
+
+// Los semaforos, en lo libre de su pagina (detras de los de `completa`).
+const _: () = assert!(SEMAFORO_QMD >= crate::completa::SEMAFORO_FIN + 0x70 && SEMAFORO_FIN + 8 <= SEMAFOROS + 0x1000);
+
 #[cfg(test)]
 mod pruebas {
     use super::*;
@@ -214,7 +279,7 @@ mod pruebas {
         assert_eq!((f(607, 592), f(623, 608), f(639, 624)), (16, 4, 2));
         assert_eq!(f(561, 544), 2048);
         assert_eq!((f(567, 562), f(574, 569), f(662, 657)), (3, 3, 3), "2 KiB + 1: la de 8 KiB");
-        assert_eq!(f(656, 648), 40);
+        assert_eq!(f(656, 648), 64, "los de `registros_para`: 40 + 2, a 8, nunca menos de 64");
         assert_eq!(f(1567, 1536) | f(1584, 1568) << 32, 0x2_0000_0000);
     }
 
@@ -242,7 +307,46 @@ mod pruebas {
         assert_eq!(no(&|x| x.grupos = [1, 65536, 1]), NoDespacha::Grupos);
         assert_eq!(no(&|x| x.compartida = 32 * 1024 + 4), NoDespacha::Compartida);
         assert_eq!(no(&|x| x.registros = 0), NoDespacha::Registros);
+        // 1024 hilos de 72 registros (80 con los reservados): 80 Ki > 64 Ki.
+        assert_eq!(no(&|x| { x.hilos = [1024, 1, 1]; x.registros = 72 }), NoDespacha::Registros);
+        assert!(qmd(0, &Despacho { hilos: [1024, 1, 1], registros: 62, ..d() }, 0, 0).is_ok(), "1024 x 64 justo");
         assert!(!NoDespacha::Grupos.texto().is_empty());
+    }
+
+    /// Preparar escribe el pegado en su region (con ceros detras, hasta su
+    /// pagina), el QMD que lo apunta, las ordenes y la entrada del GPFIFO.
+    #[test]
+    fn preparar_lo_deja_todo_en_su_sitio() {
+        extern crate std;
+        struct Vram(std::collections::BTreeMap<u64, u32>, u32);
+        impl Registros for Vram {
+            fn leer(&mut self, reg: u32) -> u32 {
+                if reg == crate::vram::VENTANA_REG {
+                    return self.1;
+                }
+                *self.0.get(&(((self.1 as u64) << 16) + (reg - crate::vram::VENTANA) as u64)).unwrap_or(&0)
+            }
+            fn escribir(&mut self, reg: u32, v: u32) {
+                if reg == crate::vram::VENTANA_REG {
+                    self.1 = v;
+                    return;
+                }
+                self.0.insert(((self.1 as u64) << 16) + (reg - crate::vram::VENTANA) as u64, v);
+            }
+        }
+        let mut r = Vram(Default::default(), 0);
+        let pegado: std::vec::Vec<(u64, u64)> = (0..300u64).map(|k| (0x1000_0000_0000 | k, 0x2000_0000_0000 | k)).collect();
+        assert!(preparar(&mut r, 7, &pegado, &d()));
+        assert_eq!((leer32(&mut r, CODIGO_COMPUTO + 16 * 299), leer32(&mut r, CODIGO_COMPUTO + 16 * 299 + 8)), (299, 299));
+        assert_eq!(leer32(&mut r, CODIGO_COMPUTO + 16 * 299 + 4), 0x1000);
+        assert_eq!(leer32(&mut r, CODIGO_COMPUTO + 16 * 300 + 8), 0, "detras, a cero");
+        let mut q = [0u32; QMD_PALABRAS];
+        for (k, x) in q.iter_mut().enumerate() {
+            *x = leer32(&mut r, QMD + 4 * k as u64);
+        }
+        assert_eq!(crate::motores::sombreador::leer_campo(&q, 1567, 1536) | crate::motores::sombreador::leer_campo(&q, 1584, 1568) << 32, CODIGO_COMPUTO_VA);
+        assert_eq!(leer32(&mut r, GR.gpfifo + 8 * 7), entrada(sombreador_va(EMPUJE), ORDENES as u32) as u32);
+        assert!(!preparar(&mut r, 7, &[], &d()), "sin pegado, nada");
     }
 
     /// El pegado: los MOV y el cuerpo, y el juez lo da por bueno (el cuerpo
