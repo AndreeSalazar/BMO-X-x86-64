@@ -186,9 +186,9 @@ Guardian 'Validating the 3060 stays fenced' `
 Guardian 'Validating the foreign disk stays read-only' `
     'toolchain\tools\ajeno\ajeno.py' 'el disco PERSONAL solo lectura' `
     'ajeno: el disco PERSONAL o C: quedaron al alcance de una escritura (ver arriba)'
-Guardian 'Validating compiler warnings do not grow' `
-    'toolchain\tools\avisos\avisos.py' 'los avisos del compilador' `
-    'avisos: los avisos del compilador SUBIERON (ver arriba)'
+# ** LOS AVISOS DEL COMPILADOR ya no van aqui (13-10): se cuentan en
+# `build.ps1`, sobre la salida del build del kernel que se acaba de hacer. Aqui
+# compilaban OTRO kernel entero solo para leerlos. Ver avisos.py.
 # ** EL EJE PROPIO DEL COMPILADOR DE C: donde nace un fallo y DONDE APARECE.
 #
 # Un compilador falla distinto a un kernel: en Ring 0 el fallo se paga donde

@@ -778,7 +778,10 @@ def la_ene_caida(texto):
     fichero entero.
     """
     fuera = {}
-    for linea in texto.splitlines():
+    # Sin ninguna marca en el fichero, el texto entero de una vez: las
+    # palabras no cruzan lineas, y partirlo eran 2.500 ficheros x sus lineas.
+    lineas = texto.splitlines() if MARCA_ADREDE in texto else [texto]
+    for linea in lineas:
         if MARCA_ADREDE in linea:
             continue
         for bruto in RE_PALABRA_LLANA.findall(linea):
@@ -841,7 +844,9 @@ def main():
             # tool is not allowed to make, so it is reported and forgiven.
             in_comment = in_string = 0
             for kind, a, b in scan(before, lang):
-                n = sum(1 for c in before[a:b] if ord(c) > 127)
+                seg = before[a:b]
+                # Casi todos son ASCII: `isascii` lo dice en C sin contar.
+                n = 0 if seg.isascii() else sum(1 for c in seg if ord(c) > 127)
                 if not n:
                     continue
                 if kind != "comment" and prints_on_metal(rel, lang)                         and before[a:b][:1] == '"':
