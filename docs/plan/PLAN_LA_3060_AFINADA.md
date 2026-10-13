@@ -453,6 +453,21 @@ usamos (IMAD, IADD3, LOP3, SHF, ISETP, SEL, LDG, STG, BRA, EXIT...) en
 memoria de mentira y lo compare con la cuenta de la CPU. Un fallo de un bit
 en una codificacion a mano se veria ANTES de arrancar el Ryzen.
 
+- [ ] **D5 -- EL 3D QUE DESPIERTA CUANDO QUIERE (13-10).** El propietario:
+      *"la GPU entro normal, solo que se despierta lo que le da la gana para
+      arrancar en 3D"*. El GSP arranca bien; lo intermitente es la escalera
+      del motor grafico hasta `lienzo` (`gpu verrano`). Sospechosos, por
+      depender de que el GSP-RM acabe algo por su cuenta: `canalgr`,
+      `encendergr`, `grmem` y sobre todo `promover` (la imagen dorada del
+      contexto del GR). **Aparcado a proposito** hasta que el juego funcione
+      ("voy a aguantar todo eso"). **Lo que hace falta del metal**, en cada
+      fallo: la linea `NO preparando <paso>: motivo N`, `gpu cola` (el Xid o
+      el error del RM) y `gpu salud`; dos o tres fallos dicen si es SIEMPRE el
+      mismo paso (una espera mal puesta) o no. Con el paso, se compara con lo
+      que hace nouveau en ese mismo punto (su GR sobre el GSP-RM) y se cambia
+      la pieza entera. **Como se sabe:** `gpu verrano` sale N veces de N tras
+      arranques en frio y en caliente.
+
 ---
 
 ## 5c. EL PASE DE LA 3060 (P) -- la burocracia una vez, y el radar en cada barrido
