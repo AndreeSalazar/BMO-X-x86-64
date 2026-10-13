@@ -567,7 +567,6 @@ impl FatVolume {
                             return Ok(desde);
                         }
                         seguidas += quedan_aqui;
-                        k += quedan_aqui;
                         return self.crecer_y_seguir(cluster, desde, seguidas, n);
                     }
                     if b == LIBRE {
