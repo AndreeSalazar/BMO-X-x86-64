@@ -933,7 +933,7 @@ set_enum!(th, clb097, TEXHEAD_PITCH_TEXTURE_TYPE, TWO_D_NO_MIPMAP);
 
 Conversion pixeles -> bloques -> bytes:
 
-- Tamano de elemento = `block.bits / 8` del formato (BC1/BC4 = 8 bytes,
+- Medida de elemento = `block.bits / 8` del formato (BC1/BC4 = 8 bytes,
   resto BC = 16 bytes segun util_format) (`nouveau/nil/format.rs:42-46`).
 - Dimensiones de bloque = `block.width/height/depth` (4x4x1 en BC)
   (`format.rs:48-51`).
@@ -1069,6 +1069,6 @@ NO. Tres sitios lo impiden:
 11. **Imagenes MSAA de almacenamiento en SM70+:** `get_image_coord` ignora el
     indice de muestra (comentado). No he localizado donde se convierte la
     muestra en coordenadas para SULD/SUST en Ampere.
-12. **Tamano de bloque de BC.** NIL lo saca de `util_format_description`
+12. **Medida de bloque de BC.** NIL lo saca de `util_format_description`
     (fuera de src/nouveau); los valores 8/16 bytes y 4x4 son los de
     util_format, no constantes escritas en NIL.
