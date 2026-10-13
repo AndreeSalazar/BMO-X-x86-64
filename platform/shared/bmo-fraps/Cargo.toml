@@ -9,3 +9,7 @@ license = "Apache-2.0"
 # el anfitrion. Contar fotogramas contra un reloj es aritmetica, y la
 # aritmetica no se prueba dentro de un `.bex`.
 [dependencies]
+
+# Solo para la prueba del video entero (fotogramas JPEG de verdad en el AVI).
+[dev-dependencies]
+bmo-imagen = { path = "../bmo-imagen" }

@@ -42,6 +42,9 @@
 
 #![cfg_attr(not(test), no_std)]
 
+/// El video de FRAPS-X: MJPEG en AVI (13-10).
+pub mod avi;
+
 /// Contadores del histograma: una decima de milisegundo cada uno, hasta 100 ms.
 pub const CUBOS: usize = 1000;
 
