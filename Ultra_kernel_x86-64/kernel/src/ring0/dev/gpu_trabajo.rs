@@ -55,6 +55,10 @@ pub use vigilante::eterno;
 /// recibio (`INFO_GPU_PORQUE`).
 mod porque;
 pub use porque::info as info_porque;
+/// 13-10: el PARTE del canal de GR muerto (Xid, motor, el fallo de memoria y
+/// la frase de NVIDIA), guardado en cuanto se ve (`INFO_GPU_RC*`).
+mod parte;
+pub use parte::{info as info_rc, info_texto as info_rc_texto, info_va as info_rc_va};
 
 // == M5d S1 y S3: EL COMPUTO Y EL PRIMER TRABAJO DEL GR (2026-09-24) ==========
 //
@@ -387,6 +391,8 @@ pub(super) fn marcar_muerto(xid: u32, por: &str) {
     if GR_MUERTO.compare_exchange(0, xid as u64 + 1, Ordering::AcqRel, Ordering::Acquire).is_ok() {
         crate::ring0::cabina::warn("gpu", por, xid as u64);
         crate::ring0::cabina::warn("gpu", "P3b4c: el canal de GR queda MUERTO hasta reiniciar: todo trabajo del GR dice NO al instante (sin esperar su segundo)", bmo_gpu_ga10x::canal::GR.chid as u64);
+        // 13-10: el parte entero, antes de que el mensaje se pierda.
+        parte::guardar(bmo_gpu_ga10x::canal::GR.chid, parte::POR_EL_VIGILANTE);
     }
 }
 

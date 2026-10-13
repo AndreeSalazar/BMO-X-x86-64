@@ -100,6 +100,21 @@ fn bytes(codigo: &[(u64, u64)]) -> Vec<u8> {
 
 /// **Los cuerpos de un PSO**: el emisor, con el ABI de registros (y A9,
 /// comprobados bit a bit contra la CPU: [`crate::vivo`]).
+/// **13-10: la ESCALERA, pedida por la app** (`--3060-escalera`): cada lote
+/// va con un semaforo por escalon (estado, vertices, dibujo), para que un
+/// lote que la 3060 no paga diga DONDE se paro. Mas lento: para
+/// diagnosticar, no para jugar.
+static ESCALERA: core::sync::atomic::AtomicBool = core::sync::atomic::AtomicBool::new(false);
+
+/// Pedir (o dejar de pedir) la escalera en los lotes siguientes.
+pub fn pedir_escalera(si: bool) {
+    ESCALERA.store(si, core::sync::atomic::Ordering::Relaxed);
+}
+
+fn escalera() -> bool {
+    ESCALERA.load(core::sync::atomic::Ordering::Relaxed)
+}
+
 pub fn cuerpos(en: &Enlace, ia: &[ElementoIa]) -> Result<Cuerpos, NoVa> {
     cuerpos_con(en, ia, None).map(|(c, _)| c)
 }
@@ -599,7 +614,7 @@ pub fn escribir(c: &Cuerpos, l: &Lote, b: Blanco, limpiar_z: Option<u32>, nula: 
         genericos: [None; MAX_GENERICOS],
         n_genericos: c.genericos.len(),
         datos,
-        dibujo: Dibujo { indices: Some(desde as u32), vertices: vertices as u32, descarte, antihorario: r.antihorario, destino: Some((b.va, dst)), z, color: l.limpiar_rt, texturas: c.texturas.len() as u8, cadena: b.cadena, pantalla: false, banco: if c.banco { 16 * c.filas } else { 0 }, redondeo, mezcla: mezcla_de(&l.reglas.mezcla).map_err(String::from)?, registros: 0, mas, n_mas: objetivos as u8 - 1 },
+        dibujo: Dibujo { indices: Some(desde as u32), vertices: vertices as u32, descarte, antihorario: r.antihorario, destino: Some((b.va, dst)), z, color: l.limpiar_rt, texturas: c.texturas.len() as u8, cadena: b.cadena, escalera: escalera(), pantalla: false, banco: if c.banco { 16 * c.filas } else { 0 }, redondeo, mezcla: mezcla_de(&l.reglas.mezcla).map_err(String::from)?, registros: 0, mas, n_mas: objetivos as u8 - 1 },
         texturas,
         termometro_vs: c.termometro_vs,
         termometro_ps: c.termometro_ps,

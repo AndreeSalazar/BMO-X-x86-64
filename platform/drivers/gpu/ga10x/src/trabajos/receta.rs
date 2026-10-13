@@ -55,7 +55,9 @@
 //!         trae la MEZCLA (`mezcla::Mezcla`, 24 B detras de las texturas);
 //!         bit 3 (LI2d, 12-10): trae los RENDER TARGETS 1.. ([`MAS`] detras
 //!         de la mezcla: cuantos, y por cada uno su VA, su fila, su medida y
-//!         su bandera como la del 0)
+//!         su bandera como la del 0); bit 4 (13-10): la app pide la
+//!         ESCALERA (un semaforo por escalon, para saber donde se para la
+//!         3060; `tuberia::Dibujo::escalera`)
 //!    +92  9d, LA LIBRETA: el registro del TERMOMETRO del de vertice + 1
 //!         (0 = sin libreta) | el del de pixel + 1 << 8; cada uno, de SU
 //!         cuerpo. Los 16 de arriba, a 0. Ver `libreta`
@@ -230,7 +232,7 @@ pub fn medida(cabecera: &[u8]) -> Option<usize> {
 /// cada carga dentro de lo que hay, los DATOS con todos los vertices dentro
 /// y cada indice de un vertice que esta. `None` si algo no se sostiene.
 pub fn leer(b: &[u8]) -> Option<Receta<'_>> {
-    if b.len() < CABECERA_2 || u32le(b, 0) != MAGIA_2 || u32le(b, 4) != 0 || u32le(b, 20) > 1 || (u32le(b, 20) == 0 && u32le(b, 24) != 0) || u32le(b, 84) as usize > MAX_TEXTURAS || u32le(b, 88) > 15 || u32le(b, 92) >> 16 != 0 {
+    if b.len() < CABECERA_2 || u32le(b, 0) != MAGIA_2 || u32le(b, 4) != 0 || u32le(b, 20) > 1 || (u32le(b, 20) == 0 && u32le(b, 24) != 0) || u32le(b, 84) as usize > MAX_TEXTURAS || u32le(b, 88) > 31 || u32le(b, 92) >> 16 != 0 {
         return None;
     }
     let n_texturas = u32le(b, 84) as usize;
@@ -359,6 +361,7 @@ pub fn leer(b: &[u8]) -> Option<Receta<'_>> {
     dibujo.color = (u32le(b, 20) == 1).then(|| u32le(b, 24));
     dibujo.texturas = n_texturas as u8;
     dibujo.cadena = u32le(b, 88) & 1 == 1;
+    dibujo.escalera = u32le(b, 88) & 16 != 0;
     dibujo.mezcla = mezcla;
     (dibujo.mas, dibujo.n_mas) = (mas, n_mas);
     // LI2d-HDR: con el color y la cadena ya puestos, lo que admite un destino
@@ -482,7 +485,7 @@ pub fn escribir(out: &mut [u8], r: &Receta) -> Option<usize> {
         r.n_cargas_vs as u32 | (r.n_cargas_ps as u32) << 16,
         d.z.and_then(|z| z.limpiar).unwrap_or(0),
         d.texturas as u32,
-        d.cadena as u32 | ((d.banco != 0) as u32) << 1 | (!d.mezcla.trivial() as u32) << 2 | (!d.mas().is_empty() as u32) << 3,
+        d.cadena as u32 | ((d.banco != 0) as u32) << 1 | (!d.mezcla.trivial() as u32) << 2 | (!d.mas().is_empty() as u32) << 3 | (d.escalera as u32) << 4,
         r.termometro_vs.map_or(0, |t| t as u32 + 1) | r.termometro_ps.map_or(0, |t| t as u32 + 1) << 8,
     ];
     out[..total].fill(0);
@@ -1043,6 +1046,11 @@ mod pruebas {
         assert_eq!(u32le(&caja, 88), 1);
         let l = leer(&caja[..n]).unwrap();
         assert!(l.dibujo.cadena && !l.dibujo.pantalla, "la app no se pone en la pantalla sola");
+        // 13-10: +88 bit 4, la ESCALERA que pide la app, va y vuelve.
+        let escalera = Receta { dibujo: Dibujo { escalera: true, ..sin.dibujo }, ..sin };
+        let n = escribir(&mut caja, &escalera).unwrap();
+        assert_eq!(u32le(&caja, 88), 16);
+        assert!(leer(&caja[..n]).unwrap().dibujo.escalera);
         caja[88] = 2;
         assert!(leer(&caja[..n]).is_none(), "+88 bit 1 (E8f) sin cbuffer: no hay banco que atar");
         caja[88] = 4;

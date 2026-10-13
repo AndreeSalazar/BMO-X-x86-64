@@ -97,47 +97,20 @@ impl Mensaje {
 
 /// `RC_TRIGGERED`: el GSP-RM cuenta que un canal tomo una excepcion (y lo
 /// mata: el canal queda MUERTO hasta reiniciar).
-pub const RC_TRIGGERED: u32 = 0x1004;
+pub const RC_TRIGGERED: u32 = crate::rc::RC_TRIGGERED;
 
 /// Los numeros "Xid" de NVIDIA que se reconocen (los que nombra el director).
 pub const fn xid_conocido(t: u32) -> bool {
     matches!(t, 13 | 31 | 43 | 69 | 109)
 }
 
-/// **P3b4c (29-09): el canal que el GSP-RM mato.** Recorre los mensajes de
-/// la cola del GSP SIN moverla -- de `leido` (el `readPtr` de la CPU) a
-/// `escrito` (el `writePtr` del GSP), en una cola de `paginas` -- y da el
-/// Xid del primer `RC_TRIGGERED` del canal `chid` (0 si no es uno conocido).
-/// `leer(pagina, desde)`: 4 bytes del mensaje que empieza en `pagina`,
-/// contando desde su cabecera y dando la vuelta a la cola.
-///
-/// La r570 trae mas campos entre el canal y el tipo que la v17_02 (metal
-/// 24-09 18:27): el Xid es la primera palabra de la 2 a la 7 que sea uno
-/// conocido, como lo lee el director (`gspcola::aviso`). El metal del 28-09
-/// dio `00000001 00000002 00000000 00000002 00000045 ...`: motor GR, canal
-/// 2, Xid 0x45 = 69.
+/// **P3b4c (29-09): el Xid del canal que el GSP-RM mato**, recorriendo la
+/// cola sin moverla. Desde el 13-10 lo LEE campo a campo (`rc::buscar`: el
+/// `exceptType` de `rpc_rc_triggered_v17_02`, +16) en vez de adivinar "la
+/// primera palabra conocida de la 2 a la 7". `Some(xid)` si hay un
+/// `RC_TRIGGERED` de `chid`.
 pub fn rc_del_canal(leer: &mut impl FnMut(u64, usize) -> u32, leido: u64, escrito: u64, paginas: u64, chid: u32) -> Option<u32> {
-    if paginas == 0 {
-        return None;
-    }
-    let (fin, mut p) = (escrito % paginas, leido % paginas);
-    let mut vueltas = 0;
-    while p != fin && vueltas < paginas {
-        let mut h = [0u8; CABECERA];
-        for k in 0..CABECERA / 4 {
-            h[4 * k..4 * k + 4].copy_from_slice(&leer(p, 4 * k).to_le_bytes());
-        }
-        let m = Mensaje::de(&h);
-        if !m.bien_formado() {
-            return None;
-        }
-        if m.funcion == RC_TRIGGERED && m.datos() >= 32 && leer(p, CABECERA + 4) == chid {
-            return Some((2..8).map(|k| leer(p, CABECERA + 4 * k)).find(|&t| xid_conocido(t)).unwrap_or(0));
-        }
-        p = (p + m.paginas as u64) % paginas;
-        vueltas += m.paginas as u64;
-    }
-    None
+    crate::rc::buscar(leer, leido, escrito, paginas, chid).rc.map(|r| r.xid)
 }
 
 /// **La suma de comprobacion de nova-core** (`calculate_checksum`), por

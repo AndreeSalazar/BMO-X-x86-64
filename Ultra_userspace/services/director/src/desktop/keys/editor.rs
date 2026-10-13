@@ -132,6 +132,7 @@ match c {
         let (orden, diario) = match orden {
             Command::PersonalDiario(r) => (Command::PersonalCenso(r), 1u8),
             Command::PersonalLa3060(r) => (Command::PersonalCenso(r), 2u8),
+            Command::PersonalEscalera(r) => (Command::PersonalCenso(r), 3u8),
             o => (o, 0u8),
         };
         match orden {
@@ -159,7 +160,7 @@ match c {
                     Ok(tn) => {
                         // ** El modo 3060 (12-10): si el escritorio no preparo
                         // la tarjeta, se dice ANTES (sigue, por la CPU).
-                        if diario == 2 && bmo::info(bmo::INFO_GPU_PUERTA) == 0 {
+                        if diario >= 2 && bmo::info(bmo::INFO_GPU_PUERTA) == 0 {
                             dsk.out.grid.with_ink(INK_ERR);
                             dsk.out.grid.text(b"  la 3060 NO esta lista para los lotes del juego: antes, `gpu verrano` (hasta `lienzo`) o `save mode`. Sin ella, todo por la CPU\n");
                             dsk.out.grid.with_ink(INK_PLAIN);

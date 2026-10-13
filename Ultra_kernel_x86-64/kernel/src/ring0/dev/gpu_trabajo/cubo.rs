@@ -353,7 +353,10 @@ pub fn receta(va: u64) -> Result<u64, u32> {
                 let t0 = pieza(4, t0);
                 // 9d: con la libreta si la receta trae termometros.
                 let libreta = r.termometro_vs.is_some() || r.termometro_ps.is_some();
-                let x = en_frio(bar0, pid, BLUR_ENTRADA.load(Ordering::Acquire), &p, &v, &paquete, true, libreta)
+                // 13-10: con la ESCALERA si la app la pide (`--3060-escalera`):
+                // un semaforo por escalon, y un lote que no paga dice DONDE.
+                let ligero = !paquete.dibujo.escalera;
+                let x = en_frio(bar0, pid, BLUR_ENTRADA.load(Ordering::Acquire), &p, &v, &paquete, ligero, libreta)
                     .map(|x| if pantalla && cu::sano(x) { cu::en_pantalla(x) } else { x });
                 let t0 = pieza(5, t0);
                 devolver_texturas(&prestadas);

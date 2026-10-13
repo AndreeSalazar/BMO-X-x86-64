@@ -729,6 +729,17 @@ pub const INFO_GPU_PUERTA: u64 = 0xD3;
 /// El porque del ultimo NO de la puerta de la 3060, si fue a ESTE proceso
 /// (`bmo_gpu_ga10x::porque::empaquetar`; 0 = ninguno). Ver el ABI.
 pub const INFO_GPU_PORQUE: u64 = 0xD4;
+/// **El PARTE del canal de GR muerto** (13-10), guardado en cuanto se ve:
+/// bit 63 hay parte; `[0..8)` el Xid; `[8..16)` el motor; `[16..24)` el tipo
+/// de fallo de memoria; `[24..32)` el nivel; `[32..40)` quien lo dijo (1 el
+/// GSP-RM, 2 el vigilante sin RC a la vista); bit 40 hay frase. Los nombres,
+/// en `bmo_gpu_ga10x::rc`. 0 = el canal no murio.
+pub const INFO_GPU_RC: u64 = 0xD5;
+/// La direccion del fallo de memoria del parte (con sentido en un Xid 31).
+pub const INFO_GPU_RC_VA: u64 = 0xD6;
+/// La frase de NVIDIA (`OS_ERROR_LOG`), de 8 en 8 bytes: `INFO_GPU_RC_TEXTO
+/// | trozo << 8`, little-endian; 0 cuando se acaba.
+pub const INFO_GPU_RC_TEXTO: u64 = 0xD7;
 /// El formato `i` (`INFO_AUDIO_FORMATO | (i << 8)`): alt, canales, bits,
 /// subframe, `wMaxPacketSize`, cuantas frecuencias, si CABE en 1 ms, si es el
 /// elegido y su sincronia. Ver `uaudio::info_formato` en el kernel.

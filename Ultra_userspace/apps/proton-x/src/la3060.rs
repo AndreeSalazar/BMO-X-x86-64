@@ -387,6 +387,42 @@ fn soltar_pantalla(e: &mut Estado) {
 }
 
 /// **El porque del ultimo NO del kernel** (`INFO_GPU_PORQUE`), en palabras.
+/// **El parte del canal muerto** (13-10), como lo guardo el kernel: el Xid
+/// con su nombre, quien lo dijo, la direccion y el tipo de un fallo de
+/// memoria, y la frase de NVIDIA. Vacio si el kernel no guardo ninguno.
+pub(crate) fn el_parte() -> String {
+    use bmo_proton_x_sm86::rc;
+    let p = bmo::info(bmo::INFO_GPU_RC);
+    if p >> 63 == 0 {
+        return String::new();
+    }
+    let (xid, motor, tipo, quien) = ((p & 0xFF) as u32, (p >> 8 & 0xFF) as u32, (p >> 16 & 0xFF) as u32, p >> 32 & 0xFF);
+    let mut s = if quien == 1 {
+        alloc::format!("PROTON-X: el parte del GSP-RM: Xid {xid} = {} (motor {motor})", rc::nombre_xid(xid))
+    } else {
+        String::from("PROTON-X: el parte: el canal se dio por muerto SIN un RC del GSP-RM a la vista (el vigilante lo corto: un lote que no volvio en su plazo, o el mensaje se perdio)")
+    };
+    let va = bmo::info(bmo::INFO_GPU_RC_VA);
+    if xid == 31 || va != 0 {
+        s.push_str(&alloc::format!("; el fallo de memoria: VA {va:#x}, {} (tipo {tipo})", rc::nombre_fallo(tipo)));
+    }
+    if p >> 40 & 1 == 1 {
+        let mut frase = alloc::vec::Vec::new();
+        for trozo in 0..(rc::TEXTO as u64 / 8) {
+            let w = bmo::info(bmo::INFO_GPU_RC_TEXTO | trozo << 8);
+            if w == 0 {
+                break;
+            }
+            frase.extend(w.to_le_bytes().iter().copied().filter(|&b| b != 0));
+        }
+        s.push_str("\nPROTON-X: lo que dijo NVIDIA: \"");
+        s.push_str(core::str::from_utf8(&frase).unwrap_or("?"));
+        s.push('"');
+    }
+    s.push('\n');
+    s
+}
+
 fn el_porque() -> String {
     let mut s = String::new();
     let _ = bmo_proton_x_sm86::porque::decir(bmo::info(bmo::INFO_GPU_PORQUE), &mut s);
@@ -560,12 +596,14 @@ pub fn dibujar(l: &Lote, d: &mut Destino) -> Result<Cuenta, NoDibuja> {
                         p.despues(l, false);
                         e.apagada = true;
                         bmo::consola(&no_pagado(r));
+                        bmo::consola(&el_parte());
                     }
                     Err(m) if m == bmo::IOMMU_NO_CANAL_MUERTO => {
                         NO_DEL_KERNEL.fetch_add(1, core::sync::atomic::Ordering::Relaxed);
                         p.despues(l, false);
                         e.apagada = true;
                         bmo::consola(&alloc::format!("PROTON-X: el kernel dice que el canal de GR de la 3060 esta MUERTO: {}. La 3060 se deja YA; el resto, por la CPU. Reinicia para recuperarla\n", el_porque()));
+                        bmo::consola(&el_parte());
                     }
                     Err(m) => {
                         NO_DEL_KERNEL.fetch_add(1, core::sync::atomic::Ordering::Relaxed);

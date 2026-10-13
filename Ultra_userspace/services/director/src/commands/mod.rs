@@ -190,6 +190,10 @@ pub(crate) enum Command<'a> {
     /// PROTON-X en MODO 3060 (`--3060`): dice al arrancar si la tarjeta esta
     /// lista, el censo de la 3060 (LI0) cada 10 s y lo que la 3060 dibujo.
     PersonalLa3060(&'a [u8]),
+    /// `personal escalera <fichero.exe>` (13-10) -- como `personal 3060`, y
+    /// cada lote con la ESCALERA (`--3060-escalera`): mas lento, y un lote
+    /// que la 3060 no paga dice en que escalon se paro.
+    PersonalEscalera(&'a [u8]),
     /// `escribe <path> <text>` -- crea un archivo con ese texto.
     ///
     /// Es la primera vez que Ring 3 GUARDA algo. Hasta ahora todo lo que
@@ -564,6 +568,8 @@ pub(crate) fn parse(line: &[u8]) -> Command<'_> {
                 Command::PersonalCenso(f)
             } else if let Some(f) = quita(rest, b"diario") {
                 Command::PersonalDiario(f)
+            } else if let Some(f) = quita(rest, b"escalera") {
+                Command::PersonalEscalera(f)
             } else if let Some(f) = quita(rest, b"3060").or_else(|| quita(rest, b"gpu")) {
                 Command::PersonalLa3060(f)
             } else if let Some(f) = quita(rest, b"lee").or_else(|| quita(rest, b"cat")) {

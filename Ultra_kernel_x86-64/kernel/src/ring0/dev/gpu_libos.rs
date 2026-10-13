@@ -541,9 +541,16 @@ fn rpc_lista() -> bool {
 /// su `RC_TRIGGERED` sigue en la cola del GSP (sin moverla: la lee, no la
 /// consume; como `gpu` en el director). `Some(0)` = muerto, Xid desconocido.
 pub(super) fn rc_del_canal(chid: u32) -> Option<u32> {
+    parte_del_canal(chid).rc.map(|r| r.xid)
+}
+
+/// **13-10: el PARTE entero del canal `chid`**: su `RC_TRIGGERED` campo a
+/// campo (motor, Xid, la direccion y el tipo de un fallo de memoria) y el
+/// ultimo `OS_ERROR_LOG` suyo (la frase de NVIDIA). Sin mover la cola.
+pub(super) fn parte_del_canal(chid: u32) -> bmo_gpu_ga10x::rc::Parte {
     let f = GSPMEM_F.load(Ordering::Acquire);
     if f == 0 {
-        return None;
+        return bmo_gpu_ga10x::rc::Parte::default();
     }
     let u32_en = |fisica: u64| {
         // SAFETY: dentro de GspMem (marcos NEUTRO de este fichero), que el
@@ -555,7 +562,7 @@ pub(super) fn rc_del_canal(chid: u32) -> Option<u32> {
     let datos = f + lb::COLA_GSP + PAGINA;
     let bytes = lb::MSGQ_PAGINAS * PAGINA;
     let mut leer = |p: u64, o: usize| u32_en(datos + (p * PAGINA + o as u64) % bytes);
-    bmo_gpu_ga10x::rpc::rc_del_canal(&mut leer, leido, escrito, lb::MSGQ_PAGINAS, chid)
+    bmo_gpu_ga10x::rc::buscar(&mut leer, leido, escrito, lb::MSGQ_PAGINAS, chid)
 }
 
 /// **Una pregunta a la cola de la CPU**: la arma `armar` en la pagina

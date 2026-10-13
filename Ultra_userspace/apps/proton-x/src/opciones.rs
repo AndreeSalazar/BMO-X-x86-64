@@ -1,5 +1,5 @@
 //! **Las opciones de delante de la ruta**, en cualquier orden: `--diario`,
-//! `--3060`, `--pantalla WxH` (LI2j) y `--sin-obreros`. Salio de
+//! `--3060`, `--3060-escalera`, `--pantalla WxH` (LI2j) y `--sin-obreros`. Salio de
 //! `_start` (`main.rs`) por L6a moviendo texto: el bucle es el mismo.
 
 use crate::{bmo, la3060, obreros};
@@ -22,6 +22,15 @@ pub fn leer(todo: &[u8]) -> (&[u8], bool) {
     loop {
         if let Some(r) = todo.strip_prefix(b"--diario ") {
             (todo, con_diario) = (r, true);
+        } else if let Some(r) = todo.strip_prefix(b"--3060-escalera ") {
+            // ** LA ESCALERA (13-10): `--3060` y ademas cada lote con un
+            // semaforo por escalon (estado, vertices, dibujo). Mas lento: es
+            // para DIAGNOSTICAR -- un lote que la 3060 no paga dice en que
+            // escalon se paro, y el parte del canal muerto lo completa.
+            (todo, con_diario) = (r, true);
+            la3060::modo_3060();
+            bmo_proton_x_sm86::puerta::pedir_escalera(true);
+            crate::di("PROTON-X --3060-escalera: cada lote de la 3060 con su escalera (estado, vertices, dibujo): mas lento, para saber DONDE se para\n");
         } else if let Some(r) = todo.strip_prefix(b"--3060 ") {
             // ** EL MODO 3060 (12-10): el diario, y la 3060 contada --
             // si esta lista al arrancar, el censo (LI0) cada 10 s y lo que

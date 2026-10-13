@@ -622,6 +622,17 @@ pub const INFO_GPU_PUERTA: u64 = 0xD3;
 /// y las frases, en `bmo_gpu_ga10x::porque`. Solo a QUIEN recibio el NO (a
 /// otro proceso, 0), como la libreta. 0 = ninguno.
 pub const INFO_GPU_PORQUE: u64 = 0xD4;
+/// **El PARTE del canal de GR muerto** (13-10), guardado en cuanto se ve:
+/// bit 63 hay parte; `[0..8)` el Xid; `[8..16)` el motor; `[16..24)` el tipo
+/// de fallo de memoria; `[24..32)` el nivel; `[32..40)` quien lo dijo (1 el
+/// GSP-RM, 2 el vigilante sin RC a la vista); bit 40 hay frase. Los nombres,
+/// en `bmo_gpu_ga10x::rc`. 0 = el canal no murio.
+pub const INFO_GPU_RC: u64 = 0xD5;
+/// La direccion del fallo de memoria del parte (con sentido en un Xid 31).
+pub const INFO_GPU_RC_VA: u64 = 0xD6;
+/// La frase de NVIDIA (`OS_ERROR_LOG`), de 8 en 8 bytes: `INFO_GPU_RC_TEXTO
+/// | trozo << 8`, little-endian; 0 cuando se acaba.
+pub const INFO_GPU_RC_TEXTO: u64 = 0xD7;
 
 /// -- ** EL METRO DE LA PUERTA -------------------------------------------
 ///
