@@ -648,12 +648,12 @@ pub fn pegar(r: &Receta, t: &mut Taller) -> Result<(), NoReceta> {
     // E8f: el banco que el kernel va a atar, si la receta lo pidio.
     let banco = (r.dibujo.banco > 0).then_some(juez::BancoDeApp { numero: tu::BANCO_APP, bytes: r.dibujo.banco });
     let cuerpo = instrucciones(&mut t.cuerpo, r.vs);
-    juez::juzgar_cuerpo_con(cuerpo, r.registros_vs, juez::Permisos { asas: 0, banco }).map_err(|b| NoReceta::Cuerpo("vertice", b))?;
+    juez::juzgar_cuerpo_con(cuerpo, r.registros_vs, juez::Permisos { asas: 0, banco, ..juez::Permisos::default() }).map_err(|b| NoReceta::Cuerpo("vertice", b))?;
     pegamento::vertice_con_libreta_en(&mut t.pegado, cuerpo, r.registros_vs, r.cargas_vs(), datos, r.salidas, r.posicion, r.termometro_vs).map_err(|e| NoReceta::Pegamento("vertice", e))?;
     t.bytes_vs = t.pegado.bytes(&mut t.vs);
     let usados_vs = t.pegado.registros;
     let cuerpo = instrucciones(&mut t.cuerpo, r.ps);
-    juez::juzgar_cuerpo_con(cuerpo, r.registros_ps, juez::Permisos { asas: pegamento::asas(r.cargas_ps()), banco }).map_err(|b| NoReceta::Cuerpo("pixel", b))?;
+    juez::juzgar_cuerpo_con(cuerpo, r.registros_ps, juez::Permisos { asas: pegamento::asas(r.cargas_ps()), banco, ..juez::Permisos::default() }).map_err(|b| NoReceta::Cuerpo("pixel", b))?;
     let mezcla = r.dibujo.destino.filter(|_| !r.dibujo.mezcla.trivial()).map(|(va, dst)| (r.dibujo.mezcla, dst, (va % 4096) as u32));
     pegamento::pixel_entero_en(&mut t.pegado, cuerpo, r.registros_ps, r.cargas_ps(), datos, r.genericos(), r.termometro_ps, r.dibujo.redondeo, mezcla, r.dibujo.objetivos()).map_err(|e| NoReceta::Pegamento("pixel", e))?;
     t.bytes_ps = t.pegado.bytes(&mut t.ps);

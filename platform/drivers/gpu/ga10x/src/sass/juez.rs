@@ -499,6 +499,9 @@ fn decodificar(lo: u64, hi: u64) -> Option<Instr> {
             i.escribe = reg(rd, if doble { 2 } else { 1 });
             i.lee = [reg(s0, 1), NADA, NADA, NADA];
         }
+        // ** LI2f (12-10): BAR.SYNC 0x0, la barrera del grupo de un computo
+        // (`bmo_sm86::computo::bar_sync`, de oro), y solo esa forma.
+        0x11D if lo == 0x7b1d && hi & ((1 << 41) - 1) == 1 << 16 => i.clase = Clase::Nada,
         // Sin registros: NOP, BSSY, BSYNC, EXIT, BRA; y los UNIFORMES.
         0x118 | 0x145 | 0x141 | 0x82 | 0x90 | 0x99 | 0x1C3 => i.clase = Clase::Nada,
         0x14D => {
@@ -575,7 +578,7 @@ pub fn juzgar_cuerpo_de_app(codigo: &[(u64, u64)], registros: u32) -> Result<(),
 /// canales, pero NO que TIC ni que TSC lee la 3060: un asa suya podria
 /// apuntar a una piscina entera de descriptores que no son suyos.
 pub fn juzgar_cuerpo_con_asas(codigo: &[(u64, u64)], registros: u32, asas: u64) -> Result<(), Bodrio> {
-    juzgar_cuerpo_con(codigo, registros, Permisos { asas, banco: None })
+    juzgar_cuerpo_con(codigo, registros, Permisos { asas, ..Permisos::default() })
 }
 
 /// **El banco de constantes de una app** (E8f, DL18): el que el KERNEL ata a
@@ -592,6 +595,10 @@ pub struct BancoDeApp {
 pub struct Permisos {
     pub asas: u64,
     pub banco: Option<BancoDeApp>,
+    /// ** LI2f (12-10): un cuerpo de COMPUTO -- sus ids (S2R) y su barrera
+    /// (BAR.SYNC) --, y los UAV que el kernel le ato (`juez_computo`).
+    pub computo: bool,
+    pub uavs: super::juez_computo::UavsDeApp,
 }
 
 /// **R7 con todo lo que el kernel da** (E8f, 09-10): las asas, como
@@ -617,8 +624,8 @@ pub fn juzgar_cuerpo_con(codigo: &[(u64, u64)], registros: u32, permisos: Permis
     for (k, &(lo, hi)) in codigo.iter().enumerate() {
         let op = (lo & 0x1FF) as u32;
         let forma = (lo >> 9 & 7) as u32;
-        if lo >> 12 & 0xF != 7 && op != 0x147 && op != 0x15B {
-            return ajeno(k, op, "con predicado: en el cuerpo de una app solo un BRA o un KILL lleva guarda");
+        if lo >> 12 & 0xF != 7 && op != 0x147 && op != 0x15B && !(op == 0x186 && permisos.uavs.n > 0) {
+            return ajeno(k, op, "con predicado: en el cuerpo de una app solo un BRA, un KILL o (LI2f) un STG lleva guarda");
         }
         let formas: &[u32] = match op {
             // FADD: inmediato en la forma 2 (y c[][] en la 3).
@@ -654,6 +661,11 @@ pub fn juzgar_cuerpo_con(codigo: &[(u64, u64)], registros: u32, permisos: Permis
             0x161 | 0x167 if asas != 0 => &[1],
             // ** E8f: LDC, del banco que ato el kernel (abajo).
             0x182 if permisos.banco.is_some() => &[5],
+            // ** LI2f: los ids y la barrera de un computo, y la memoria de
+            // SUS UAV con la direccion sujeta (`juez_computo`, abajo).
+            0x119 if permisos.computo => &[4],
+            0x11D if permisos.computo => &[5],
+            0x181 | 0x186 if permisos.uavs.n > 0 => &[4],
             0x14D if k == ultima => &[4],
             0x14D => return ajeno(k, op, "un EXIT antes del final: el pegamento de detras no correria"),
             _ => return ajeno(k, op, "fuera de la lista blanca de una app (memoria, atributos, saltos...)"),
@@ -671,6 +683,9 @@ pub fn juzgar_cuerpo_con(codigo: &[(u64, u64)], registros: u32, permisos: Permis
         if n > 0 && r as u32 + n as u32 > registros {
             return ajeno(k, r as u32, "escribe un registro que no es del cuerpo: los del pegamento son del kernel");
         }
+        if n > 0 && (r as u32..r as u32 + n as u32).any(|x| x < 256 && permisos.uavs.protege(x as u8)) {
+            return ajeno(k, r as u32, "pisa la base o el tope de un UAV: los pone el kernel");
+        }
         if n > 0 && (r as u32..r as u32 + n as u32).any(|x| x < 64 && asas >> x & 1 == 1) {
             return ajeno(k, r as u32, "pisa el registro del ASA de una textura: el asa la pone el kernel");
         }
@@ -682,6 +697,12 @@ pub fn juzgar_cuerpo_con(codigo: &[(u64, u64)], registros: u32, permisos: Permis
         }
         if op == 0x182 {
             ldc_de_app(codigo, k, permisos.banco)?;
+        }
+        match op {
+            0x119 => super::juez_computo::s2r_de_app((lo, hi), k)?,
+            0x11D => super::juez_computo::bar_de_app((lo, hi), k)?,
+            0x181 | 0x186 => super::juez_computo::memoria_de_app(codigo, k, &permisos.uavs)?,
+            _ => {}
         }
     }
     Ok(())

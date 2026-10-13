@@ -1,0 +1,202 @@
+//! **R7 PARA EL COMPUTO DE UNA APP** (LI2f, 12-10) -- lo que el juez le deja
+//! a un cuerpo de computo ademas de lo de siempre: sus ids (S2R TID y
+//! CTAID), la barrera del grupo (BAR.SYNC) y la memoria de SUS UAV (LDG y
+//! STG), con la direccion SUJETA a lo que el kernel le presto.
+//!
+//! [carril]  VERDE     lee palabras y dice si o no
+//!
+//! # La cadena de la direccion
+//!
+//! El cuerpo NO elige a donde va la 3060: el kernel le pone de cada UAV su
+//! BASE (un par de registros) y su TOPE (la mayor direccion de palabra de lo
+//! prestado, desde la base), y el cuerpo no los puede pisar. Cada LDG o STG
+//! tiene que venir JUSTO detras de estas cuatro, palabra a palabra las de
+//! `bmo_sm86::codifica` (las que emite `proton-x-sm86/src/uav.rs`):
+//!
+//! ```text
+//!    LOP3.LUT  Ra, x, 0xfffffffc, RZ, 0xc0, !PT   alinear a la palabra
+//!    IMNMX.U32 Ra, Ra, TOPE, PT                   el menor: NUNCA pasa del tope
+//!    IADD3     Ra, Pp, BASE, Ra, RZ               sumar a la base (el acarreo a Pp)
+//!    IADD3.X   Ra+1, BASE+1, RZ, RZ, Pp, !PT      la mitad alta, con su acarreo
+//!    LDG.E / @P STG.E  [Ra.64]                    sin inmediato
+//! ```
+//!
+//! (El juez no enlaza el codificador -- el crate del driver no tiene
+//! dependencias, por esquema --: las palabras van escritas aqui con sus
+//! campos, y la prueba de abajo las compara con las de `bmo_sm86`.)
+//!
+//! Con eso la direccion es `BASE + min(x & ~3, TOPE)`: alineada y dentro de
+//! lo prestado, valga `x` lo que valga. Seguidas, sin nada en medio, y
+//! ningun BRA del cuerpo cae entre la primera y la memoria (se saltaria la
+//! sujecion). El par Ra, Ra+1, alineado.
+//!
+//! Que la palabra VALGA (el predicado del STG, el SEL tras el LDG) es cosa
+//! del cuerpo: si se equivoca, lee o escribe mal SU UAV. Eso es correccion,
+//! no seguridad, y el juez no lo mira.
+//!
+//! [!] La barrera: si un hilo no llega (una barrera dentro de un `si` que no
+//! todos toman), la 3060 se queda esperando. El emisor solo la pone fuera de
+//! todo `si` y bucle; el juez no puede demostrar que todos lleguen, como no
+//! puede demostrar que un bucle acabe (E6): lo que lo para es del kernel.
+
+use super::juez::{Bodrio, Regla};
+
+const RZ: u8 = 255;
+/// La guarda PT (siempre), en 12..16.
+const PT: u64 = 7 << 12;
+
+// Las palabras que el juez acepta (lo, y los 41 bits bajos de hi), con sus
+// campos: `bmo_sm86::{codifica, computo}`, de oro.
+fn s2r(rd: u8, sr: u8) -> (u64, u64) {
+    (0x7919 | (rd as u64) << 16, (sr as u64) << 8)
+}
+const BAR_SYNC: (u64, u64) = (0x7b1d, 1 << 16);
+fn ldg(rd: u8, a: u8) -> (u64, u64) {
+    (0x0981 | PT | (rd as u64) << 16 | (a as u64) << 24 | 0x04 << 32, 0x0c1e_1900)
+}
+fn stg(guarda: u8, a: u8, rb: u8) -> (u64, u64) {
+    (0x0986 | (guarda as u64 & 0xF) << 12 | (a as u64) << 24 | (rb as u64) << 32, 0x0c10_1904)
+}
+/// `LOP3.LUT a, x, 0xfffffffc, RZ, 0xc0, !PT`.
+fn alinea(a: u8, x: u8) -> (u64, u64) {
+    (0x012 | PT | 4 << 9 | (a as u64) << 16 | (x as u64) << 24 | 0xFFFF_FFFC << 32, 0x078e_0000 | 0xC0 << 8 | RZ as u64)
+}
+/// `IMNMX.U32 a, a, tope, PT`.
+fn sujeta(a: u8, tope: u8) -> (u64, u64) {
+    (0x017 | PT | 1 << 9 | (a as u64) << 16 | (a as u64) << 24 | (tope as u64) << 32, 7 << 23)
+}
+/// `IADD3 a, Pp, base, a, RZ`.
+fn suma(a: u8, p: u8, base: u8) -> (u64, u64) {
+    (0x010 | PT | 1 << 9 | (a as u64) << 16 | (base as u64) << 24 | (a as u64) << 32, (0x07ff_e000 & !(7 << 17)) | (p as u64) << 17 | RZ as u64)
+}
+/// `IADD3.X a+1, base+1, RZ, RZ, Pp, !PT`.
+fn alta(a: u8, p: u8, base: u8) -> (u64, u64) {
+    (0x010 | PT | 1 << 9 | (a as u64 + 1) << 16 | (base as u64 + 1) << 24 | (RZ as u64) << 32, (0x07ff_e000 & !(0xF << 23)) | (p as u64) << 23 | 1 << 10 | RZ as u64)
+}
+
+/// Cuantos UAV puede atar el kernel a un computo.
+pub const MAX_UAVS: usize = 8;
+
+/// **Los UAV de un computo**: de cada uno, el registro de su BASE (el par
+/// `base`, `base + 1`) y el de su TOPE, los dos del kernel.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub struct UavsDeApp {
+    pub n: u8,
+    pub base: [u8; MAX_UAVS],
+    pub tope: [u8; MAX_UAVS],
+}
+
+impl UavsDeApp {
+    /// Si el registro `r` es del kernel (una base, su mitad alta, un tope).
+    pub fn protege(&self, r: u8) -> bool {
+        (0..self.n as usize).any(|k| r == self.base[k] || r == self.base[k].wrapping_add(1) || r == self.tope[k])
+    }
+}
+
+const BAJOS: u64 = (1 << 41) - 1;
+
+/// Dos palabras iguales, sin el control.
+fn igual(a: (u64, u64), b: (u64, u64)) -> bool {
+    a.0 == b.0 && a.1 & BAJOS == b.1 & BAJOS
+}
+
+fn ajeno(instruccion: usize, que: u32, detalle: &'static str) -> Result<(), Bodrio> {
+    Err(Bodrio { regla: Regla::R7CuerpoAjeno, instruccion, que, detalle })
+}
+
+/// Un S2R de un id de hilo o de grupo, y nada mas.
+pub(super) fn s2r_de_app(w: (u64, u64), k: usize) -> Result<(), Bodrio> {
+    let rd = (w.0 >> 16 & 0xFF) as u8;
+    let sr = (w.1 >> 8 & 0xFF) as u8;
+    // TID.X/Y/Z 0x21..0x23 y CTAID.X/Y/Z 0x25..0x27.
+    if matches!(sr, 0x21..=0x23 | 0x25..=0x27) && igual(w, s2r(rd, sr)) {
+        Ok(())
+    } else {
+        ajeno(k, sr as u32, "un S2R que no es un id de hilo ni de grupo")
+    }
+}
+
+/// La barrera del grupo, en su forma.
+pub(super) fn bar_de_app(w: (u64, u64), k: usize) -> Result<(), Bodrio> {
+    if igual(w, BAR_SYNC) {
+        Ok(())
+    } else {
+        ajeno(k, 0, "una barrera que no es BAR.SYNC 0x0")
+    }
+}
+
+/// **Un LDG o un STG de app** en `k`: su forma (sin inmediato; guarda solo
+/// el STG) y la cadena que lo sujeta (ver el modulo).
+pub(super) fn memoria_de_app(codigo: &[(u64, u64)], k: usize, uavs: &UavsDeApp) -> Result<(), Bodrio> {
+    let w = codigo[k];
+    let op = w.0 & 0x1FF;
+    let a = (w.0 >> 24 & 0xFF) as u8;
+    let forma = if op == 0x181 {
+        let rd = (w.0 >> 16 & 0xFF) as u8;
+        igual(w, ldg(rd, a))
+    } else {
+        let (guarda, rb) = ((w.0 >> 12 & 0xF) as u8, (w.0 >> 32 & 0xFF) as u8);
+        igual(w, stg(guarda, a, rb))
+    };
+    if !forma {
+        return ajeno(k, op as u32, "un LDG o un STG que no es de la forma de una app (.E, 32 bits, sin inmediato; guarda solo el STG)");
+    }
+    if a % 2 != 0 || a >= RZ - 1 {
+        return ajeno(k, a as u32, "la direccion de un LDG o un STG no es un par alineado");
+    }
+    let Some(j) = k.checked_sub(4) else {
+        return ajeno(k, a as u32, "un LDG o un STG sin la cadena que sujeta su direccion");
+    };
+    let [w_alinea, w_sujeta, w_suma, w_alta] = [codigo[j], codigo[j + 1], codigo[j + 2], codigo[j + 3]];
+    let x = (w_alinea.0 >> 24 & 0xFF) as u8;
+    if !igual(w_alinea, alinea(a, x)) {
+        return ajeno(j, a as u32, "antes de un LDG o un STG no esta el LOP3 que alinea su direccion");
+    }
+    let p = (w_suma.1 >> 17 & 7) as u8;
+    let base = (w_suma.0 >> 24 & 0xFF) as u8;
+    let Some(u) = (0..uavs.n as usize).find(|&u| uavs.base[u] == base) else {
+        return ajeno(j + 2, base as u32, "la direccion de un LDG o un STG no se suma a la base de un UAV del kernel");
+    };
+    if !igual(w_sujeta, sujeta(a, uavs.tope[u])) {
+        return ajeno(j + 1, a as u32, "la direccion de un LDG o un STG no la sujeta un IMNMX.U32 con el tope de SU UAV");
+    }
+    if p == 7 || base >= RZ - 1 || !igual(w_suma, suma(a, p, base)) {
+        return ajeno(j + 2, a as u32, "la direccion de un LDG o un STG no es la base de su UAV mas lo sujeto");
+    }
+    if !igual(w_alta, alta(a, p, base)) {
+        return ajeno(j + 3, a as u32 + 1, "la mitad alta de la direccion de un LDG o un STG no es la de su base con su acarreo");
+    }
+    // Ningun salto cae dentro de la cadena (la esquivaria).
+    for (m, &(blo, bhi)) in codigo.iter().enumerate() {
+        if blo & 0x1FF == 0x147 {
+            let d = (((bhi & 0x3_FFFF) << 32 | blo >> 32) << 14) as i64 >> 14;
+            let destino = (16 * (m as i64 + 1) + d) / 16;
+            if destino > j as i64 && destino <= k as i64 {
+                return ajeno(m, destino as u32, "un salto cae dentro de la cadena que sujeta un LDG o un STG: la esquivaria");
+            }
+        }
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod pruebas {
+    use super::*;
+    use bmo_sm86::codifica::{self as c, Fuente};
+    use bmo_sm86::computo::{self as g, Sr};
+
+    /// Las palabras del juez son las del codificador (de oro), campo a campo.
+    #[test]
+    fn las_palabras_son_las_del_codificador() {
+        for sr in Sr::TID.iter().chain(Sr::CTAID.iter()) {
+            assert!(igual(s2r(9, *sr as u8), g::s2r(9, *sr, 0)));
+        }
+        assert!(igual(BAR_SYNC, g::bar_sync(0)));
+        assert!(igual(ldg(13, 6), g::ldg(g::SIEMPRE, 13, 6, 0, 0)));
+        assert!(igual(stg(0xA, 6, 13), g::stg(0xA, 6, 0, 13, 0)));
+        assert!(igual(alinea(6, 21), c::lop3(6, 21, Fuente::Imm(!3), c::Y, 0)));
+        assert!(igual(sujeta(6, 33), c::imnmx(6, 6, c::r(33), false, false, 0)));
+        assert!(igual(suma(6, 3, 30), c::iadd3_acarreo(6, 3, 30, c::r(6), 0)));
+        assert!(igual(alta(6, 3, 30), c::iadd3_x(7, 31, c::r(c::RZ), 3, 0)));
+    }
+}

@@ -112,7 +112,7 @@ pub mod muestreo;
 /// LI2f (12-10): el computo de una app -- los ids, la barrera y los UAV
 /// crudos y estructurados, con la direccion SUJETA.
 mod uav;
-pub use uav::DelUav;
+pub use uav::{permisos_computo, DelUav};
 
 use alloc::vec;
 use alloc::vec::Vec;

@@ -26,7 +26,7 @@ fn bits(x: u32) -> f32 {
 
 /// El banco de la app: el cbuffer aplanado del programa, entero.
 fn banco(p: &Programa) -> Permisos {
-    Permisos { asas: 0, banco: Some(BancoDeApp { numero: BANCO_APP, bytes: 16 * p.filas_cb as u32 }) }
+    Permisos { asas: 0, banco: Some(BancoDeApp { numero: BANCO_APP, bytes: 16 * p.filas_cb as u32 }), ..Permisos::default() }
 }
 
 /// Los dos ABI, juzgados: R0..R6 los dos; R7 el de registros, con su banco.
@@ -169,9 +169,9 @@ fn sin_su_banco_el_juez_dice_que_no() {
     let p = leer(2, 3);
     let r = emitir_con(&p, TECHO, Abi::Registros).unwrap();
     assert_eq!(juzgar_cuerpo_de_app(&r.codigo, r.registros).unwrap_err().regla, Regla::R7CuerpoAjeno);
-    let corto = Permisos { asas: 0, banco: Some(BancoDeApp { numero: BANCO_APP, bytes: 16 * 5 - 4 }) };
+    let corto = Permisos { asas: 0, banco: Some(BancoDeApp { numero: BANCO_APP, bytes: 16 * 5 - 4 }), ..Permisos::default() };
     assert_eq!(juzgar_cuerpo_con(&r.codigo, r.registros, corto).unwrap_err().regla, Regla::R7CuerpoAjeno);
-    let justo = Permisos { asas: 0, banco: Some(BancoDeApp { numero: BANCO_APP, bytes: 16 * 5 }) };
+    let justo = Permisos { asas: 0, banco: Some(BancoDeApp { numero: BANCO_APP, bytes: 16 * 5 }), ..Permisos::default() };
     assert_eq!(juzgar_cuerpo_con(&r.codigo, r.registros, justo), Ok(()));
 }
 

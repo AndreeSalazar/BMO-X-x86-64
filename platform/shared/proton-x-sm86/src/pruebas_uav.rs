@@ -243,3 +243,59 @@ fn lo_que_no_va_todavia() {
     let dibujo = programa(vec![Op::IdHilo { d: 0, que: 0, c: 0 }], vec![0; 1], 0, [0; 3]);
     assert_eq!(emitir_con(&dibujo, 64, Abi::Registros).err(), Some(NoEmite::Operacion(0)));
 }
+
+/// ** EL JUEZ DEL KERNEL (R0..R7) con lo que emite el computo: los cuerpos
+/// de arriba pasan -- PERFECTO Y PRECISO, y R7 con sus UAV --; y un cuerpo
+/// tramposo, no: otro tope, la base pisada, un salto dentro de la cadena,
+/// un LDG sin cadena, un inmediato en la direccion.
+#[test]
+fn el_juez_deja_lo_emitido_y_no_las_trampas() {
+    use bmo_gpu_ga10x::sass::juez::{juzgar_cuerpo_con, juzgar_drenado, Contexto, Regla, RESERVADOS};
+    let ops = vec![
+        Op::IdHilo { d: 0, que: 0, c: 0 },
+        Op::IdHilo { d: 10, que: 3, c: 0 },
+        Op::Barrera,
+        Op::Entera { d: 1, a: 0, b: 2, op: OpEntera::Shl },
+        Op::LeeUav { d: 3, u: 0, modo: Modo::Crudo, i: 1, desp: 9, z: 9 },
+        Op::LeeUav { d: 11, u: 1, modo: Modo::Estructurado, i: 0, desp: 9, z: 9 },
+        Op::Mul { d: 7, a: 3, b: 8 },
+        Op::EscribeUav { u: 1, modo: Modo::Estructurado, i: 10, desp: 9, z: 9, v: [7, 11, 12, 13], mascara: 0xF },
+    ];
+    let mut ini = vec![0u32; 15];
+    ini[2] = 2;
+    ini[8] = 2.0f32.to_bits();
+    let p = programa(ops, ini, 2, [8, 2, 1]);
+    let e = emitir_con(&p, 64, Abi::Registros).unwrap();
+    let permisos = crate::permisos_computo(&e).unwrap();
+    assert_eq!(permisos.uavs.n, 2);
+    let ctx = Contexto { registros: e.registros + RESERVADOS, sph: None };
+    juzgar_drenado(&e.codigo, &ctx).unwrap_or_else(|b| panic!("R0..R6: {b}"));
+    juzgar_cuerpo_con(&e.codigo, e.registros, permisos).unwrap_or_else(|b| panic!("R7: {b}"));
+    // Sin computo ni UAV (los permisos de un dibujo): no.
+    assert_eq!(juzgar_cuerpo_con(&e.codigo, e.registros, Default::default()).unwrap_err().regla, Regla::R7CuerpoAjeno);
+    let r7 = |c: &[(u64, u64)]| juzgar_cuerpo_con(c, e.registros, permisos).err().map(|b| b.detalle);
+    let ldg = e.codigo.iter().position(|w| w.0 & 0x1FF == 0x181).unwrap();
+    // Otro tope en el IMNMX (el del otro UAV).
+    let mut t = e.codigo.clone();
+    let otro = permisos.uavs.tope[1] as u64;
+    t[ldg - 3].0 = t[ldg - 3].0 & !(0xFF << 32) | otro << 32;
+    assert!(r7(&t).is_some_and(|d| d.contains("tope de SU UAV")), "{:?}", r7(&t));
+    // Un inmediato en la direccion del LDG.
+    let mut t = e.codigo.clone();
+    t[ldg].0 |= 0x40 << 40;
+    assert!(r7(&t).is_some());
+    // El LOP3 que alinea, quitado (un MOV en su sitio).
+    let mut t = e.codigo.clone();
+    let a = (t[ldg].0 >> 24 & 0xFF) as u8;
+    t[ldg - 4] = bmo_sm86::codifica::mov(a, bmo_sm86::codifica::r(a), t[ldg - 4].1 >> 41);
+    assert!(r7(&t).is_some_and(|d| d.contains("LOP3")), "{:?}", r7(&t));
+    // La base pisada por el cuerpo.
+    let mut t = e.codigo.clone();
+    let b = permisos.uavs.base[0];
+    t.insert(0, bmo_sm86::codifica::mov(b, bmo_sm86::codifica::Fuente::Imm(0x1000), 0));
+    assert!(r7(&t).is_some_and(|d| d.contains("base o el tope")), "{:?}", r7(&t));
+    // Un salto que cae dentro de la cadena.
+    let mut t = e.codigo.clone();
+    t.insert(0, bmo_sm86::codifica::bra(7, 16 * (ldg as i64 - 1), 0));
+    assert!(r7(&t).is_some_and(|d| d.contains("salto")), "{:?}", r7(&t));
+}

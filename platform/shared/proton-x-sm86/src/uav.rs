@@ -69,6 +69,27 @@ use bmo_sm86::computo::{self as g, Sr, SIEMPRE};
 use super::planifica::Meta;
 use super::{reg_de, Abi, Clase, Emisor, NoEmite, Precarga};
 
+/// **Lo que el juez del kernel le deja a un cuerpo de computo emitido**: sus
+/// ids y su barrera, y de cada UAV su base y su tope (los registros de sus
+/// precargas). `None`: mas UAV de los que ata el kernel.
+pub fn permisos_computo(e: &super::Emitido) -> Option<bmo_gpu_ga10x::sass::juez::Permisos> {
+    use bmo_gpu_ga10x::sass::juez_computo::{UavsDeApp, MAX_UAVS};
+    let mut uavs = UavsDeApp::default();
+    let de = |u: u8, q: DelUav| e.precargas.iter().find_map(|p| matches!(*p, Precarga::Uav { u: u2, que, .. } if (u2, que) == (u, q)).then(|| if let Precarga::Uav { reg, .. } = *p { reg } else { 0 }));
+    for p in &e.precargas {
+        if let Precarga::Uav { u, que: DelUav::Base, reg } = *p {
+            let n = uavs.n as usize;
+            if n == MAX_UAVS {
+                return None;
+            }
+            uavs.base[n] = reg;
+            uavs.tope[n] = de(u, DelUav::Tope)?;
+            uavs.n += 1;
+        }
+    }
+    Some(bmo_gpu_ga10x::sass::juez::Permisos { computo: true, uavs, ..Default::default() })
+}
+
 /// Lo que el kernel pone de un UAV (ver el modulo).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[repr(u8)]
