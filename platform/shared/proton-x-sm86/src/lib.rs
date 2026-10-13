@@ -67,6 +67,8 @@ extern crate alloc;
 
 pub mod planifica;
 pub mod simula;
+/// LI2f (12-10): un grupo de computo -- sus hilos, su compartida y sus barreras.
+pub mod simula_grupo;
 /// DL10 (09-10): la FFMA exacta, en sus cuatro redondeos (la del simulador).
 pub mod fma;
 
@@ -1082,6 +1084,8 @@ mod pruebas_largos;
 mod pruebas_registros;
 #[cfg(test)]
 mod pruebas_mrt;
+#[cfg(test)]
+mod pruebas_simula_computo;
 #[cfg(test)]
 mod pruebas_mezcla;
 #[cfg(test)]
