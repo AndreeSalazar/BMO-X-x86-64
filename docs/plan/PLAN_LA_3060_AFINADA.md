@@ -514,6 +514,38 @@ piezas; las tres estan escritas y NINGUNA ha corrido en el metal:
       no saca todavia) y las de un array o una 3D: el censo las cuenta aparte.
       NADA de esto ha corrido en el metal.
 
+### La LENTE y lo que el emisor no sabe (13-10, noche)
+
+El kernel como LENTE: lo que Mesa dice (`../metal/mesa_nak/INFORME_NAK.md`)
+y `ptxas` codifica, la 3060 lo corre con entradas conocidas, el kernel lee el
+resultado y CABINA dice IGUAL o DISTINTO contra la CPU. Solo lo medido entra
+al emisor. Si una variante cuelga la 3060: el parte, `gpu revivir`, y queda
+marcada.
+
+- [ ] **L1 -- la lente:** `gpu lente <familia>`, el banco (computo y
+      pixeles), la tabla en CABINA y `informe/LENTE.TXT`.
+- [ ] **L2 -- las derivadas:** SHFL.BFLY y FSWZADD (opcode 0x822); medir el
+      signo de sub/subr y que y+1 sea abajo. Abre el `Sample` con mips y
+      `ddx`/`ddy`.
+- [ ] **L3 -- SUST/SULD:** `EscribeUav` de texturas y buferes con tipo.
+- [ ] **L4 -- ATOM/RED:** el `Atomico` del computo.
+- [ ] **L5 -- el microscopio:** el decodificador de SASS con nombres (de
+      `sm70_encode.rs`): CABINA lee lo que corre la 3060 de cada PSO.
+- [ ] Fuera de la lente: las texturas BC por la 3060, y el envio rapido
+      (muchos lotes por llamada, sin esperar cada uno).
+
+**Las fuentes publicas** (lo publico se trae; lo que no, se mide):
+
+| Fuente | Para que |
+|---|---|
+| Mesa `src/nouveau` (gitlab.freedesktop.org) | NAK (instrucciones), NIL (texturas), NVK (estado del 3D) |
+| Mesa `src/compiler/nir` | estructurar grafos de saltos, bajar lo que el hardware no tiene |
+| envytools (`rnndb`) | los registros y metodos de las clases, con nombre |
+| dxil-spirv y vkd3d-proton | cada forma de DXIL y cada regla de D3D12 traducidas por quien ya corre Cyberpunk |
+| DirectXShaderCompiler (`docs/DXIL.rst`) y DirectX-Specs | lo que DXIL y D3D12 PROMETEN |
+| CuAssembler | tablas de SASS sm_86 sacadas de `nvdisasm` |
+| NVIDIA open-gpu-doc y open-gpu-kernel-modules, nouveau de Linux | lo que ya se usa (clases, GSP-RM) |
+
 ---
 
 ## 5c. EL PASE DE LA 3060 (P) -- la burocracia una vez, y el radar en cada barrido
