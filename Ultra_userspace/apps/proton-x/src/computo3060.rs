@@ -168,3 +168,71 @@ fn con_el_estado(e: &mut Estado, p: &Programa, grupos: [u32; 3], cb: &[u8], bufe
         }
     }
 }
+
+/// **`proton-x --prueba-computo`** (la prueba del metal sin un juego): el CS
+/// de nBodyGravity (Microsoft, MIT), 256 particulas en 2 grupos, por la
+/// puerta del computo y por la CPU; los MISMOS bytes, o por que no.
+pub fn prueba() -> ! {
+    let ahora = crate::plataforma::ahora_ns;
+    let p = match bmo_proton_x::dxil::computo::preparar(include_bytes!("../../../../platform/shared/proton-x/prueba/muestras/nbody/nBodyGravityCS.cso")) {
+        Ok(x) => x.programa,
+        Err(_) => {
+            bmo::consola("PROTON-X: la prueba del computo: el CS de nBody no se lee\n");
+            bmo::salir();
+        }
+    };
+    let n = 256usize;
+    let particulas: Vec<u8> = (0..n)
+        .flat_map(|k| {
+            let f = k as f32;
+            [libm_sin(f * 0.37) * 10.0, f * 0.05 - 6.0, (f * 0.11) - 14.0, 1.0, 0.01 * f, -0.02, 0.0, 0.0].map(f32::to_bits)
+        })
+        .flat_map(u32::to_le_bytes)
+        .collect();
+    let filas: [u32; 8] = [n as u32, (n / 128) as u32, 0, 0, 0.1f32.to_bits(), 1.0f32.to_bits(), 0, 0];
+    let mut cb: Vec<u8> = filas.iter().flat_map(|w| w.to_le_bytes()).collect();
+    cb.resize(16 * (p.filas_cb as usize).max(2), 0);
+    let buferes = [Some(Bufer { bytes: &particulas, formato: 0, paso: 32, elementos: n as u32 })];
+    let rec = bmo_proton_x::textura::Recursos { texturas: &[], muestreadores: &[], buferes: &buferes, dinamicas: None };
+    // La CPU.
+    let mut casa = alloc::vec![0u8; 32 * n];
+    let t0 = ahora();
+    {
+        let mut uavs = [Some(Uav { bytes: &mut casa, formato: 0, paso: 32, elementos: n as u32, contador: None, rebanadas: bmo_proton_x::bufer::Rebanadas::PLANA })];
+        p.despachar([2, 1, 1], &cb, &rec, &mut uavs);
+    }
+    let t1 = ahora();
+    // La 3060, por la puerta.
+    crate::la3060::modo_3060();
+    let mut gpu = alloc::vec![0u8; 32 * n];
+    let t2 = ahora();
+    let hecho = {
+        let mut uavs = [Some(Uav { bytes: &mut gpu, formato: 0, paso: 32, elementos: n as u32, contador: None, rebanadas: bmo_proton_x::bufer::Rebanadas::PLANA })];
+        computar(&p, [2, 1, 1], &cb, &buferes, &mut uavs)
+    };
+    let t3 = ahora();
+    let cpu_us = (t1 - t0) / 1000;
+    let gpu_us = (t3 - t2) / 1000;
+    if !hecho {
+        bmo::consola(&alloc::format!("PROTON-X: la prueba del computo: la 3060 NO lo hizo (el porque, arriba); la CPU tardo {cpu_us} us\n"));
+        bmo::salir();
+    }
+    let distintas = (0..n).filter(|&k| gpu[32 * k..32 * k + 32] != casa[32 * k..32 * k + 32]).count();
+    if distintas == 0 {
+        bmo::consola(&alloc::format!("PROTON-X: la prueba del computo: PERFECTO -- nBody (256 particulas, 2 grupos de 128) por la 3060 da los MISMOS bytes que la CPU; la 3060 {gpu_us} us (con la puerta), la CPU {cpu_us} us\n"));
+    } else {
+        let k = (0..n).find(|&k| gpu[32 * k..32 * k + 32] != casa[32 * k..32 * k + 32]).unwrap_or(0);
+        let w = |b: &[u8], j: usize| u32::from_le_bytes([b[32 * k + 4 * j], b[32 * k + 4 * j + 1], b[32 * k + 4 * j + 2], b[32 * k + 4 * j + 3]]);
+        bmo::consola(&alloc::format!(
+            "PROTON-X: la prueba del computo: {distintas} de {n} particulas DISTINTAS; la primera, la {k}: 3060 [{:08x} {:08x} {:08x} {:08x}] CPU [{:08x} {:08x} {:08x} {:08x}]\n",
+            w(&gpu, 0), w(&gpu, 1), w(&gpu, 2), w(&gpu, 4), w(&casa, 0), w(&casa, 1), w(&casa, 2), w(&casa, 4)
+        ));
+    }
+    bmo::salir();
+}
+
+/// Un seno sin `std` (para los datos de la prueba: solo tienen que variar).
+fn libm_sin(x: f32) -> f32 {
+    let x = x % 6.283_185_5;
+    x - x * x * x / 6.0 + x * x * x * x * x / 120.0
+}

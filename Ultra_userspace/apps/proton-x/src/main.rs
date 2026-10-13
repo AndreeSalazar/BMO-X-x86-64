@@ -75,6 +75,22 @@ mod entorno_windows;
 mod la3060;
 /// LI2f (13-10): el computo del juego por la 3060.
 mod computo3060;
+
+/// **El monton**: lo que el cargador anote, y lo que piden las DLL de la
+/// casa, que desde P3b2 son back buffers de 1280x720 (3.5 MiB cada uno) y
+/// los buferes del `.exe`.
+fn poner_monton() {
+    let Some(bloque) = bmo::Memoria::request(PARA_MONTON) else {
+        di("PROTON-X: NO -- sin memoria para el monton del cargador\n");
+        bmo::salir();
+    };
+    // SAFETY: el bloque es de este proceso y no se suelta nunca (forget).
+    unsafe { MONTON.poner(bloque.base() as usize, PARA_MONTON as usize, bloque.handle()) };
+    core::mem::forget(bloque);
+    // 07-10: y lleno, que CREZCA por su tramo de la reserva (solo suyo).
+    // SAFETY: el tramo lo quita `plataforma::RESERVA` de lo que ve la casa.
+    unsafe { MONTON.crecer(plataforma::TRAMO_MONTON_BASE as usize, plataforma::TRAMO_MONTON as usize, plataforma::monton_hacer) };
+}
 mod monton;
 mod obreros;
 mod opciones;
@@ -933,6 +949,13 @@ pub extern "C" fn _start() -> ! {
     // P4e: `window/x.exe lo de detras` -- la ruta hasta el primer espacio; lo
     // demas es la linea de ordenes del `.exe` (GetCommandLineW). N2: o entre
     // comillas, que las rutas de D: llevan espacios (`"d:Cyberpunk 2077/..."`).
+    // ** LI2f (13-10): `--prueba-computo` no carga ningun `.exe`: corre el CS
+    // de nBody por la puerta del computo de la 3060 y por la CPU, y los
+    // compara byte a byte (la prueba del metal sin un juego).
+    if todo == b"--prueba-computo" {
+        poner_monton();
+        computo3060::prueba();
+    }
     let (ruta, resto) = partir_ruta(todo);
     let nombre = core::str::from_utf8(ruta).unwrap_or("?");
     let linea = core::str::from_utf8(resto).unwrap_or("");
@@ -953,19 +976,7 @@ pub extern "C" fn _start() -> ! {
         bmo::salir();
     }
 
-    // El monton: lo que el cargador anote, y lo que piden las DLL de la
-    // casa, que desde P3b2 son back buffers de 1280x720 (3.5 MiB cada uno) y
-    // los buferes del `.exe`.
-    let Some(bloque) = bmo::Memoria::request(PARA_MONTON) else {
-        di("PROTON-X: NO -- sin memoria para el monton del cargador\n");
-        bmo::salir();
-    };
-    // SAFETY: el bloque es de este proceso y no se suelta nunca (forget).
-    unsafe { MONTON.poner(bloque.base() as usize, PARA_MONTON as usize, bloque.handle()) };
-    core::mem::forget(bloque);
-    // 07-10: y lleno, que CREZCA por su tramo de la reserva (solo suyo).
-    // SAFETY: el tramo lo quita `plataforma::RESERVA` de lo que ve la casa.
-    unsafe { MONTON.crecer(plataforma::TRAMO_MONTON_BASE as usize, plataforma::TRAMO_MONTON as usize, plataforma::monton_hacer) };
+    poner_monton();
     // Y cada foto del pulso dice como va (si se llena de golpe o gotea).
     bmo_proton_x_casa::pulso::medir_monton(|| (MONTON.gastado(), MONTON.pico(), MONTON.crecido()));
     if con_diario {
