@@ -90,6 +90,9 @@ pub struct UavsDeApp {
     pub n: u8,
     pub base: [u8; MAX_UAVS],
     pub tope: [u8; MAX_UAVS],
+    /// Los de SOLO LEER (un SRV de bufer, bit k el k-esimo): el kernel los
+    /// presta sin escritura, y el juez solo deja leerlos (LDG).
+    pub solo_lee: u8,
 }
 
 impl UavsDeApp {
@@ -166,6 +169,9 @@ pub(super) fn memoria_de_app(codigo: &[(u64, u64)], k: usize, uavs: &UavsDeApp) 
     let Some(u) = (0..uavs.n as usize).find(|&u| uavs.base[u] == base) else {
         return ajeno(j + 2, base as u32, "la direccion de un LDG o un STG no se suma a la base de un UAV del kernel");
     };
+    if op != 0x181 && uavs.solo_lee >> u & 1 == 1 {
+        return ajeno(k, u as u32, "escribe en un bufer de SOLO LEER (un SRV): el kernel no lo presto para eso");
+    }
     if !igual(w_sujeta, sujeta(a, uavs.tope[u])) {
         return ajeno(j + 1, a as u32, "la direccion de un LDG o un STG no la sujeta un IMNMX.U32 con el tope de SU UAV");
     }

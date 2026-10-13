@@ -75,43 +75,65 @@ fn programa_con(ops: Vec<Op>, iniciales: Vec<u32>, uavs: usize, hilos: [u32; 3],
     }
 }
 
-/// Lo que dejan en los UAV la CPU y la 3060 de mentira, `grupos` en x. Con
-/// `pisar`, lo que el kernel pone se cambia antes de correr (un cuerpo que
-/// se lo salte).
+/// Lo que dejan en los UAV la CPU y la 3060 de mentira, `grupos` en x.
 fn las_dos(p: &Programa, vistas: &[Vista], grupos: u32) -> (Vec<Vec<u8>>, Vec<Vec<u8>>) {
+    las_dos_con(p, vistas, &[], &[], grupos)
+}
+
+/// Lo mismo con SRV de bufer (`srvs`, el tN) y un cbuffer. En la 3060 de
+/// mentira el UAV k vive en la ranura k y el SRV t en la 8 + t.
+fn las_dos_con(p: &Programa, vistas: &[Vista], srvs: &[Vista], cb: &[u8], grupos: u32) -> (Vec<Vec<u8>>, Vec<Vec<u8>>) {
     let mut casa: Vec<Vec<u8>> = vistas.iter().map(|v| v.bytes.clone()).collect();
     {
         let mut uavs: Vec<Option<Uav>> = casa.iter_mut().zip(vistas).map(|(b, v)| Some(Uav { bytes: b, formato: 0, paso: v.paso, elementos: v.elementos, contador: None, rebanadas: Rebanadas::PLANA })).collect();
-        let rec = Recursos { texturas: &[], muestreadores: &[], buferes: &[], dinamicas: None };
-        p.despachar([grupos, 1, 1], &[], &rec, &mut uavs);
+        let buferes: Vec<Option<bmo_proton_x::bufer::Bufer>> = srvs.iter().map(|v| Some(bmo_proton_x::bufer::Bufer { bytes: &v.bytes, formato: 0, paso: v.paso, elementos: v.elementos })).collect();
+        let rec = Recursos { texturas: &[], muestreadores: &[], buferes: &buferes, dinamicas: None };
+        p.despachar([grupos, 1, 1], cb, &rec, &mut uavs);
     }
-    let e = emitir_con(p, 64, Abi::Registros).unwrap_or_else(|x| panic!("no se emite: {x:?}"));
+    let e = emitir_con(p, 248, Abi::Registros).unwrap_or_else(|x| panic!("no se emite: {x:?}"));
     // Y lo emitido, juzgado: R0..R6 y R7 con lo que el kernel le da.
     {
         use bmo_gpu_ga10x::sass::juez::{juzgar_cuerpo_con, juzgar_drenado, Contexto, RESERVADOS};
         juzgar_drenado(&e.codigo, &Contexto { registros: e.registros + RESERVADOS, sph: None }).unwrap_or_else(|b| panic!("R0..R6: {b}"));
         juzgar_cuerpo_con(&e.codigo, e.registros, crate::permisos_computo(&e, p).unwrap()).unwrap_or_else(|b| panic!("R7: {b}"));
     }
-    let mut mem = Ventanas(vistas.iter().map(|v| v.bytes.clone()).collect());
+    let mut ventanas: Vec<Vec<u8>> = vistas.iter().map(|v| v.bytes.clone()).collect();
+    ventanas.resize(8, Vec::new());
+    ventanas.extend(srvs.iter().map(|v| v.bytes.clone()));
+    let mut mem = Ventanas(ventanas);
     for gx in 0..grupos {
         // La compartida de la 3060 NO empieza a cero: basura, que el
         // prologo tiene que limpiar.
         let mut compartida = vec![0xA5u8; 4 * p.computo.compartida as usize];
-        correr_grupo(&e.codigo, p.computo.hilos, [gx, 0, 0], [&[]; 8], &mut compartida, &mut mem, |_, m| {
-            for q in &e.precargas {
-                if let Precarga::Uav { u, que, reg } = *q {
-                    let v = &vistas[u as usize];
-                    let x = que.valor(BASE + u as u64 * RANURA, v.bytes.len() as u32, v.elementos, v.paso).expect("se presta");
-                    m.r[reg as usize] = x as u32;
-                    if que == DelUav::Base {
-                        m.r[reg as usize + 1] = (x >> 32) as u32;
-                    }
-                }
-            }
-        })
+        correr_grupo(&e.codigo, p.computo.hilos, [gx, 0, 0], [&[]; 8], &mut compartida, &mut mem, |_, m| cargar(&e, vistas, srvs, cb, m))
         .unwrap_or_else(|x| panic!("la 3060 de mentira: {x:?}"));
     }
+    mem.0.truncate(vistas.len());
     (casa, mem.0)
+}
+
+/// Lo que el kernel carga antes del cuerpo: lo de cada UAV y SRV (por
+/// `DelUav::valor`) y las filas del cbuffer.
+fn cargar(e: &crate::Emitido, vistas: &[Vista], srvs: &[Vista], cb: &[u8], m: &mut crate::simula::Maquina) {
+    for q in &e.precargas {
+        match *q {
+            Precarga::Uav { u, que, reg } => {
+                let (v, ranura) = if u & crate::SRV != 0 { (&srvs[(u & !crate::SRV) as usize], 8 + (u & !crate::SRV) as u64) } else { (&vistas[u as usize], u as u64) };
+                let x = que.valor(BASE + ranura * RANURA, v.bytes.len() as u32, v.elementos, v.paso).expect("se presta");
+                m.r[reg as usize] = x as u32;
+                if que == DelUav::Base {
+                    m.r[reg as usize + 1] = (x >> 32) as u32;
+                }
+            }
+            Precarga::Fila { fila, reg } => {
+                for k in 0..4 {
+                    let o = 16 * fila as usize + 4 * k;
+                    m.r[reg as usize + k] = cb.get(o..o + 4).map_or(0, |b| u32::from_le_bytes(b.try_into().unwrap()));
+                }
+            }
+            _ => panic!("un computo sin entradas ni texturas"),
+        }
+    }
 }
 
 fn palabras(v: &[u32]) -> Vec<u8> {
@@ -251,8 +273,18 @@ fn la_direccion_nunca_sale_de_lo_prestado() {
 fn lo_que_no_va_todavia() {
     let tipado = programa(vec![Op::LeeUav { d: 0, u: 0, modo: Modo::Tipado, i: 4, desp: 4, z: 4 }], vec![0; 5], 1, [1, 1, 1]);
     assert_eq!(emitir_con(&tipado, 64, Abi::Registros).err(), Some(NoEmite::Operacion(0)));
-    let en_si = programa(vec![Op::Si { c: 0 }, Op::Barrera, Op::FinSi], vec![1; 1], 0, [2, 1, 1]);
-    assert_eq!(emitir_con(&en_si, 64, Abi::Registros).err(), Some(NoEmite::Operacion(1)));
+    // La barrera bajo un `si` del id del HILO: no se demuestra que lleguen
+    // todos (por la CPU); bajo uno del cbuffer o del id del GRUPO, si.
+    let en_si = programa(vec![Op::IdHilo { d: 0, que: 2, c: 0 }, Op::Si { c: 0 }, Op::Barrera, Op::FinSi], vec![1; 1], 0, [2, 1, 1]);
+    assert_eq!(emitir_con(&en_si, 64, Abi::Registros).err(), Some(NoEmite::Operacion(2)));
+    let de_grupo = programa(vec![Op::IdHilo { d: 0, que: 1, c: 0 }, Op::Si { c: 0 }, Op::Barrera, Op::FinSi], vec![1; 1], 0, [2, 1, 1]);
+    assert!(emitir_con(&de_grupo, 64, Abi::Registros).is_ok());
+    // Un bucle que sale por algo del hilo: tampoco (no dan las mismas vueltas).
+    let bucle = programa(vec![Op::IdHilo { d: 0, que: 2, c: 0 }, Op::Bucle, Op::Barrera, Op::RomperSi { c: 0, si_cero: false }, Op::FinBucle], vec![1; 1], 0, [2, 1, 1]);
+    assert_eq!(emitir_con(&bucle, 64, Abi::Registros).err(), Some(NoEmite::Operacion(2)));
+    // Lo escrito dentro de un `si` del hilo deja de ser uniforme despues.
+    let tras = programa(vec![Op::IdHilo { d: 0, que: 2, c: 0 }, Op::Si { c: 0 }, Op::Copia { d: 1, a: 2 }, Op::FinSi, Op::Si { c: 1 }, Op::Barrera, Op::FinSi], vec![0, 0, 1], 0, [2, 1, 1]);
+    assert_eq!(emitir_con(&tras, 64, Abi::Registros).err(), Some(NoEmite::Operacion(5)));
     let dibujo = programa(vec![Op::IdHilo { d: 0, que: 0, c: 0 }], vec![0; 1], 0, [0; 3]);
     assert_eq!(emitir_con(&dibujo, 64, Abi::Registros).err(), Some(NoEmite::Operacion(0)));
 }
@@ -414,3 +446,33 @@ fn los_atomicos_de_un_uav_y_sus_medidas() {
     assert_eq!(w(2, 8 * 2 + 3), 8, "GetDimensions de un crudo de 2 palabras: 8 bytes");
     assert_eq!(w(2, 8 * 2 + 4), 2, "y del estructurado, sus elementos");
 }
+
+/// *** EL CS DE nBodyGravity (Microsoft, MIT; `proton-x/prueba/muestras/
+/// nbody/`), CORRIDO: 128 hilos, 512 palabras compartidas, sus dos barreras
+/// dentro del bucle de los tiles (bajo un `si` del cbuffer: uniforme), el
+/// SRV de las particulas y el UAV de las nuevas. 256 particulas, 2 grupos:
+/// los MISMOS bytes que la CPU, y juzgado R0..R7.
+#[test]
+fn el_cs_de_nbody_corre_igual() {
+    let p = bmo_proton_x::dxil::computo::preparar(include_bytes!("../../proton-x/prueba/muestras/nbody/nBodyGravityCS.cso")).unwrap().programa;
+    assert_eq!(p.computo.hilos, [128, 1, 1]);
+    let n = 256usize;
+    // pos (x, y, z, 1) y velo (vx, vy, vz, 0) de cada particula: 32 bytes.
+    let particulas: Vec<u32> = (0..n)
+        .flat_map(|k| {
+            let f = k as f32;
+            [(f * 0.37).sin() * 10.0, (f * 0.11).cos() * 10.0, f * 0.05 - 6.0, 1.0, 0.01 * f, -0.02, 0.0, 0.0].map(f32::to_bits)
+        })
+        .collect();
+    let srv = Vista { bytes: palabras(&particulas), modo: Modo::Estructurado, elementos: n as u32, paso: 32 };
+    let uav = Vista { bytes: vec![0; 32 * n], modo: Modo::Estructurado, elementos: n as u32, paso: 32 };
+    // g_param = (particulas, tiles, ...), g_paramf = (dt, amortiguar, ...).
+    let mut cb = vec![0u8; 16 * p.filas_cb.max(2) as usize];
+    for (k, w) in [n as u32, (n / 128) as u32, 0, 0, 0.1f32.to_bits(), 1.0f32.to_bits(), 0, 0].iter().enumerate() {
+        cb[4 * k..4 * k + 4].copy_from_slice(&w.to_le_bytes());
+    }
+    let (casa, gpu) = las_dos_con(&p, &[uav], &[srv], &cb, 2);
+    assert!(casa[0].iter().any(|&b| b != 0), "la CPU escribio las particulas nuevas");
+    assert_eq!(gpu, casa, "los mismos bytes, particula a particula");
+}
+

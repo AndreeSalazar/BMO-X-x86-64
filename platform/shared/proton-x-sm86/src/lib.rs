@@ -114,7 +114,9 @@ pub mod muestreo;
 mod uav;
 /// LI2f (12-10): la memoria compartida del grupo (`groupshared`), sujeta.
 mod compartida;
-pub use uav::{permisos_computo, DelUav};
+/// LI2f (12-10): lo que todo el grupo corre a la vez (para la barrera).
+mod uniforme;
+pub use uav::{permisos_computo, DelUav, SRV};
 
 use alloc::vec;
 use alloc::vec::Vec;
@@ -275,6 +277,9 @@ struct Emisor<'a> {
     /// escribe. Mas MOV y menos registros; solo si sin ello no cabe
     /// ([`emitir_libreta`]).
     frugal: bool,
+    /// ** LI2f (12-10): si el control de cada operacion es UNIFORME en el
+    /// grupo (`uniforme.rs`): una barrera solo ahi.
+    uniforme: Vec<bool>,
 }
 
 /// Un `si` o un bucle abierto mientras se emite.
@@ -642,6 +647,7 @@ fn emitir_modo(p: &Programa, registros: u32, abi: Abi, libreta: bool, frugal: bo
         abiertos: Vec::new(),
         pares: vec![None; p.ops.len()],
         frugal,
+        uniforme: if p.ops.iter().any(|o| matches!(o, Op::Barrera)) { uniforme::control_uniforme(p) } else { Vec::new() },
     };
     // Con `Abi::Registros` TODO lo precargado se pide ANTES del cuerpo: el
     // pegamento lo carga al empezar, asi que su registro no puede servir de
@@ -669,6 +675,15 @@ fn emitir_modo(p: &Programa, registros: u32, abi: Abi, libreta: bool, frugal: bo
                 }
                 Op::MedidasUav { u, modo, .. } => {
                     e.precarga_medida(u, modo, i_op)?;
+                    continue;
+                }
+                // ** LI2f: un SRV de bufer se lee como un UAV (de solo leer).
+                Op::Lee { t, como: bmo_proton_x::dxil::programa::Lectura::Bufer(modo), .. } if t != bmo_proton_x::dxil::programa::DINAMICA && t < SRV => {
+                    e.precargas_uav(t | SRV, modo, i_op)?;
+                    continue;
+                }
+                Op::Lee { t, como: bmo_proton_x::dxil::programa::Lectura::MedidasBufer(modo), .. } if t != bmo_proton_x::dxil::programa::DINAMICA && t < SRV => {
+                    e.precarga_medida(t | SRV, modo, i_op)?;
                     continue;
                 }
                 _ => continue,
@@ -1004,6 +1019,8 @@ fn emitir_modo(p: &Programa, registros: u32, abi: Abi, libreta: bool, frugal: bo
             // Load en 2D y array (`lecturas.rs`); lo demas -- el cubo, los
             // gradientes, GetDimensions, los desplazamientos, la textura
             // elegida al correr -- en la CPU todavia.
+            Op::Lee { d, t, como: bmo_proton_x::dxil::programa::Lectura::Bufer(modo), c: co, .. } if t != bmo_proton_x::dxil::programa::DINAMICA && t < SRV => e.lee_uav(d, t | SRV, modo, co[0], co[1], i, &mut paso)?,
+            Op::Lee { d, t, como: bmo_proton_x::dxil::programa::Lectura::MedidasBufer(_), .. } if t != bmo_proton_x::dxil::programa::DINAMICA && t < SRV => e.medidas_uav(d, t | SRV, i)?,
             Op::Lee { d, t, s, como, c: co, nivel, desp } => e.lee_textura(d, t, s, como, co, nivel, desp, i, &mut paso)?,
             // N5.4: elegir la textura al correr, la 3060 todavia no.
             Op::EligeTextura { .. } => return Err(NoEmite::Operacion(i)),

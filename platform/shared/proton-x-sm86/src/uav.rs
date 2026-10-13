@@ -10,7 +10,7 @@
 //!    SV_GroupID.c          S2R CTAID.c
 //!    SV_DispatchThreadID.c S2R CTAID.c; S2R TID.c; IMAD x = ctaid * hilos.c + tid
 //!    SV_GroupIndex         tid.x + tid.y * hx + tid.z * hx * hy (IMAD)
-//!    la barrera            BAR.SYNC, solo FUERA de todo `si` y bucle
+//!    la barrera            BAR.SYNC, donde el control es UNIFORME (`uniforme.rs`)
 //! ```
 //!
 //! # Un UAV, palabra a palabra, con la DIRECCION SUJETA
@@ -62,7 +62,7 @@
 //! dice (`DelUav::Medida`: los elementos de la vista; en un crudo, sus bytes).
 //!
 //! Lo que NO va todavia (va por la CPU, con su indice): los UAV con tipo y
-//! de textura, el contador, y la barrera dentro de un `si` o un bucle.
+//! de textura, el contador, y la barrera donde el control no es uniforme.
 
 use alloc::vec::Vec;
 
@@ -90,11 +90,17 @@ pub fn permisos_computo(e: &super::Emitido, p: &bmo_proton_x::dxil::programa::Pr
             }
             uavs.base[n] = reg;
             uavs.tope[n] = de(u, DelUav::Tope)?;
+            uavs.solo_lee |= ((u & SRV != 0) as u8) << n;
             uavs.n += 1;
         }
     }
     Some(bmo_gpu_ga10x::sass::juez::Permisos { computo: true, uavs, compartida: 4 * p.computo.compartida, ..Default::default() })
 }
+
+/// ** El bit de un SRV de bufer (`StructuredBuffer`, `ByteAddressBuffer`):
+/// en `Precarga::Uav`, `u | SRV` es el tN, que se LEE con la misma cadena y
+/// que el kernel presta solo para leer (el juez no deja escribirlo).
+pub const SRV: u8 = 0x80;
 
 /// Lo que el kernel pone de un UAV (ver el modulo).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -281,12 +287,14 @@ impl Emisor<'_> {
     }
 
     /// **La barrera del grupo**: BAR.SYNC, que espera antes todo lo que este
-    /// en vuelo (como un salto). Dentro de un `si` o un bucle, no: que todos
-    /// los hilos lleguen lo pide D3D12, pero si uno no llega la 3060 se
-    /// queda esperando (y la casa sigue).
+    /// en vuelo (como un salto). Solo donde el control es UNIFORME
+    /// (`uniforme.rs`: cada `si` y cada salida de bucle de alrededor dependen
+    /// de lo que vale igual en todo el grupo): ahi llegan todos. Donde no se
+    /// demuestra, por la CPU -- si un hilo no llegara, la 3060 se quedaria
+    /// esperando (lo cortaria el vigilante del kernel, E7) --.
     pub(super) fn barrera(&mut self, k: usize) -> Result<(), NoEmite> {
         self.hilos(k)?;
-        if self.hondo != 0 {
+        if !self.uniforme.get(k).copied().unwrap_or(false) {
             return Err(NoEmite::Operacion(k));
         }
         self.poner_meta(g::bar_sync(0), Meta { salto: true, ..Meta::de(Clase::Nada, None, [None; 3]) });
