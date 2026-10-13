@@ -57,6 +57,12 @@ fn ldg(rd: u8, a: u8) -> (u64, u64) {
 fn stg(guarda: u8, a: u8, rb: u8) -> (u64, u64) {
     (0x0986 | (guarda as u64 & 0xF) << 12 | (a as u64) << 24 | (rb as u64) << 32, 0x0c10_1904)
 }
+fn atomg(guarda: u8, rd: u8, a: u8, rb: u8, op: u8, signo: bool) -> (u64, u64) {
+    (0x09a8 | (guarda as u64 & 0xF) << 12 | (rd as u64) << 16 | (a as u64) << 24 | (rb as u64) << 32, 0x081e_e1c4 & !(0xF << 23) | (op as u64) << 23 | (signo as u64) << 9)
+}
+fn atomg_cas(guarda: u8, rd: u8, a: u8, rb: u8, rc: u8) -> (u64, u64) {
+    (0x03a9 | (guarda as u64 & 0xF) << 12 | (rd as u64) << 16 | (a as u64) << 24 | (rb as u64) << 32, 0x001e_e100 | rc as u64)
+}
 /// `LOP3.LUT a, x, 0xfffffffc, RZ, 0xc0, !PT`.
 fn alinea(a: u8, x: u8) -> (u64, u64) {
     (0x012 | PT | 4 << 9 | (a as u64) << 16 | (x as u64) << 24 | 0xFFFF_FFFC << 32, 0x078e_0000 | 0xC0 << 8 | RZ as u64)
@@ -131,15 +137,18 @@ pub(super) fn memoria_de_app(codigo: &[(u64, u64)], k: usize, uavs: &UavsDeApp) 
     let w = codigo[k];
     let op = w.0 & 0x1FF;
     let a = (w.0 >> 24 & 0xFF) as u8;
-    let forma = if op == 0x181 {
-        let rd = (w.0 >> 16 & 0xFF) as u8;
-        igual(w, ldg(rd, a))
-    } else {
-        let (guarda, rb) = ((w.0 >> 12 & 0xF) as u8, (w.0 >> 32 & 0xFF) as u8);
-        igual(w, stg(guarda, a, rb))
+    let (guarda, rd, rb) = ((w.0 >> 12 & 0xF) as u8, (w.0 >> 16 & 0xFF) as u8, (w.0 >> 32 & 0xFF) as u8);
+    let forma = match op {
+        0x181 => igual(w, ldg(rd, a)),
+        0x186 => igual(w, stg(guarda, a, rb)),
+        0x1A8 => {
+            let aop = (w.1 >> 23 & 0xF) as u8;
+            matches!(aop, 0 | 1 | 2 | 5 | 6 | 7 | 8) && igual(w, atomg(guarda, rd, a, rb, aop, w.1 >> 9 & 1 == 1))
+        }
+        _ => igual(w, atomg_cas(guarda, rd, a, rb, (w.1 & 0xFF) as u8)),
     };
     if !forma {
-        return ajeno(k, op as u32, "un LDG o un STG que no es de la forma de una app (.E, 32 bits, sin inmediato; guarda solo el STG)");
+        return ajeno(k, op as u32, "un LDG, STG o ATOMG que no es de la forma de una app (.E, 32 bits, sin inmediato; guarda solo el STG y el ATOMG)");
     }
     if a % 2 != 0 || a >= RZ - 1 {
         return ajeno(k, a as u32, "la direccion de un LDG o un STG no es un par alineado");
@@ -274,6 +283,10 @@ mod pruebas {
         assert!(igual(suma(6, 3, 30), c::iadd3_acarreo(6, 3, 30, c::r(6), 0)));
         assert!(igual(alta(6, 3, 30), c::iadd3_x(7, 31, c::r(c::RZ), 3, 0)));
         assert!(igual(lds(5, 6), g::lds(5, 6, 0, 0)));
+        for (op, signo) in [(g::Atomo::Add, false), (g::Atomo::Max, true), (g::Atomo::Exch, false)] {
+            assert!(igual(atomg(7, 5, 6, 9, op as u8, signo), g::atomg(op, signo, 5, 6, 9, 0)));
+        }
+        assert!(igual(atomg_cas(7, 5, 6, 9, 10), g::atomg_cas(5, 6, 9, 10, 0)));
         let mut w = g::sts(6, 0, 9, 0);
         w.0 = w.0 & !(0xF << 12) | 0xA << 12;
         assert!(igual(sts(0xA, 6, 9), w));

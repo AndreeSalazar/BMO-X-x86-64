@@ -42,7 +42,7 @@ pub const VUELTAS: u32 = 16;
 
 /// El atomico de la 3060 para uno de la casa, y si es con signo. El CAS es
 /// otra instruccion (`None`).
-fn atomo(como: AtomoCasa) -> Option<(Atomo, bool)> {
+pub(super) fn atomo(como: AtomoCasa) -> Option<(Atomo, bool)> {
     Some(match como {
         AtomoCasa::Suma => (Atomo::Add, false),
         AtomoCasa::Y => (Atomo::And, false),

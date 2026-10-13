@@ -663,8 +663,12 @@ fn emitir_modo(p: &Programa, registros: u32, abi: Abi, libreta: bool, frugal: bo
                     continue;
                 }
                 // ** LI2f: lo que el kernel dice de cada UAV, fijo.
-                Op::LeeUav { u, modo, .. } | Op::EscribeUav { u, modo, .. } => {
+                Op::LeeUav { u, modo, .. } | Op::EscribeUav { u, modo, .. } | Op::Atomico { u, modo, .. } => {
                     e.precargas_uav(u, modo, i_op)?;
+                    continue;
+                }
+                Op::MedidasUav { u, modo, .. } => {
+                    e.precarga_medida(u, modo, i_op)?;
                     continue;
                 }
                 _ => continue,
@@ -1012,11 +1016,12 @@ fn emitir_modo(p: &Programa, registros: u32, abi: Abi, libreta: bool, frugal: bo
             Op::LeeCompartida { d, base, n, i: indice } => e.lee_compartida(d, base, n, indice, i, &mut paso)?,
             Op::EscribeCompartida { base, n, i: indice, s } => e.escribe_compartida(base, n, indice, s, i, &mut paso)?,
             Op::AtomicoCompartido { d, base, n, i: indice, v, como } => e.atomico_compartido(d, base, n, indice, v, como, i, &mut paso)?,
-            Op::MedidasUav { .. } => return Err(NoEmite::Operacion(i)),
+            Op::MedidasUav { d, u, .. } => e.medidas_uav(d, u, i)?,
+            Op::Atomico { d, u, modo, i: indice, desp, como, v, igual, .. } => e.atomico_uav(d, u, modo, indice, desp, como, v, igual, i, &mut paso)?,
             // E2.3b: el sombreador de geometria, igual (va por la CPU).
             Op::EntradaDe { .. } | Op::Emite { .. } | Op::Corta { .. } => return Err(NoEmite::Operacion(i)),
             // E2.4: el contador de un UAV, igual; y (05-10) sus Interlocked.
-            Op::Contador { .. } | Op::Atomico { .. } => return Err(NoEmite::Operacion(i)),
+            Op::Contador { .. } => return Err(NoEmite::Operacion(i)),
             // ** E8 (09-10): las EXACTAS de la casa -- redondeos, frac, la
             // clase de un numero, los bits, los medios floats -- con sus
             // bits (`mates.rs`). ** DL13 (09-10): y las de series (sin, cos,

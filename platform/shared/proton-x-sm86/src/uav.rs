@@ -55,9 +55,14 @@
 //! palabra alineada de debajo. No son los mismos bits: no lo usa ningun
 //! sombreador de los que hay (dxc pide el multiplo de 4).
 //!
+//! **Los atomicos** (`Op::Atomico`, los `Interlocked*` sobre un UAV) son la
+//! palabra 0 con la misma cadena: `@vale ATOMG d, [a], v` (o ATOMG.CAS con
+//! `igual`) y `SEL d = vale ? d : 0` -- fuera, la casa devuelve 0 y no
+//! escribe --. **`GetDimensions`** (`Op::MedidasUav`) lee lo que el kernel
+//! dice (`DelUav::Medida`: los elementos de la vista; en un crudo, sus bytes).
+//!
 //! Lo que NO va todavia (va por la CPU, con su indice): los UAV con tipo y
-//! de textura, los atomicos, `GetDimensions`, el contador, la memoria
-//! compartida, y la barrera dentro de un `si` o un bucle.
+//! de textura, el contador, y la barrera dentro de un `si` o un bucle.
 
 use alloc::vec::Vec;
 
@@ -100,10 +105,13 @@ pub enum DelUav {
     Limite = 2,
     Elementos = 3,
     Paso = 4,
+    /// Lo que dice `GetDimensions`: los elementos de la vista (en un crudo,
+    /// sus bytes), sin mirar lo prestado.
+    Medida = 5,
 }
 
 impl DelUav {
-    pub const TODOS: [DelUav; 5] = [DelUav::Base, DelUav::Tope, DelUav::Limite, DelUav::Elementos, DelUav::Paso];
+    pub const TODOS: [DelUav; 6] = [DelUav::Base, DelUav::Tope, DelUav::Limite, DelUav::Elementos, DelUav::Paso, DelUav::Medida];
 
     /// El de un numero (el del .bsf vivo).
     pub fn de(n: u8) -> Option<DelUav> {
@@ -128,6 +136,9 @@ impl DelUav {
             DelUav::Elementos if paso == 0 => 0,
             DelUav::Elementos => elementos.min(bytes / paso) as u64,
             DelUav::Paso => paso as u64,
+            // La de la casa (`Bufer::medidas`): un crudo, en bytes.
+            DelUav::Medida if paso == 0 => elementos.saturating_mul(4) as u64,
+            DelUav::Medida => elementos as u64,
         })
     }
 }
@@ -182,6 +193,36 @@ impl Emisor<'_> {
         };
         for &q in [DelUav::Base, DelUav::Tope].iter().chain(resto) {
             self.precarga_uav(u, q)?;
+        }
+        Ok(())
+    }
+
+    /// Lo que pide un `GetDimensions` del UAV `u` (la pasada de antes del
+    /// cuerpo).
+    pub(super) fn precarga_medida(&mut self, u: u8, modo: Modo, k: usize) -> Result<(), NoEmite> {
+        self.hilos(k)?;
+        if !matches!(modo, Modo::Crudo | Modo::Estructurado) {
+            return Err(NoEmite::Operacion(k));
+        }
+        self.precarga_uav(u, DelUav::Medida).map(|_| ())
+    }
+
+    /// **`d` = `GetDimensions` del UAV `u`** (`d+1..d+4`, 0).
+    pub(super) fn medidas_uav(&mut self, d: Reg, u: u8, k: usize) -> Result<(), NoEmite> {
+        let Some(m) = self.precargas.iter().find_map(|p| match *p {
+            Precarga::Uav { u: u2, que: DelUav::Medida, reg } if u2 == u => Some(reg),
+            _ => None,
+        }) else {
+            return Err(NoEmite::Operacion(k));
+        };
+        let x = self.destino(d, k)?;
+        self.poner(c::mov(x, c::r(m), 0), Clase::Alu, Some(x), [Some(m), None, None]);
+        for j in 1..4 {
+            let r = d as usize + j;
+            if self.ultimo.get(r).copied().unwrap_or(0) > k || self.variable.get(r).copied().unwrap_or(false) {
+                let y = self.destino(r as Reg, k)?;
+                self.poner(c::mov(y, Fuente::Imm(0), 0), Clase::Alu, Some(y), [None; 3]);
+            }
         }
         Ok(())
     }
@@ -348,6 +389,28 @@ impl Emisor<'_> {
             self.poner_meta(g::ldg(SIEMPRE, v, a, 0, 0), Meta { lee_tarde: true, ..Meta::de(Clase::Tex, Some(v), [Some(a), Some(a + 1), None]) });
             self.poner_meta(c::sel(v, v, c::r(RZ), P_VALE, false, 0), Meta { lee_p: Some((P_VALE, false)), ..Meta::de(Clase::Alu, Some(v), [Some(v), None, None]) });
         }
+        Ok(())
+    }
+
+    /// **`d` = lo de antes; la palabra 0 del elemento = `como(antes, v)`**
+    /// (`Interlocked*`; en el CAS, solo si lo de antes es `igual`).
+    #[allow(clippy::too_many_arguments)]
+    pub(super) fn atomico_uav(&mut self, d: Reg, u: u8, modo: Modo, i: Reg, desp: Reg, como: bmo_proton_x::bufer::Atomo, v: Reg, igual: Reg, k: usize, paso: &mut Vec<u8>) -> Result<(), NoEmite> {
+        let rv = self.registro(v, paso)?;
+        let ri = if como == bmo_proton_x::bufer::Atomo::CambiaSiIgual { Some(self.registro(igual, paso)?) } else { None };
+        let gu = self.guia(u, modo, i, desp, k, paso)?;
+        let (a, x) = self.par_y_temporal(paso)?;
+        self.palabra(&gu, 0, a, x);
+        let rd = self.destino(d, k)?;
+        let mut w = match (super::compartida::atomo(como), ri) {
+            (Some((op, signo)), _) => g::atomg(op, signo, rd, a, rv, 0),
+            (None, Some(ig)) => g::atomg_cas(rd, a, ig, rv, 0),
+            (None, None) => return Err(NoEmite::Operacion(k)),
+        };
+        w.0 = w.0 & !(0xF << 12) | (P_VALE as u64) << 12;
+        let lee_mas = [ri, None, None];
+        self.poner_meta(w, Meta { lee_p: Some((P_VALE, true)), lee_tarde: true, lee_mas, ..Meta::de(Clase::Tex, Some(rd), [Some(a), Some(a + 1), Some(rv)]) });
+        self.poner_meta(c::sel(rd, rd, c::r(RZ), P_VALE, false, 0), Meta { lee_p: Some((P_VALE, false)), ..Meta::de(Clase::Alu, Some(rd), [Some(rd), None, None]) });
         Ok(())
     }
 

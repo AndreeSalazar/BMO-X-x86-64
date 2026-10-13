@@ -369,3 +369,48 @@ fn el_juez_y_la_compartida() {
     t[lds - 1] = bmo_sm86::codifica::mov(a, bmo_sm86::codifica::r(a), t[lds - 1].1 >> 41);
     assert!(juzgar_cuerpo_con(&t, e.registros, permisos).unwrap_err().detalle.contains("IMAD por 4"));
 }
+
+/// ** LOS ATOMICOS DE UN UAV y GetDimensions: cada hilo suma `id + 1` a la
+/// palabra `4 * (id % 3)` de un crudo de 2 palabras (la de 8 se sale: 0 y
+/// nada), un MAX con signo de `-id` en el elemento 1 de un estructurado, y
+/// un CAS (si es 0, su id) en el elemento 0; y escribe lo de antes de cada
+/// uno y las medidas de los dos. Hilo a hilo, en el orden de la casa: los
+/// mismos bytes.
+#[test]
+fn los_atomicos_de_un_uav_y_sus_medidas() {
+    use bmo_proton_x::bufer::Atomo;
+    let ops = vec![
+        Op::IdHilo { d: 0, que: 0, c: 0 },
+        Op::Entera { d: 1, a: 0, b: 2, op: OpEntera::RemU },
+        Op::Entera { d: 1, a: 1, b: 3, op: OpEntera::Shl },
+        Op::SumaEntera { d: 4, a: 0, b: 5 },
+        Op::Atomico { d: 6, u: 0, modo: Modo::Crudo, i: 1, desp: 9, z: 9, como: Atomo::Suma, v: 4, igual: 9 },
+        Op::Entera { d: 7, a: 9, b: 0, op: OpEntera::Resta },
+        Op::Atomico { d: 8, u: 1, modo: Modo::Estructurado, i: 5, desp: 9, z: 9, como: Atomo::MaxConSigno, v: 7, igual: 9 },
+        Op::Atomico { d: 10, u: 1, modo: Modo::Estructurado, i: 9, desp: 9, z: 9, como: Atomo::CambiaSiIgual, v: 0, igual: 9 },
+        Op::MedidasUav { d: 11, u: 0, modo: Modo::Crudo },
+        Op::MedidasUav { d: 15, u: 1, modo: Modo::Estructurado },
+        Op::Entera { d: 19, a: 0, b: 20, op: OpEntera::Shl },
+        Op::EscribeUav { u: 2, modo: Modo::Crudo, i: 19, desp: 9, z: 9, v: [6, 8, 10, 11], mascara: 0xF },
+        Op::EscribeUav { u: 2, modo: Modo::Crudo, i: 19, desp: 21, z: 9, v: [15, 15, 15, 15], mascara: 1 },
+    ];
+    let mut ini = vec![0u32; 22];
+    ini[2] = 3;
+    ini[3] = 2;
+    ini[5] = 1;
+    ini[20] = 5;
+    ini[21] = 16;
+    let p = programa(ops, ini, 3, [6, 1, 1]);
+    let vistas = [
+        Vista { bytes: palabras(&[100, 200]), modo: Modo::Crudo, elementos: 2, paso: 0 },
+        Vista { bytes: palabras(&[0, 0xFFFF_FFF0, 0, 7]), modo: Modo::Estructurado, elementos: 2, paso: 8 },
+        Vista { bytes: vec![0x33; 32 * 12], modo: Modo::Crudo, elementos: 8 * 12, paso: 0 },
+    ];
+    let (casa, gpu) = las_dos(&p, &vistas, 2);
+    assert_eq!(gpu, casa);
+    let w = |u: usize, k: usize| u32::from_le_bytes(gpu[u][4 * k..4 * k + 4].try_into().unwrap());
+    assert_eq!([w(0, 0), w(0, 1)], [100 + 1 + 4 + 7 + 10, 200 + 2 + 5 + 8 + 11], "las sumas");
+    assert_eq!(w(1, 0), 1, "el CAS: el hilo 0 pone 0 (era 0), el 1 pone 1, y ya nadie mas");
+    assert_eq!(w(2, 8 * 2 + 3), 8, "GetDimensions de un crudo de 2 palabras: 8 bytes");
+    assert_eq!(w(2, 8 * 2 + 4), 2, "y del estructurado, sus elementos");
+}

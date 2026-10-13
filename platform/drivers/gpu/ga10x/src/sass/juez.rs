@@ -521,6 +521,21 @@ fn decodificar(lo: u64, hi: u64) -> Option<Instr> {
             i.escribe = reg(rd, 1);
             i.lee = [reg(s0, 1), reg(s1, 1), reg(s2, 1), NADA];
         }
+        // ** LI2f: ATOMG.E y ATOMG.E.CAS (32 bits, .STRONG.GPU), sus formas:
+        // lo de antes en Rd, la direccion un par, el valor (y en el CAS, el
+        // nuevo en 64..72).
+        0x1A8 if forma == 4 && lo >> 40 == 0 && hi & ((1 << 41) - 1) & !(0xF << 23 | 1 << 9) == 0x081e_e1c4 & !(0xF << 23) => {
+            i.clase = Clase::Agu;
+            i.memoria = true;
+            i.escribe = reg(rd, 1);
+            i.lee = [reg(s0, 2), reg(s1, 1), NADA, NADA];
+        }
+        0x1A9 if forma == 1 && lo >> 40 == 0 && hi & ((1 << 41) - 1) & !0xFF == 0x001e_e100 => {
+            i.clase = Clase::Agu;
+            i.memoria = true;
+            i.escribe = reg(rd, 1);
+            i.lee = [reg(s0, 2), reg(s1, 1), reg(s2, 1), NADA];
+        }
         // ** LI2f (12-10): BAR.SYNC 0x0, la barrera del grupo de un computo
         // (`bmo_sm86::computo::bar_sync`, de oro), y solo esa forma.
         0x11D if lo == 0x7b1d && hi & ((1 << 41) - 1) == 1 << 16 => i.clase = Clase::Nada,
@@ -648,7 +663,7 @@ pub fn juzgar_cuerpo_con(codigo: &[(u64, u64)], registros: u32, permisos: Permis
     for (k, &(lo, hi)) in codigo.iter().enumerate() {
         let op = (lo & 0x1FF) as u32;
         let forma = (lo >> 9 & 7) as u32;
-        if lo >> 12 & 0xF != 7 && op != 0x147 && op != 0x15B && !(op == 0x186 && permisos.uavs.n > 0) && !(matches!(op, 0x188 | 0x18C | 0x18D) && permisos.compartida > 0) {
+        if lo >> 12 & 0xF != 7 && op != 0x147 && op != 0x15B && !(matches!(op, 0x186 | 0x1A8 | 0x1A9) && permisos.uavs.n > 0) && !(matches!(op, 0x188 | 0x18C | 0x18D) && permisos.compartida > 0) {
             return ajeno(k, op, "con predicado: en el cuerpo de una app solo un BRA, un KILL o (LI2f) un STG lleva guarda");
         }
         let formas: &[u32] = match op {
@@ -690,6 +705,8 @@ pub fn juzgar_cuerpo_con(codigo: &[(u64, u64)], registros: u32, permisos: Permis
             0x119 if permisos.computo => &[4],
             0x11D if permisos.computo => &[5],
             0x181 | 0x186 if permisos.uavs.n > 0 => &[4],
+            0x1A8 if permisos.uavs.n > 0 => &[4],
+            0x1A9 if permisos.uavs.n > 0 => &[1],
             0x184 if permisos.compartida > 0 => &[4],
             0x188 | 0x18C | 0x18D if permisos.compartida > 0 => &[1],
             0x14D if k == ultima => &[4],
@@ -727,7 +744,7 @@ pub fn juzgar_cuerpo_con(codigo: &[(u64, u64)], registros: u32, permisos: Permis
         match op {
             0x119 => super::juez_computo::s2r_de_app((lo, hi), k)?,
             0x11D => super::juez_computo::bar_de_app((lo, hi), k)?,
-            0x181 | 0x186 => super::juez_computo::memoria_de_app(codigo, k, &permisos.uavs)?,
+            0x181 | 0x186 | 0x1A8 | 0x1A9 => super::juez_computo::memoria_de_app(codigo, k, &permisos.uavs)?,
             0x184 | 0x188 | 0x18C | 0x18D => super::juez_computo::compartida_de_app(codigo, k, permisos.compartida)?,
             _ => {}
         }
