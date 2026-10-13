@@ -67,11 +67,23 @@ pub enum Porque {
     SinEscritorio = 22,
     /// El canal de GR esta muerto (tomo un Xid).
     CanalMuerto = 23,
+    /// ** LI2f (13-10): la receta de COMPUTO (VRC1) no es de quien la manda,
+    /// o no se sostiene (`sub`: [`COMPUTO`], el caso; detalle: el indice).
+    ComputoReceta = 24,
+    /// Un bufer (UAV o SRV) no es de quien manda el computo, o un UAV no es
+    /// escribible (`sub` = el bufer; detalle: su VA).
+    BuferNoEsSuyo = 25,
+    /// Un bufer no se pudo prestar a la 3060, o pasa de su ranura (`sub` = el bufer).
+    BuferNoSePresta = 26,
+    /// El despacho no quedo preparado en el tramo (el pegado, el QMD, las ordenes).
+    ComputoPreparar = 27,
+    /// El despacho no volvio pagado en su plazo (lo corto el vigilante).
+    ComputoSinPagar = 28,
 }
 
 impl Porque {
     /// Todos, para leer un numero y para las pruebas.
-    pub const TODOS: [Porque; 23] = [
+    pub const TODOS: [Porque; 28] = [
         Porque::RecetaNoEsSuya,
         Porque::RecetaCabecera,
         Porque::RecetaEnteraNoEsSuya,
@@ -95,6 +107,11 @@ impl Porque {
         Porque::GrOcupado,
         Porque::SinEscritorio,
         Porque::CanalMuerto,
+        Porque::ComputoReceta,
+        Porque::BuferNoEsSuyo,
+        Porque::BuferNoSePresta,
+        Porque::ComputoPreparar,
+        Porque::ComputoSinPagar,
     ];
 
     /// El porque de un numero (`None` = un numero que este no conoce).
@@ -128,6 +145,11 @@ impl Porque {
             Porque::GrOcupado => "el GR de la 3060 estaba ocupado (otro trabajo en marcha)",
             Porque::SinEscritorio => "el escritorio no preparo la 3060 (`gpu verrano`, hasta `lienzo`)",
             Porque::CanalMuerto => "el canal de GR de la 3060 esta muerto (tomo un Xid)",
+            Porque::ComputoReceta => "la receta de computo (VRC1) no es de quien la manda, o no se sostiene",
+            Porque::BuferNoEsSuyo => "un bufer del computo no es de quien lo manda (o un UAV no es escribible)",
+            Porque::BuferNoSePresta => "un bufer del computo no se pudo prestar a la 3060 (o pasa de los 16 MiB de su ranura)",
+            Porque::ComputoPreparar => "el despacho no quedo preparado en el tramo (el pegado, el QMD o las ordenes)",
+            Porque::ComputoSinPagar => "el despacho no volvio pagado en su plazo (lo corto el vigilante)",
         }
     }
 
@@ -139,8 +161,11 @@ impl Porque {
             Porque::Juez | Porque::Pegamento => match sub {
                 1 => Some("el de vertice"),
                 2 => Some("el de pixel"),
+                3 => Some("el de computo"),
+                4 => Some("el de computo, ya pegado (R0..R6)"),
                 _ => None,
             },
+            Porque::ComputoReceta => COMPUTO.get(sub as usize).copied(),
             _ => None,
         }
     }
@@ -160,6 +185,21 @@ pub const DESTINO_EN_NINGUNO: u8 = 1;
 pub const DESTINO_SE_SALE: u8 = 2;
 pub const DESTINO_SELLADO: u8 = 3;
 pub const DESTINO_RESERVA: u8 = 4;
+
+/// Por que la receta de computo no vale (el `sub` de
+/// [`Porque::ComputoReceta`]): los de `receta_computo::NoReceta`, y si no es
+/// de quien la manda.
+pub const COMPUTO: [&str; 9] = [
+    "sin mirar",
+    "no es un bloque de quien la manda ni paginas hechas de su reserva",
+    "la cabecera (VRC1) no se sostiene",
+    "una tabla se sale o va sin alinear",
+    "pide mas de lo que cabe (instrucciones, precargas, buferes o filas)",
+    "una precarga que no se entiende, o que nombra lo que no hay (detalle: cual)",
+    "un bufer mal dicho (detalle: cual)",
+    "el despacho no se puede (hilos, grupos, compartida o registros)",
+    "pasa de lo que cabe en la copia del kernel",
+];
 
 /// Los pasos de `tuberia::preparar_paso`, en orden (el `sub` de
 /// [`Porque::Preparar`]).

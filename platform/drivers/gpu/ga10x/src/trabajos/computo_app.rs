@@ -46,6 +46,7 @@ pub const PAGA_QMD: u32 = 0x3060_C510;
 pub const PAGA_FIN: u32 = 0x3060_C5F0;
 /// Las instrucciones del pegado, como mucho (las de su region).
 pub const MAX_PEGADO: usize = CODIGO_COMPUTO_PAGINAS * 256;
+const _: () = assert!(crate::receta_computo::MAX_PEGADO <= MAX_PEGADO);
 /// Los registros del banco de una SM: los hilos de un grupo por los
 /// registros de cada uno no pueden pasar (si no, el grupo no se lanza).
 pub const BANCO_DE_REGISTROS: u32 = 64 * 1024;
@@ -207,12 +208,52 @@ pub fn pegar(out: &mut [(u64, u64)], cargas: &[(u8, u32)], cuerpo: &[(u64, u64)]
     if n > out.len() {
         return Err(NoDespacha::NoCabe);
     }
-    for (k, &(r, v)) in cargas.iter().enumerate() {
-        out[k] = mov(r as u64, v);
-    }
+    poner_cargas(out, cargas);
     out[cargas.len()..n].copy_from_slice(cuerpo);
     Ok(n)
 }
+
+/// Los MOV de las `cargas`, al principio de `out` (el kernel pone el cuerpo
+/// detras por su cuenta: lo copia de la receta ahi mismo).
+pub fn poner_cargas(out: &mut [(u64, u64)], cargas: &[(u8, u32)]) {
+    for (w, &(r, v)) in out.iter_mut().zip(cargas) {
+        *w = mov(r as u64, v);
+    }
+}
+
+/// Lo que contesta un despacho: los microsegundos, y si se lanzo y se pago.
+pub const fn empaquetar(us: u32, lanzado: bool, pagado: bool) -> u64 {
+    us as u64 | (lanzado as u64) << 32 | (pagado as u64) << 33
+}
+
+/// `(us, lanzado, pagado)`.
+pub const fn desempaquetar(v: u64) -> (u32, bool, bool) {
+    (v as u32, v >> 32 & 1 != 0, v >> 33 & 1 != 0)
+}
+
+/// Donde ve la 3060 cada bufer de un computo: los UAV, por orden, en las
+/// ranuras del DESTINO (escribibles); los SRV, en las de las TEXTURAS (solo
+/// leer). `Some((ranura, es_uav))` del bufer `k` de `es_uav` (la lista de si
+/// cada bufer es UAV), o `None` si no hay ranura (mas de 4 de una clase).
+pub fn ranura_de(es_uav: impl Fn(usize) -> bool, k: usize) -> Option<(usize, bool)> {
+    let uav = es_uav(k);
+    let j = (0..k).filter(|&i| es_uav(i) == uav).count();
+    let max = if uav { crate::destino::OBJETIVOS } else { crate::texturas::MAX_TEXTURAS };
+    (j < max).then_some((j, uav))
+}
+
+/// La VA de la 3060 de la ranura `(j, es_uav)`, y su IOVA.
+pub const fn va_iova_de(j: usize, uav: bool) -> (u64, u64) {
+    if uav {
+        (crate::destino::va_de(j), crate::destino::iova_de(j))
+    } else {
+        (crate::texturas::VA + j as u64 * crate::texturas::RANURA, crate::texturas::IOVA + j as u64 * crate::texturas::RANURA)
+    }
+}
+
+/// Lo que mide una ranura (las dos clases, 16 MiB).
+pub const RANURA_BYTES: u64 = crate::destino::MAX_BYTES;
+const _: () = assert!(crate::destino::MAX_BYTES == crate::texturas::RANURA);
 
 /// **Preparar un despacho** con la entrada `e` del GPFIFO de GR: los
 /// semaforos a cero, el PEGADO en su region (lo que sobra de su ultima pagina

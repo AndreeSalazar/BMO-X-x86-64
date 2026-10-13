@@ -32,7 +32,11 @@ las esperas, que es la deuda que se quiere bajar):
                    `gpu_trabajo::completar_de_app` (el bloque es SUYO,
                    `fisica_de` con su pid; el programa es el del kernel,
                    `co::preparar`; el GR con su cerrojo, `gr_ocupado`; y el
-                   bloque se devuelve, `pasadas`)
+                   bloque se devuelve, `pasadas`); y (LI2f, 13-10)
+                   `IOMMU_OP_GPU_COMPUTO`, a `gpu_trabajo::computo_de_app`
+                   (la receta COPIADA y leida, `copiar_receta` y `rc::leer`;
+                   el cuerpo juzgado R7 y, pegado, R0..R6; el GR con su
+                   cerrojo; los buferes prestados y DEVUELTOS, `devolver`)
     O  ORDENES     cada `IOMMU_OP_*` vale lo mismo en el kernel, el ABI y
                    userland; ninguna repite valor; cada una tiene nombre
                    (`nombre_iommu`, lo que dice la pantalla amarilla) y
@@ -233,7 +237,7 @@ def puerta_estrecha(fallos):
     ordenes = set(re.findall(r'IOMMU_OP_[A-Z0-9_]+', envoltura))
     if 'IOMMU_OP_GPU_DIBUJAR' not in ordenes:
         fallos.append('P2: no se ve la puerta estrecha (`IOMMU_OP_GPU_DIBUJAR`) entre `fn iommu(` y `fn iommu_(`: la puerta se movio y este guardian no mira')
-    estrechas = {'IOMMU_OP_GPU_DIBUJAR', 'IOMMU_OP_GPU_COMPLETAR'}
+    estrechas = {'IOMMU_OP_GPU_DIBUJAR', 'IOMMU_OP_GPU_COMPLETAR', 'IOMMU_OP_GPU_COMPUTO'}
     if ordenes - estrechas:
         fallos.append('P2: `fn iommu` desvia antes de las llaves ordenes que no son las puertas estrechas: %s' % ', '.join(sorted(ordenes - estrechas)))
     if 'IOMMU_OP_GPU_DIBUJAR' in ordenes and 'gpu_trabajo::receta(' not in envoltura:
@@ -252,6 +256,25 @@ def puerta_estrecha(fallos):
         for hace, porque in (('co::preparar(', 'sube el programa DEL KERNEL (no uno de la app)'), ('devolver_gpu(', 'devuelve el bloque salga como salga')):
             if hace not in cuerpo_p:
                 fallos.append('P2: `pasadas` de completar ya no llama a `%s`: es lo que %s' % (hace, porque))
+    if 'IOMMU_OP_GPU_COMPUTO' in ordenes and 'gpu_trabajo::computo_de_app(' not in envoltura:
+        fallos.append('P2: `IOMMU_OP_GPU_COMPUTO` no va a `gpu_trabajo::computo_de_app`: una app mandaria en otra cosa de la 3060 sin MAQUINA')
+    if 'IOMMU_OP_GPU_COMPUTO' in ordenes:
+        cm = sin_comentarios(leer(os.path.join(RING0, 'dev', 'gpu_trabajo', 'computo.rs')))
+        def cuerpo_de(firma):
+            k = cm.find(firma)
+            return cm[k:cm.find('\n}\n', k)] if k >= 0 else ''
+        for firma, hace, porque in (
+            ('fn despachar(', 'copiar_receta(', 'COPIA la receta de quien la manda antes de mirarla (lo juzgado es lo que se sube)'),
+            ('fn despachar(', 'rc::leer(', 'lee la receta por el lector comprobado'),
+            ('fn despachar(', 'juzgar_cuerpo_con(', 'juzga el cuerpo (R7: las direcciones sujetas a SUS buferes)'),
+            ('fn despachar(', 'juzgar_drenado(', 'juzga el programa pegado (R0..R6)'),
+            ('fn despachar(', 'gr_ocupado(', 'toma el GR con el cerrojo de todos'),
+            ('fn copiar_receta(', 'fisica_de(pid', 'mira que la receta sea de QUIEN la manda'),
+            ('fn con_el_gr(', 'devolver(', 'devuelve los buferes salga como salga'),
+            ('fn prestar_buferes(', 'fisica_para_escribir(', 'presta un UAV solo si es ESCRIBIBLE por quien lo manda'),
+        ):
+            if hace not in cuerpo_de(firma):
+                fallos.append('P2: `%s` del computo ya no llama a `%s`: es lo que %s' % (firma, hace, porque))
     c = sin_comentarios(leer(os.path.join(RING0, 'dev', 'gpu_trabajo', 'cubo.rs')))
     k = c.find('pub fn receta(')
     cuerpo = c[k:c.find('\n}\n', k)] if k >= 0 else ''

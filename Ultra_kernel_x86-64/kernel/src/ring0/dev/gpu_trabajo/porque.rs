@@ -33,6 +33,11 @@ pub(super) fn no(p: Porque, sub: u8, detalle: u64) -> u32 {
     IOMMU_NO_BLUR_PREPARAR
 }
 
+/// El `motivo 79`, para quien ya apunto su porque.
+pub(super) fn motivo() -> u32 {
+    IOMMU_NO_BLUR_PREPARAR
+}
+
 /// **`INFO_GPU_PORQUE`**: el ultimo porque, si es de quien pregunta; 0 si no.
 pub fn info() -> u64 {
     let x = ULTIMO.load(Ordering::Acquire);

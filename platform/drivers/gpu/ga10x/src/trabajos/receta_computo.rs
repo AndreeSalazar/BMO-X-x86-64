@@ -32,13 +32,32 @@ use super::computo_app::{DelUav, Despacho};
 pub const MAGIA: [u8; 4] = *b"VRC1";
 pub const CABECERA: usize = 72;
 /// Las instrucciones de un cuerpo de computo, como mucho (las de nBody son
-/// 18993: un CS de un juego puede ser largo).
-pub const MAX_INSTRUCCIONES: usize = 32 * 1024;
+/// 18993: un CS de un juego puede ser largo). El kernel COPIA la receta y
+/// arma el pegado en dos buferes fijos (`MAX_RECETA` y `MAX_PEGADO`): no se
+/// juzga lo que la app aun puede cambiar.
+pub const MAX_INSTRUCCIONES: usize = 24 * 1024;
 pub const MAX_PRECARGAS: usize = 256;
 /// Los buferes (UAV y SRV) que ata el kernel: los que deja el juez.
 pub const MAX_BUFERES: usize = crate::sass::juez_computo::MAX_UAVS;
 /// Las filas del cbuffer (las 4096 de D3D12).
 pub const MAX_FILAS: usize = 4096;
+/// La receta mas grande que se lee.
+pub const MAX_RECETA: usize = CABECERA.next_multiple_of(16) + 16 * MAX_INSTRUCCIONES + 16 * MAX_FILAS + 24 * MAX_BUFERES + 4 * MAX_PRECARGAS;
+/// El pegado mas largo: los MOV de todas las precargas (4 una fila) y el cuerpo.
+pub const MAX_PEGADO: usize = 4 * MAX_PRECARGAS + MAX_INSTRUCCIONES;
+
+/// El `sub` de `Porque::ComputoReceta` para cada NO (`porque::COMPUTO`).
+pub fn sub_porque(e: NoReceta) -> (u8, u32) {
+    match e {
+        NoReceta::Cabecera => (2, 0),
+        NoReceta::Tabla => (3, 0),
+        NoReceta::Techo => (4, 0),
+        NoReceta::Precarga(k) => (5, k as u32),
+        NoReceta::Bufer(k) => (6, k as u32),
+        NoReceta::Despacho(_) => (7, 0),
+    }
+}
+
 /// El bit de un SRV en la ranura de un bufer.
 pub const SRV: u8 = 0x80;
 

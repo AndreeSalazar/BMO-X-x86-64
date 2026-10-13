@@ -439,7 +439,7 @@ fn leer_receta(pid: u32, va: u64) -> Result<&'static [u8], u32> {
 
 /// Copiar `[va, va + a.len())` de la reserva del espacio `aspace` a `a`, pagina
 /// a pagina; `false` si alguna no esta hecha (o no es suya).
-fn copiar_de_la_reserva(aspace: u64, va: u64, a: &mut [u8]) -> bool {
+pub(super) fn copiar_de_la_reserva(aspace: u64, va: u64, a: &mut [u8]) -> bool {
     use crate::ring0::mm::PAGE;
     let mut hecho = 0usize;
     while hecho < a.len() {
@@ -515,18 +515,7 @@ fn prestar_texturas(bar0: u64, pid: u32, texturas: &[bmo_gpu_ga10x::texturas::De
     if texturas.is_empty() {
         return Ok(prestadas);
     }
-    if !TEXTURAS_MAPEADAS.load(Ordering::Acquire) {
-        match tx::mapear(&mut Bar0(bar0)) {
-            Some((n, bien)) if n == bien => {
-                TEXTURAS_MAPEADAS.store(true, Ordering::Release);
-                crate::ring0::cabina::count("gpu", "P3b4c.8: las ranuras de las texturas y sus piscinas MAPEADAS para la 3060; entradas", n as u64);
-            }
-            _ => {
-                crate::ring0::cabina::warn("gpu", "P3b4c.8: las tablas de las texturas no se escribieron o no se releyeron", 0);
-                return Err(no(Porque::TexturasTablas, 0, 0));
-            }
-        }
-    }
+    texturas_mapeadas(bar0)?;
     let aspace = crate::ring0::mm::vmm::read_cr3();
     for (k, t) in texturas.iter().enumerate().take(tx::MAX_TEXTURAS) {
         let fisica = crate::ring0::obj::memory::fisica_de(pid, t.va, t.bytes()).filter(|&f| f.checked_add(t.bytes()).is_some_and(|fin| fin <= crate::ring0::mm::PHYSMAP_SIZE));
@@ -561,6 +550,44 @@ fn prestar_texturas(bar0: u64, pid: u32, texturas: &[bmo_gpu_ga10x::texturas::De
         return Err(no(Porque::TexturaPiscinas, 0, texturas.len() as u64));
     }
     Ok(prestadas)
+}
+
+/// Las ranuras de las texturas y sus piscinas, MAPEADAS para la 3060 (una
+/// vez por arranque). LI2f: tambien las de los SRV de un computo.
+pub(super) fn texturas_mapeadas(bar0: u64) -> Result<(), u32> {
+    use bmo_gpu_ga10x::texturas as tx;
+    if !TEXTURAS_MAPEADAS.load(Ordering::Acquire) {
+        match tx::mapear(&mut Bar0(bar0)) {
+            Some((n, bien)) if n == bien => {
+                TEXTURAS_MAPEADAS.store(true, Ordering::Release);
+                crate::ring0::cabina::count("gpu", "P3b4c.8: las ranuras de las texturas y sus piscinas MAPEADAS para la 3060; entradas", n as u64);
+            }
+            _ => {
+                crate::ring0::cabina::warn("gpu", "P3b4c.8: las tablas de las texturas no se escribieron o no se releyeron", 0);
+                return Err(no(Porque::TexturasTablas, 0, 0));
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Las ranuras del destino, MAPEADAS para la 3060 (una vez por arranque).
+/// LI2f: tambien las de los UAV de un computo.
+pub(super) fn destino_mapeado(bar0: u64) -> Result<(), u32> {
+    use bmo_gpu_ga10x::destino as ds;
+    if !DESTINO_MAPEADO.load(Ordering::Acquire) {
+        match ds::mapear(&mut Bar0(bar0)) {
+            Some((n, bien)) if n == bien => {
+                DESTINO_MAPEADO.store(true, Ordering::Release);
+                crate::ring0::cabina::count("gpu", "P3b4b: el destino de la app MAPEADO para la 3060 (PTE de sistema); entradas", n as u64);
+            }
+            _ => {
+                crate::ring0::cabina::warn("gpu", "P3b4b: las tablas del destino no se escribieron o no se releyeron", 0);
+                return Err(no(Porque::DestinoTablas, 0, 0));
+            }
+        }
+    }
+    Ok(())
 }
 
 /// Devolver lo que [`prestar_texturas`] presto, ranura a ranura.
@@ -828,18 +855,7 @@ fn prestar_destino(bar0: u64, pid: u32, va_app: u64, dst: &bmo_gpu_ga10x::destin
             return Err(no(Porque::DestinoNoEscribible, sub, va_app));
         }
     }
-    if !DESTINO_MAPEADO.load(Ordering::Acquire) {
-        match ds::mapear(&mut Bar0(bar0)) {
-            Some((n, bien)) if n == bien => {
-                DESTINO_MAPEADO.store(true, Ordering::Release);
-                crate::ring0::cabina::count("gpu", "P3b4b: el destino de la app MAPEADO para la 3060 (PTE de sistema); entradas", n as u64);
-            }
-            _ => {
-                crate::ring0::cabina::warn("gpu", "P3b4b: las tablas del destino no se escribieron o no se releyeron", 0);
-                return Err(no(Porque::DestinoTablas, 0, 0));
-            }
-        }
-    }
+    destino_mapeado(bar0)?;
     let prestado = match fisica {
         Some(f) => crate::ring0::plat::iommu::prestar_gpu(ds::iova_de(k), f, paginas, true),
         None => crate::ring0::plat::iommu::prestar_gpu_marcos(ds::iova_de(k), paginas, true, marco),
