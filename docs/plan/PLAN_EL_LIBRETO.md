@@ -411,6 +411,35 @@ y `puerta.rs`; el juez en `platform/drivers/gpu/ga10x/src/sass/juez.rs`):
       (un grupo menos, el SRV sin su paso): cae. **Falta la mitad de la
       3060:** el emisor aun rechaza `EscribeUav`, la memoria compartida, los
       atomicos y las barreras, y el PSO de computo no va al QMD.
+      **13-10, la mitad de la 3060 HECHA en el anfitrion** (la 3060 de
+      mentira y el juez; NADA en el metal todavia):
+      - el ORO del computo (`bmo_sm86::computo`, de `ptxas` 12.9 y
+        `nvdisasm` 13.4): S2R, BAR.SYNC, STS/LDS, LDG/STG, ATOMS/ATOMG y sus
+        CAS; el simulador los corre, grupo a grupo, en el orden de la casa
+        (`simula_grupo`).
+      - el EMISOR (`proton-x-sm86`: `uav.rs`, `compartida.rs`,
+        `uniforme.rs`): los ids, la barrera donde el control es UNIFORME
+        (se demuestra; si no, la CPU), los UAV y los SRV de bufer crudos y
+        estructurados -- leer, escribir, los `Interlocked*`, GetDimensions
+        --, y la compartida (a cero en un prologo: la 3060 no la limpia).
+        Cada direccion, SUJETA: `base + min(x & ~3, tope)` para un bufer, y
+        `4 * min(x, tope)` en la compartida.
+      - el JUEZ (`sass/juez_computo.rs`, R7): cada LDG/STG/ATOMG detras de
+        su cadena fija contra la base y el tope que pone el kernel (que el
+        cuerpo no puede pisar), un SRV de solo leer, la compartida contra
+        sus bytes, S2R y BAR en su forma.
+      - **Como se supo:** nBodyGravity (Microsoft) entero -- 18993
+        instrucciones, sus dos barreras en el bucle de los tiles --, 256
+        particulas: los MISMOS bytes que `Programa::despachar`, y juzgado.
+        Cada trampa al juez (otro tope, la base pisada, un salto en la
+        cadena, escribir un SRV), su NO.
+      - [!] Lo que NO da los mismos bits: una palabra sin alinear de un
+        crudo (D3D12 no la define; dxc no la emite).
+      **Falta:** el despacho en el KERNEL -- la receta de computo, el QMD con
+      la compartida y los registros, prestar cada UAV y SRV (su IOVA) y
+      cargar sus precargas (`DelUav::valor`) --, la puerta `Dispatch` de
+      PROTON-X, los UAV con tipo y de textura, el contador (`Append`), y el
+      metal.
 - [ ] **LI2g -- DECISION DEL PROPIETARIO: los bits exactos o la tolerancia
       de D3D.** La regla de la casa es "los mismos bits que la CPU". La 3060
       APROXIMA la division, la raiz y el filtrado; D3D lo permite (unos
