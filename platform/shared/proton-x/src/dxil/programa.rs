@@ -553,21 +553,27 @@ fn instruccion(c: &mut Compilador, r: &Registro, relativos: bool, tipos: &[Tipo]
         FUNC_LOAD => super::arreglos::load(c, &mut o)?,
         FUNC_STORE => super::arreglos::store(c, &mut o)?,
         FUNC_ATOMICRMW => super::arreglos::atomico(c, &mut o)?,
-        // E6b: + y - de ENTEROS (un contador de bucle).
-        FUNC_BINOP if super::enteros::es_entero(c, &o)? => super::enteros::binop_entero(c, &mut o)?,
+        // E6b: + y - de ENTEROS (un contador de bucle). 14-10: y los codigos
+        // que en LLVM son SOLO de enteros (udiv, urem, shl, lshr, ashr, and,
+        // or, xor: `LLVMBitCodes.h`), sea lo que sea lo que la casa crea que
+        // es su primer operando.
+        FUNC_BINOP if super::enteros::es_entero(c, &o)? || super::enteros::solo_de_enteros(&o)? => super::enteros::binop_entero(c, &mut o)?,
         FUNC_BINOP => {
             let a = o.con_tipo()?;
             let b = o.solo()?;
             let opcode = o.crudo()?;
             let (ra, rb) = (c.float(a)?, c.float(b)?);
-            let d = c.registro(0.0)?;
-            c.ops.push(match opcode {
-                0 => Op::Add { d, a: ra, b: rb },
-                1 => Op::Sub { d, a: ra, b: rb },
-                2 => Op::Mul { d, a: ra, b: rb },
-                4 => Op::Div { d, a: ra, b: rb },
-                _ => return Err(NoPrograma::Forma("una operacion binaria que no es + - * /")),
-            });
+            let d = if opcode == 6 { super::enteros::resto_float(c, ra, rb)? } else {
+                let d = c.registro(0.0)?;
+                c.ops.push(match opcode {
+                    0 => Op::Add { d, a: ra, b: rb },
+                    1 => Op::Sub { d, a: ra, b: rb },
+                    2 => Op::Mul { d, a: ra, b: rb },
+                    4 => Op::Div { d, a: ra, b: rb },
+                    _ => return Err(NoPrograma::Forma("una operacion binaria de float que no es + - * / %")),
+                });
+                d
+            };
             c.valores.push(Valor::Float(d));
         }
         FUNC_EXTRACTVAL => {

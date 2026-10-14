@@ -82,7 +82,7 @@ fn las_dos(p: &Programa, vistas: &[Vista], grupos: u32) -> (Vec<Vec<u8>>, Vec<Ve
 
 /// Lo mismo con SRV de bufer (`srvs`, el tN) y un cbuffer. En la 3060 de
 /// mentira el UAV k vive en la ranura k y el SRV t en la 8 + t.
-fn las_dos_con(p: &Programa, vistas: &[Vista], srvs: &[Vista], cb: &[u8], grupos: u32) -> (Vec<Vec<u8>>, Vec<Vec<u8>>) {
+pub(super) fn las_dos_con(p: &Programa, vistas: &[Vista], srvs: &[Vista], cb: &[u8], grupos: u32) -> (Vec<Vec<u8>>, Vec<Vec<u8>>) {
     let mut casa: Vec<Vec<u8>> = vistas.iter().map(|v| v.bytes.clone()).collect();
     {
         let mut uavs: Vec<Option<Uav>> = casa.iter_mut().zip(vistas).map(|(b, v)| Some(Uav { bytes: b, formato: 0, paso: v.paso, elementos: v.elementos, contador: None, rebanadas: Rebanadas::PLANA })).collect();
@@ -577,4 +577,28 @@ fn el_contador_append_y_consume() {
     assert_eq!(mem.0[0], casa, "los mismos bytes");
     assert_eq!(u32::from_le_bytes(mem.0[1][..4].try_into().unwrap()), contador_casa, "el mismo contador al final");
     assert_eq!(contador_casa, 5, "cada hilo sube y baja");
+}
+
+/// *** 14-10: EL `%` DE FLOATS Y LOS BINOP SOLO DE ENTEROS (`resto.hlsl`, el
+/// CS de Cyberpunk que no se sabia correr): `frem` = `a - b * trunc(a / b)`
+/// con las piezas de siempre (la division exacta de la casa incluida), en la
+/// 3060 de mentira: los mismos bytes que la CPU, con b = 0, infinitos, NaN y
+/// cocientes grandes.
+#[test]
+fn el_resto_de_floats_corre_igual() {
+    let p = bmo_proton_x::dxil::computo::preparar(include_bytes!("../../proton-x/prueba/resto.dxil")).unwrap().programa;
+    let pares = [(7.5f32, 2.0f32), (-7.5, 2.0), (7.5, -2.0), (1e10, 3.0), (3.0, 1e10), (-0.0, 3.0), (1.0, 0.0), (f32::INFINITY, 2.0), (2.0, f32::INFINITY), (f32::NAN, 1.0), (16777217.0, 0.1), (123.456, 7.89)];
+    let entrada: Vec<u32> = (0..32).flat_map(|k| { let (a, b) = pares.get(k).copied().unwrap_or(((k as f32 - 20.0) * 1.37, 0.3 + k as f32 * 0.11)); [a.to_bits(), b.to_bits()] }).collect();
+    let srv = Vista { bytes: palabras(&entrada), modo: Modo::Crudo, elementos: 64, paso: 0 };
+    let uav = Vista { bytes: vec![0xEE; 4 * 64], modo: Modo::Crudo, elementos: 64, paso: 0 };
+    let (casa, gpu) = las_dos_con(&p, &[uav], &[srv], &[0u8; 16], 1);
+    assert!(casa[0].iter().any(|&b| b != 0xEE), "la CPU escribio");
+    // Los mismos bits, palabra a palabra; un NaN con otro NaN (su signo y su
+    // carga no son de nadie: como el vigia, `vivo`).
+    let w = |b: &[u8], k: usize| u32::from_le_bytes(b[4 * k..4 * k + 4].try_into().unwrap());
+    for k in 0..64 {
+        let (c, g) = (w(&casa[0], k), w(&gpu[0], k));
+        let nan = |x: u32| f32::from_bits(x).is_nan();
+        assert!(c == g || (k % 2 == 0 && nan(c) && nan(g)), "la palabra {k}: la 3060 {g:#x}, la CPU {c:#x}");
+    }
 }

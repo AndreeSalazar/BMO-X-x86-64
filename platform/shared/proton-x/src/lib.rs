@@ -171,6 +171,8 @@ mod pruebas_espacios;
 #[cfg(test)]
 mod pruebas_computo;
 #[cfg(test)]
+mod pruebas_resto;
+#[cfg(test)]
 mod pruebas_geometria;
 #[cfg(test)]
 mod pruebas_pixeles;
