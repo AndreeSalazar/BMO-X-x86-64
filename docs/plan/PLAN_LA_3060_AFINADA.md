@@ -548,8 +548,21 @@ marcada.
       textura de varias mips"; MIN y MAG distintos, aun no (un solo filtro).
       Emisor 4. **Falta:** el metal (los lotes que el censo paraba ahi), y
       SampleBias, SampleGrad y SampleCmp con mips (`Lectura::Gradientes`).
-- [ ] **L3 -- SUST/SULD:** `EscribeUav` de texturas y buferes con tipo.
-- [ ] **L4 -- ATOM/RED:** el `Atomico` del computo.
+- [x] **L3 -- los UAV con tipo y de textura (14-10, en el banco), SIN
+      SUST/SULD:** la memoria de un UAV de la casa es LINEAL en la RAM del
+      juego (cuatro floats por texel, o los canales de 32 bits), asi que va
+      por la MISMA cadena sujeta de LDG/STG que ya pasa el juez: el elemento
+      `y * Ancho + x`, su `Salto`, los `Canales` y el `Relleno` que la casa
+      reescribe (`proton-x-sm86/src/uav.rs`, `computo_app::Forma` en el byte
+      21 del bufer de VRC1). La forma la decide quien despacha
+      (`forma_de`): los formatos de 32 bits por canal, y cualquiera en
+      cuatro floats que solo se lee. Bit a bit contra la casa
+      (`pruebas_uav_tipo.rs`). Por la CPU: lo que se escribe empaquetado o
+      cuantizado (RGBA8, RGBA16F...), otra vista de los mismos bytes, 3D y
+      arrays.
+- [x] **L4 -- los atomicos:** ATOMG ya estaba en los crudos y estructurados
+      (LI2f); desde L3 tambien en las texturas y buferes con tipo (la palabra
+      0 y el relleno), como la casa.
 - [ ] **L5 -- el microscopio:** el decodificador de SASS con nombres (de
       `sm70_encode.rs`): CABINA lee lo que corre la 3060 de cada PSO.
 - [x] **Las texturas BC por la 3060 (14-10, en el banco):** BC1, BC2, BC3,

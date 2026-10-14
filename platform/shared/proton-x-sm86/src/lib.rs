@@ -125,7 +125,7 @@ mod uav;
 mod compartida;
 /// LI2f (12-10): lo que todo el grupo corre a la vez (para la barrera).
 mod uniforme;
-pub use uav::{permisos_computo, receta_computo, DelUav, CONTADOR, SRV};
+pub use uav::{cabe_entero, forma_de, permisos_computo, receta_computo, DelUav, Forma, CONTADOR, SRV};
 /// LI2f: la receta de computo y lo que contesta el kernel (del driver).
 pub use bmo_gpu_ga10x::trabajos::{computo_app, receta_computo as vrc1};
 
@@ -1036,8 +1036,8 @@ pub(crate) fn emitir_modo(p: &Programa, registros: u32, abi: Abi, libreta: bool,
             // Load en 2D y array (`lecturas.rs`); lo demas -- el cubo, los
             // gradientes, GetDimensions, los desplazamientos, la textura
             // elegida al correr -- en la CPU todavia.
-            Op::Lee { d, t, como: bmo_proton_x::dxil::programa::Lectura::Bufer(modo), c: co, .. } if t != bmo_proton_x::dxil::programa::DINAMICA && t < SRV => e.lee_uav(d, t | SRV, modo, co[0], co[1], i, &mut paso)?,
-            Op::Lee { d, t, como: bmo_proton_x::dxil::programa::Lectura::MedidasBufer(_), .. } if t != bmo_proton_x::dxil::programa::DINAMICA && t < SRV => e.medidas_uav(d, t | SRV, i)?,
+            Op::Lee { d, t, como: bmo_proton_x::dxil::programa::Lectura::Bufer(modo), c: co, .. } if t != bmo_proton_x::dxil::programa::DINAMICA && t < SRV => e.lee_uav(d, t | SRV, modo, co[0], co[1], None, i, &mut paso)?,
+            Op::Lee { d, t, como: bmo_proton_x::dxil::programa::Lectura::MedidasBufer(modo), .. } if t != bmo_proton_x::dxil::programa::DINAMICA && t < SRV => e.medidas_uav(d, t | SRV, modo, i)?,
             Op::Lee { d, t, s, como, c: co, nivel, desp } => e.lee_textura(d, t, s, como, co, nivel, desp, i, &mut paso)?,
             // N5.4: elegir la textura al correr, la 3060 todavia no.
             Op::EligeTextura { .. } => return Err(NoEmite::Operacion(i)),
@@ -1045,13 +1045,13 @@ pub(crate) fn emitir_modo(p: &Programa, registros: u32, abi: Abi, libreta: bool,
             // los UAV crudos y estructurados; lo demas, por la CPU todavia.
             Op::IdHilo { d, que, c: comp } => e.id_hilo(d, que, comp, i, &mut paso)?,
             Op::Barrera => e.barrera(i)?,
-            Op::LeeUav { d, u, modo, i: indice, desp, .. } => e.lee_uav(d, u, modo, indice, desp, i, &mut paso)?,
-            Op::EscribeUav { u, modo, i: indice, desp, v, mascara, .. } => e.escribe_uav(u, modo, indice, desp, v, mascara, i, &mut paso)?,
+            Op::LeeUav { d, u, modo, i: indice, desp, z } => e.lee_uav(d, u, modo, indice, desp, Some(z), i, &mut paso)?,
+            Op::EscribeUav { u, modo, i: indice, desp, z, v, mascara } => e.escribe_uav(u, modo, indice, desp, Some(z), v, mascara, i, &mut paso)?,
             Op::LeeCompartida { d, base, n, i: indice } => e.lee_compartida(d, base, n, indice, i, &mut paso)?,
             Op::EscribeCompartida { base, n, i: indice, s } => e.escribe_compartida(base, n, indice, s, i, &mut paso)?,
             Op::AtomicoCompartido { d, base, n, i: indice, v, como } => e.atomico_compartido(d, base, n, indice, v, como, i, &mut paso)?,
-            Op::MedidasUav { d, u, .. } => e.medidas_uav(d, u, i)?,
-            Op::Atomico { d, u, modo, i: indice, desp, como, v, igual, .. } => e.atomico_uav(d, u, modo, indice, desp, como, v, igual, i, &mut paso)?,
+            Op::MedidasUav { d, u, modo } => e.medidas_uav(d, u, modo, i)?,
+            Op::Atomico { d, u, modo, i: indice, desp, z, como, v, igual } => e.atomico_uav(d, u, modo, indice, desp, Some(z), como, v, igual, i, &mut paso)?,
             // E2.3b: el sombreador de geometria, igual (va por la CPU).
             Op::EntradaDe { .. } | Op::Emite { .. } | Op::Corta { .. } => return Err(NoEmite::Operacion(i)),
             // E2.4: el contador de un UAV, igual; y (05-10) sus Interlocked.
@@ -1185,3 +1185,5 @@ mod pruebas_censo;
 mod pruebas_derivadas;
 #[cfg(test)]
 mod pruebas_muestra;
+#[cfg(test)]
+mod pruebas_uav_tipo;
