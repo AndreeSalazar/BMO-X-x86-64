@@ -214,6 +214,9 @@ version = "0.1.0"
 [[package]]
 name = "bmo-pase-gpu"
 version = "0.1.0"
+dependencies = [
+ "bmo-lamina",
+]
 
 [[package]]
 name = "bmo-pila"
