@@ -17,6 +17,12 @@
 //! cada pasada y lo devuelve (`gpu_trabajo/completa.rs`).
 
 use bmo_gpu_ga10x::completa as co;
+
+// ** VE5C atada a su fila del censo de las laminas (A3, 14-10): la palabra 1
+// es el ancho, no una version. Va AQUI y no en `bmo-gpu-ga10x` porque ese
+// crate lo enlaza el kernel y no tiene dependencias, a proposito; el
+// escritorio usa la misma constante y si cambia, no compila.
+const _: () = assert!(bmo_lamina::censo::misma_version(bmo_lamina::censo::clase(co::MAGIA).version, bmo_lamina::censo::Version::Ninguna));
 use bmo_userland as bmo;
 use bmo_verrano::completa as v;
 

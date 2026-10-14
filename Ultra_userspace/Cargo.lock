@@ -266,6 +266,9 @@ dependencies = [
 [[package]]
 name = "bmo-puerta-red"
 version = "0.1.0"
+dependencies = [
+ "bmo-lamina",
+]
 
 [[package]]
 name = "bmo-registro"
