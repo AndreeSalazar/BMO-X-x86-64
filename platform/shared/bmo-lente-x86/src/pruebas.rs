@@ -339,3 +339,55 @@ fn walk_says_what_it_cannot_prove() {
     let r = recorre::recorre(100, 0, [], |_, _| 0, |_| true, &mut visto, &mut []);
     assert!(r.desborda && !r.demostrado(), "un mapa que no cubre el codigo no demuestra nada");
 }
+
+// -------------------------------------------------------------------
+//  B2: la direccion de memoria, para la autopsia
+// -------------------------------------------------------------------
+
+/// ** El caso de Cyberpunk (02-10): `mov eax, [rdi+0x18c0]` con un `rdi` que
+/// no era de nadie. La lente tiene que decir que la direccion salio de `rdi`.
+/// Y los demas: SIB con indice, `r13` (que con REX.B parece `rbp`), `rsp`
+/// como base (que obliga a SIB), `rip`, sin base, y un registro solo.
+#[test]
+fn says_which_register_held_the_address() {
+    let m = |b: &[u8]| lee(b).unwrap().memoria();
+    let d = m(&[0x8B, 0x87, 0xC0, 0x18, 0, 0]).unwrap();
+    assert_eq!((d.base, d.indice, d.disp), (Some(7), None, 0x18C0));
+    assert_eq!(nombre_r64(d.base.unwrap()), "rdi");
+    // movzx eax, byte [rsi+rcx*1]
+    let d = m(&bytes(|o| x86::movzx_r32_byte_base_index(o, 0, 6, 1))).unwrap();
+    assert_eq!((d.base, d.indice, d.escala), (Some(6), Some(1), 1));
+    // mov rcx, [r13]: mod 01 con disp 0, base 13
+    let d = m(&bytes(|o| x86::mov_r64_at_reg(o, 1, 13))).unwrap();
+    assert_eq!(d.base, Some(13));
+    // mov rcx, [rsp]: SIB sin indice
+    let d = m(&bytes(|o| x86::mov_r64_at_reg(o, 1, 4))).unwrap();
+    assert_eq!((d.base, d.indice), (Some(4), None));
+    // mov r9, [r12+r10*8+0x10]: REX.WRXB
+    let d = m(&[0x4F, 0x8B, 0x4C, 0xD4, 0x10]).unwrap();
+    assert_eq!((d.base, d.indice, d.escala, d.disp), (Some(12), Some(10), 8, 0x10));
+    // lea rax, [rip+0x10]
+    assert!(m(&[0x48, 0x8D, 0x05, 0x10, 0, 0, 0]).unwrap().rip_relativa);
+    // mov eax, [rcx*4+0x100]: SIB sin base
+    let d = m(&[0x8B, 0x04, 0x8D, 0, 1, 0, 0]).unwrap();
+    assert_eq!((d.base, d.indice, d.escala, d.disp), (None, Some(1), 4, 0x100));
+    // mov rax, r12: no toca memoria
+    assert_eq!(m(&bytes(|o| x86::mov_r64_r64(o, 0, 12))), None);
+}
+
+/// ** Un salto a NULO: el `rip` no se lee, y la autopsia busca el `call` que
+/// dejo el retorno en la pila. Lo de antes del retorno se lee desde el final.
+#[test]
+fn finds_the_call_before_a_return_address() {
+    // ... mov rax, [rbx+8] / call qword [rax+0x18]  <- retorno
+    let antes = [0x48, 0x8B, 0x43, 0x08, 0xFF, 0x50, 0x18];
+    let (i, k) = el_call_antes(&antes).unwrap();
+    assert_eq!(k, 3);
+    assert_eq!(i.texto(0).as_str(), "call qword [rax+0x18]");
+    assert_eq!(i.memoria().unwrap().base, Some(0));
+    // call rel32: 5 bytes
+    let antes = [0x90, 0xE8, 0x10, 0, 0, 0];
+    assert_eq!(el_call_antes(&antes).map(|(_, k)| k), Some(5));
+    // sin call al final: nada (no se inventa uno)
+    assert!(el_call_antes(&[0x48, 0x89, 0xC8]).is_none());
+}

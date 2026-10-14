@@ -125,6 +125,7 @@ mod sse;
 mod cargar;
 mod paginas;
 pub use cargar::cargar_bex;
+pub use paginas::FalloEmu;
 /// A donde se va cada instruccion: el desglose que el metro pinta.
 pub mod clases;
 
@@ -311,6 +312,14 @@ pub struct Machine {
     /// la CPU mira con esto que un cuerpo no escriba fuera de sus registros, su
     /// salida y su pila -- tambien cuando escribe lo que ya habia.
     pub escritas: Option<Vec<u64>>,
+    /// **La TRAMPA** (B2, 14-10): un rango de direcciones que, si el programa
+    /// lo toca, PARA la maquina como un `#PF` del Ryzen, y [`Machine::fallo`]
+    /// dice donde. Ver `paginas.rs`.
+    pub trampa: Option<(u64, u64)>,
+    toco: std::cell::Cell<Option<u64>>,
+    /// Lo que dejo la trampa al saltar: la instruccion, la direccion y los
+    /// registros de ANTES de ejecutarla (un `#PF` no deja nada a medias).
+    pub fallo: Option<paginas::FalloEmu>,
     /// **El MXCSR** (LB4 de `docs/plan/PLAN_LAS_LIBRERIAS.md`, 08-10): el
     /// control de SSE, que `ldmxcsr` pone y `stmxcsr` lee.
     ///
@@ -544,6 +553,9 @@ impl Machine {
             xmm_alto: [0; 16],
             ymm: [[0; 4]; 16],
             escritas: None,
+            trampa: None,
+            toco: std::cell::Cell::new(None),
+            fallo: None,
             mxcsr: MXCSR_REINICIO,
             code,
             rip: 0,
@@ -636,6 +648,7 @@ impl Machine {
     /// `%s` leeria ceros si el emulador no modelara eso. Fuera de la imagen
     /// devuelve cero, que es lo que hace el kernel con una pagina nueva.
     fn read_u8_mem(&self, addr: u64) -> u8 {
+        self.mira_trampa(addr);
         if let Some(b) = self.mem.get(&addr) {
             return *b;
         }
@@ -1819,7 +1832,12 @@ pub fn run_con(mut m: Machine, max_steps: usize, mut sonda: impl FnMut(usize)) -
         sonda(m.rip);
         let clase = clases::clasificar(&m.code[m.rip..]);
         m.censo.apuntar(clase);
+        let antes = m.trampa.map(|_| (m.rip, m.regs));
         m.step();
+        if let (Some((rip, regs)), Some(addr)) = (antes, m.toco.take()) {
+            m.fallo = Some(paginas::FalloEmu { rip, addr, regs });
+            break;
+        }
         steps += 1;
         m.pasos += 1;
         assert!(

@@ -90,6 +90,12 @@ tabla, fuera de la tabla. La juzga el `metro` con los 63 programas del banco
 corriendo (las 35.208 instrucciones distintas que corrieron). **Queda la
 otra mitad:** la autopsia de Ring 3 que la usa en RIP (B2 del foco).
 
+**La otra mitad, ESCRITA el 14-10 (B2 de `EL_FOCO.md`):** el renglon `instr`
+de la autopsia -- la instruccion en el `rip` (o el `call` de antes del
+retorno si el `rip` no se lee) y el registro de su direccion con su valor. Se
+prueba en el anfitrion con la trampa del emulador sobre codigo de BMO C. Se
+cierra cuando el Ryzen lo escriba en un informe de verdad.
+
 ### [ ] LB4 -- los contadores del Zen 3, explicados
 
 El informe dice hoy `sin MPERF/APERF`. El Zen 3 tiene contadores de

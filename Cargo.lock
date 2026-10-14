@@ -121,6 +121,7 @@ dependencies = [
  "bmo-abi",
  "bmo-bex-gate",
  "bmo-c-front",
+ "bmo-lente-x86",
  "bmo-lower",
  "bmo-mods",
  "bmo-sem-asm",

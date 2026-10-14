@@ -312,7 +312,72 @@ fn ancho_de(rex: u8, prefijos: u8, vex: Option<Vex>) -> u8 {
     }
 }
 
+/// **La direccion de memoria de una instruccion**: `[base + indice*escala +
+/// disp]`, con los registros por su NUMERO de x86 (0 `rax`, 1 `rcx`, 2 `rdx`,
+/// 3 `rbx`, 4 `rsp`, 5 `rbp`, 6 `rsi`, 7 `rdi`, 8..15 `r8`..`r15`).
+///
+/// Es lo que necesita la autopsia (B2): si la instruccion que fallo leia
+/// `[rdi+0x18c0]`, el culpable es lo que tenia `rdi`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Memoria {
+    pub base: Option<u8>,
+    pub indice: Option<u8>,
+    pub escala: u8,
+    pub disp: i64,
+    /// `[rip + disp]`: la direccion no depende de ningun registro.
+    pub rip_relativa: bool,
+}
+
+/// **El `call` que acaba justo donde acaban `antes`** -- lo que hay antes de
+/// una direccion de retorno. x86 es de largo variable y no se puede leer
+/// hacia atras: se prueba desde el final, del mas corto al mas largo, hasta dar
+/// con una instruccion ENTERA que sea un `call`. Devuelve la instruccion y
+/// cuantos bytes mide. Lo usa la autopsia cuando el `rip` no se lee (un salto
+/// a un puntero nulo): el `call` que salto dice de donde salio el nulo.
+pub fn el_call_antes(antes: &[u8]) -> Option<(Instr, usize)> {
+    (2..=antes.len().min(LARGO_MAX)).find_map(|k| {
+        let i = lee(&antes[antes.len() - k..]).ok()?;
+        (i.largo == k && i.fila.nombre == "call").then_some((i, k))
+    })
+}
+
+/// El nombre de 64 bits del registro `n` (0..15).
+pub fn nombre_r64(n: u8) -> &'static str {
+    texto::R64[(n & 15) as usize]
+}
+
 impl Instr {
+    /// **Si toca memoria, como forma la direccion.** `None` si sus
+    /// operandos son solo registros (o no tiene ModRM).
+    pub fn memoria(&self) -> Option<Memoria> {
+        let m = self.modrm?;
+        let (md, rm) = (m >> 6, m & 7);
+        if md == 3 {
+            return None;
+        }
+        let (b, x) = match self.vex {
+            Some(v) => (v.b as u8, v.x as u8),
+            None => (self.rex & 1, (self.rex >> 1) & 1),
+        };
+        let mut d = Memoria { base: None, indice: None, escala: 1, disp: self.disp, rip_relativa: false };
+        if rm == 4 {
+            let s = self.sib?;
+            let i = ((s >> 3) & 7) | (x << 3);
+            if i != 4 {
+                d.indice = Some(i);
+                d.escala = 1 << (s >> 6);
+            }
+            if !(md == 0 && s & 7 == 5) {
+                d.base = Some((s & 7) | (b << 3));
+            }
+        } else if md == 0 && rm == 5 {
+            d.rip_relativa = true;
+        } else {
+            d.base = Some(rm | (b << 3));
+        }
+        Some(d)
+    }
+
     /// La medida del operando de esta instruccion.
     pub fn ancho(&self) -> u8 {
         ancho_de(self.rex, self.prefijos, self.vex)

@@ -70,7 +70,13 @@ const CUANTAS: usize = 4;
 // DIECISIETE desde el 2026-10-02: los bytes de ANTES de la instruccion y los
 // quince registros, por Cyberpunk (`mov eax, [rdi+0x18c0]` con un `rdi` que
 // no era de nadie: sin los registros y lo de antes no se sabe de donde salio).
-const RENGLONES: usize = 17;
+// DIECIOCHO desde el 14-10: la INSTRUCCION en claro y el registro que llevaba
+// la direccion, con la lente (B2 del foco). Va detras del `rip` al leer
+// (`ORDEN`), aunque se escriba la ultima.
+const RENGLONES: usize = 18;
+/// En que orden se guardan los renglones: el de la instruccion (17) justo
+/// despues del `rip` (5), que es donde se lee.
+const ORDEN: [usize; RENGLONES] = [0, 1, 2, 3, 4, 5, 17, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16];
 
 /// **Lo que se saca del proceso ANTES de tocar nada.**
 ///
@@ -1099,6 +1105,7 @@ pub fn registrar(
         Renglon::nuevo(), Renglon::nuevo(), Renglon::nuevo(),
         Renglon::nuevo(), Renglon::nuevo(), Renglon::nuevo(),
         Renglon::nuevo(), Renglon::nuevo(), Renglon::nuevo(),
+        Renglon::nuevo(),
     ];
 
     renglones[0].s("== FALLO EN RING 3 #");
@@ -1406,12 +1413,20 @@ pub fn registrar(
         r.s("  ");
     }
 
+    // ** LA INSTRUCCION, LEIDA (B2, 14-10). Los bytes de arriba dicen QUE
+    // bytes; esto dice que instruccion son y, si tocaba memoria, de que
+    // registro salio la direccion -- con su valor al fallar. Es la linea que
+    // el 02-10 se hizo a mano con Cyberpunk: `mov eax, [rdi+0x18c0]` y un
+    // `rdi` que no era de nadie.
+    renglones[17].s("instr     ");
+    instruccion_leida(cap, rip, rsp, &mut renglones[17]);
+
     unsafe {
         let anillo = &mut *core::ptr::addr_of_mut!(ANILLO);
         let a = &mut anillo[WRITES];
-        for i in 0..RENGLONES {
-            let n = renglones[i].n.min(ANCHO);
-            a.texto[i][..n].copy_from_slice(&renglones[i].b[..n]);
+        for (i, &de) in ORDEN.iter().enumerate() {
+            let n = renglones[de].n.min(ANCHO);
+            a.texto[i][..n].copy_from_slice(&renglones[de].b[..n]);
             a.largo[i] = n as u8;
         }
         a.usados = RENGLONES as u8;
@@ -1419,6 +1434,73 @@ pub fn registrar(
         WRITES = (WRITES + 1) % CUANTAS;
         TOTAL = TOTAL.wrapping_add(1);
         DENTRO = false;
+    }
+}
+
+/// **La instruccion que fallo, dicha por la lente** (`bmo_lente_x86`), y el
+/// registro de su direccion con lo que valia.
+///
+/// Si el `rip` no se pudo leer (un salto a 0), se lee el `call` que dejo el
+/// retorno en la pila: lo de justo antes del retorno, probando desde el final
+/// hasta dar con una instruccion entera que sea un `call`. Lo que la lente no
+/// sabe leer se dice, sin adivinar.
+fn instruccion_leida(cap: &Captura, rip: u64, rsp: u64, r: &mut Renglon) {
+    // De numero de registro de x86 (0 rax, 1 rcx, ...) a `cap.regs` (rax rbx
+    // rcx rdx rsi rdi rbp r8..r15); `rsp` no esta ahi: es el del fallo.
+    let valor = |n: u8| -> u64 {
+        match n {
+            0 => cap.regs[0],
+            1 => cap.regs[2],
+            2 => cap.regs[3],
+            3 => cap.regs[1],
+            4 => rsp,
+            5 => cap.regs[6],
+            6 => cap.regs[4],
+            7 => cap.regs[5],
+            n => cap.regs[(n as usize).min(15) - 1],
+        }
+    };
+    let (i, en, que) = if cap.codigo_n > 0 {
+        (bmo_lente_x86::lee(&cap.codigo[..cap.codigo_n]), rip, "")
+    } else if cap.antes_del_retorno {
+        let antes = &cap.antes[CODIGO_BYTES - cap.antes_n..];
+        let ret = cap.pila[0].unwrap_or(0);
+        match bmo_lente_x86::el_call_antes(antes) {
+            Some((i, k)) => (Ok(i), ret.wrapping_sub(k as u64), "el call: "),
+            None => {
+                r.s("(el rip no se lee, y antes del retorno no hay un call entero)");
+                return;
+            }
+        }
+    } else {
+        r.s("(no se pudo leer)");
+        return;
+    };
+    let i = match i {
+        Ok(i) => i,
+        Err(bmo_lente_x86::NoSe::FueraDeLaTabla { .. }) => {
+            r.s("(la lente no la tiene en su tabla: no se adivina)");
+            return;
+        }
+        Err(_) => {
+            r.s("(bytes cortados: no es una instruccion entera)");
+            return;
+        }
+    };
+    r.s(que);
+    r.s(i.texto(en).as_str());
+    if let Some(m) = i.memoria() {
+        for n in m.base.into_iter().chain(m.indice) {
+            // `  r15=0x` y dieciseis cifras: si no cabe, se ve que falta.
+            if r.n + 24 > ANCHO {
+                r.s(" >");
+                break;
+            }
+            r.s("  ");
+            r.s(bmo_lente_x86::nombre_r64(n));
+            r.s("=");
+            r.hex(valor(n));
+        }
     }
 }
 

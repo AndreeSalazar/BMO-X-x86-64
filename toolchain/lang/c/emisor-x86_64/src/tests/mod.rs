@@ -35,6 +35,7 @@
 use super::*;
 
 mod agregados;
+mod autopsia;
 mod almacenamiento;
 mod cadenas;
 mod cargador;
@@ -291,7 +292,8 @@ fn maquina_de_bef_con(
     machine.rip = v.entrada as usize; // `main` no tiene por que estar al principio
     sembrar(&mut machine);
     let machine = run(machine, 500_000);
-    assert!(machine.exited, "el programa debe terminar por INVOKE(EXIT)");
+    // O por la TRAMPA (B2): un fallo de pagina emulado tambien es un final.
+    assert!(machine.exited || machine.fallo.is_some(), "el programa debe terminar por INVOKE(EXIT)");
     machine
 }
 

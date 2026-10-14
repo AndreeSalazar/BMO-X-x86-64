@@ -323,6 +323,25 @@ dice, y el metal se junta en UNA corrida por escalon.
       7 de `save`: los bytes en RIP decodificados y explicados, de que
       programa y que funcion. **Como se sabe:** un programa que falla a
       proposito, y el informe dice su instruccion y su registro malo.
+      **HECHO EN EL ANFITRION el 14-10; FALTA VERLO EN EL RYZEN.** La
+      autopsia (`core/autopsy.rs`) tiene un renglon mas, `instr`, justo
+      detras del `rip`: la instruccion leida por la lente y, si tocaba
+      memoria, cada registro de su direccion con lo que valia al fallar --
+      `instr     movsxd rax, dword [rax]  rax=0xdead0190`. Si el `rip` no se
+      lee (un salto a nulo), lee el `call` de antes del retorno
+      (`bmo_lente_x86::el_call_antes`), que dice de que tabla salio el nulo.
+      Lo que la lente no tiene en su tabla se dice, no se adivina. La lente
+      gano `Instr::memoria()` (base, indice, escala, desplazamiento, `rip`).
+      **Como se sabe:** el emulador gano una TRAMPA (un rango que, si el
+      programa lo toca, para la maquina como un `#PF`, con el `rip` y los
+      registros de antes); `tests/autopsia.rs` del banco de C compila un
+      programa que lee `p[100]` de `0xDEAD0000`, y la lente, con esos
+      registros, da EXACTAMENTE la direccion tocada (`0xDEAD0190`) y el
+      registro que la llevaba. Mas las pruebas de la lente: el caso de
+      Cyberpunk (`mov eax, [rdi+0x18c0]` -> `rdi`), SIB, `r13`, `rsp`,
+      `rip`, sin base. "De que funcion" sigue siendo el `+desplazamiento` del
+      renglon `rip` con `--map`, como antes. **Lo que falta:** un `.bex` que
+      falle a proposito en el Ryzen y leer `instr` en su `datos/fallos.txt`.
 - [ ] **B3 -- Q0a1..Q0a4: el cubo de TITAN++ en SU ventana, por la 3060**
       (seccion 5): VERRANO dibuja la lamina dentro de la ventana, y el
       DIRECTOR no nombra la 3060 (1c). **Como se sabe:** lo de la seccion 5.
