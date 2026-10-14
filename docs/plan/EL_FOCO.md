@@ -208,14 +208,31 @@ dice, y el metal se junta en UNA corrida por escalon.
         cuatro peticiones"; con ocho son 512 MiB, y como la VA de un bloque
         soltado no se reusa, un proceso que pide y suelta en bucle avanza su
         cursor sin techo. Hay que medirlo antes de tocarlo.
-  - [ ] **A4b -- la LAMINA en el lenguaje** (pide decision del propietario:
-        es gramatica). La propuesta: `lamina` como TIPO, sin palabra nueva
-        (como `byte`): `let mut l = lamina(4096)` pide por la puerta;
-        `l[i] = byte(x)`, `l[i]` y `len(l)` como una `[byte]` pero de medida
-        FIJA y fuera del monton; NO se copia (`let b = l` es T0077: se presta
-        con `mut` o se entrega con `take`); se SUELTA sola al morir su
-        propietario (`MEM_OP_SOLTAR`): sin free, sin liberar dos veces; y
-        `director.ofrece(l)` la presta con la forma completa del trato.
+  - [x] **A4b -- la LAMINA en el lenguaje** (el propietario, 14-10: *"si
+        dale con A4b asi"*). `lamina` como TIPO, sin palabra nueva (como
+        `byte`): el nivel 15 de `toolchain/lang/titan/GRAMATICA.md`.
+        `let mut l = lamina(4096)` pide por la puerta de la RAM; `l[i] =
+        byte(x)`, `l[i]` y `len(l)` como una `[byte]` de medida fija y fuera
+        del monton; se presta (`mut`) o se entrega (`take`: su asa se MUEVE y
+        quien la entrego la olvida); se SUELTA sola al morir su propietario
+        (`MEM_OP_SOLTAR`) por cualquier camino. NO se copia (T0077: `let b =
+        a`, `print`, una tabla o un registro, un parametro sin modo, una fn
+        que la devuelve), no crece (T0077 en `push`), y una `gpu fn` no la
+        pide. **HECHO el 14-10:** el frontend (`src/lamina.rs`, el tipo, la
+        clase y `Value::Lamina`), el emisor (`e1/lamina.rs`, y la vuelta
+        `Helper::SueltaLamina` en `e1/ram.rs`) y el emulador, que ahora
+        modela `MEM_OP_SOLTAR` como el kernel. **Como se sabe:**
+        `emisor-x86_64/tests/la_lamina.rs` -- prestada, entregada y soltada
+        UNA vez cada una (saboteado: quien la entrega tambien la soltaria, 4
+        llamadas en vez de 2, cae; sin soltar, cae); veinte laminas en un
+        bucle con un tope de ocho a la vez; el `break`, el `continue` y la
+        vuelta temprana; T0072 y T0060 al correr; los catorce NO --; y los
+        ejemplos del nivel 15 en los dos bancos y en la TAB del TALLER.
+        **Lo que queda fuera, dicho:** `director.ofrece(l)` -- prestarla a
+        otro proceso -- espera a que haya quien la tome (dos apps que
+        hablen); hasta entonces una lamina es del programa que la pidio, y
+        tampoco se devuelve de una fn. **Falta el metal:** un `.bex` del
+        nivel 15 corriendo en el Ryzen.
 - [ ] **A5 -- LB3a: la LENTE lee x86** (`PLAN_LA_LENTE_BINARIA.md`, LB3): un
       decodificador del SUBCONJUNTO que emiten INTI y TITAN++ (prefijos,
       opcode, ModRM, SIB, desplazamiento), crate puro. Lo que no esta en la
