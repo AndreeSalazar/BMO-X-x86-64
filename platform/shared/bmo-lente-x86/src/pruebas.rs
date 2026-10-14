@@ -1,0 +1,181 @@
+//! La IDA Y VUELTA con el codificador de los emisores (`bmo_lower::x86`):
+//! lo que escriben, la lente lo lee entero -- su largo exacto -- y lo dice
+//! como lo diria el manual. Lo demas lo juzga el oraculo del `metro`, con
+//! los programas corriendo.
+
+extern crate std;
+
+use super::*;
+use bmo_lower::x86;
+use std::string::String;
+use std::vec::Vec;
+
+fn bytes(f: impl FnOnce(&mut Vec<u8>)) -> Vec<u8> {
+    let mut v = Vec::new();
+    f(&mut v);
+    v
+}
+
+/// Lee `b` entero como UNA instruccion y da su texto en la direccion 0x1000.
+fn una(b: &[u8]) -> String {
+    let i = lee(b).unwrap_or_else(|e| panic!("{:02x?}: {:?}", b, e));
+    assert_eq!(i.largo, b.len(), "{:02x?}: la lente mide {} y el emisor escribio {}", b, i.largo, b.len());
+    String::from(i.texto(0x1000).as_str())
+}
+
+/// ** Cada codificador del emisor, con los dieciseis registros: el largo
+/// que la lente lee es el que el emisor escribio. (Lo que se codifica con
+/// un registro FIJO por esquema -- `rcx` en los desplazamientos por `cl`,
+/// `rdx:rax` en la division -- va igual: el registro es el operando.)
+#[test]
+fn every_encoder_with_every_register_reads_whole() {
+    for a in 0..16u8 {
+        for b in 0..16u8 {
+            for v in [
+                bytes(|o| x86::mov_r64_r64(o, a, b)),
+                bytes(|o| x86::xor_r64_r64(o, a, b)),
+                bytes(|o| x86::or_r64_r64(o, a, b)),
+                bytes(|o| x86::add_r64_r64(o, a, b)),
+                bytes(|o| x86::sub_r64_r64(o, a, b)),
+                bytes(|o| x86::test_r64_r64(o, a, b)),
+                bytes(|o| x86::mov_r32_r32(o, a, b)),
+                bytes(|o| x86::imul_r64_r64(o, a, b)),
+                bytes(|o| x86::cmp_r64_r64(o, a, b)),
+                bytes(|o| x86::xchg_r64_r64(o, a, b)),
+                bytes(|o| x86::mov_r64_at_reg_disp32(o, a, b, -0x40)),
+                bytes(|o| x86::mov_at_reg_disp32_from_r64(o, a, 0x1234, b)),
+                bytes(|o| x86::mov_r64_at_reg(o, a, b)),
+                bytes(|o| x86::mov_at_reg_from_r64(o, a, b)),
+                bytes(|o| x86::mov_r32_at_reg(o, a, b)),
+                bytes(|o| x86::mov_at_reg_from_r32(o, a, b)),
+                bytes(|o| x86::movzx_r32_word_at_reg(o, a, b)),
+                bytes(|o| x86::mov_word_at_reg_from_r16(o, a, b)),
+                bytes(|o| x86::movzx_r32_byte_at_reg(o, a, b)),
+                bytes(|o| x86::movzx_r32_byte_at_reg_disp(o, a, b, 7)),
+                bytes(|o| x86::mov_byte_at_reg_from_low(o, a, b)),
+                bytes(|o| x86::mov_byte_at_reg_disp_from_low(o, a, 9, b)),
+                bytes(|o| x86::movsxd_r64_r32(o, a, b)),
+                bytes(|o| x86::movsx_r64_r16(o, a, b)),
+                bytes(|o| x86::movsx_r64_r8(o, a, b)),
+                bytes(|o| x86::movzx_r64_low(o, a, b)),
+                bytes(|o| x86::and_low_low(o, a, b)),
+                bytes(|o| x86::or_low_low(o, a, b)),
+                bytes(|o| x86::movq_xmm_de_r64(o, a, b)),
+                bytes(|o| x86::movq_r64_de_xmm(o, a, b)),
+            ] {
+                let i = lee(&v).unwrap_or_else(|e| panic!("{:02x?}: {:?}", v, e));
+                assert_eq!(i.largo, v.len(), "{:02x?} ({a}, {b})", v);
+            }
+            if b == 0 {
+                for v in [
+                    bytes(|o| x86::mov_r64_imm64(o, a, 0x1122_3344_5566_7788)),
+                    bytes(|o| x86::mov_r32_imm32(o, a, 0x55)),
+                    bytes(|o| x86::zero_r32(o, a)),
+                    bytes(|o| x86::cmp_r64_imm8(o, a, -3)),
+                    bytes(|o| x86::cmp_r64_imm32(o, a, 70000)),
+                    bytes(|o| x86::dec_r64(o, a)),
+                    bytes(|o| x86::inc_r64(o, a)),
+                    bytes(|o| x86::neg_r64(o, a)),
+                    bytes(|o| x86::shl_r64_imm8(o, a, 3)),
+                    bytes(|o| x86::shr_r64_imm8(o, a, 1)),
+                    bytes(|o| x86::shl_r64_cl(o, a)),
+                    bytes(|o| x86::shr_r64_cl(o, a)),
+                    bytes(|o| x86::sar_r64_cl(o, a)),
+                    bytes(|o| x86::and_r64_imm32(o, a, 0xFF)),
+                    bytes(|o| x86::mul_r64(o, a)),
+                    bytes(|o| x86::idiv_r64(o, a)),
+                    bytes(|o| x86::div_r64(o, a)),
+                    bytes(|o| x86::add_r64_imm8(o, a, 8)),
+                    bytes(|o| x86::sub_r64_imm8(o, a, 8)),
+                    bytes(|o| x86::lea_r64_rsp_disp8(o, a, 16)),
+                    bytes(|o| x86::mov_byte_at_reg_imm8(o, a, 0x41)),
+                    bytes(|o| x86::setcc_low(o, 0x94, a)),
+                    bytes(|o| x86::push_r64(o, a)),
+                    bytes(|o| x86::pop_r64(o, a)),
+                    bytes(|o| x86::cvtsi2sd_de_r64(o, a)),
+                    bytes(|o| x86::cvttsd2si_r64(o, a)),
+                ] {
+                    let i = lee(&v).unwrap_or_else(|e| panic!("{:02x?}: {:?}", v, e));
+                    assert_eq!(i.largo, v.len(), "{:02x?} ({a})", v);
+                }
+            }
+        }
+    }
+    for f in [x86::cqo, x86::syscall, x86::addsd, x86::subsd, x86::mulsd, x86::divsd, x86::comisd] {
+        let v = bytes(f);
+        assert_eq!(lee(&v).unwrap().largo, v.len(), "{:02x?}", v);
+    }
+}
+
+/// ** Y lo dice como el manual.
+#[test]
+fn says_it_like_the_manual() {
+    let casos: Vec<(Vec<u8>, &str)> = std::vec![
+        (bytes(|o| x86::mov_r64_r64(o, 0, 12)), "mov rax, r12"),
+        (bytes(|o| x86::mov_r64_at_reg_disp32(o, 0, 5, -16)), "mov rax, qword [rbp-0x10]"),
+        (bytes(|o| x86::mov_at_reg_disp32_from_r64(o, 5, 8, 3)), "mov qword [rbp+0x8], rbx"),
+        (bytes(|o| x86::mov_r64_at_reg(o, 1, 4)), "mov rcx, qword [rsp]"),
+        (bytes(|o| x86::mov_r64_at_reg(o, 1, 13)), "mov rcx, qword [r13]"),
+        (bytes(|o| x86::mov_r64_imm64(o, 9, 0x10)), "mov r9, 0x10"),
+        (bytes(|o| x86::zero_r32(o, 0)), "xor eax, eax"),
+        (bytes(|o| x86::cmp_r64_imm8(o, 2, -1)), "cmp rdx, -0x1"),
+        (bytes(|o| x86::shl_r64_imm8(o, 0, 6)), "shl rax, 0x6"),
+        (bytes(|o| x86::sar_r64_cl(o, 3)), "sar rbx, cl"),
+        (bytes(|o| x86::movzx_r32_byte_base_index(o, 0, 6, 1)), "movzx eax, byte [rsi+rcx*1]"),
+        (bytes(|o| x86::movsx_r64_r8(o, 0, 6)), "movsx rax, sil"),
+        (bytes(|o| x86::setcc_low(o, 0x94, 0)), "sete al"),
+        (bytes(|o| x86::push_r64(o, 15)), "push r15"),
+        (bytes(x86::cqo), "cqo"),
+        (bytes(x86::syscall), "syscall"),
+        (bytes(x86::addsd), "addsd xmm0, xmm1"),
+        (bytes(|o| x86::cvtsi2sd_de_r64(o, 3)), "cvtsi2sd xmm0, rbx"),
+        (bytes(|o| x86::movq_xmm_de_r64(o, 2, 7)), "movq xmm2, rdi"),
+        (std::vec![0xC5, 0xFC, 0x58, 0xC2], "vaddps ymm0, ymm0, ymm2"),
+        (std::vec![0xC4, 0xE2, 0x75, 0xB8, 0xC2], "vfmadd231ps ymm0, ymm1, ymm2"),
+        (std::vec![0xC5, 0xF8, 0x77], "vzeroupper"),
+        (std::vec![0xF3, 0x90], "pause"),
+        (std::vec![0xF3, 0x48, 0xAB], "rep stosq"),
+        (std::vec![0x0F, 0xAE, 0xF0], "mfence"),
+        (std::vec![0x48, 0x8D, 0x05, 0x10, 0, 0, 0], "lea rax, qword [rip+0x10]"),
+    ];
+    for (b, want) in casos {
+        assert_eq!(una(&b), want, "{:02x?}", b);
+    }
+}
+
+/// ** Los saltos: su destino, ya sumado; y que puede venir despues.
+#[test]
+fn jumps_say_where_they_go() {
+    // jne rel8 -6, en 0x1000: cae en 0x1002 o salta a 0x0FFC
+    let i = lee(&[0x75, 0xFA]).unwrap();
+    assert_eq!(i.texto(0x1000).as_str(), "jne 0xffc");
+    assert_eq!(i.sigue(0x1000), Sigue::Condicional { cae: 0x1002, salta: 0xFFC });
+    // call rel32 +0x20
+    let i = lee(&[0xE8, 0x20, 0, 0, 0]).unwrap();
+    assert_eq!(i.sigue(0x1000), Sigue::Llama { destino: 0x1025, vuelve: 0x1005 });
+    // jmp rel32, je rel32, ret, call rax, ud2
+    assert_eq!(lee(&[0xE9, 0, 1, 0, 0]).unwrap().sigue(0), Sigue::Salta(0x105));
+    assert_eq!(lee(&[0x0F, 0x84, 4, 0, 0, 0]).unwrap().sigue(0), Sigue::Condicional { cae: 6, salta: 10 });
+    assert_eq!(lee(&[0xC3]).unwrap().sigue(0), Sigue::Vuelve);
+    assert_eq!(lee(&[0xFF, 0xD0]).unwrap().sigue(0), Sigue::Indirecto);
+    assert_eq!(lee(&[0x0F, 0x0B]).unwrap().sigue(0), Sigue::Para);
+    assert_eq!(lee(&[0x90]).unwrap().sigue(7), Sigue::Siguiente(8));
+}
+
+/// ** Lo que NO sabe, lo dice -- y no inventa un largo.
+#[test]
+fn what_it_does_not_know_it_says() {
+    // `prefetch` (0F 0D): no lo emite nadie, no esta en la tabla
+    assert_eq!(lee(&[0x0F, 0x0D, 0x00]), Err(NoSe::FueraDeLaTabla { mapa: Mapa::Dos, op: 0x0D, ext: None, prefijos: 0, vex: false }));
+    // `F6 /1` no existe en la tabla: dice la extension
+    assert!(matches!(lee(&[0xF6, 0xC8, 1]), Err(NoSe::FueraDeLaTabla { op: 0xF6, ext: Some(1), .. })));
+    // un `fs:` (64): fuera de la tabla, no un prefijo que se salte
+    assert!(matches!(lee(&[0x64, 0x48, 0x8B, 0x04, 0x25, 0, 0, 0, 0]), Err(NoSe::FueraDeLaTabla { op: 0x64, .. })));
+    // cortada a medias
+    assert_eq!(lee(&[0x48, 0x8B]), Err(NoSe::Corta));
+    assert_eq!(lee(&[0xE8, 1, 2]), Err(NoSe::Corta));
+    // mas de 15 bytes de prefijos
+    assert_eq!(lee(&[0x66; 20]), Err(NoSe::Larga));
+    // `ldmxcsr` es solo memoria: con un registro no existe
+    assert!(lee(&[0x0F, 0xAE, 0xD0]).is_err());
+}

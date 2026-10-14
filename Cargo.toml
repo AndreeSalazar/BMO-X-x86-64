@@ -124,6 +124,9 @@ members = [
     # LA LAMINA (14-10, EL_FOCO 0): el trato uno de la RAM prestada y el censo
     # de cada clase de bloque. Puro; lo usa VERRANO y lo juzga `laminas`.
     "platform/shared/bmo-lamina",
+    # LA LENTE de x86-64 (14-10, A5 de EL_FOCO): lee el binario de los emisores
+    # y lo dice; lo que no esta en su tabla, con sus bytes. La juzga `metro`.
+    "platform/shared/bmo-lente-x86",
     "platform/shared/verrano",
     "platform/shared/verrano-trama",
     # AYNI (12-10, PLAN_AYNI): que la GPU gaste MENOS. UMA, la red diminuta de

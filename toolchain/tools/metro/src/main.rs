@@ -41,6 +41,14 @@
 //! `pulso.inti` --667.750 instrucciones-- es trabajo de verdad. `cpu.inti` se
 //! queda fuera por `cpuid`, como `ciclos_C.c` por `rdtsc`.
 //!
+//! ** Y LA LENTE (14-10, A5 de `docs/plan/EL_FOCO.md`): este mismo banco es el
+//! ORACULO de `bmo-lente-x86`. Cada programa corre con una sonda que apunta
+//! cada paso (de donde a donde); al acabar, la lente lee cada instruccion que
+//! corrio y lo que vino detras tiene que ser uno de sus sucesores -- la de
+//! justo detras (juzga el LARGO) o el destino de su salto (juzga el
+//! DESPLAZAMIENTO) --. Una que no sepa leer, o que lea mal, para el build:
+//! lo que el emisor escribe y corre, la lente lo lee, en los seis lenguajes.
+//!
 //! [!] Lo que NO mide, dicho: los ciclos del Ryzen -- las instrucciones no son
 //! ciclos; eso lo miden `c/coste.bex` y `c/ciclos.bex` en el metal.
 
@@ -164,6 +172,44 @@ struct Medida {
     salida: String,
     /// A donde se fueron los `pasos`. No va a la linea base: es diagnostico.
     censo: Censo,
+    /// Lo que dijo la lente (A5): cuantas instrucciones distintas leyo, o lo
+    /// que no supo leer o leyo mal. No va a la linea base: es un juez.
+    lente: Result<usize, Vec<String>>,
+}
+
+/// ** EL ORACULO DE LA LENTE: cada paso que dio el programa, `(de, a)`, es un
+/// sucesor que la lente dice de la instruccion en `de`.
+fn juzgar_lente(codigo: &[u8], pasos: &std::collections::HashSet<(usize, usize)>) -> Result<usize, Vec<String>> {
+    use bmo_lente_x86::{lee, Sigue};
+    let mut leidas = std::collections::HashMap::new();
+    let mut quejas = Vec::new();
+    let bytes = |a: usize| codigo[a..(a + 12).min(codigo.len())].iter().map(|b| format!("{b:02x}")).collect::<Vec<_>>().join(" ");
+    let mut orden: Vec<&(usize, usize)> = pasos.iter().collect();
+    orden.sort();
+    for &&(de, a) in &orden {
+        let i = match leidas.entry(de).or_insert_with(|| lee(&codigo[de..])) {
+            Ok(i) => *i,
+            Err(e) => {
+                if quejas.len() < 20 {
+                    quejas.push(format!("lente: en 0x{de:x} no sabe leer ({e:?}): {}", bytes(de)));
+                }
+                continue;
+            }
+        };
+        let (de64, a64) = (de as u64, a as u64);
+        let vale = match i.sigue(de64) {
+            Sigue::Siguiente(n) => a64 == n,
+            Sigue::Condicional { cae, salta } => a64 == cae || a64 == salta,
+            Sigue::Salta(t) => a64 == t,
+            Sigue::Llama { destino, .. } => a64 == destino,
+            Sigue::Vuelve | Sigue::Indirecto => true,
+            Sigue::Para => false,
+        };
+        if !vale && quejas.len() < 20 {
+            quejas.push(format!("lente: en 0x{de:x} lee `{}` ({} B) y el programa siguio en 0x{a:x}: {}", i.texto(de64).as_str(), i.largo, bytes(de)));
+        }
+    }
+    if quejas.is_empty() { Ok(leidas.len()) } else { Err(quejas) }
 }
 
 fn raiz() -> PathBuf {
@@ -234,12 +280,25 @@ fn medir(lenguaje: &str, rel: &str) -> Result<Medida, String> {
     // ejemplo dice que se teclea (`# entra:`), igual que en su banco.
     let entra: String = fuente.lines().filter_map(|l| l.strip_prefix("# entra: ")).map(|l| format!("{l}\n")).collect();
     maquina.poner_entrada(&entra);
-    let m = std::panic::catch_unwind(move || bmo_lower::emu::run(maquina, LIMITE))
-        .map_err(|_| format!("no termina en {LIMITE} instrucciones o el emulador no sabe una"))?;
+    let codigo = maquina.code.clone();
+    let (m, pasos) = std::panic::catch_unwind(move || {
+        // la sonda de la lente: cada paso, de donde a donde
+        let mut pasos = std::collections::HashSet::new();
+        let mut antes: Option<usize> = None;
+        let m = bmo_lower::emu::run_con(maquina, LIMITE, |rip| {
+            if let Some(a) = antes {
+                pasos.insert((a, rip));
+            }
+            antes = Some(rip);
+        });
+        (m, pasos)
+    })
+    .map_err(|_| format!("no termina en {LIMITE} instrucciones o el emulador no sabe una"))?;
     if !m.exited {
         return Err("no termino por EXIT".into());
     }
-    Ok(Medida { pasos: m.pasos, accesos: m.censo.accesos(), codigo: bytes_de_codigo(&bex), salida: huella(&m.console), censo: m.censo })
+    let lente = juzgar_lente(&codigo, &pasos);
+    Ok(Medida { pasos: m.pasos, accesos: m.censo.accesos(), codigo: bytes_de_codigo(&bex), salida: huella(&m.console), censo: m.censo, lente })
 }
 
 fn linea_base() -> PathBuf {
@@ -255,7 +314,7 @@ fn leer_base() -> Result<BTreeMap<String, Medida>, String> {
         let c: Vec<&str> = l.split_whitespace().collect();
         if c.len() != 5 { return Err(format!("linea base mal formada (programa pasos accesos codigo salida): `{l}`")); }
         let n = |s: &str| s.parse::<u64>().map_err(|_| format!("numero mal formado: `{s}`"));
-        out.insert(c[0].to_string(), Medida { pasos: n(c[1])?, accesos: n(c[2])?, codigo: n(c[3])?, salida: c[4].to_string(), censo: Censo::default() });
+        out.insert(c[0].to_string(), Medida { pasos: n(c[1])?, accesos: n(c[2])?, codigo: n(c[3])?, salida: c[4].to_string(), censo: Censo::default(), lente: Ok(0) });
     }
     Ok(out)
 }
@@ -415,6 +474,20 @@ fn main() {
         println!("metro: {} programa(s) del banco no se pudieron medir", rotos.len());
         exit(1);
     }
+    // ** El oraculo de la lente (A5): lo que corrio, leido.
+    let mut leidas = 0;
+    let mut mal = Vec::new();
+    for (p, m) in &medidas {
+        match &m.lente {
+            Ok(n) => leidas += n,
+            Err(q) => mal.extend(q.iter().map(|x| format!("{p}: {x}"))),
+        }
+    }
+    if !mal.is_empty() {
+        for q in &mal { println!("  [X] {q}"); }
+        println!("metro: la lente no lee lo que el emisor escribio ({} queja(s)): su tabla, `platform/shared/bmo-lente-x86/src/tabla.rs`", mal.len());
+        exit(1);
+    }
     let (pasos, accesos, codigo): (u64, u64, u64) =
         medidas.values().fold((0, 0, 0), |a, m| (a.0 + m.pasos, a.1 + m.accesos, a.2 + m.codigo));
 
@@ -444,7 +517,7 @@ fn main() {
                 exit(1);
             }
             let aviso = if bajaron > 0 { format!("; {bajaron} bajaron: fija con --fijar") } else { String::new() };
-            println!("clean: metro del emisor -- {} programas (C, C++, COBOL, Ada, INTI, TITAN++), {pasos} instrucciones, {accesos} accesos a memoria, {codigo} B de codigo, ninguna salida cambio{aviso}", medidas.len());
+            println!("clean: metro del emisor -- {} programas (C, C++, COBOL, Ada, INTI, TITAN++), {pasos} instrucciones, {accesos} accesos a memoria, {codigo} B de codigo, ninguna salida cambio{aviso}; la lente lee las {leidas} instrucciones distintas que corrieron", medidas.len());
         }
         _ => {
             println!("{:<58} {:>12} {:>9} {:>9}  salida", "programa", "pasos", "accesos", "codigo");
@@ -461,7 +534,7 @@ mod pruebas {
     use super::*;
 
     fn m(pasos: u64, codigo: u64, salida: &str) -> Medida {
-        Medida { pasos, accesos: pasos / 2, codigo, salida: salida.into(), censo: Censo::default() }
+        Medida { pasos, accesos: pasos / 2, codigo, salida: salida.into(), censo: Censo::default(), lente: Ok(0) }
     }
     fn con_accesos(mut x: Medida, accesos: u64) -> Medida {
         x.accesos = accesos;

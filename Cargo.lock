@@ -525,6 +525,13 @@ name = "bmo-lamina"
 version = "0.1.0"
 
 [[package]]
+name = "bmo-lente-x86"
+version = "0.1.0"
+dependencies = [
+ "bmo-lower",
+]
+
+[[package]]
 name = "bmo-letra"
 version = "0.1.0"
 
@@ -667,6 +674,7 @@ dependencies = [
  "bmo-cpp-x86-64",
  "bmo-enlazar",
  "bmo-inti-x86-64",
+ "bmo-lente-x86",
  "bmo-lower",
  "bmo-mods",
  "bmo-titan-x86-64",
