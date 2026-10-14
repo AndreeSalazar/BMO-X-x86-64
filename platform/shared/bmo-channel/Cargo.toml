@@ -5,3 +5,5 @@ edition = "2024"
 description = "BMO Channel -- lock-free ring buffer IPC between Ring 0 and Ring 3"
 
 [dependencies]
+# El censo de las laminas (14-10, A3): BMOC es una de sus clases. Puro.
+bmo-lamina = { path = "../bmo-lamina" }

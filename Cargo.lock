@@ -139,6 +139,9 @@ version = "0.1.0"
 [[package]]
 name = "bmo-channel"
 version = "1.0.0"
+dependencies = [
+ "bmo-lamina",
+]
 
 [[package]]
 name = "bmo-ciudad"

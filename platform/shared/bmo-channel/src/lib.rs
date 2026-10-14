@@ -32,6 +32,10 @@
 use core::sync::atomic::{AtomicU64, Ordering};
 
 pub const CHANNEL_MAGIC: u64 = 0x424D_4F43; // "BMOC"
+// Atada a su fila del censo de las laminas (A3, 14-10): una magia de 64 bits,
+// asi que la palabra 1 es su mitad alta y vale CERO.
+const _: () = assert!(CHANNEL_MAGIC >> 32 == 0);
+const _: () = assert!(bmo_lamina::censo::misma_version(bmo_lamina::censo::clase(CHANNEL_MAGIC as u32).version, bmo_lamina::censo::Version::MagiaDe64));
 
 pub const RING_SIZE: usize = 62;
 pub const ENTRY_SIZE: usize = 32;
@@ -79,6 +83,14 @@ impl Channel {
         self.submit_tail.store(0, Ordering::Relaxed);
         self.complete_head.store(0, Ordering::Relaxed);
         self.complete_tail.store(0, Ordering::Relaxed);
+    }
+
+    /// **Es un canal, y abierto?** Por la puerta unica del censo (A3, 14-10):
+    /// las dos palabras de la magia de 64 bits. Hasta hoy la magia se escribia
+    /// en `init` y nadie la leia.
+    pub fn reconocido(&self) -> bool {
+        let m = self.magic;
+        bmo_lamina::censo::abierta(CHANNEL_MAGIC as u32, m as u32, (m >> 32) as u32)
     }
 
     /// Publica una entrada en el anillo de completions SIN que venga de una
@@ -259,5 +271,16 @@ mod tests {
         assert!(channel.ring0_has_work());
         assert_eq!(channel.submit_tail.load(Ordering::Relaxed), 1);
         assert_eq!(channel.complete_head.load(Ordering::Relaxed), 1);
+    }
+
+    #[test]
+    fn la_puerta_unica_lo_reconoce() {
+        let mut page = Page([0; 4096]);
+        let channel = unsafe { &mut *(page.0.as_mut_ptr().cast::<Channel>()) };
+        assert!(!channel.reconocido(), "una pagina a cero no es un canal");
+        channel.init();
+        assert!(channel.reconocido());
+        channel.magic |= 1 << 32;
+        assert!(!channel.reconocido(), "la mitad alta de la magia no es cero");
     }
 }
