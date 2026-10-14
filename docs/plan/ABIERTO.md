@@ -1,13 +1,13 @@
 <!-- GENERADO por toolchain/tools/planes. No se edita a mano. -->
 
-# LO QUE FALTA -- las casillas abiertas de los 82 planes
+# LO QUE FALTA -- las casillas abiertas de los 83 planes
 
 > Generado por `toolchain/tools/planes`. **El build comprueba que
 > este fichero y los planes dicen lo mismo**, asi que no puede
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   785 casillas ABIERTAS en 73 planes
+   792 casillas ABIERTAS en 74 planes
    620 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
@@ -331,6 +331,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] pendiente [~] a medias, y se dice cuanto [x] hecho, con fecha
 - [ ] A1.3 -- el AP con reloj: un LAPIC timer propio, o el MWAITX con plazo
 - [ ] A2.1 -- bmo-orquesta: una clase de parte nueva, RESIDENTE, que no
+- ... y 4 mas
+
+## [`PLAN_EL_VIDEO.md`](PLAN_EL_VIDEO.md) -- 7 abiertas, 0 hechas
+
+*PLAN EL VIDEO -- ver video en BMO-X con la 3060, y la plataforma como pala*
+
+- [ ] V1 -- NVDEC: la clase de video del RM, pedida y encendida
+- [ ] V2 -- la caja: leer el contenedor (WebM/MKV y MP4)
+- [ ] V3 -- el reproductor en TITAN++
 - ... y 4 mas
 
 ## [`PLAN_LA_CASA_ESCONDIDA.md`](PLAN_LA_CASA_ESCONDIDA.md) -- 7 abiertas, 0 hechas
