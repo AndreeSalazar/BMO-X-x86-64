@@ -420,7 +420,7 @@ impl Output {
     }
 
     /// La fila `f` es un ECO de orden (`. gpu`): no se busca en ella.
-    fn es_eco(&self, f: usize) -> bool {
+    pub(crate) fn es_eco(&self, f: usize) -> bool {
         self.cells[f].iter().find(|&&c| c != b' ') == Some(&0xB7)
     }
 
