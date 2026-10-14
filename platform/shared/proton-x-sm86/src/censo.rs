@@ -206,11 +206,15 @@ fn texturas_del_lote(l: &Lote) -> Vec<&'static str> {
     use bmo_proton_x::textura::{Clase, Como, Textura};
     let mut v = Vec::new();
     for o in &l.enlace.ps.ops {
-        let (t, s, muestrea) = match *o {
-            Op::Muestra { t, s, .. } => (t, s, true),
-            Op::Lee { t, s, .. } => (t, s, false),
+        // 14-10: si la pareja se MUESTREA, con la regla de la puerta
+        // (`puerta::muestrea`): un `SampleLevel` o un `SampleGrad` tambien
+        // piden muestreador; un `Load`, no. El censo solo miraba `Muestra` y
+        // daba por buenos lotes que la puerta paraba.
+        let (t, s) = match *o {
+            Op::Muestra { t, s, .. } | Op::Lee { t, s, .. } => (t, s),
             _ => continue,
         };
+        let muestrea = crate::puerta::muestrea(&l.enlace.ps, t, s);
         let Some(Some(tx)) = l.recursos.texturas.get(t as usize) else { continue };
         let q = match tx.como {
             // 13-10: BC1-5 sin signo, BC7 y sRGB ya van (`mipmap::formato_de`).

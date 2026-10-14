@@ -3507,3 +3507,12 @@ sha256: ee35310eb12ff730abd8b177092a826ff79239de2e4df8c59a6a043102beb60e
 or, urem, udiv de i32: lo que hace falta. Su juez: `pruebas_resto.rs` (la
 CPU contra `a - b * trunc(a / b)`) y `el_resto_de_floats_corre_igual` de
 bmo-proton-x-sm86 (la 3060 de mentira contra la CPU).
+
+carga_ps.dxil -- 14-10: un pixel que lee su textura con Load (sin muestreador)
+
+   dxc -T ps_6_0 -E PSMain -Fo carga_ps.dxil carga.hlsl
+
+sha256: c4df3271f676875c58dc03a1c9d3cfe7570356a1328bc382c665fbdf8d4b7e69
+
+`dxc -dumpbin`: `dx.op.textureLoad.f32` y ningun sample. Su juez:
+`un_load_sin_muestreador_va_a_la_3060` de bmo-proton-x-sm86.
