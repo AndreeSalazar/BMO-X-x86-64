@@ -437,6 +437,9 @@ pub struct Machine {
     mem_cursor: u64,
     mem_peticiones: usize,
     mem_entregados: u64,
+    /// Bloques devueltos con `MEM_OP_SOLTAR` (14-10, A4b de EL_FOCO): para
+    /// que una prueba vea que una lamina de TITAN++ se suelta de verdad.
+    mem_soltados: u64,
     /// Base de cada handle concedido, en orden de concesion.
     mem_bloques: Vec<u64>,
     /// ** UN DIRECTOR DE MENTIRA (2026-09-16). Quien nos "lanzo", lo que
@@ -570,6 +573,7 @@ impl Machine {
             mem_cursor: MEMORIA_VA_BASE,
             mem_peticiones: 0,
             mem_entregados: 0,
+            mem_soltados: 0,
             mem_bloques: Vec::new(),
             padre: 0,
             ofertas: Vec::new(),

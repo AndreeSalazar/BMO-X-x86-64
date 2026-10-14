@@ -559,6 +559,11 @@ impl Machine {
         self.mem_entregados
     }
 
+    /// Cuantos bloques se devolvieron con `MEM_OP_SOLTAR`.
+    pub fn memoria_soltada(&self) -> u64 {
+        self.mem_soltados
+    }
+
     /// La puerta del kernel, modelada.
     pub(super) fn do_syscall(&mut self) {
         use bmo_abi::syscalls::surface::{
@@ -813,6 +818,22 @@ impl Machine {
                     self.ofertas.push((base, desde, bytes, destino));
                 }
                 self.finalizar_syscall(if vale { 1 } else { 0 });
+                return;
+            }
+            // ** SOLTAR (14-10, A4b de EL_FOCO), como `obj/memory.rs`: el asa
+            // queda REVOCADA (su base ya no se resuelve: la VA no se reusa) y
+            // la peticion vuelve al tope, que cuenta bloques A LA VEZ. Contesta
+            // 1; un asa que ya no es un bloque vivo, 0. (El NO de un bloque
+            // aun PRESTADO -- un par -- no se modela: aqui nadie toma.)
+            if call.operation == bmo_abi::syscalls::surface::MEM_OP_SOLTAR {
+                let i = (call.capability - CAP_MEMORIA) as usize;
+                let vivo = self.mem_bloques.get(i).is_some_and(|b| *b != 0);
+                if vivo {
+                    self.mem_bloques[i] = 0;
+                    self.mem_peticiones -= 1;
+                    self.mem_soltados += 1;
+                }
+                self.finalizar_syscall(if vivo { 1 } else { 0 });
                 return;
             }
             let v = self.memoria_op(call.capability, call.operation);
