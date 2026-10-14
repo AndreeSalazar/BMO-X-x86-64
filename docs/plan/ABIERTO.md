@@ -506,7 +506,7 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 
 ## [`PLAN_LA_LENTE_BINARIA.md`](PLAN_LA_LENTE_BINARIA.md) -- 5 abiertas, 0 hechas
 
-*PLAN LA LENTE BINARIA -- CABINA y LENTE hablan el binario, y lo dicen en espanol*
+*PLAN LA LENTE BINARIA -- CABINA y LENTE hablan el binario, y lo dicen en castellano*
 
 - [ ] LB1 -- el MAPA: de la instruccion de la 3060 a la linea del DXIL
 - [ ] LB2 -- el vigia dice DONDE, no solo QUE

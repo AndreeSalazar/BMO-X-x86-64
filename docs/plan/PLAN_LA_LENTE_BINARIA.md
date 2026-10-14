@@ -1,7 +1,7 @@
-# PLAN LA LENTE BINARIA -- CABINA y LENTE hablan el binario, y lo dicen en espanol
+# PLAN LA LENTE BINARIA -- CABINA y LENTE hablan el binario, y lo dicen en castellano
 
 > Escrito el **2026-10-14**. El propietario: *"mi kernel como es exclusivo en
-> x86-64 ese mismo se convierte el REAL que habla binario y espanol; si
+> x86-64 ese mismo se convierte el REAL que habla binario y castellano; si
 > quieres hablar con la CPU es el INTI y ese mismo te puede exprimir MAS, y
 > CABINA e LENTE se convierten tus lentes en binarios"*.
 >
@@ -23,7 +23,7 @@ kernel ya los lee sin pasar por texto:
 
 Lo que falta es FUSIONAR: que CABINA guarde lo CRUDO cuando algo pasa (la
 instruccion, los registros, los contadores) y la LENTE lo explique en
-espanol, hasta la linea de quien lo escribio. Para la 3060 y para el Ryzen.
+castellano, hasta la linea de quien lo escribio. Para la 3060 y para el Ryzen.
 
 La regla es la de siempre: las tablas que entienden el binario salen de lo
 PUBLICO y lo VERIFICADO (open-gpu-doc, NIL/Mesa, ptxas/nvdisasm; para x86,
@@ -81,12 +81,12 @@ direccion mala, y de que programa y que funcion era.
 El informe dice hoy `sin MPERF/APERF`. El Zen 3 tiene contadores de
 rendimiento (fallos de cache, saltos mal predichos, instrucciones retiradas)
 documentados en el PPR de la familia 19h de AMD. CABINA los lee por programa
-y la LENTE los dice en espanol: "este bucle falla la L1 una de cada 3".
+y la LENTE los dice en castellano: "este bucle falla la L1 una de cada 3".
 
 - primero MEDIR que contador cuenta que en este Ryzen (el PPR dice, el metal
   confirma), como se hizo con las caches (CPUID 0x8000001D)
 - solo lectura y solo en el kernel: un contador mal puesto no rompe nada,
-  pero un numero mal leido engana
+  pero un numero mal leido burla
 
 ### [ ] LB5 -- INTI exprime con evidencia
 
