@@ -7,7 +7,7 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   778 casillas ABIERTAS en 73 planes
+   780 casillas ABIERTAS en 73 planes
    620 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
@@ -333,6 +333,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] CE2 -- HERMES por un relevo PROPIO (es H11). Los amigos no se
 - ... y 4 mas
 
+## [`PLAN_LA_LENTE_BINARIA.md`](PLAN_LA_LENTE_BINARIA.md) -- 7 abiertas, 0 hechas
+
+*PLAN LA LENTE BINARIA -- CABINA y LENTE hablan el binario, y lo dicen en castellano*
+
+- [ ] LB1 -- el MAPA: de la instruccion de la 3060 a la linea del DXIL
+- [ ] LB2 -- el vigia dice DONDE, no solo QUE
+- [ ] LB3 -- la autopsia de Ring 3 lee la instruccion que fallo
+- ... y 4 mas
+
 ## [`PLAN_LA_MESA.md`](PLAN_LA_MESA.md) -- 7 abiertas, 2 hechas
 
 *PLAN LA MESA -- el control de sonido de BMO-X, como app de ventana*
@@ -502,15 +511,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] 3 el LECTOR, las cinco comprobaciones -> Ultra_userspace/services/director/src/scene/cara.rs
 - [ ] 4 desde un FICHERO suelto, y que se pinte -> Ultra_userspace/services/director/src/scene/cara_ca
 - [ ] 5 en la seccion 0x0B del .bex -> toolchain/tools/maqueta/pruebas/calc.dorado
-- ... y 2 mas
-
-## [`PLAN_LA_LENTE_BINARIA.md`](PLAN_LA_LENTE_BINARIA.md) -- 5 abiertas, 0 hechas
-
-*PLAN LA LENTE BINARIA -- CABINA y LENTE hablan el binario, y lo dicen en castellano*
-
-- [ ] LB1 -- el MAPA: de la instruccion de la 3060 a la linea del DXIL
-- [ ] LB2 -- el vigia dice DONDE, no solo QUE
-- [ ] LB3 -- la autopsia de Ring 3 lee la instruccion que fallo
 - ... y 2 mas
 
 ## [`PLAN_LA_PILA_HUERFANA.md`](PLAN_LA_PILA_HUERFANA.md) -- 5 abiertas, 3 hechas

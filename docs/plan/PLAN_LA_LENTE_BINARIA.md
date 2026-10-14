@@ -62,6 +62,13 @@ lo que convierte un "distinto" en una pieza con nombre.
 
 ## 2. El Ryzen (x86-64, el unico: BMO-X no tiene otra CPU)
 
+> 14-10, el propietario: *"mi BMO-X Lente ENTIENDE el idioma solo por ahora
+> en AMD; si llega INTEL lo hago, pero ahora es solo con AMD"*. La lente es
+> del Zen 3 (familia 19h, el Ryzen 5 5600X): sus tablas salen del APM de AMD
+> (las instrucciones) y del PPR de la familia 19h (los contadores y los
+> MSR). Intel, cuando haya un Intel en la mesa: sus tablas seran OTRAS,
+> medidas en SU metal, y no se mezclan con estas.
+
 ### [ ] LB3 -- la autopsia de Ring 3 lee la instruccion que fallo
 
 Hoy la autopsia (capitulo 7 de `save`) dice el fallo y la direccion. Con la
@@ -95,6 +102,38 @@ una lista y pasa a tener NUMEROS: donde un programa de INTI o TITAN++ pierde
 tiempo y que extension lo cambiaria. La ley 0 de
 `../maestro/OPTIMIZACION_MAESTRO.md`: correcto, medido, y solo entonces
 rapido, y solo donde el numero diga.
+
+### [ ] LB6 -- la cabecera del `.bex` dice EXACTAMENTE que instrucciones usa
+
+Hoy BEF2 declara `xcr0` (los estados XSAVE que el programa usa) y la puerta
+(`bmo-bex-gate`) rechaza lo que el kernel no preserva. El paso siguiente: un
+anexo de REQUISITOS preciso -- las extensiones de AMD que el codigo usa, una
+por bit de CPUID (SSE2, AVX2, FMA, BMI1, POPCNT...) --, escrito por quien
+emite el codigo:
+
+```text
+   INTI / TITAN++   cada instruccion que emite sabe de que extension es:
+                    el anexo sale SOLO, sin que nadie lo escriba a mano
+   el enlazador     junta los de cada `.bo` (la union)
+   la puerta        lo compara con el CPUID del Ryzen: lo que no tenga, NO
+                    se admite, con su nombre (como `xcr0` hoy)
+```
+
+### [ ] LB7 -- la lente comprueba que la cabecera no miente (el juez de x86)
+
+Como el juez de la 3060: al admitir un `.bex`, la lente DECODIFICA su region
+de CODIGO con las tablas del APM (LB3) y comprueba que cada instruccion es de
+una extension que la cabecera declara. Una instruccion que no sabe leer, o
+de una extension no declarada: NO, con su direccion y sus bytes.
+
+- empieza por los `.bex` de INTI y TITAN++ (su subconjunto lo conoce: LB3);
+  un `.bex` con codigo de fuera de la tabla se dice "fuera de la tabla",
+  sin adivinar
+- el x86 es de largo variable: decodificar desde la ENTRADA y los saltos
+  conocidos, no a ciegas desde el byte 0 (los datos metidos en el codigo
+  burlarian a una lectura lineal); lo que no se alcance, se dice
+- coste: una vez por `.bex` al admitirlo (y recordado por su hash), nunca
+  en el camino caliente
 
 ---
 
