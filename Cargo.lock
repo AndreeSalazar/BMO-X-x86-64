@@ -51,6 +51,7 @@ name = "bmo-antena"
 version = "0.1.0"
 dependencies = [
  "bmo-hostile",
+ "bmo-lamina",
 ]
 
 [[package]]

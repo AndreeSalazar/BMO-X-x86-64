@@ -5,9 +5,11 @@ edition = "2021"
 description = "El protocolo ANTENA/1 del CLOUD LOCAL: lineas de texto entre BMO-X y la antena (un movil). Puro, probado en el anfitrion."
 license = "Apache-2.0"
 
-# Sin dependencias. Lo usa una app de Ring 3; el otro lado (la antena) es
+# Solo el censo de las laminas (`bmo-lamina`, puro: A3 de EL_FOCO, 14-10).
+# Lo usa una app de Ring 3; el otro lado (la antena) es
 # `toolchain/tools/antena/antena.py`, y los dos se juzgan contra este banco.
 [dependencies]
+bmo-lamina = { path = "../bmo-lamina" }
 
 # Only for the hostile tests: nothing that runs on the machine links it.
 [dev-dependencies]
