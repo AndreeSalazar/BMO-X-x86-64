@@ -15,12 +15,12 @@
 //!                           `IADD3 Rb, Rbase, Rk, RZ` con Rbase una BASE del
 //!                           kernel, y la ultima de Rk antes de esa,
 //!                           `IMNMX.U32 Rk, x, tope` (el MENOR sin signo) con
-//!                           `tope <= mips::TOPE`; y ningun salto del cuerpo
+//!                           `tope <= mipmap::TOPE`; y ningun salto del cuerpo
 //!                           cae entre el IMNMX y el TEX (lo esquivaria)
 //! ```
 //!
 //! Asi el TIC que lee la 3060 es el de la base mas 0..=14: los huecos 1..15
-//! de SU textura (`mips`). Una base es `asa(16 k + 1, k)` y la textura `k`
+//! de SU textura (`mipmap`). Una base es `asa(16 k + 1, k)` y la textura `k`
 //! tiene sus 16 huecos escritos en cada dibujo; el TSC (bits 20..31) no se
 //! mueve: 1 + 14 no llega al bit 20.
 
@@ -74,7 +74,7 @@ pub(super) fn asa_de_app(codigo: &[(u64, u64)], k: usize, asas: u64, bases: u64)
     };
     let (ilo, ihi) = codigo[i];
     let sujeta = ilo & 0x1FF == 0x017 && ilo >> 9 & 7 == 4 && ihi & BAJOS == 7 << 23 && (ilo >> 16 & 0xFF) as u8 == rk;
-    if !sujeta || (ilo >> 32) as u32 > crate::mips::TOPE {
+    if !sujeta || (ilo >> 32) as u32 > crate::mipmap::TOPE {
         return ajeno(i, rk as u32, "el indice de un asa calculada no lo escribe un IMNMX.U32 con un tope de las mips");
     }
     if let Some(m) = salto_entre(codigo, i, k) {

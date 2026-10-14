@@ -498,9 +498,9 @@ piezas; las tres estan escritas y NINGUNA ha corrido en el metal:
       cierra el camino de las mips en un solo TIC sin copiar. Asi que cada
       mip es un TIC de un nivel leido de la RAM del juego (16 huecos por
       textura: el 0 la mip de la vista, del 1 al 14 las del recurso, el 15
-      ceros; `platform/drivers/gpu/ga10x/src/trabajos/mips.rs`), y el
+      ceros; `platform/drivers/gpu/ga10x/src/trabajos/mipmap.rs`), y el
       SOMBREADOR elige la mip con las cuentas de la casa
-      (`platform/shared/proton-x-sm86/src/mips.rs`: el clamp de `sujetar`,
+      (`platform/shared/proton-x-sm86/src/mipmap.rs`: el clamp de `sujetar`,
       `fijo`, dos TEX `.LZ` y la mezcla `x + (y - x) * f`). Las mips de filas
       que no caen en 32 B (la COLA: 224 B en una de 1024x1024, 11,6 KiB en
       una de 1920x1088) viajan en los DATOS del lote. El juez R7 deja un asa
@@ -522,11 +522,21 @@ resultado y CABINA dice IGUAL o DISTINTO contra la CPU. Solo lo medido entra
 al emisor. Si una variante cuelga la 3060: el parte, `gpu revivir`, y queda
 marcada.
 
-- [ ] **L1 -- la lente:** `gpu lente <familia>`, el banco (computo y
-      pixeles), la tabla en CABINA y `informe/LENTE.TXT`.
-- [ ] **L2 -- las derivadas:** SHFL.BFLY y FSWZADD (opcode 0x822); medir el
-      signo de sub/subr y que y+1 sea abajo. Abre el `Sample` con mips y
-      `ddx`/`ddy`.
+- [x] **L1 -- la lente, la primera (14-10):** `gpu verrano derivadas`
+      (`platform/drivers/gpu/ga10x/src/trabajos/derivadas.rs` y
+      `director/.../gspcubo/lente.rs`): dos dibujos a pantalla entera que
+      sacan `ddx`/`ddy` de la posicion de cada pixel; CABINA cuenta, canal a
+      canal, cuantos dieron 1, 0 y -1. Falta en el metal. La lente general
+      (`gpu lente <familia>`, computo) viene con L3/L4.
+- [x] **L2 -- las derivadas (14-10, en el banco):** el oro de SHFL (`ptxas`,
+      `bmo-sm86/src/olas.rs`) y FSWZADD leido por `nvdisasm`; el juez los
+      conoce; el simulador corre CUADROS (`simula_cuadro.rs`); el emisor hace
+      `ddx`, `ddy` y la fina en x con SHFL.IDX y una resta
+      (`proton-x-sm86/src/derivadas.rs`): bit a bit contra los carriles de la
+      casa, con NaN, infinitos y subnormales. La puerta deja pasar las del de
+      pixeles. **Falta:** que la lente diga que el hilo 1 es la derecha y el
+      2 abajo; la fina en y (FSWZADD, con su signo medido); y el `Sample` con
+      mips (el lambda de la casa, repetible en la 3060).
 - [ ] **L3 -- SUST/SULD:** `EscribeUav` de texturas y buferes con tipo.
 - [ ] **L4 -- ATOM/RED:** el `Atomico` del computo.
 - [ ] **L5 -- el microscopio:** el decodificador de SASS con nombres (de

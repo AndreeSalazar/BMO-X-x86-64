@@ -71,7 +71,7 @@ impl Emisor<'_> {
             (Lectura::Carga { .. }, Some(7)) => (DimTex::Array2D, true),
             _ => return Err(NoEmite::Operacion(k)),
         };
-        // ** G5 (13-10): una 2D elige su mip aqui (`mips.rs`): las
+        // ** G5 (13-10): una 2D elige su mip aqui (`mipmap.rs`): las
         // coordenadas en su par y la lectura con `.LZ` de cada mip.
         if dim == DimTex::D2 {
             let ra = self.bloque(2, false)?;

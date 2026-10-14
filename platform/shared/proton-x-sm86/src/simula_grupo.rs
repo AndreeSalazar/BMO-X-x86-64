@@ -60,6 +60,8 @@ pub fn correr_grupo(codigo: &[(u64, u64)], hilos: [u32; 3], ctaid: [u32; 3], ban
                     alguno_espera = true;
                     pasos += k;
                 }
+                // Un computo no corre en cuadros (`en_cuadro` es de pixeles).
+                Parada::Cuadro(_) => return Err(NoSimula::Instruccion(h.pc)),
             }
         }
         if !alguno_espera {

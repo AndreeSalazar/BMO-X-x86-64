@@ -357,7 +357,7 @@ pub fn leer(b: &[u8]) -> Option<Receta<'_>> {
     }
     let datos = &b[desde_datos..];
     // ** G5: la cola de mips de cada textura, DENTRO de los DATOS (la 3060
-    // la lee alli: `mips`).
+    // la lee alli: `mipmap`).
     if texturas[..n_texturas].iter().any(|t| t.cola_en as u64 + t.bytes_cola() > datos.len() as u64) {
         return None;
     }

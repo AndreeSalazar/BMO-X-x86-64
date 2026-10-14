@@ -63,6 +63,10 @@ pub trait Memoria {
 pub enum Parada {
     Fin(usize),
     Barrera(usize),
+    /// ** L2 (14-10): un SHFL con la maquina en un cuadro (`en_cuadro`): se
+    /// para ANTES de el (`pc` en el SHFL) y lo resuelve quien corre los
+    /// cuatro hilos (`simula_cuadro`).
+    Cuadro(usize),
 }
 
 /// ** LI2f: lo que hace un atomico (`bmo_sm86::computo::Atomo`, sus
@@ -144,11 +148,15 @@ pub struct Maquina<'a> {
     /// STS, ATOMS); sin ellas, una de esas es [`NoSimula::Fallo`].
     pub global: Option<&'a mut dyn Memoria>,
     pub compartida: Option<&'a mut [u8]>,
+    /// ** L2 (14-10): el hilo corre en un CUADRO de 2x2 (`simula_cuadro`):
+    /// un SHFL para la maquina. Sin el, un SHFL lee el valor PROPIO -- un
+    /// hilo solo, como la casa fuera de un cuadro (`prometeo::olas`) --.
+    pub en_cuadro: bool,
 }
 
 impl<'a> Maquina<'a> {
     pub fn nueva(bancos: [&'a [u8]; 8]) -> Self {
-        Maquina { r: [0; 256], p: [false; 7], bancos, muestrear: None, leer_textura: None, inverso_ulp: 0, matado: false, tid: [0; 3], ctaid: [0; 3], global: None, compartida: None }
+        Maquina { r: [0; 256], p: [false; 7], bancos, muestrear: None, leer_textura: None, inverso_ulp: 0, matado: false, tid: [0; 3], ctaid: [0; 3], global: None, compartida: None, en_cuadro: false }
     }
 
     fn reg(&self, i: usize) -> u32 {
@@ -256,7 +264,7 @@ pub fn correr(codigo: &[(u64, u64)], m: &mut Maquina) -> Result<usize, NoSimula>
     let mut pc = 0usize;
     match correr_desde(codigo, m, &mut pc)? {
         Parada::Fin(n) => Ok(n),
-        Parada::Barrera(_) => Err(NoSimula::Instruccion(pc - 1)),
+        Parada::Barrera(_) | Parada::Cuadro(_) => Err(NoSimula::Instruccion(pc - 1)),
     }
 }
 
@@ -545,6 +553,16 @@ pub fn correr_desde(codigo: &[(u64, u64)], m: &mut Maquina, pc_de: &mut usize) -
                 None => return Err(NoSimula::Instruccion(n)),
             },
             // BAR.SYNC 0: el grupo sigue cuando todos lleguen.
+            // ** L2 (14-10): SHFL con la lane y la c inmediatas
+            // (`bmo_sm86::olas::shfl`, su oro). Solo: lo propio; en un cuadro,
+            // la parada (lo resuelve `simula_cuadro`).
+            0x189 if forma == 7 && hi & ((1 << 41) - 1) == 7 << 17 => {
+                if m.en_cuadro {
+                    *pc_de = n;
+                    return Ok(Parada::Cuadro(pasos));
+                }
+                m.reg(ra)
+            }
             0x11D if lo & !0xF000 == 0xb1d && hi & ((1 << 41) - 1) == 1 << 16 => {
                 *pc_de = pc;
                 return Ok(Parada::Barrera(pasos));

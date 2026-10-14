@@ -76,7 +76,7 @@ use crate::{Emitido, Precarga};
 /// .bsf de otra version tiene otro nombre (y ademas se vuelve a comprobar
 /// bit a bit al cargarlo: una version que se olvido de subir no pasa).
 /// 3 (13-10, G5): un `SampleLevel` o un `Load` de 2D elige su mip en el
-/// cuerpo (`mips.rs`); el `.LL` de antes leia la mip del TIC, que no la tiene.
+/// cuerpo (`mipmap.rs`); el `.LL` de antes leia la mip del TIC, que no la tiene.
 pub const VERSION_EMISOR: u32 = 3;
 
 /// G5: las filas de las mips con las que corre el vigia (sesgo 0, lo y hi

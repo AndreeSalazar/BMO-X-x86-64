@@ -74,6 +74,10 @@ pub(crate) fn orden(dsk: &mut Desktop, p: &bmo::Pantalla, resto: &[u8]) -> After
     if resto == b"textura" {
         return destino::textura(dsk, p);
     }
+    // L1/L2 (14-10): la lente de las derivadas, por la misma puerta.
+    if resto == b"derivadas" {
+        return super::lente::derivadas(dsk, p);
+    }
     // ** Una palabra que nadie conoce se DICE (28-09: `bmx12` por `bmox12`
     // corrio V0 callado, y parecia E5).
     if let Some(w) = resto.split(|&c| c == b' ').find(|w| !w.is_empty() && numero(w).is_none() && !matches!(*w, b"banco" | b"inti") && !destino::Opciones::conoce(w)) {

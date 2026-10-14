@@ -242,7 +242,7 @@ pub const fn asa(tic: u32, tsc: u32) -> u32 {
 //             de las PISCINAS
 //    PISCINAS una pagina de VRAM (0x04A0_4000): los TIC en +0, los TSC en
 //             +0x800; la textura k usa los TIC 16 k .. 16 k + 15 (G5, 13-10:
-//             uno por mip, `mips`) y el TSC k (su asa, `asa(16 k, k)`)
+//             uno por mip, `mipmap`) y el TSC k (su asa, `asa(16 k, k)`)
 //    TABLAS   la PD0 y las 33 PT en VRAM 0x04A0_0000 (tras las de la sombra)
 // ```
 
@@ -271,7 +271,7 @@ const PAGINA: u64 = 0x1000;
 /// **Una textura que manda una app** en su receta: donde esta en SU memoria
 /// (la mip 0 de su capa, con las demas detras, como las guarda la casa),
 /// como es, que mip mira la vista, donde puso la puerta la cola de mips que
-/// no caen en 32 B (`mips`) y con que se muestrea.
+/// no caen en 32 B (`mipmap`) y con que se muestrea.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct DeApp {
     /// Su VA en la app: la de la mip 0.
@@ -281,7 +281,7 @@ pub struct DeApp {
     pub ancho: u32,
     pub alto: u32,
     pub fila: u32,
-    /// ** G5 (13-10): las mips del recurso (1..=`mips::MAX_MIPS`) y la que
+    /// ** G5 (13-10): las mips del recurso (1..=`mipmap::MAX_MIPS`) y la que
     /// mira la vista (el hueco 0: lo que lee un `Sample`).
     pub mips: u32,
     pub vista: u32,
@@ -298,20 +298,20 @@ pub const BYTES_DE_APP: usize = 48;
 impl DeApp {
     pub const NINGUNA: DeApp = DeApp { va: 0, ancho: 0, alto: 0, fila: 0, mips: 0, vista: 0, cola_en: 0, bgra: false, muestreo: Muestreo { lineal: false, u: 1, v: 1, borde: [0.0; 4] } };
 
-    /// La primera mip que va en la cola (`mips::cola_desde`): la decide la
+    /// La primera mip que va en la cola (`mipmap::cola_desde`): la decide la
     /// direccion, no la app.
     pub const fn cola(&self) -> u32 {
-        crate::mips::cola_desde(self.va, self.ancho, self.alto, self.fila, self.mips)
+        crate::mipmap::cola_desde(self.va, self.ancho, self.alto, self.fila, self.mips)
     }
 
     /// Lo que se presta de la RAM de la app: las mips de antes de la cola.
     pub const fn bytes(&self) -> u64 {
-        crate::mips::desde(self.ancho, self.alto, self.fila, self.cola())
+        crate::mipmap::desde(self.ancho, self.alto, self.fila, self.cola())
     }
 
     /// Lo que mide la cola en los DATOS.
     pub const fn bytes_cola(&self) -> u64 {
-        crate::mips::bytes_cola(self.ancho, self.alto, self.cola(), self.mips)
+        crate::mipmap::bytes_cola(self.ancho, self.alto, self.cola(), self.mips)
     }
 
     /// Cabe y se puede decir: medidas de 1..=16384, de 1 a `MAX_MIPS` mips
@@ -319,7 +319,7 @@ impl DeApp {
     /// prestado en UNA ranura, la cola en 32 B y no mas de `MAX_COLA`, y su
     /// TSC. La cola dentro de los DATOS lo mira `receta::leer`.
     pub fn valida(&self) -> bool {
-        use crate::mips::{todas, MAX_COLA, MAX_MIPS};
+        use crate::mipmap::{todas, MAX_COLA, MAX_MIPS};
         (1..=16384).contains(&self.ancho)
             && (1..=16384).contains(&self.alto)
             && (1..=MAX_MIPS.min(todas(self.ancho, self.alto))).contains(&self.mips)
@@ -345,12 +345,12 @@ impl DeApp {
         }
     }
 
-    /// **Los 16 TIC de la textura `k`** (`mips::tics`): sus mips en su
+    /// **Los 16 TIC de la textura `k`** (`mipmap::tics`): sus mips en su
     /// ranura (que guarda el desplazamiento en la pagina) y su cola en los
     /// DATOS.
-    pub fn tics(&self, k: usize) -> Option<[[u32; 8]; crate::mips::HUECOS as usize]> {
+    pub fn tics(&self, k: usize) -> Option<[[u32; 8]; crate::mipmap::HUECOS as usize]> {
         let en_ranura = VA + k as u64 * RANURA + self.va % PAGINA;
-        crate::mips::tics(en_ranura, crate::vram::DATOS_VA + self.cola_en as u64, self.ancho, self.alto, self.fila, self.mips, self.vista, self.cola(), self.bgra)
+        crate::mipmap::tics(en_ranura, crate::vram::DATOS_VA + self.cola_en as u64, self.ancho, self.alto, self.fila, self.mips, self.vista, self.cola(), self.bgra)
     }
 
     /// Como viaja: la VA, las medidas, la fila, la bandera (bit 0 BGRA, bit 1
@@ -416,13 +416,13 @@ pub fn mapear<R: Registros>(r: &mut R) -> Option<(u32, u32)> {
 }
 
 /// **Escribir las piscinas** de un dibujo: los 16 TIC de cada textura
-/// (G5: `mips`, la textura k en `16 k ..`) y su TSC k, en su sitio,
+/// (G5: `mipmap`, la textura k en `16 k ..`) y su TSC k, en su sitio,
 /// RELEIDOS. `false` si una no se puede decir o no quedo.
 pub fn escribir_piscinas<R: Registros>(r: &mut R, texturas: &[DeApp]) -> bool {
     if texturas.len() > MAX_TEXTURAS {
         return false;
     }
-    let huecos = crate::mips::HUECOS as usize;
+    let huecos = crate::mipmap::HUECOS as usize;
     texturas.iter().enumerate().all(|(k, t)| match (t.tics(k), tsc(&t.muestreo)) {
         (Some(ti), Some(ts)) => {
             ti.iter().enumerate().all(|(h, x)| crate::copia::escribir(r, PISCINAS + (BYTES * (huecos * k + h)) as u64, x) == 8) && crate::copia::escribir(r, PISCINAS + TSC_DESDE + (BYTES * k) as u64, &ts) == 8

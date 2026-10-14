@@ -56,7 +56,10 @@ pub mod sombra;
 pub mod texturas;
 /// G5: las MIPS en streaming -- un TIC por mip, cada una leida de la RAM
 /// del juego; la cola de mips chicas, en los DATOS (2026-10-13).
-pub mod mips;
+pub mod mipmap;
+/// L1/L2: la LENTE de las derivadas -- lo que la 3060 hace con los cuadros
+/// de 2x2, medido en el metal (2026-10-14).
+pub mod derivadas;
 /// P3b4c: la RECETA (VRN2) -- lo que manda una APP: los cuerpos y como se
 /// cargan; el pegamento lo pone el kernel (2026-09-28).
 pub mod receta;

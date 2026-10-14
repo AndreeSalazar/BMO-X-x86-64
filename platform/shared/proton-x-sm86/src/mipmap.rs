@@ -2,7 +2,7 @@
 //! `SampleLevel` o un `Load` de una 2D con varias mips, en la 3060, con las
 //! MISMAS cuentas que la casa (`Textura::elegir`, `muestrear_lod`, `cargar`).
 //! Cada mip es un TIC PITCH de un nivel leido de la RAM del juego
-//! (`bmo_gpu_ga10x::mips`): no hay mips en el TIC, asi que el `.LL` de la
+//! (`bmo_gpu_ga10x::mipmap`): no hay mips en el TIC, asi que el `.LL` de la
 //! 3060 no las elegiria; las elige esto, y lee cada una con `.LZ`.
 //!
 //! capa: puro -- instrucciones y numeros; la textura la presta el kernel
@@ -56,7 +56,7 @@ use alloc::format;
 use alloc::string::String;
 use alloc::vec::Vec;
 
-use bmo_gpu_ga10x::mips as gm;
+use bmo_gpu_ga10x::mipmap as gm;
 use bmo_gpu_ga10x::texturas::{DeApp, Muestreo};
 
 use bmo_proton_x::dxil::programa::Reg;
@@ -177,7 +177,7 @@ impl Emisor<'_> {
     fn asa_de_mip(&mut self, base: u8, k: u8, paso: &mut Vec<u8>) -> Result<u8, NoEmite> {
         let kc = self.pedir()?;
         paso.push(kc);
-        self.poner(c::imnmx(kc, k, Fuente::Imm(bmo_gpu_ga10x::mips::TOPE), false, false, 0), Clase::Alu, Some(kc), [Some(k), None, None]);
+        self.poner(c::imnmx(kc, k, Fuente::Imm(bmo_gpu_ga10x::mipmap::TOPE), false, false, 0), Clase::Alu, Some(kc), [Some(k), None, None]);
         let h = self.pedir()?;
         paso.push(h);
         self.poner(c::iadd3(h, base, c::r(kc), 0), Clase::Alu, Some(h), [Some(base), Some(kc), None]);

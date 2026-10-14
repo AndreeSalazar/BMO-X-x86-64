@@ -69,6 +69,10 @@ pub mod planifica;
 pub mod simula;
 /// LI2f (12-10): un grupo de computo -- sus hilos, su compartida y sus barreras.
 pub mod simula_grupo;
+/// L2 (14-10): un cuadro de 2x2 en la 3060 de mentira (los SHFL).
+pub mod simula_cuadro;
+/// L2 (14-10): `ddx` y `ddy` con SHFL, los bits de la casa.
+mod derivadas;
 /// DL10 (09-10): la FFMA exacta, en sus cuatro redondeos (la del simulador).
 pub mod fma;
 
@@ -89,7 +93,7 @@ mod constantes;
 mod lecturas;
 /// G5 (13-10): la mip de un `SampleLevel` o un `Load` de 2D, elegida por el
 /// sombreador con las cuentas de la casa (una mip por TIC).
-pub mod mips;
+pub mod mipmap;
 /// E6 (02-10): lo que se mira antes de emitir un programa que salta.
 mod saltos;
 /// P3b4a: un PSO de la casa, listo y juzgado para la 3060.
@@ -174,12 +178,12 @@ pub enum Precarga {
     /// de otra mientras la 3060 aun lo lee.
     AsaPar { textura: u8, muestreador: u8, reg: u8 },
     /// ** G5 (13-10): la BASE de las mips de (tN, sM) en `reg` -- el asa del
-    /// hueco de su mip 0 (`bmo_gpu_ga10x::mips`); la pone el pegamento --:
-    /// un `SampleLevel` o un `Load` de 2D le suma la mip sujeta (`mips.rs`).
+    /// hueco de su mip 0 (`bmo_gpu_ga10x::mipmap`); la pone el pegamento --:
+    /// un `SampleLevel` o un `Load` de 2D le suma la mip sujeta (`mipmap.rs`).
     Base { textura: u8, muestreador: u8, reg: u8 },
     /// ** G5: la fila `fila` (0 o 1) de las constantes de las mips de (tN,
     /// sM), en `reg`..`reg + 3`: las escribe la PUERTA en cada lote detras
-    /// del cbuffer (`mips::FILAS` por textura), y el pegamento las carga como
+    /// del cbuffer (`mipmap::FILAS` por textura), y el pegamento las carga como
     /// una fila mas (`Carga::Fila`).
     Mips { textura: u8, muestreador: u8, fila: u8, reg: u8 },
     /// ** LI2f (12-10): lo que el KERNEL dice del UAV `u` ([`DelUav`]), en
@@ -683,9 +687,9 @@ fn emitir_modo(p: &Programa, registros: u32, abi: Abi, libreta: bool, frugal: bo
                     e.precarga(Precarga::Asa { textura: t, muestreador: s, reg: 0 })?;
                     continue;
                 }
-                // ** G5 (13-10): la de una 2D elige su mip (`mips.rs`): su
+                // ** G5 (13-10): la de una 2D elige su mip (`mipmap.rs`): su
                 // base y sus filas de constantes (la 0, solo con nivel).
-                Op::Lee { t, s, como: como @ (bmo_proton_x::dxil::programa::Lectura::Nivel | bmo_proton_x::dxil::programa::Lectura::Carga { .. }), .. } if t != bmo_proton_x::dxil::programa::DINAMICA && mips::es_2d(p, t) => {
+                Op::Lee { t, s, como: como @ (bmo_proton_x::dxil::programa::Lectura::Nivel | bmo_proton_x::dxil::programa::Lectura::Carga { .. }), .. } if t != bmo_proton_x::dxil::programa::DINAMICA && mipmap::es_2d(p, t) => {
                     e.precarga(Precarga::Base { textura: t, muestreador: s, reg: 0 })?;
                     e.precarga(Precarga::Mips { textura: t, muestreador: s, fila: 1, reg: 0 })?;
                     if matches!(como, bmo_proton_x::dxil::programa::Lectura::Nivel) {
@@ -1102,6 +1106,9 @@ fn emitir_modo(p: &Programa, registros: u32, abi: Abi, libreta: bool, frugal: bo
             // D4.4: las derivadas de la mip de un muestreo no se emiten: solo
             // las lee el `Op::Muestra` de la CPU, y el TEX las hace solo.
             Op::Ola { que: bmo_proton_x::dxil::olas::Ola::Derivada { muestra: true, .. }, .. } => {}
+            // ** L2 (14-10): `ddx`, `ddy` y la fina en x, con SHFL
+            // (`derivadas.rs`): los bits de la casa.
+            Op::Ola { d, a, que: bmo_proton_x::dxil::olas::Ola::Derivada { y, fina, muestra: false }, .. } => e.derivada(d, a, y, fina, i, &mut paso)?,
             Op::Ola { .. } => return Err(NoEmite::Operacion(i)),
         }
         // Lo de paso, y lo que ya nadie lee, se devuelve.
@@ -1198,3 +1205,5 @@ mod pruebas_constantes;
 mod pruebas_lecturas;
 #[cfg(test)]
 mod pruebas_censo;
+#[cfg(test)]
+mod pruebas_derivadas;

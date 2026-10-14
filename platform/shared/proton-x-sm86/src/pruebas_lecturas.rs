@@ -29,7 +29,7 @@ fn f(b: u32) -> f32 {
     f32::from_bits(b)
 }
 
-/// Los texeles de una textura de `capas` capas, `mips` mips y `hondo`
+/// Los texeles de una textura de `capas` capas, `mipmap` mips y `hondo`
 /// rebanadas (3D) de `ancho` x `alto`: cada uno distinto.
 fn texeles(ancho: u32, alto: u32, hondo: u32, capas: u32, mips: u32) -> Vec<u32> {
     let mut v = Vec::new();
@@ -86,11 +86,11 @@ fn emitido(p: &Programa) -> Emitido {
 
 /// ** G5: LA 3060 DE MENTIRA. Con `.LL` (3D, array) lee la mip que le dicen
 /// de la textura del asa (lo de E8g); con `.LZ` (una 2D: G5), el HUECO del
-/// asa (`bmo_gpu_ga10x::mips`): el 0 la mip de la vista, del 1 al 14 la mip
+/// asa (`bmo_gpu_ga10x::mipmap`): el 0 la mip de la vista, del 1 al 14 la mip
 /// del recurso (si la hay) y el 15 ceros -- cada uno un TIC de UN nivel, con
 /// el filtro de cerca del muestreador --.
 fn tres_mil(rec: &Recursos, pares: &[(u8, u8)], l: &LecturaTex, enteros: bool) -> [u32; 4] {
-    use bmo_gpu_ga10x::mips::{HUECOS, HUECO_BASE, HUECO_NULO, HUECO_VISTA};
+    use bmo_gpu_ga10x::mipmap::{HUECOS, HUECO_BASE, HUECO_NULO, HUECO_VISTA};
     let i = l.asa & 0xF_FFFF;
     let (k, hueco) = (i / HUECOS, i % HUECOS);
     assert_eq!(l.asa >> 20, k, "el TSC de la textura {k}");
@@ -135,7 +135,7 @@ fn precargar(m: &mut Maquina, e: &Emitido, rec: &Recursos, entradas: &[[f32; 4]]
             Precarga::Mips { textura, muestreador, fila, reg } => {
                 let tx = rec.texturas[textura as usize].as_ref().expect("la textura");
                 let filas = match rec.muestreadores.get(muestreador as usize) {
-                    Some(Some(ms)) => crate::mips::filas(tx, ms),
+                    Some(Some(ms)) => crate::mipmap::filas(tx, ms),
                     // Un Load sin muestreador: solo la fila 1.
                     _ => [[0; 4], [tx.mip, 0, 0, 0]],
                 };

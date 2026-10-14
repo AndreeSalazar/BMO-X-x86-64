@@ -168,15 +168,16 @@ pub fn del_lote(l: &Lote, z_a_la_3060: bool) -> Vec<&'static str> {
     if l.enlace.vs.olas_propias() || l.enlace.ps.olas_propias() {
         v.push("las olas (Wave*, Quad*)");
     }
-    if l.enlace.vs.deriva() || l.enlace.ps.deriva() {
-        v.push("las derivadas (ddx, ddy, fwidth)");
+    // L2 (14-10): las del de pixeles ya van; las del de vertices, no.
+    if l.enlace.vs.deriva() {
+        v.push("derivadas en el sombreador de vertices");
     }
     // G5 (13-10): la de las mips, en sus dos motivos (la de una 2D con
-    // nivel ya va: `mips`).
+    // nivel ya va: `mipmap`).
     if l.enlace.ps.mip_por_derivadas() && l.recursos.mip_importa() {
         v.push("Sample de una textura de varias mips (las derivadas del cuadro)");
     }
-    if crate::mips::nivel_sin_mips(&l.enlace.ps) && l.recursos.mip_importa() {
+    if crate::mipmap::nivel_sin_mips(&l.enlace.ps) && l.recursos.mip_importa() {
         v.push("SampleLevel o Load de un array o una 3D de varias mips");
     }
     // Metal 13-10 17:53: lo que la puerta mira de cada TEXTURA que lee el

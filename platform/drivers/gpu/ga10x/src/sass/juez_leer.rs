@@ -196,6 +196,24 @@ pub(super) fn decodificar(lo: u64, hi: u64) -> Option<Instr> {
             i.escribe = reg(rd, 1);
             i.lee = [if forma == 1 { reg(s1, 1) } else { NADA }, NADA, NADA, NADA];
         }
+        // ** L2 (14-10): SHFL -- desacoplada como un LDG (NAK la cuenta
+        // `DecoupledAgu`: barrera para lo que escribe y para lo que lee) --;
+        // la fuente en 24..32, la lane en 32..40 (formas 1 y 2: 0x389, 0x589)
+        // y la c en 64..72 (1 y 4: 0x389, 0x989); en la 0xF89 (7), las dos
+        // inmediatas. Escribe su predicado de "dentro" (81..84).
+        0x189 => {
+            i.clase = Clase::Agu;
+            i.escribe = reg(rd, 1);
+            i.lee = [reg(s0, 1), if matches!(forma, 1 | 2) { reg(s1, 1) } else { NADA }, if matches!(forma, 1 | 4) { reg(s2, 1) } else { NADA }, NADA];
+            i.escribe_p = [pred(81), 7];
+        }
+        // L2: FSWZADD (0x822), del FMA como FADD: el vecino en 24..32 y el
+        // propio en 64..72.
+        0x022 if forma == 4 => {
+            i.clase = Clase::Fma;
+            i.escribe = reg(rd, 1);
+            i.lee = [reg(s0, 1), reg(s2, 1), NADA, NADA];
+        }
         // S2R.
         0x119 => {
             i.clase = Clase::Desacoplada;

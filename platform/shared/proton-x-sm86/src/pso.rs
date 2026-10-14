@@ -103,7 +103,7 @@ pub(crate) fn cargas_con_posicion(e: &Emitido, pos: Option<usize>, filas: u32) -
             Precarga::Asa { textura, muestreador, reg } | Precarga::AsaPar { textura, muestreador, reg } => Some(Carga::Asa { textura: k_de(textura, muestreador), reg }),
             // G5: la base de sus mips, y sus filas.
             Precarga::Base { textura, muestreador, reg } => Some(Carga::Base { textura: k_de(textura, muestreador), reg }),
-            Precarga::Mips { textura, muestreador, fila, reg } => Some(Carga::Fila { fila: (filas + crate::mips::FILAS * k_de(textura, muestreador) as u32 + fila as u32) as u16, reg }),
+            Precarga::Mips { textura, muestreador, fila, reg } => Some(Carga::Fila { fila: (filas + crate::mipmap::FILAS * k_de(textura, muestreador) as u32 + fila as u32) as u16, reg }),
             // LI2f: un UAV es de computo (`emitir` no lo pide en un dibujo).
             Precarga::Uav { .. } => None,
         })
@@ -111,10 +111,10 @@ pub(crate) fn cargas_con_posicion(e: &Emitido, pos: Option<usize>, filas: u32) -
 }
 
 /// ** G5: las filas de los DATOS con las de las mips: las del cbuffer y,
-/// si el de pixeles elige alguna mip, [`crate::mips::FILAS`] por textura.
+/// si el de pixeles elige alguna mip, [`crate::mipmap::FILAS`] por textura.
 pub fn filas_con_mips(filas: u32, ps: &Emitido) -> u32 {
     if ps.precargas.iter().any(|q| matches!(q, Precarga::Mips { .. })) {
-        filas + crate::mips::FILAS * texturas_de(ps).len() as u32
+        filas + crate::mipmap::FILAS * texturas_de(ps).len() as u32
     } else {
         filas
     }

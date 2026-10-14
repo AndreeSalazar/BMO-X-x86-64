@@ -131,7 +131,7 @@ pub const fn en_cola(ancho: u32, alto: u32, cola: u32, j: u32) -> u64 {
     s
 }
 
-/// Lo que mide la cola de `cola` a `mips`.
+/// Lo que mide la cola de `cola` a `mipmap`.
 pub const fn bytes_cola(ancho: u32, alto: u32, cola: u32, mips: u32) -> u64 {
     en_cola(ancho, alto, cola, mips)
 }
