@@ -38,6 +38,17 @@
 /// `BRED`, leido en little-endian. Un buzon revocado lo tiene a cero.
 pub const MAGIA: u32 = u32::from_le_bytes(*b"BRED");
 pub const VERSION: u16 = 1;
+// Atado a su fila del censo de las laminas (A3, 14-10): la version es la
+// MITAD BAJA de la palabra 1 (la alta son las casillas). Si una de las dos
+// cambia, no compila.
+const _: () = assert!(bmo_lamina::censo::misma_version(bmo_lamina::censo::clase(MAGIA).version, bmo_lamina::censo::Version::MitadBaja1(VERSION)));
+const _: () = assert!(campo::MAGIA == 0 && campo::VERSION == 4 && campo::CASILLAS == 6);
+
+/// Abierto y de esta clase, por la puerta unica del censo: la palabra 0 y la
+/// 1 (la version en su mitad baja). Uno revocado tiene la magia a cero.
+fn reconocido<M: Memoria + ?Sized>(m: &M) -> bool {
+    bmo_lamina::censo::abierta(MAGIA, leer32(m, campo::MAGIA), leer32(m, campo::VERSION))
+}
 /// Casillas por anillo. Una potencia de dos no hace falta: el modulo se hace
 /// siempre con `%`, y ocho tramas en 4 ms son 2.000 por segundo de techo.
 pub const CASILLAS: usize = 8;
@@ -288,7 +299,7 @@ impl Cliente {
     /// Abierto y con la forma que este codigo conoce.
     pub fn vivo<M: Memoria + ?Sized>(m: &M) -> bool {
         m.tam() >= BYTES
-            && leer32(m, campo::MAGIA) == MAGIA
+            && reconocido(m)
             && leer16(m, campo::CASILLAS) as usize == CASILLAS
             && leer32(m, campo::ESTADO) == 0
     }
@@ -331,7 +342,7 @@ impl Cliente {
 
     /// **Recoge la siguiente trama recibida** en `dst`. `None` = no hay.
     pub fn recibir<M: Memoria + ?Sized>(m: &mut M, dst: &mut [u8]) -> Option<usize> {
-        if m.tam() < BYTES || leer32(m, campo::MAGIA) != MAGIA {
+        if m.tam() < BYTES || !reconocido(m) {
             return None;
         }
         let escrito = leer32(m, campo::RX_ESCRITO);
@@ -372,6 +383,19 @@ mod pruebas {
         assert!(fin_tx <= casilla_rx(0), "la ultima de salida no pisa la primera de entrada");
         assert!(casilla_rx(CASILLAS - 1) + 2 + TRAMA_MAXIMA <= BYTES);
         assert_eq!(MAGIA.to_le_bytes(), *b"BRED");
+    }
+
+    /// El proceso no usa un buzon que el censo no reconoce: otra version en
+    /// la mitad baja de la palabra 1 (A3, la puerta unica).
+    #[test]
+    fn otra_version_no_esta_viva() {
+        let (mut m, _) = buzon();
+        assert!(Cliente::vivo(&m[..]));
+        escribir16(&mut m[..], campo::VERSION, VERSION + 1);
+        assert!(!Cliente::vivo(&m[..]));
+        assert_eq!(Cliente::enviar(&mut m[..], &trama(60, 1)), Err(NoEnvia::Revocado));
+        let mut dst = [0u8; 64];
+        assert_eq!(Cliente::recibir(&mut m[..], &mut dst), None);
     }
 
     #[test]

@@ -782,6 +782,7 @@ name = "bmo-puerta-red"
 version = "0.1.0"
 dependencies = [
  "bmo-hostile",
+ "bmo-lamina",
 ]
 
 [[package]]
