@@ -77,7 +77,8 @@ use crate::{Emitido, Precarga};
 /// bit a bit al cargarlo: una version que se olvido de subir no pasa).
 /// 3 (13-10, G5): un `SampleLevel` o un `Load` de 2D elige su mip en el
 /// cuerpo (`mipmap.rs`); el `.LL` de antes leia la mip del TIC, que no la tiene.
-pub const VERSION_EMISOR: u32 = 3;
+/// 4 (14-10, S1): un `Sample` tambien, con el lambda de sus gradientes.
+pub const VERSION_EMISOR: u32 = 4;
 
 /// G5: las filas de las mips con las que corre el vigia (sesgo 0, lo y hi
 /// 0, mip PUNTO; la vista 0 y sin peso: cada fila, la misma).

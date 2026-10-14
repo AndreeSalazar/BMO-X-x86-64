@@ -615,7 +615,7 @@ pub fn emitir_libreta(p: &Programa, registros: u32, abi: Abi, libreta: bool) -> 
     }
 }
 
-fn emitir_modo(p: &Programa, registros: u32, abi: Abi, libreta: bool, frugal: bool) -> Result<Emitido, NoEmite> {
+pub(crate) fn emitir_modo(p: &Programa, registros: u32, abi: Abi, libreta: bool, frugal: bool) -> Result<Emitido, NoEmite> {
     let n = p.iniciales.len();
     let reservados = 4 * p.salidas;
     if reservados as u32 > registros || registros > 255 {
@@ -683,8 +683,12 @@ fn emitir_modo(p: &Programa, registros: u32, abi: Abi, libreta: bool, frugal: bo
                 Op::Entrada { d, elemento, componente } => (e.precarga(Precarga::Entrada { elemento, componente, reg: 0 })?, d, 1),
                 Op::Constantes { d, fila, .. } => (e.precarga(Precarga::Fila { fila, reg: 0 })?, d, 4),
                 // El asa: fija TODO el programa (la lee un TEX desacoplado).
+                // ** S1 (14-10): un `Sample` elige su mip como un SampleLevel
+                // (`mipmap.rs`): su base y sus dos filas.
                 Op::Muestra { t, s, .. } => {
-                    e.precarga(Precarga::Asa { textura: t, muestreador: s, reg: 0 })?;
+                    e.precarga(Precarga::Base { textura: t, muestreador: s, reg: 0 })?;
+                    e.precarga(Precarga::Mips { textura: t, muestreador: s, fila: 1, reg: 0 })?;
+                    e.precarga(Precarga::Mips { textura: t, muestreador: s, fila: 0, reg: 0 })?;
                     continue;
                 }
                 // ** G5 (13-10): la de una 2D elige su mip (`mipmap.rs`): su
@@ -920,36 +924,10 @@ fn emitir_modo(p: &Programa, registros: u32, abi: Abi, libreta: bool, frugal: bo
                     }
                 }
             }
-            // ** P3b4c.8 T2b: el muestreo, un TEX (2D, nivel 0) con el asa
-            // que pone el KERNEL. Solo con el ABI de registros (el del
-            // pegamento); con el del banco, no hay asa: se dice.
-            // D4.4: sin mirar `g`: el TEX de la 3060 saca la mip de sus
-            // derivadas el solo (la puerta mira que de lo mismo, `preparar`).
-            Op::Muestra { d, t, s, u, v, .. } => {
-                if e.abi != Abi::Registros {
-                    return Err(NoEmite::Operacion(i));
-                }
-                if (0..4).any(|k| e.valor.get(d as usize + k).is_none_or(|x| x.is_some())) {
-                    return Err(NoEmite::NoSsa(i));
-                }
-                let asa = e.precarga(Precarga::Asa { textura: t, muestreador: s, reg: 0 })?;
-                // Las coordenadas, en un par alineado que no se devuelve.
-                let par = e.bloque(2, true)?;
-                for (k, r) in [u, v].into_iter().enumerate() {
-                    let f = e.fuente(r);
-                    e.poner(c::mov(par + k as u8, f, 0), Clase::Alu, Some(par + k as u8), [reg_de(f), None, None]);
-                }
-                // Los cuatro canales, seguidos y alineados; cada uno se
-                // devuelve tras su ultimo uso, como cualquier valor.
-                let q = e.bloque(4, false)?;
-                e.poner(c::tex(q, par, asa, 0), Clase::Tex, Some(q), [Some(par), Some(par + 1), Some(asa)]);
-                if let Some(m) = e.metas.last_mut() {
-                    m.escribe_n = 4;
-                }
-                for k in 0..4u8 {
-                    e.valor[d as usize + k as usize] = Some(Valor::Reg(q + k));
-                }
-            }
+            // ** P3b4c.8 T2b: el muestreo, un TEX con el asa del KERNEL. ** S1
+            // (14-10): con la mip de sus gradientes, como la casa: el lambda
+            // de su cuadro y las mips de G5 (`mipmap.rs`).
+            Op::Muestra { d, t, s, u, v, g } => e.muestra_mips(d, t, s, u, v, g, i, &mut paso)?,
             Op::Entrada { d, elemento, componente } => {
                 if e.valor[d as usize].is_some() {
                     return Err(NoEmite::NoSsa(i));
@@ -1103,12 +1081,10 @@ fn emitir_modo(p: &Programa, registros: u32, abi: Abi, libreta: bool, frugal: bo
             Op::ConstantesEn { d, fila, filas, i: indice, .. } => e.constantes_en(d, fila, filas, indice, i, &mut paso)?,
             // E2.5: las olas (`vote`, `shfl` de la 3060) todavia no: por la CPU,
             // donde van de 32 en 32 carriles como en un warp.
-            // D4.4: las derivadas de la mip de un muestreo no se emiten: solo
-            // las lee el `Op::Muestra` de la CPU, y el TEX las hace solo.
-            Op::Ola { que: bmo_proton_x::dxil::olas::Ola::Derivada { muestra: true, .. }, .. } => {}
             // ** L2 (14-10): `ddx`, `ddy` y la fina en x, con SHFL
-            // (`derivadas.rs`): los bits de la casa.
-            Op::Ola { d, a, que: bmo_proton_x::dxil::olas::Ola::Derivada { y, fina, muestra: false }, .. } => e.derivada(d, a, y, fina, i, &mut paso)?,
+            // (`derivadas.rs`): los bits de la casa. ** S1: tambien las de la
+            // mip de un `Sample` (sus gradientes).
+            Op::Ola { d, a, que: bmo_proton_x::dxil::olas::Ola::Derivada { y, fina, .. }, .. } => e.derivada(d, a, y, fina, i, &mut paso)?,
             Op::Ola { .. } => return Err(NoEmite::Operacion(i)),
         }
         // Lo de paso, y lo que ya nadie lee, se devuelve.
@@ -1207,3 +1183,5 @@ mod pruebas_lecturas;
 mod pruebas_censo;
 #[cfg(test)]
 mod pruebas_derivadas;
+#[cfg(test)]
+mod pruebas_muestra;

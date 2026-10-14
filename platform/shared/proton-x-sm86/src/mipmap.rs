@@ -23,6 +23,8 @@
 //!             c       128.0 con la mip PUNTO, 0.5 con LINEAL (abajo)
 //!    fila 1   vista   la mip que mira la vista (entera)
 //!             peso    255 con LINEAL, 0 con PUNTO (entera)
+//!             w, h    (S1) las medidas de la mip de la vista (floats): las
+//!                     del lambda de un `Sample`
 //! ```
 //!
 //! # Un `SampleLevel(s, uv, nivel)`
@@ -44,6 +46,17 @@
 //! Con `f = 0` (PUNTO, o la ultima mip) `q2` es `q1` (la misma lectura) y la
 //! mezcla da `q1` bit a bit. `l <= hi <= mips - 1`, asi que `k` no pasa de
 //! la ultima, y con `l == hi` entero, `f = 0`.
+//!
+//! # Un `Sample(s, uv)` (S1, 14-10)
+//!
+//! El nivel es el LAMBDA de la casa (`Textura::lambda`): los gradientes de
+//! (u, v) en su cuadro -- las derivadas gruesas de `derivadas.rs`, los bits
+//! de la casa -- y la RECETA `exponencial::lambda` de PROMETEO, que la casa
+//! corre y aqui se graba y se traduce (`series.rs`). Despues, lo de un
+//! `SampleLevel` con ese nivel: la casa suma `lambda + 0 + sesgo` y aqui
+//! `lambda + sesgo`; solo difieren en el signo de un cero, y de un cero
+//! sujeto sale la misma `F`. Sin gradientes (`g` de nada), -infinito, como
+//! la casa con los suyos a cero. Con MIN y MAG distintos, la puerta no deja.
 //!
 //! # Un `Load(x, y, mip)`
 //!
@@ -90,7 +103,8 @@ pub fn filas(t: &Textura, m: &Muestreador) -> [[u32; 4]; 2] {
     let (lo, hi) = (g(f32::NEG_INFINITY), g(f32::INFINITY));
     let lineal = m.lod.mip == Filtro::Lineal;
     let c = if lineal { C_LINEAL } else { C_PUNTO };
-    [[m.lod.sesgo.to_bits(), lo.to_bits(), hi.to_bits(), c.to_bits()], [t.mip, if lineal { 255 } else { 0 }, 0, 0]]
+    let (w, h, _) = t.medidas_de(t.mip);
+    [[m.lod.sesgo.to_bits(), lo.to_bits(), hi.to_bits(), c.to_bits()], [t.mip, if lineal { 255 } else { 0 }, (w as f32).to_bits(), (h as f32).to_bits()]]
 }
 
 /// **Una textura del lote para la receta** (G5): con `elige` (el de
@@ -215,10 +229,9 @@ impl Emisor<'_> {
     /// de una 2D, con sus mips (ver el modulo). `ra` las coordenadas, ya en
     /// su par.
     #[allow(clippy::too_many_arguments)]
-    pub(super) fn lee_mips(&mut self, d: Reg, t: u8, s: u8, carga: bool, ra: u8, nivel: Reg, paso: &mut Vec<u8>) -> Result<(), NoEmite> {
+    pub(super) fn lee_mips(&mut self, d: Reg, t: u8, s: u8, carga: bool, ra: u8, fuente_nivel: Fuente, paso: &mut Vec<u8>) -> Result<(), NoEmite> {
         let base = self.base_de(t, s)?;
         let m1 = self.fila_de(t, s, 1)?;
-        let fuente_nivel = self.fuente(nivel);
         let q = self.bloque(4, false)?;
         if carga {
             // La mip de la vista mas la pedida (enteros).
@@ -274,6 +287,38 @@ impl Emisor<'_> {
         }
         Ok(())
     }
+
+    /// ** S1 (14-10): **`d..d+4 = tN.Sample(sM, (u, v))`** con la mip de los
+    /// gradientes `g` (ver el modulo).
+    #[allow(clippy::too_many_arguments)]
+    pub(super) fn muestra_mips(&mut self, d: Reg, t: u8, s: u8, u: Reg, v: Reg, g: Option<Reg>, k: usize, paso: &mut Vec<u8>) -> Result<(), NoEmite> {
+        if self.abi != super::Abi::Registros {
+            return Err(NoEmite::Operacion(k));
+        }
+        if (0..4).any(|j| self.valor.get(d as usize + j).is_none_or(|x| x.is_some())) {
+            return Err(NoEmite::NoSsa(k));
+        }
+        let ra = self.bloque(2, false)?;
+        paso.extend([ra, ra + 1]);
+        for (j, r) in [u, v].into_iter().enumerate() {
+            let f = self.fuente(r);
+            self.poner(c::mov(ra + j as u8, f, 0), Clase::Alu, Some(ra + j as u8), [reg_de(f), None, None]);
+        }
+        let nivel = match g {
+            Some(g) => {
+                let m1 = self.fila_de(t, s, 1)?;
+                let mut gr = [0u8; 4];
+                for (j, x) in gr.iter_mut().enumerate() {
+                    *x = self.registro(g + j as Reg, paso)?;
+                }
+                let l = self.lambda(gr, m1 + 2, m1 + 3)?;
+                paso.push(l);
+                c::r(l)
+            }
+            None => Fuente::Imm(f32::NEG_INFINITY.to_bits()),
+        };
+        self.lee_mips(d, t, s, false, ra, nivel, paso)
+    }
 }
 
 #[cfg(test)]
@@ -320,10 +365,11 @@ mod pruebas {
         let f = filas(&tex(&t, 5, 1), &m);
         // La vista desde la mip 1 ve 4: hasta 3. MaxLOD 2.5 manda.
         assert_eq!(f[0].map(f32::from_bits), [0.5, 0.25, 2.5, C_LINEAL]);
-        assert_eq!(f[1], [1, 255, 0, 0]);
+        // S1: y las medidas de la mip 1 (8x4), las del lambda.
+        assert_eq!(f[1], [1, 255, 8.0f32.to_bits(), 4.0f32.to_bits()]);
         let p = Muestreador { lod: Lod { mip: Filtro::Punto, maximo: f32::MAX, ..m.lod }, ..m };
         let f = filas(&tex(&t, 5, 3), &p);
         assert_eq!(f[0].map(f32::from_bits), [0.5, 0.25, 1.0, C_PUNTO]);
-        assert_eq!(f[1], [3, 0, 0, 0]);
+        assert_eq!(f[1], [3, 0, 2.0f32.to_bits(), 1.0f32.to_bits()]);
     }
 }

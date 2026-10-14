@@ -535,8 +535,19 @@ marcada.
       (`proton-x-sm86/src/derivadas.rs`): bit a bit contra los carriles de la
       casa, con NaN, infinitos y subnormales. La puerta deja pasar las del de
       pixeles. **Falta:** que la lente diga que el hilo 1 es la derecha y el
-      2 abajo; la fina en y (FSWZADD, con su signo medido); y el `Sample` con
-      mips (el lambda de la casa, repetible en la 3060).
+      2 abajo; y la fina en y (FSWZADD, con su signo medido).
+- [x] **S1 -- el `Sample` con mips (14-10, en el banco):** el lambda de la
+      casa pasa de f64 a UNA receta de cuentas f32 (`prometeo::exponencial::
+      lambda`: FMUL, FFMA y el `log2` de DL13) que la casa corre y la 3060
+      repite instruccion a instruccion (`proton-x-sm86/src/series.rs`, ahora
+      con recetas de varias entradas). Los gradientes, las derivadas gruesas
+      de L2; la mip, la de G5 (`mipmap.rs`, la fila 1 lleva las medidas de la
+      vista). Bit a bit contra los carriles de la casa en 1.815 cuadros (3
+      vistas, 5 muestreadores, de cerca a lejos, anisotropos, girados, NaN e
+      infinitos: `pruebas_muestra.rs`). La puerta ya no para "Sample de una
+      textura de varias mips"; MIN y MAG distintos, aun no (un solo filtro).
+      Emisor 4. **Falta:** el metal (los lotes que el censo paraba ahi), y
+      SampleBias, SampleGrad y SampleCmp con mips (`Lectura::Gradientes`).
 - [ ] **L3 -- SUST/SULD:** `EscribeUav` de texturas y buferes con tipo.
 - [ ] **L4 -- ATOM/RED:** el `Atomico` del computo.
 - [ ] **L5 -- el microscopio:** el decodificador de SASS con nombres (de

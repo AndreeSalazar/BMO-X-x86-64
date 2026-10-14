@@ -31,7 +31,7 @@ fn f(b: u32) -> f32 {
 
 /// Los texeles de una textura de `capas` capas, `mipmap` mips y `hondo`
 /// rebanadas (3D) de `ancho` x `alto`: cada uno distinto.
-fn texeles(ancho: u32, alto: u32, hondo: u32, capas: u32, mips: u32) -> Vec<u32> {
+pub(super) fn texeles(ancho: u32, alto: u32, hondo: u32, capas: u32, mips: u32) -> Vec<u32> {
     let mut v = Vec::new();
     for c in 0..capas {
         for m in 0..mips {
@@ -48,7 +48,7 @@ fn texeles(ancho: u32, alto: u32, hondo: u32, capas: u32, mips: u32) -> Vec<u32>
     v
 }
 
-fn textura(t: &[u32], clase: Clase, ancho: u32, alto: u32, hondo: u32, capas: u32, mips: u32) -> Textura<'_> {
+pub(super) fn textura(t: &[u32], clase: Clase, ancho: u32, alto: u32, hondo: u32, capas: u32, mips: u32) -> Textura<'_> {
     Textura { texeles: t, ancho, alto, como: Como::Rgba8, srgb: false, mapeo: Textura::MAPEO, mips, capas, hondo, clase, mip: 0, capa: 0, niveles: u32::MAX, lod_min: 0.0, vista: None }
 }
 
@@ -68,7 +68,7 @@ fn programa(como: Lectura, especie: u32) -> Programa {
 }
 
 /// Emitido y juzgado: R0..R6 y R7 con las asas que pone el kernel.
-fn emitido(p: &Programa) -> Emitido {
+pub(super) fn emitido(p: &Programa) -> Emitido {
     let e = emitir_con(p, TECHO, Abi::Registros).unwrap_or_else(|x| panic!("{x:?}"));
     let v = juzgar_drenado(&e.codigo, &Contexto { registros: e.registros + RESERVADOS, sph: None });
     assert!(v.is_ok(), "{}", v.map(|_| std::string::String::new()).unwrap_or_else(|b| std::format!("{b}")));
@@ -89,7 +89,7 @@ fn emitido(p: &Programa) -> Emitido {
 /// asa (`bmo_gpu_ga10x::mipmap`): el 0 la mip de la vista, del 1 al 14 la mip
 /// del recurso (si la hay) y el 15 ceros -- cada uno un TIC de UN nivel, con
 /// el filtro de cerca del muestreador --.
-fn tres_mil(rec: &Recursos, pares: &[(u8, u8)], l: &LecturaTex, enteros: bool) -> [u32; 4] {
+pub(super) fn tres_mil(rec: &Recursos, pares: &[(u8, u8)], l: &LecturaTex, enteros: bool) -> [u32; 4] {
     use bmo_gpu_ga10x::mipmap::{HUECOS, HUECO_BASE, HUECO_NULO, HUECO_VISTA};
     let i = l.asa & 0xF_FFFF;
     let (k, hueco) = (i / HUECOS, i % HUECOS);
@@ -124,7 +124,7 @@ fn tres_mil(rec: &Recursos, pares: &[(u8, u8)], l: &LecturaTex, enteros: bool) -
 
 /// Lo que carga el pegamento del kernel (las asas y las bases de la
 /// textura k) y lo que escribe la puerta (las filas de sus mips).
-fn precargar(m: &mut Maquina, e: &Emitido, rec: &Recursos, entradas: &[[f32; 4]]) {
+pub(super) fn precargar(m: &mut Maquina, e: &Emitido, rec: &Recursos, entradas: &[[f32; 4]]) {
     let pares = crate::pso::texturas_de(e);
     let k_de = |t, s| pares.iter().position(|&x| x == (t, s)).unwrap() as u32;
     for &q in &e.precargas {
@@ -147,7 +147,7 @@ fn precargar(m: &mut Maquina, e: &Emitido, rec: &Recursos, entradas: &[[f32; 4]]
 }
 
 /// La casa y la 3060 de mentira, con las mismas entradas: los mismos bits.
-fn igual(p: &Programa, e: &Emitido, rec: &Recursos, entradas: &[[f32; 4]; 2], enteros: bool) {
+pub(super) fn igual(p: &Programa, e: &Emitido, rec: &Recursos, entradas: &[[f32; 4]; 2], enteros: bool) {
     let mut casa = vec![[0.0f32; 4]; p.salidas];
     let mut regs = Vec::new();
     p.correr_con(entradas, &[], rec, &mut casa, &mut regs);
@@ -177,7 +177,7 @@ fn muestreadores() -> [Muestreador; 3] {
 /// ** G5: los de una 2D, que la 3060 lee con UN filtro (cerca = lejos: la
 /// puerta para los otros): sin limites, PUNTO y LINEAL entre mips, y con
 /// sesgo, MinLOD y MaxLOD (de medios).
-fn muestreadores_2d() -> [Muestreador; 5] {
+pub(super) fn muestreadores_2d() -> [Muestreador; 5] {
     let lod = |mip| Lod { min: None, mip, sesgo: 0.0, minimo: 0.0, maximo: f32::MAX };
     let limites = |filtro, mip| Lod { min: Some(filtro), mip, sesgo: 0.5, minimo: 0.75, maximo: 2.25 };
     [

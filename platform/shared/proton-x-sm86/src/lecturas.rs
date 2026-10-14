@@ -80,6 +80,7 @@ impl Emisor<'_> {
                 let f = self.fuente(co[j]);
                 self.poner(c::mov(ra + j as u8, f, 0), Clase::Alu, Some(ra + j as u8), [reg_de(f), None, None]);
             }
+            let nivel = self.fuente(nivel);
             return self.lee_mips(d, t, s, carga, ra, nivel, paso);
         }
         let Some(asa) = self.pares.get(k).copied().flatten() else {

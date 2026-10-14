@@ -191,8 +191,9 @@ fn sample_level_de_varias_mips_va_por_la_cpu() {
 }
 
 /// ** LI2c (12-10): la vista de la mip 1 de una 2D de dos mips (el censo de
-/// Cyberpunk: "una vista que no es la mip 0") va a la 3060 como una 2D de
-/// SUS medidas, desde SU primer texel: el plano que lee la CPU.
+/// Cyberpunk: "una vista que no es la mip 0") va a la 3060. ** S1 (14-10):
+/// como su cadena entera con la vista en la mip 1 (el `Sample` elige su mip
+/// con los TIC de G5); hasta hoy, como una 2D de SUS medidas.
 #[test]
 fn la_vista_de_otra_mip_va_a_la_3060() {
     use bmo_proton_x::textura::{Clase, Como, Direccion, Filtro, Lod, Muestreador, Recursos, Textura};
@@ -216,7 +217,12 @@ fn la_vista_de_otra_mip_va_a_la_3060() {
     let n = p.preparar(&l, b).unwrap_or_else(|x| panic!("{x}"));
     let r = bmo_gpu_ga10x::receta::leer(&p.caja[..n]).expect("el kernel la lee");
     let t = r.texturas()[0];
-    assert_eq!((t.va, t.ancho, t.alto, t.fila), (texeles[256..].as_ptr() as u64, 8, 8, 32), "la mip 1: tras los 256 texeles de la 0");
+    // ** S1 (14-10): el `Sample` elige su mip: la CADENA desde la mip 0 y la
+    // vista en la 1 (antes, el plano de la mip 1 solo).
+    assert_eq!((t.va, t.ancho, t.alto, t.fila, t.mips, t.vista), (texeles.as_ptr() as u64, 16, 16, 64, 2, 1), "la cadena, y la vista en la mip 1");
+    // Y el kernel la pega con su juez (R7 con la base y el asa calculada).
+    let mut taller = alloc::boxed::Box::new(bmo_gpu_ga10x::receta::Taller::nuevo());
+    bmo_gpu_ga10x::receta::pegar(&r, &mut taller).unwrap_or_else(|x| panic!("{x:?}"));
     // La vista de la mip 0 de la MISMA textura: desde el principio, 16x16.
     let tx0 = [Some(Textura { mip: 0, ..tx[0].unwrap() })];
     let l0 = Lote { recursos: Recursos { texturas: &tx0, ..recursos }, ..l };

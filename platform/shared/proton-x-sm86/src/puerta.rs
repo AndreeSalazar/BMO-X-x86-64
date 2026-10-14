@@ -684,11 +684,9 @@ pub fn escribir(c: &Cuerpos, l: &Lote, b: Blanco, limpiar_z: Option<u32>, nula: 
     receta::escribir(caja, &rec).ok_or_else(|| String::from("la receta no se sostiene (lo que lee el pegamento no cae en los DATOS)"))
 }
 
-/// **La puerta `[3]` del censo, partida en dos** (G5, 13-10): un `Sample`
-/// saca la mip de las derivadas del cuadro (la 3060 no las emite todavia);
-/// un `SampleLevel` o un `Load` de un array o una 3D, de la mip 0 del TIC.
-/// Los de una 2D ya van (`mipmap`).
-pub const MIPS_DE_DERIVADAS: &str = "muestrea (Sample) una textura de varias mips con la mip de sus derivadas (o MIN y MAG distintos): la 3060 no saca las derivadas del cuadro todavia";
+/// **La puerta `[3]` del censo** (G5, 13-10; S1, 14-10): un `SampleLevel`
+/// o un `Load` de un array o una 3D, de la mip 0 del TIC. Los de una 2D y el
+/// `Sample` ya van (`mipmap`).
 pub const MIPS_SIN_2D: &str = "lee con SampleLevel o Load un array o una 3D de varias mips (o MIN y MAG distintos): la 3060 elige la mip solo en 2D todavia";
 
 /// A9c: de cada cuantos lotes de un PSO revisa uno el vigia (el primero,
@@ -770,17 +768,14 @@ impl Puerta {
         if l.enlace.vs.olas_propias() || l.enlace.ps.olas_propias() {
             return Err(String::from("sus sombreadores usan las olas (Wave*, Quad*): la 3060 no las lleva todavia"));
         }
-        // D4.4 (05-10): las derivadas (ddx, ddy, fwidth) tampoco; y la mip de
-        // un `Sample` la saca su TEX, pero de la mip 0 de una textura de una
-        // mip: si la vista tiene mas, o el muestreador filtra distinto de
-        // lejos, la CPU (que elige la mip) daria otra cosa.
+        // D4.4 (05-10): las derivadas (ddx, ddy, fwidth) tampoco.
         // ** L2 (14-10): las del de PIXELES ya van (`derivadas.rs`, SHFL; la
         // fina en y no: la dice el emisor); en el de vertices no hay cuadros.
+        // ** S1 (14-10): y la mip de un `Sample`, de sus gradientes, como la
+        // casa (`mipmap.rs`): con MIN y MAG distintos no (lo mira el bucle de
+        // las texturas).
         if l.enlace.vs.deriva() {
             return Err(String::from("su sombreador de VERTICES usa derivadas (ddx, ddy): alli no hay cuadros de 2x2"));
-        }
-        if l.enlace.ps.mip_por_derivadas() && l.recursos.mip_importa() {
-            return Err(String::from(MIPS_DE_DERIVADAS));
         }
         // ** E8g (10-10) / G5 (13-10): SampleLevel y Load de una 2D eligen
         // su mip en el sombreador, cada mip un TIC leido de la RAM del juego

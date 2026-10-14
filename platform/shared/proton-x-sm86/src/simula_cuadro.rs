@@ -24,7 +24,7 @@ pub struct Hilo {
 /// **Correr un cuadro**: `preparar(k, m)` pone lo que el hilo `k` lleva al
 /// empezar (sus precargas) y lo que lee (sus texturas): se llama en cada
 /// tramo. Devuelve los cuatro hilos al acabar.
-pub fn correr_cuadro(codigo: &[(u64, u64)], bancos: [&[u8]; 8], preparar: impl Fn(usize, &mut Maquina)) -> Result<[Hilo; 4], NoSimula> {
+pub fn correr_cuadro<'a>(codigo: &[(u64, u64)], bancos: [&'a [u8]; 8], preparar: impl Fn(usize, &mut Maquina<'a>)) -> Result<[Hilo; 4], NoSimula> {
     let mut h = [Hilo { r: [0; 256], p: [false; 7], pc: 0, fin: false, matado: false }; 4];
     for (k, x) in h.iter_mut().enumerate() {
         let mut m = Maquina::nueva(bancos);

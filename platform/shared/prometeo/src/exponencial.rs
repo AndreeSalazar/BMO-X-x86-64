@@ -14,6 +14,10 @@
 //!              pierde bits: e + z + y + (z + y)(log2(e) - 1). log2 de una
 //!              potencia de dos, EXACTO. Negativos y NaN, NaN; 0, -inf; inf,
 //!              inf
+//!    lambda    (S1, 14-10) el LOD de un `Sample`: log2 del lado mayor del
+//!              pixel en texeles, sin raiz -- log2(max(lx^2, ly^2)) / 2 --,
+//!              cada lado con FMUL y una FFMA. La casa (`Textura::lambda`) y
+//!              la 3060 (`proton-x-sm86/src/mipmap.rs`) corren ESTA receta
 //!    e^a       (para los hiperbolicos) a = n ln2 + r con ln2 en dos trozos
 //!              (Cephes `expf`), e^r por su polinomio, y la escala en dos
 //!              mitades
@@ -99,6 +103,30 @@ pub fn log2<M: Cuentas>(m: &mut M, x: M::V) -> M::V {
     let r = m.elige(cero, E::K(f32::NEG_INFINITY.to_bits()), E::R(r));
     let infinito = m.compara(Como::Eq, F::R(x), F::K(INFINITO));
     m.elige(infinito, E::K(INFINITO), E::R(r))
+}
+
+/// El cuadrado del lado de un pixel en texeles: `(du w)^2 + (dv h)^2`, el
+/// primero en la FFMA.
+fn lado<M: Cuentas>(m: &mut M, du: M::V, dv: M::V, w: M::V, h: M::V) -> M::V {
+    let a = m.mul(F::R(du), F::R(w));
+    let b = m.mul(F::R(dv), F::R(h));
+    let bb = m.mul(F::R(b), F::R(b));
+    m.fma(F::R(a), F::R(a), F::R(bb))
+}
+
+/// **S1 (14-10): el LAMBDA de un muestreo** de los gradientes `g` = (ddx u,
+/// ddx v, ddy u, ddy v) en una mip de `w` x `h` texeles (floats): `log2` del
+/// mayor de los dos lados al cuadrado, por 1/2. El mayor, como `f32::max`:
+/// un NaN no gana (con los dos NaN, NaN). Sin gradientes, -infinito.
+pub fn lambda<M: Cuentas>(m: &mut M, g: [M::V; 4], w: M::V, h: M::V) -> M::V {
+    let x = lado(m, g[0], g[1], w, h);
+    let y = lado(m, g[2], g[3], w, h);
+    let menor = m.compara(Como::Lt, F::R(x), F::R(y));
+    let s = m.elige(menor, E::R(y), E::R(x));
+    let nan = m.compara(Como::Neu, F::R(x), F::R(x));
+    let s = m.elige(nan, E::R(y), E::R(s));
+    let l = log2(m, s);
+    m.mul(F::R(l), kf(0.5))
 }
 
 /// **e^a = e^r 2^n** (a <= 90): r (|r| <= ln2/2, ln2 en dos trozos) y n
