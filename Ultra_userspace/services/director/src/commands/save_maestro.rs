@@ -396,11 +396,23 @@ fn volcar(a: &bmo::Archivo, g: &Output, from: usize, to: usize, c: &mut Cuenta) 
 /// **Las filas de la sesion de este `save`**: desde donde acabo el anterior
 /// (o desde lo mas viejo que quede) hasta justo antes de su portada
 /// (`antes`). `None` si no hay ninguna.
+///
+/// [!] (14-10) Tras un `save` anterior, la sesion empieza en el PRIMER ECO
+/// de orden (`. gpu ...`): lo que hay entre la marca y ese eco es la cola
+/// del save anterior ("y una copia con fecha", "guardado en ...", que pinta
+/// quien lo llamo DESPUES de la marca). El metal del 14-10 07:14 la sacaba
+/// como si fuera la sesion, y la sesion de verdad no estaba.
 fn sesion(g: &Output, antes: usize) -> Option<(usize, usize)> {
     let (viejo, _) = g.all_rows();
     let fin = FIN_ANTERIOR.load(core::sync::atomic::Ordering::Relaxed);
-    let desde = if fin == usize::MAX || fin > antes { viejo } else { g.rows_since(fin).0.max(viejo) };
+    let hubo = fin != usize::MAX && fin <= antes;
+    let mut desde = if hubo { g.rows_since(fin).0.max(viejo) } else { viejo };
     let hasta = g.rows_since(antes).0.checked_sub(1)?;
+    if hubo {
+        while desde <= hasta && !g.es_eco(desde) {
+            desde += 1;
+        }
+    }
     (desde <= hasta).then_some((desde, hasta))
 }
 
@@ -495,12 +507,33 @@ fn copia_con_fecha(g: &mut Output, dest: &[u8]) {
         return;
     }
     // `AAAA-MM-DD HH:MM` -> `informe/historial/AAAA-MM-DD_HH-MM.txt`.
-    let mut ruta = *b"informe/historial/AAAA-MM-DD_HH-MM.txt";
+    let mut largo = *b"informe/historial/AAAA-MM-DD_HH-MM_b.txt";
     const DESDE: usize = 18;
-    ruta[DESDE..DESDE + 10].copy_from_slice(&fecha[..10]);
-    ruta[DESDE + 11..DESDE + 13].copy_from_slice(&fecha[11..13]);
-    ruta[DESDE + 14..DESDE + 16].copy_from_slice(&fecha[14..16]);
-    let (Ok(origen), Ok(copia)) = (bmo::Archivo::leer_de(dest), bmo::Archivo::create(&ruta)) else {
+    largo[DESDE..DESDE + 10].copy_from_slice(&fecha[..10]);
+    largo[DESDE + 11..DESDE + 13].copy_from_slice(&fecha[11..13]);
+    largo[DESDE + 14..DESDE + 16].copy_from_slice(&fecha[14..16]);
+    // [!] (14-10) Dos `save` en el MISMO minuto no se pisan: el segundo va a
+    // `_b`, el tercero a `_c`... El metal del 14-10 07:14: el `save` a mano
+    // (con las lentes de `gpu verrano`) y el automatico del `reboot` de
+    // detras cayeron en el mismo minuto, y el automatico -- que solo trae lo
+    // tecleado DESPUES del anterior -- se comio la copia buena.
+    let mut corto = [0u8; 38];
+    corto[..34].copy_from_slice(&largo[..34]);
+    corto[34..].copy_from_slice(b".txt");
+    let mut letra = b'a';
+    let ruta: &[u8] = loop {
+        let r: &[u8] = if letra == b'a' {
+            &corto
+        } else {
+            largo[35] = letra;
+            &largo
+        };
+        if bmo::Archivo::leer_de(r).is_err() || letra == b'z' {
+            break r;
+        }
+        letra += 1;
+    };
+    let (Ok(origen), Ok(copia)) = (bmo::Archivo::leer_de(dest), bmo::Archivo::create(ruta)) else {
         g.with_ink(INK_ERR);
         g.text(b"  la copia con fecha no se pudo crear\n");
         g.with_ink(INK_PLAIN);
@@ -518,7 +551,7 @@ fn copia_con_fecha(g: &mut Output, dest: &[u8]) {
     let bien = copia.close();
     g.with_ink(if bien { INK_GOOD } else { INK_ERR });
     g.text(if bien { b"  y una copia con fecha: " as &[u8] } else { b"  la copia con fecha NO se cerro: " });
-    g.text(&ruta);
+    g.text(ruta);
     g.byte(b'\n');
     g.with_ink(INK_PLAIN);
 }

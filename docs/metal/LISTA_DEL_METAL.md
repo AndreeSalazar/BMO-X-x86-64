@@ -11,7 +11,10 @@ lo de despues del `save` anterior; lo que ESCRIBE un programa (`proton-x
 --prueba-computo`, el juego) va a `informe/ESCRITO.TXT`, y ahi queda solo el
 ULTIMO programa. Por eso: un `save` justo despues de los pasos 1-3, ANTES de
 abrir el juego. Las copias de cada `save`, con fecha, en
-`informe/historial/`.
+`informe/historial/`. Dos `save` en el mismo minuto ya no se pisan (14-10):
+el segundo va a `..._HH-MM_b.txt`. El 14-10 07:14 el `save` a mano (con
+las lentes) y el automatico del `reboot` cayeron en el mismo minuto y el
+automatico se lo comio: esas lentes hay que correrlas otra vez.
 
 1. `gpu verrano textura`: los 96 puntos IGUAL (que nada nuevo rompio lo de
    antes).
