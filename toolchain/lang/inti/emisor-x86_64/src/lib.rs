@@ -167,6 +167,10 @@ pub struct Emitido {
     /// comentario de `Intrinsics::names()` llevaba pidiendo desde que se
     /// escribio.
     pub sin_emitir: Vec<String>,
+    /// **Las extensiones de x86-64 que pide lo emitido** (A6 del foco): la
+    /// columna `cpu` de cada fila de metal escrita. Va al `.ibx` y al `.bo`, y
+    /// el kernel no lo admite en una CPU que no las tenga.
+    pub instrucciones: u64,
     /// Si este modulo trae su propio arranque.
     ///
     /// ** Es la diferencia entre un programa y una biblioteca, y la decide un
@@ -274,6 +278,7 @@ pub fn emitir_con(m: &ModuloIr, taller: &Taller) -> Emitido {
         huecos_de_llamada: Vec::new(),
         externas: Vec::new(),
         sin_emitir: Vec::new(),
+        instrucciones: 0,
         arranca: false,
     };
 
@@ -355,6 +360,7 @@ pub fn emitir_con(m: &ModuloIr, taller: &Taller) -> Emitido {
             .reubicaciones_del_monton
             .extend(cuenta.reubicaciones_del_monton);
         salida.sin_emitir.extend(cuenta.sin_emitir);
+        salida.instrucciones |= cuenta.instrucciones;
         // ** Y los nombres que se van a bajar a un cero, con el suyo delante.
         salida.sin_emitir.extend(nombres_sueltos(f));
     }
@@ -453,6 +459,8 @@ struct Cuenta {
     /// esta bien-- asi que sin una lista no se entera nadie hasta que el binario
     /// hace otra cosa en metal.
     sin_emitir: Vec<String>,
+    /// Las extensiones de x86-64 que pidio el metal de esta funcion.
+    instrucciones: u64,
     /// **Donde queda el hueco de la direccion de cada tabla congelada**:
     /// `(offset del inmediato, indice del congelado)`.
     reubicaciones: Vec<(usize, u32)>,
@@ -811,6 +819,7 @@ pub fn empaquetar(e: &Emitido, manifiesto: Option<&str>) -> Result<Vec<u8>, Stri
     // defecto no distingue "decidido" de "olvidado".
     b.entrada(0);
     b.codigo(e.codigo.clone());
+    b.instrucciones(e.instrucciones);
 
     // *** LAS TABLAS CONGELADAS, EN `RoData` -- y NO dentro del codigo.
     //

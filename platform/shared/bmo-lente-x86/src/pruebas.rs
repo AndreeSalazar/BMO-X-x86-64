@@ -132,6 +132,11 @@ fn says_it_like_the_manual() {
         (bytes(|o| x86::movq_xmm_de_r64(o, 2, 7)), "movq xmm2, rdi"),
         (std::vec![0xC5, 0xFC, 0x58, 0xC2], "vaddps ymm0, ymm0, ymm2"),
         (std::vec![0xC4, 0xE2, 0x75, 0xB8, 0xC2], "vfmadd231ps ymm0, ymm1, ymm2"),
+        (std::vec![0xC4, 0xE2, 0xF5, 0xB8, 0x02], "vfmadd231pd ymm0, ymm1, [rdx]"),
+        (std::vec![0xC5, 0xFD, 0x58, 0xC1], "vaddpd ymm0, ymm0, ymm1"),
+        (std::vec![0x0F, 0x01, 0xF9], "rdtscp"),
+        (std::vec![0x0F, 0xC7, 0xF0], "rdrand eax"),
+        (std::vec![0xF3, 0x0F, 0xB8, 0xC0], "popcnt eax, eax"),
         (std::vec![0xC5, 0xF8, 0x77], "vzeroupper"),
         (std::vec![0xF3, 0x90], "pause"),
         (std::vec![0xF3, 0x48, 0xAB], "rep stosq"),
@@ -178,4 +183,58 @@ fn what_it_does_not_know_it_says() {
     assert_eq!(lee(&[0x66; 20]), Err(NoSe::Larga));
     // `ldmxcsr` es solo memoria: con un registro no existe
     assert!(lee(&[0x0F, 0xAE, 0xD0]).is_err());
+}
+
+/// ** A6: LA COLUMNA `cpu` DE `intrinsics.toml` DICE LA VERDAD. Cada fila se
+/// lee entera con la lente, y lo que piden sus instrucciones -- la columna
+/// `pide` de la tabla -- es EXACTAMENTE lo que la fila declara: ni una
+/// extension de menos (un `.bex` que no avisa y muere de `#UD`) ni una de mas
+/// (un `.bex` que no arranca donde podria).
+///
+/// Las filas que la lente no sabe leer se nombran abajo, y son de x86-64 base
+/// (los puertos, los registros de control, las tablas de descriptores): una
+/// fila nueva que no lea, o que pida algo, rompe esta prueba hasta que se
+/// mire.
+#[test]
+fn the_cpu_column_of_the_intrinsics_tells_the_truth() {
+    use bmo_carga_juicio::instrucciones::{nombres, por_nombre};
+    const SIN_LEER: &[&str] = &[
+        "clflush", "cr0", "cr2", "cr3", "cr4", "inb", "inl", "invd", "invlpg", "inw", "lgdt", "lidt", "lldt", "ltr",
+        "outb", "outl", "outw", "rdmsr", "set_cr0", "set_cr3", "set_cr4", "sgdt", "sidt", "swapgs", "wbinvd", "wrmsr",
+    ];
+    let tabla = bmo_sem_asm::Intrinsics::load_x86_64().unwrap();
+    let mut sin_leer = Vec::new();
+    let mut mal = Vec::new();
+    for nombre in tabla.names() {
+        let def = tabla.get(nombre).unwrap();
+        let (mut at, mut pide, mut leida) = (0, 0u64, true);
+        while at < def.bytes.len() {
+            match lee(&def.bytes[at..]) {
+                Ok(i) => {
+                    if !i.fila.pide.is_empty() {
+                        pide |= por_nombre(i.fila.pide).unwrap_or_else(|| panic!("la fila {} pide {:?}, que no esta en el catalogo", i.fila.nombre, i.fila.pide)).bit;
+                    }
+                    at += i.largo;
+                }
+                Err(_) => {
+                    leida = false;
+                    break;
+                }
+            }
+        }
+        if !leida {
+            sin_leer.push(nombre);
+            if def.cpu != 0 {
+                mal.push(std::format!("{nombre}: declara {:?} y la lente no la sabe leer", nombres(def.cpu).collect::<Vec<_>>()));
+            }
+        } else if pide != def.cpu {
+            mal.push(std::format!(
+                "{nombre}: declara {:?} y sus bytes piden {:?}",
+                nombres(def.cpu).collect::<Vec<_>>(),
+                nombres(pide).collect::<Vec<_>>()
+            ));
+        }
+    }
+    assert!(mal.is_empty(), "\n  {}", mal.join("\n  "));
+    assert_eq!(sin_leer, SIN_LEER, "las filas que la lente no lee cambiaron: mirar si piden algo");
 }

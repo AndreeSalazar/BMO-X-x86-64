@@ -496,3 +496,37 @@ fn un_algoritmo_de_firma_desconocido_no_pasa() {
     let f = v.anexos().find(|a| a.tipo == ANEXO_FIRMA).unwrap().tramo.offset as usize;
     assert_eq!(falta_de(|i| i[f + 4] = 9), Falta::FirmaMal);
 }
+
+/// ** A6: las instrucciones que usa el codigo. Dos llamadas se JUNTAN en una
+/// linea; viaja al reabrir; y el objeto la devuelve para que el enlazador la
+/// sume.
+#[test]
+fn las_instrucciones_se_juntan_viajan_y_se_leen() {
+    use crate::bef::requisitos::{Tabla, CLASE_INSTRUCCIONES, UNIDAD_MASCARA};
+    use bmo_carga_juicio::instrucciones::por_nombre;
+    let popcnt = por_nombre("POPCNT").unwrap().bit;
+    let bmi1 = por_nombre("BMI1").unwrap().bit;
+    let mut e = Escritor::ejecutable();
+    e.codigo(vec![0xC3; 4]).instrucciones(popcnt).instrucciones(bmi1).instrucciones(0);
+    let bex = Escritor::de_imagen(&e.construir().unwrap()).unwrap().construir().unwrap();
+    let v = leer(&bex).unwrap();
+    let t = Tabla::abrir(v.anexo(ANEXO_REQUISITOS).unwrap()).unwrap();
+    let lineas: Vec<_> = t.iter().filter(|r| r.clase == CLASE_INSTRUCCIONES).collect();
+    assert_eq!(lineas.len(), 1, "una sola linea, juntada");
+    assert_eq!(lineas[0].cantidad, popcnt | bmi1);
+    assert_eq!(lineas[0].unidad, UNIDAD_MASCARA);
+    assert!(lineas[0].es_obligatorio());
+    assert_eq!(t.motivo(&lineas[0]), "el codigo usa POPCNT BMI1");
+
+    // Sin nada que declarar, no hay linea: lo base no se declara.
+    let mut e = Escritor::ejecutable();
+    e.codigo(vec![0xC3]).instrucciones(0);
+    let v = e.construir().unwrap();
+    let t = Tabla::abrir(leer(&v).unwrap().anexo(ANEXO_REQUISITOS).unwrap()).unwrap();
+    assert_eq!(t.cuantos(), 1);
+
+    let mut o = Escritor::objeto();
+    o.codigo(vec![0x90]).instrucciones(bmi1);
+    let bytes = o.construir().unwrap();
+    assert_eq!(super::objeto::read(&bytes).unwrap().instrucciones, bmi1);
+}

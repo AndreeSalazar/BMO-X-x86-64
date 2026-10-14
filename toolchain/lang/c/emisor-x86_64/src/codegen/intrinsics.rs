@@ -121,6 +121,7 @@ impl Codegen {
                 def.args.len(), args.len()));
             return;
         }
+        self.instrucciones |= def.cpu;
         let bytes = def.bytes.clone();
         let arg_regs = def.args.clone();
         let returns = def.returns.clone();

@@ -7,6 +7,7 @@ Ultra_userspace/apps/navegar/src/main.titan 2610 435 56931 e897113c8df4c7be
 Ultra_userspace/apps/png/src/main.titan 7878420 3992283 18157 326cdc9020a51072
 Ultra_userspace/apps/resolucion/src/main.titan 302 86 31815 085091bc4bc966b3
 toolchain/lang/ada/examples/1-basico/cierre.adb 369 69 1560 ed567b986aa22dd2
+toolchain/lang/c/examples/bits_C.c 872 144 559 582273125d487ce0
 toolchain/lang/c/examples/blit_C.c 57720 6438 3035 25042ff916c7a1d5
 toolchain/lang/c/examples/caja_C.c 331 118 5936 c7825b639babd44d
 toolchain/lang/c/examples/cubo_C.c 853 310 16193 b62cc91f2d789574

@@ -121,18 +121,29 @@ pub struct Fila {
     pub vex: bool,
     pub nombre: &'static str,
     pub forma: Forma,
+    /// La extension de x86-64 que pide (`"POPCNT"`, `"AVX"`...), con el
+    /// nombre de `bmo_carga_juicio::instrucciones`; `""` si es x86-64 base.
+    /// Con esto la lente juzga lo que un `.bex` DECLARA (A6 del foco).
+    pub pide: &'static str,
+}
+
+impl Fila {
+    /// La misma fila, pidiendo una extension.
+    pub const fn pide(self, ext: &'static str) -> Fila {
+        Fila { pide: ext, ..self }
+    }
 }
 
 const fn f(mapa: Mapa, op: u8, pref: Pref, ext: Ext, nombre: &'static str, forma: Forma) -> Fila {
-    Fila { mapa, op, hasta: op, pref, ext, vex: false, nombre, forma }
+    Fila { mapa, op, hasta: op, pref, ext, vex: false, nombre, forma, pide: "" }
 }
 
 const fn r(mapa: Mapa, op: u8, hasta: u8, nombre: &'static str, forma: Forma) -> Fila {
-    Fila { mapa, op, hasta, pref: Pref::Cualquiera, ext: Ext::No, vex: false, nombre, forma }
+    Fila { mapa, op, hasta, pref: Pref::Cualquiera, ext: Ext::No, vex: false, nombre, forma, pide: "" }
 }
 
 const fn v(mapa: Mapa, op: u8, pref: Pref, nombre: &'static str, forma: Forma) -> Fila {
-    Fila { mapa, op, hasta: op, pref, ext: Ext::No, vex: true, nombre, forma }
+    Fila { mapa, op, hasta: op, pref, ext: Ext::No, vex: true, nombre, forma, pide: "AVX" }
 }
 
 use Ext::{Byte as B, Es as E, No as N};
@@ -275,11 +286,11 @@ const SUELTAS: &[Fila] = &[
     f(D, 0xB1, C, N, "cmpxchg", MR),
     f(D, 0xB6, C, N, "movzx", RM8a),
     f(D, 0xB7, C, N, "movzx", RM16a),
-    f(D, 0xB8, P3, N, "popcnt", RM),
+    f(D, 0xB8, P3, N, "popcnt", RM).pide("POPCNT"),
     f(D, 0xBA, C, E(4), "bt", MI8),
-    f(D, 0xBC, P3, N, "tzcnt", RM),
+    f(D, 0xBC, P3, N, "tzcnt", RM).pide("BMI1"),
     f(D, 0xBC, C, N, "bsf", RM),
-    f(D, 0xBD, P3, N, "lzcnt", RM),
+    f(D, 0xBD, P3, N, "lzcnt", RM).pide("LZCNT"),
     f(D, 0xBD, C, N, "bsr", RM),
     f(D, 0xBE, C, N, "movsx", RM8a),
     f(D, 0xBF, C, N, "movsx", RM16a),
@@ -372,7 +383,22 @@ const SUELTAS: &[Fila] = &[
     v(D, 0x58, P0, "vaddps", V3),
     v(D, 0x59, P0, "vmulps", V3),
     v(D, 0x5C, P0, "vsubps", V3),
-    v(D38, 0xB8, P6, "vfmadd231ps", V3),
+    v(D38, 0xB8, P6, "vfmadd231ps", V3).pide("FMA"),
+    // Las mismas en `pd` (`66`): cuatro flotante64, las de `avx_suma4` y
+    // sus hermanas. `vfmadd231` es `pd` con VEX.W: lo dice el texto.
+    v(D, 0x10, P6, "vmovupd", V2),
+    v(D, 0x11, P6, "vmovupd", V2M),
+    v(D, 0x58, P6, "vaddpd", V3),
+    v(D, 0x59, P6, "vmulpd", V3),
+    v(D, 0x5C, P6, "vsubpd", V3),
+    // -- Las de la tabla de intrinsecos que piden una extension (A6) -----
+    f(D, 0x01, P0, B(0xF9), "rdtscp", M).pide("RDTSCP"),
+    f(D, 0x01, P0, B(0xD0), "xgetbv", M).pide("OSXSAVE"),
+    f(D, 0x01, P0, B(0xD1), "xsetbv", M).pide("OSXSAVE"),
+    f(D, 0x01, P0, B(0xC8), "monitor", M).pide("MONITOR"),
+    f(D, 0x01, P0, B(0xC9), "mwait", M).pide("MONITOR"),
+    f(D, 0xC7, P0, E(6), "rdrand", M).pide("RDRAND"),
+    f(D, 0xC7, P0, E(7), "rdseed", M).pide("RDSEED"),
 ];
 
 /// Todas las filas, en un orden: las de un prefijo EXACTO antes que las de

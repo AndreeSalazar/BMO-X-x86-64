@@ -56,6 +56,7 @@ pub(crate) fn emitir_funcion(f: &FuncionIr, out: &mut Vec<u8>, taller: &Taller) 
     let mut reubicaciones_del_monton: Vec<usize> = Vec::new();
     let mut salida_huecos: Vec<(usize, String)> = Vec::new();
     let mut sin_emitir: Vec<String> = Vec::new();
+    let mut instrucciones = 0u64;
     let mut reubicaciones: Vec<(usize, u32)> = Vec::new();
 
     // Prologo.
@@ -679,6 +680,7 @@ pub(crate) fn emitir_funcion(f: &FuncionIr, out: &mut Vec<u8>, taller: &Taller) 
                     &marco,
                     taller,
                     &mut sin_emitir,
+                    &mut instrucciones,
                 );
             }
         }
@@ -779,5 +781,6 @@ pub(crate) fn emitir_funcion(f: &FuncionIr, out: &mut Vec<u8>, taller: &Taller) 
     cuenta.huecos_de_llamada = salida_huecos;
     cuenta.reubicaciones = reubicaciones;
     cuenta.sin_emitir = sin_emitir;
+    cuenta.instrucciones = instrucciones;
     cuenta
 }

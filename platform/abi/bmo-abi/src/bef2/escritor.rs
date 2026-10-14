@@ -132,6 +132,35 @@ impl Escritor {
         self
     }
 
+    /// **Las extensiones de x86-64 que usa el codigo** (A6 del foco): una
+    /// mascara de `bmo_carga_juicio::instrucciones`. La pone QUIEN EMITE, al
+    /// escribir la instruccion, no el autor. Se JUNTA con la que ya hubiera
+    /// -- un `.bex` lleva una sola linea de esta clase --, y una mascara vacia
+    /// no escribe nada: lo base no se declara.
+    pub fn instrucciones(&mut self, mascara: u64) -> &mut Self {
+        use bmo_carga_juicio::instrucciones::nombres;
+        let clase = requisitos::CLASE_INSTRUCCIONES;
+        let antes = self.requisitos.iter().filter(|r| r.clase == clase).fold(0, |m, r| m | r.cantidad);
+        let todas = antes | mascara;
+        self.requisitos.retain(|r| r.clase != clase);
+        if todas == 0 {
+            return self;
+        }
+        let mut motivo = String::from("el codigo usa");
+        for n in nombres(todas) {
+            motivo.push(' ');
+            motivo.push_str(n);
+        }
+        self.requisitos.push(Requisito {
+            clase,
+            unidad: requisitos::UNIDAD_MASCARA,
+            obligatorio: true,
+            cantidad: todas,
+            motivo,
+        });
+        self
+    }
+
     /// **Cada region en su propia pagina del FICHERO.** Cuesta relleno y a
     /// cambio el cargador puede REFLEJAR paginas en vez de copiarlas. Sin
     /// medirlo en DOOM no se elige: por eso es una palanca y no una decision

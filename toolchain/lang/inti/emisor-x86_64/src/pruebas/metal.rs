@@ -409,3 +409,33 @@ fn el_emulador_llega_hasta_donde_dice_la_lista() {
         corren.len() + no.len()
     );
 }
+
+/// ** A6: lo que la fila pide a la CPU (`cpu` en `intrinsics.toml`) llega al
+/// `.ibx` y al `.bo`. `cuenta_unos` es `popcnt`; `ceros_detras` es `tzcnt`
+/// (BMI1). Y un modulo sin metal no declara nada.
+#[test]
+fn el_metal_declara_lo_que_pide_a_la_cpu() {
+    use bmo_abi::bef::requisitos::{instrucciones::por_nombre, Tabla, CLASE_INSTRUCCIONES};
+    let ext = |n| por_nombre(n).unwrap().bit;
+    let f = "\
+perfil llano
+usa binarios
+
+funcion f(a es entero64, b es entero64) devuelve entero64
+    crudo
+        devuelve cuenta_unos(a) + ceros_detras(b)
+";
+    let e = emitido(f);
+    assert_eq!(e.instrucciones, ext("POPCNT") | ext("BMI1"));
+    let bex = crate::empaquetar(&e, None).expect("el gate lo rechazo");
+    let v = bmo_abi::bef2::leer(&bex).unwrap();
+    let t = Tabla::abrir(v.anexo(bmo_abi::bef2::ANEXO_REQUISITOS).unwrap()).unwrap();
+    let l = t.iter().find(|r| r.clase == CLASE_INSTRUCCIONES).expect("el .ibx no declara POPCNT ni BMI1");
+    assert_eq!(l.cantidad, ext("POPCNT") | ext("BMI1"));
+    assert!(l.es_obligatorio());
+    let bo = crate::objeto::empaquetar_objeto(&e).unwrap();
+    assert_eq!(bmo_abi::bef2::objeto::read(&bo).unwrap().instrucciones, e.instrucciones);
+
+    let sin = emitido("perfil llano\n\nfuncion f(a es entero64, b es entero64) devuelve entero64\n    devuelve a + b\n");
+    assert_eq!(sin.instrucciones, 0);
+}

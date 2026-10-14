@@ -286,6 +286,10 @@ struct Codegen {
     /// * Este programa RECLAMA LA PANTALLA. Lo deduce el compilador; acaba en
     /// `BefFlags::WANTS_SCREEN` y lo lee el compositor antes de lanzarlo.
     quiere_pantalla: bool,
+    /// * Las extensiones de x86-64 que pide lo emitido (A6 del foco): la
+    /// columna `cpu` de cada intrinseco escrito. Va al `.bex`, y el kernel no
+    /// lo admite en una CPU sin ellas.
+    instrucciones: u64,
     /// * Y este programa SABE COMPONERSE: pregunta por su padre
     /// (`BMO_OP_MI_PADRE`), que es lo que hace `bmo_superficie_crear` para
     /// ofrecerle la ventana. Con las dos, `WANTS_SCREEN` NO se pone: ver abajo.
@@ -357,6 +361,7 @@ impl Codegen {
             relocs_a_funcion: Vec::new(),
             relocs_a_global: Vec::new(),
             quiere_pantalla: false,
+            instrucciones: 0,
             sabe_componerse: false,
             relocs: Vec::new(),
             instruction_end: 0, string_data_end: 0,

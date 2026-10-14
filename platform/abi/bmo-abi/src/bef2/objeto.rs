@@ -192,6 +192,9 @@ pub struct Object<'a> {
     pub bss: u64,
     /// La bandera `QUIERE_PANTALLA` de la unidad: el enlazador la hereda.
     pub quiere_pantalla: bool,
+    /// Las extensiones de x86-64 que usa su codigo (la linea
+    /// `CLASE_INSTRUCCIONES` de sus requisitos): el enlazador las junta.
+    pub instrucciones: u64,
     pub symbols: Vec<ObjectSymbol<'a>>,
     pub enlaces: Vec<Enlace>,
 }
@@ -318,12 +321,21 @@ pub fn read(bytes: &[u8]) -> Result<Object<'_>, Fault> {
         enlaces.push(e);
     }
 
+    // -- Las instrucciones que usa. --
+    let mut instrucciones = 0;
+    if let Some(t) = v.anexo(super::ANEXO_REQUISITOS).and_then(crate::bef::requisitos::Tabla::abrir) {
+        for r in t.iter().filter(|r| r.clase == crate::bef::requisitos::CLASE_INSTRUCCIONES) {
+            instrucciones |= r.cantidad;
+        }
+    }
+
     Ok(Object {
         code,
         rodata,
         data,
         bss,
         quiere_pantalla: v.quiere_pantalla(),
+        instrucciones,
         symbols,
         enlaces,
     })

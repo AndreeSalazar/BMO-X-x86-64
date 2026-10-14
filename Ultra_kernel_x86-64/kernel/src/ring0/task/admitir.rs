@@ -173,6 +173,30 @@ pub static mut RECHAZO_LIBRE: u64 = 0;
 /// bytes de `.bss`.
 pub static mut RECHAZO_MOTIVO: [u8; 160] = [0; 160];
 pub static mut RECHAZO_MOTIVO_N: usize = 0;
+/// Las extensiones de x86-64 que pedia el ultimo rechazado y esta CPU no
+/// tiene (A6). 0 si el rechazo fue por otra cosa; el motivo, con sus nombres.
+pub static mut RECHAZO_FALTAN: u64 = 0;
+
+/// **Las extensiones de x86-64 que tiene ESTA CPU**, como las nombra un `.bex`
+/// (`bmo_carga_juicio::instrucciones`, A6). Se pregunta una vez y se guarda:
+/// el CPUID no cambia con la maquina en marcha, y el bit 63 --que el catalogo
+/// no usa-- marca "ya preguntado". El CPUID va aqui y no por `ring0/cpu`, que
+/// ya mira a `task`: dos familias que se importan en los dos sentidos (L8).
+fn instrucciones_de_esta_cpu() -> u64 {
+    use core::sync::atomic::{AtomicU64, Ordering};
+    static HAY: AtomicU64 = AtomicU64::new(0);
+    const SABIDO: u64 = 1 << 63;
+    let v = HAY.load(Ordering::Relaxed);
+    if v & SABIDO != 0 {
+        return v & !SABIDO;
+    }
+    let hay = bmo_carga_juicio::instrucciones::de_cpuid(|hoja, sub| {
+        let r = unsafe { core::arch::x86_64::__cpuid_count(hoja, sub) };
+        [r.eax, r.ebx, r.ecx, r.edx]
+    });
+    HAY.store(hay | SABIDO, Ordering::Relaxed);
+    hay
+}
 
 pub(crate) fn admit_payload_desde(
     prologo: &[u8],
@@ -465,6 +489,42 @@ pub(crate) fn admit_payload_desde(
                 leidos as u64);
         }
         if let Some(tabla) = tabla {
+            // *** LAS INSTRUCCIONES QUE USA, CONTRA LAS QUE HAY (A6, 14-10).
+            //
+            // Antes, un `.bex` con `popcnt` en una CPU sin el arrancaba, corria,
+            // y moria de `#UD` donde cayera la primera. Lo declara quien emitio
+            // los bytes (`intrinsics.toml`, columna `cpu`) y aqui se dice NO
+            // antes de la primera reserva, con el nombre de lo que falta.
+            let mut usa = 0u64;
+            for r in tabla.iter() {
+                if r.es_obligatorio() && r.clase == bmo_carga_juicio::CLASE_INSTRUCCIONES {
+                    usa |= r.cantidad;
+                }
+            }
+            let faltan = bmo_carga_juicio::instrucciones::faltan(usa, instrucciones_de_esta_cpu());
+            unsafe { RECHAZO_FALTAN = faltan };
+            if faltan != 0 {
+                crate::ring0::cabina::fault(
+                    "carga", "RECHAZADO: usa instrucciones que esta CPU no tiene", faltan);
+                unsafe {
+                    RECHAZO_PIDE = 0;
+                    let m = &mut *core::ptr::addr_of_mut!(RECHAZO_MOTIVO);
+                    let mut n = 0;
+                    for (i, nombre) in bmo_carga_juicio::instrucciones::nombres(faltan).enumerate() {
+                        crate::ring0::cabina::warn("carga", nombre, faltan);
+                        for &b in (if i == 0 { "falta en esta CPU:" } else { "" }).as_bytes()
+                            .iter().chain(b" ").chain(nombre.as_bytes())
+                        {
+                            if n < m.len() {
+                                m[n] = b;
+                                n += 1;
+                            }
+                        }
+                    }
+                    RECHAZO_MOTIVO_N = n;
+                }
+                return None;
+            }
             // Solo lo OBLIGATORIO y solo lo que se mide en BYTES. Un requisito
             // opcional no es una condicion de arranque, y una mascara de CPU no
             // se suma a una cantidad de memoria.

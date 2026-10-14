@@ -63,6 +63,7 @@ pub(crate) fn metal(
     marco: &Marco,
     taller: &Taller,
     sin_emitir: &mut Vec<String>,
+    instrucciones: &mut u64,
 ) {
     let Some(maquina) = taller.maquina.as_ref() else {
         sin_emitir.push(format!("{}: no hay tabla de maquina", nombre));
@@ -146,8 +147,10 @@ pub(crate) fn metal(
         }
     }
 
-    // 2. Los bytes EXACTOS de la tabla. Ni uno escrito aqui.
+    // 2. Los bytes EXACTOS de la tabla. Ni uno escrito aqui. Y lo que piden
+    // a la CPU, apuntado ahora: es aqui donde se escriben (A6).
     out.extend_from_slice(&def.bytes);
+    *instrucciones |= def.cpu;
 
     // 3. Y el valor, donde este emisor espera todo resultado.
     recoge_de(out, def.returns.as_deref());

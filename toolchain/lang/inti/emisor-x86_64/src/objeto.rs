@@ -49,6 +49,7 @@ use crate::{rodata_de, Emitido};
 /// **El `.bo` de un modulo ya emitido.**
 pub fn empaquetar_objeto(e: &Emitido) -> Result<Vec<u8>, String> {
     let mut b = Escritor::objeto();
+    b.instrucciones(e.instrucciones);
     let mut regiones: Vec<(Region, u64)> = vec![(Region::Codigo, e.codigo.len() as u64)];
     b.codigo(e.codigo.clone());
 

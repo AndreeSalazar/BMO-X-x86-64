@@ -155,6 +155,7 @@ pub(crate) fn escribe(i: &Instr, en: u64) -> Texto {
         ("cmov", _, _, _) => write!(t, "cmov{}", cc),
         // `movd` con REX.W mueve 64 bits: el manual lo llama `movq`.
         ("movd", _, Mapa::Dos, _) if ancho == 8 => t.write_str("movq"),
+        ("vfmadd231ps", _, _, _) if ancho == 8 => t.write_str("vfmadd231pd"),
         (_, _, Mapa::Uno, 0x98) => t.write_str(if ancho == 8 { "cdqe" } else { "cwde" }),
         (_, _, Mapa::Uno, 0x99) => t.write_str(if ancho == 8 { "cqo" } else { "cdq" }),
         (_, _, Mapa::Uno, 0xA4 | 0xA5 | 0xAA | 0xAB) => {

@@ -255,12 +255,37 @@ dice, y el metal se junta en UNA corrida por escalon.
       vuelta con cada codificador de `bmo_lower::x86`, con los 16 registros.
       **Lo que NO cubre, dicho:** el codigo que no corre en el banco (lo
       leera B1 siguiendo los saltos desde la entrada).
-- [ ] **A6 -- LB6: el `.bex` dice que instrucciones usa.** El emisor de INTI
+- [x] **A6 -- LB6: el `.bex` dice que instrucciones usa.** El emisor de INTI
       y el de TITAN++ apuntan la extension de cada instruccion (SSE2, AVX2,
       FMA, BMI1, POPCNT...), el enlazador hace la union, y la puerta
       (`bmo-bex-gate`, al lado de `xcr0`) la compara con el CPUID. **Como se
       sabe:** un CPUID de mentira sin AVX2 y un `.bex` que lo usa: NO, con
       su nombre.
+      **HECHO el 14-10**, con dos cambios sobre lo escrito, dichos:
+      - **El juicio no esta en `bmo-bex-gate` sino en `admitir`**, al lado
+        del de la memoria y antes de la primera reserva: es donde el kernel
+        ya lee el anexo de REQUISITOS, y la clase nueva va en ese anexo
+        (`CLASE_INSTRUCCIONES = 0x09`, una mascara, obligatoria) y no en la
+        cabecera -- el formato no cambia y un `.bex` viejo sigue entrando.
+      - **SSE2 no se declara:** es x86-64 base. El catalogo
+        (`bmo-carga-juicio/src/instrucciones.rs`) tiene 16 extensiones con su
+        hoja, registro y bit de CPUID: SSE3, SSSE3, SSE4.1, SSE4.2, POPCNT,
+        LZCNT, BMI1, BMI2, AVX, AVX2, FMA, RDRAND, RDSEED, RDTSCP, OSXSAVE,
+        MONITOR. El estado (`xcr0`) sigue siendo otra pregunta.
+      Quien lo escribe es la TABLA: `intrinsics.toml` lleva una columna `cpu`
+      por fila, `sem-asm` la lee (un nombre desconocido tira la carga), y el
+      emisor de C (y con el C++) y el de INTI la apuntan al escribir los
+      bytes; `Escritor::instrucciones` la junta en una sola linea, el `.bo` la
+      devuelve (`Object::instrucciones`) y `bmo-enlazar` hace la union. TITAN++
+      no escribe hoy ninguna instruccion fuera de x86-64 base. El rechazo dice
+      `falta en esta CPU: AVX2` en la bitacora y en `run`. **Tres jueces:** el
+      CPUID de mentira sin AVX2 (`bmo-carga-juicio`); la LENTE lee los bytes
+      de cada fila de `intrinsics.toml` y lo que piden tiene que ser
+      EXACTAMENTE su columna `cpu` (cada fila de la lente sabe su extension:
+      `pide`); y el `metro`, con `bits_C.c` en su banco: cada instruccion que
+      corre pide lo que pide y el `.bex` lo tiene que declarar. Saboteados (la
+      columna de `popcnt` borrada, la de `rdrand` cambiada, el emisor de C sin
+      apuntarla), caen los tres con el nombre.
 
 **Escalon 2 -- anfitrion y UNA corrida del metal (medio)**
 

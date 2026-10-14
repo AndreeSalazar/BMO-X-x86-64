@@ -110,7 +110,16 @@ tiempo y que extension lo cambiaria. La ley 0 de
 `../maestro/OPTIMIZACION_MAESTRO.md`: correcto, medido, y solo entonces
 rapido, y solo donde el numero diga.
 
-### [ ] LB6 -- la cabecera del `.bex` dice EXACTAMENTE que instrucciones usa
+### [x] LB6 -- la cabecera del `.bex` dice EXACTAMENTE que instrucciones usa
+
+**HECHO el 14-10 (A6 de `EL_FOCO.md`, con lo que cambio y por que):** no en la
+cabecera sino en el anexo de REQUISITOS (`CLASE_INSTRUCCIONES`, una mascara de
+`bmo_carga_juicio::instrucciones`); la escribe la columna `cpu` de
+`intrinsics.toml` a traves de los emisores de C e INTI; `bmo-enlazar` hace la
+union; y la juzga `admitir` contra el CPUID, con el nombre de lo que falta. La
+lente (`Fila::pide`) comprueba que la columna dice la verdad, y el `metro`, que
+lo que corre esta declarado -- que es la mitad de LB7 sobre lo que CORRE; lo
+que no corre lo leera B1.
 
 Hoy BEF2 declara `xcr0` (los estados XSAVE que el programa usa) y la puerta
 (`bmo-bex-gate`) rechaza lo que el kernel no preserva. El paso siguiente: un

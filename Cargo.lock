@@ -528,7 +528,9 @@ version = "0.1.0"
 name = "bmo-lente-x86"
 version = "0.1.0"
 dependencies = [
+ "bmo-carga-juicio",
  "bmo-lower",
+ "bmo-sem-asm",
 ]
 
 [[package]]
@@ -831,6 +833,7 @@ version = "1.0.0"
 name = "bmo-sem-asm"
 version = "0.1.0"
 dependencies = [
+ "bmo-carga-juicio",
  "serde",
  "toml",
 ]

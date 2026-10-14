@@ -95,6 +95,10 @@ pub struct IntrinsicDef {
     /// De donde sale el valor de retorno: "al"/"ax"/"eax"/"u64_edx_eax",
     /// o None para los que no devuelven nada.
     pub returns: Option<String>,
+    /// Las extensiones de x86-64 que piden los bytes (columna `cpu`): una
+    /// mascara de `bmo_carga_juicio::instrucciones`. 0 = x86-64 base. El
+    /// emisor la apunta en el `.bex` al escribir la fila.
+    pub cpu: u64,
 }
 
 /// Tabla de intrinsecos cargada desde `arch/<isa>/intrinsics.toml`.
@@ -139,7 +143,16 @@ impl Intrinsics {
                 .map(|a| a.iter().filter_map(|v| v.as_str().map(String::from)).collect())
                 .unwrap_or_default();
             let returns = entry.get("returns").and_then(|v| v.as_str()).map(String::from);
-            map.insert(name.clone(), IntrinsicDef { bytes, args, returns });
+            // Un nombre que el catalogo no conoce NO se salta: la fila diria que
+            // es base y el `.bex` no lo declararia. Se cae la carga entera.
+            let mut cpu = 0;
+            for v in entry.get("cpu").and_then(|v| v.as_array()).into_iter().flatten() {
+                let ext = v.as_str().and_then(bmo_carga_juicio::instrucciones::por_nombre).ok_or_else(|| {
+                    SemAsmError::Parse(format!("[{name}] cpu = {v}: no es una extension de bmo_carga_juicio::instrucciones"))
+                })?;
+                cpu |= ext.bit;
+            }
+            map.insert(name.clone(), IntrinsicDef { bytes, args, returns, cpu });
         }
         Ok(Self { map })
     }
@@ -198,6 +211,10 @@ mod tests {
         let wrmsr = intr.get("wrmsr").unwrap();
         assert_eq!(wrmsr.args, vec!["ecx", "u64_edx_eax"]);
         assert_eq!(intr.get("inb").unwrap().returns.as_deref(), Some("al"));
+        let ext = |n| bmo_carga_juicio::instrucciones::por_nombre(n).unwrap().bit;
+        assert_eq!(intr.get("popcnt").unwrap().cpu, ext("POPCNT"));
+        assert_eq!(intr.get("avx_funde4").unwrap().cpu, ext("AVX") | ext("FMA"));
+        assert_eq!(intr.get("bsf").unwrap().cpu, 0, "bsf es x86-64 base");
     }
 
     #[test]

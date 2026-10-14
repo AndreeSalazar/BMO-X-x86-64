@@ -265,6 +265,14 @@ pub(crate) fn shell_run(arg: &[u8]) {
             // cuando quien lo sabe es quien hizo el programa -- por eso el
             // motivo es un campo del formato y viaja DENTRO del `.bex`.
             let pide = unsafe { crate::ring0::task::admitir::RECHAZO_PIDE };
+            // ** O lo que usa y esta CPU no tiene (A6): el motivo trae los nombres.
+            if unsafe { crate::ring0::task::admitir::RECHAZO_FALTAN } != 0 {
+                let n = unsafe { crate::ring0::task::admitir::RECHAZO_MOTIVO_N };
+                let m = unsafe { &crate::ring0::task::admitir::RECHAZO_MOTIVO[..n] };
+                if let Ok(s) = core::str::from_utf8(m) {
+                    row("cpu", |l| { l.txt(s); });
+                }
+            }
             if pide > 0 {
                 row("declara", |l| { l.size(pide); l.txt("  y libres hay "); 
                     l.size(unsafe { crate::ring0::task::admitir::RECHAZO_LIBRE }); });

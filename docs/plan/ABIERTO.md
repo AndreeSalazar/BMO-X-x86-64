@@ -7,8 +7,8 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   809 casillas ABIERTAS en 75 planes
-   626 hechas
+   807 casillas ABIERTAS en 75 planes
+   628 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -108,15 +108,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] F6 -- LO DATA-DENSE. Graficos circulares (la carga por nucleo, los
 - ... y 16 mas
 
-## [`EL_FOCO.md`](EL_FOCO.md) -- 18 abiertas, 14 hechas
-
-*EL FOCO -- una cosa a la vez, hasta el final (10-10; el orden nuevo, 14-10)*
-
-- [ ] A4 -- TITAN++ pide RAM SOLO con laminas. director.lamina deja de
-- [ ] A6 -- LB6: el .bex dice que instrucciones usa. El emisor de INTI
-- [ ] B1 -- LB7 + LB8: verificar una vez y apartarse. Al admitir un
-- ... y 15 mas
-
 ## [`PLAN_LA_3060.md`](PLAN_LA_3060.md) -- 18 abiertas, 2 hechas
 
 *PLAN LA 3060 -- la grafica que ya hay, de la sonda al GSP*
@@ -125,6 +116,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] E3 -- el compositor al compas de la pantalla
 - [ ] M0 -- la IOMMU (AMD-Vi) encendida: el NEUTRO pasa de censo a frontera
 - ... y 15 mas
+
+## [`EL_FOCO.md`](EL_FOCO.md) -- 17 abiertas, 15 hechas
+
+*EL FOCO -- una cosa a la vez, hasta el final (10-10; el orden nuevo, 14-10)*
+
+- [ ] A4 -- TITAN++ pide RAM SOLO con laminas. director.lamina deja de
+- [ ] B1 -- LB7 + LB8: verificar una vez y apartarse. Al admitir un
+- [ ] B2 -- LB3b: la autopsia de Ring 3 dice la instruccion. El capitulo
+- ... y 14 mas
 
 ## [`PLAN_AUTOCURACION.md`](PLAN_AUTOCURACION.md) -- 17 abiertas, 0 hechas
 
@@ -225,14 +225,14 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] E2 -- (C,T) DECLARADOS Y EL AFORO. Cada tarea trae su compas; el kernel
 - ... y 9 mas
 
-## [`PLAN_LA_LENTE_BINARIA.md`](PLAN_LA_LENTE_BINARIA.md) -- 12 abiertas, 0 hechas
+## [`PLAN_LA_LENTE_BINARIA.md`](PLAN_LA_LENTE_BINARIA.md) -- 11 abiertas, 1 hechas
 
 *PLAN LA LENTE BINARIA -- CABINA y LENTE hablan el binario, y lo dicen en castellano*
 
 - [ ] LB1 -- el MAPA: de la instruccion de la 3060 a la linea del DXIL
 - [ ] LB2 -- el vigia dice DONDE, no solo QUE
 - [ ] LB3 -- la autopsia de Ring 3 lee la instruccion que fallo
-- ... y 9 mas
+- ... y 8 mas
 
 ## [`PLAN_LA_PUERTA_SE_PARTE.md`](PLAN_LA_PUERTA_SE_PARTE.md) -- 11 abiertas, 8 hechas
 

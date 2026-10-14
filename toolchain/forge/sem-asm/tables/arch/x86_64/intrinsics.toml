@@ -3,6 +3,13 @@
 # compilador emite estos bytes EXACTOS (no hay caja negra tipo asm("...")).
 # `returns = "u64_edx_eax"` = el resultado sale en edx:eax y el codegen
 # lo combina a rax (shl rdx,32; or rax,rdx).
+#
+# `cpu = ["POPCNT"]` = las extensiones de x86-64 que esos bytes piden, con los
+# nombres de `bmo_carga_juicio::instrucciones` (A6 del foco). El emisor las
+# apunta en el `.bex` al escribirlos, y el kernel no lo admite en una CPU que
+# no las tenga: con su nombre, no un `#UD` a mitad de camino. Lo base de
+# x86-64 (SSE2 incluido) no se escribe. Que la etiqueta diga la verdad lo
+# juzga la lente (`bmo-lente-x86`), leyendo los bytes de cada fila.
 
 [meta]
 isa = "x86_64"
@@ -255,17 +262,20 @@ args = ["ax"]
 
 [rdtscp]
 description = "Como rdtsc pero SERIALIZA: nada de antes se adelanta. Ademas deja el id del CPU en ecx"
+cpu = ["RDTSCP"]
 bytes = [0x0F, 0x01, 0xF9]
 returns = "u64_edx_eax"
 
 [xgetbv]
 description = "Lee un registro de control extendido: __xgetbv(indice). XCR0 es el 0"
+cpu = ["OSXSAVE"]
 bytes = [0x0F, 0x01, 0xD0]
 args = ["ecx"]
 returns = "u64_edx_eax"
 
 [xsetbv]
 description = "Escribe uno: __xsetbv(indice, valor) (Ring 0)"
+cpu = ["OSXSAVE"]
 bytes = [0x0F, 0x01, 0xD1]
 args = ["ecx", "u64_edx_eax"]
 
@@ -333,6 +343,7 @@ args = ["rdi", "rax"]
 
 [popcnt]
 description = "Cuantos bits hay a uno: __popcnt(v)"
+cpu = ["POPCNT"]
 bytes = [0xF3, 0x0F, 0xB8, 0xC0]
 args = ["eax"]
 returns = "eax"
@@ -351,12 +362,14 @@ returns = "eax"
 
 [tzcnt]
 description = "Ceros a la derecha. Como bsf pero da 32 cuando v es 0 (pide BMI1)"
+cpu = ["BMI1"]
 bytes = [0xF3, 0x0F, 0xBC, 0xC0]
 args = ["eax"]
 returns = "eax"
 
 [lzcnt]
 description = "Ceros a la izquierda, definido tambien en 0 (pide LZCNT)"
+cpu = ["LZCNT"]
 bytes = [0xF3, 0x0F, 0xBD, 0xC0]
 args = ["eax"]
 returns = "eax"
@@ -377,21 +390,25 @@ returns = "rax"
 
 [rdrand]
 description = "Numero del generador del CPU. Pone CF=1 si vale; sin leer CF, comprobar al menos que no sale siempre lo mismo"
+cpu = ["RDRAND"]
 bytes = [0x0F, 0xC7, 0xF0]
 returns = "eax"
 
 [rdseed]
 description = "Semilla de entropia cruda. Mas lenta que rdrand y falla mas a menudo"
+cpu = ["RDSEED"]
 bytes = [0x0F, 0xC7, 0xF8]
 returns = "eax"
 
 [monitor]
 description = "Arma la vigilancia de una direccion: rax=dir (Ring 0)"
+cpu = ["MONITOR"]
 bytes = [0x0F, 0x01, 0xC8]
 args = ["rax"]
 
 [mwait]
 description = "Duerme el nucleo hasta que escriban en lo vigilado. Mejor que un bucle: no gasta (Ring 0)"
+cpu = ["MONITOR"]
 bytes = [0x0F, 0x01, 0xC9]
 
 [ud2]
@@ -478,6 +495,7 @@ returns = "xmm0"
 
 [avx_suma4]
 description = "Cuatro flotante64 de golpe: destino[0..4] = a[0..4] + b[0..4]"
+cpu = ["AVX"]
 bytes = [
     0xC5, 0xFD, 0x10, 0x06,        # vmovupd ymm0, [rsi]
     0xC5, 0xFD, 0x10, 0x0A,        # vmovupd ymm1, [rdx]
@@ -488,6 +506,7 @@ args = ["rdi", "rsi", "rdx"]
 
 [avx_resta4]
 description = "Cuatro de golpe: destino = a - b"
+cpu = ["AVX"]
 bytes = [
     0xC5, 0xFD, 0x10, 0x06,
     0xC5, 0xFD, 0x10, 0x0A,
@@ -498,6 +517,7 @@ args = ["rdi", "rsi", "rdx"]
 
 [avx_por4]
 description = "Cuatro de golpe: destino = a * b"
+cpu = ["AVX"]
 bytes = [
     0xC5, 0xFD, 0x10, 0x06,
     0xC5, 0xFD, 0x10, 0x0A,
@@ -517,6 +537,7 @@ args = ["rdi", "rsi", "rdx"]
 #  cinco: no hace falta traerlo aparte.
 [avx_funde4]
 description = "Cuatro de golpe, multiplicar y acumular: destino = destino + a * b"
+cpu = ["AVX", "FMA"]
 bytes = [
     0xC5, 0xFD, 0x10, 0x07,        # vmovupd ymm0, [rdi]   (el acumulador)
     0xC5, 0xFD, 0x10, 0x0E,        # vmovupd ymm1, [rsi]
@@ -527,6 +548,7 @@ args = ["rdi", "rsi", "rdx"]
 
 [avx_sin_altos]
 description = "Limpia la mitad alta de los ymm: sin esto, volver a SSE cuesta decenas de ciclos"
+cpu = ["AVX"]
 bytes = [0xC5, 0xF8, 0x77]         # vzeroupper
 args = []
 

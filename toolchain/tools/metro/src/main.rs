@@ -84,6 +84,8 @@ const BANCO: &[(&str, &str)] = &[
     ("c", "toolchain/lang/c/examples/imagen_C.c"),
     ("c", "toolchain/lang/c/examples/raycaster_C.c"),
     ("c", "toolchain/lang/c/examples/sonda_C.c"),
+    // A6 (14-10): pide POPCNT y BMI1, y su oraculo lo juzga.
+    ("c", "toolchain/lang/c/examples/bits_C.c"),
     ("cpp", "toolchain/lang/cpp/examples/1-clases/cuentas.cpp"),
     ("cobol", "toolchain/lang/cobol/examples/1-basico/hola.cob"),
     ("cobol", "toolchain/lang/cobol/examples/2-decimal/banco.cob"),
@@ -179,7 +181,7 @@ struct Medida {
 
 /// ** EL ORACULO DE LA LENTE: cada paso que dio el programa, `(de, a)`, es un
 /// sucesor que la lente dice de la instruccion en `de`.
-fn juzgar_lente(codigo: &[u8], pasos: &std::collections::HashSet<(usize, usize)>) -> Result<usize, Vec<String>> {
+fn juzgar_lente(codigo: &[u8], pasos: &std::collections::HashSet<(usize, usize)>, declara: u64) -> Result<usize, Vec<String>> {
     use bmo_lente_x86::{lee, Sigue};
     let mut leidas = std::collections::HashMap::new();
     let mut quejas = Vec::new();
@@ -197,6 +199,14 @@ fn juzgar_lente(codigo: &[u8], pasos: &std::collections::HashSet<(usize, usize)>
             }
         };
         let (de64, a64) = (de as u64, a as u64);
+        // ** A6: lo que corrio pide a la CPU, y el `.bex` lo tiene que DECLARAR.
+        // Un `popcnt` sin su linea es un `#UD` en una CPU sin el.
+        if !i.fila.pide.is_empty() {
+            let bit = bmo_abi::bef::requisitos::instrucciones::por_nombre(i.fila.pide).map_or(u64::MAX, |e| e.bit);
+            if declara & bit != bit && quejas.len() < 20 {
+                quejas.push(format!("lente: en 0x{de:x} corre `{}`, que pide {}, y el .bex no lo declara: {}", i.texto(de64).as_str(), i.fila.pide, bytes(de)));
+            }
+        }
         let vale = match i.sigue(de64) {
             Sigue::Siguiente(n) => a64 == n,
             Sigue::Condicional { cae, salta } => a64 == cae || a64 == salta,
@@ -210,6 +220,14 @@ fn juzgar_lente(codigo: &[u8], pasos: &std::collections::HashSet<(usize, usize)>
         }
     }
     if quejas.is_empty() { Ok(leidas.len()) } else { Err(quejas) }
+}
+
+/// Las extensiones de x86-64 que el `.bex` declara usar (A6).
+fn declara(bex: &[u8]) -> u64 {
+    use bmo_abi::bef::requisitos::{Tabla, CLASE_INSTRUCCIONES};
+    let Ok(v) = bmo_abi::bef2::leer(bex) else { return 0 };
+    let Some(t) = v.anexo(bmo_abi::bef2::ANEXO_REQUISITOS).and_then(Tabla::abrir) else { return 0 };
+    t.iter().filter(|r| r.clase == CLASE_INSTRUCCIONES && r.es_obligatorio()).fold(0, |m, r| m | r.cantidad)
 }
 
 fn raiz() -> PathBuf {
@@ -297,7 +315,7 @@ fn medir(lenguaje: &str, rel: &str) -> Result<Medida, String> {
     if !m.exited {
         return Err("no termino por EXIT".into());
     }
-    let lente = juzgar_lente(&codigo, &pasos);
+    let lente = juzgar_lente(&codigo, &pasos, declara(&bex));
     Ok(Medida { pasos: m.pasos, accesos: m.censo.accesos(), codigo: bytes_de_codigo(&bex), salida: huella(&m.console), censo: m.censo, lente })
 }
 
@@ -485,7 +503,7 @@ fn main() {
     }
     if !mal.is_empty() {
         for q in &mal { println!("  [X] {q}"); }
-        println!("metro: la lente no lee lo que el emisor escribio ({} queja(s)): su tabla, `platform/shared/bmo-lente-x86/src/tabla.rs`", mal.len());
+        println!("metro: la lente y lo que corrio no casan ({} queja(s)): o falta una fila en `platform/shared/bmo-lente-x86/src/tabla.rs`, o el emisor no declara lo que pide a la CPU", mal.len());
         exit(1);
     }
     let (pasos, accesos, codigo): (u64, u64, u64) =
