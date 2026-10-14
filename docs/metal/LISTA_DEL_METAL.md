@@ -37,6 +37,13 @@ automatico se lo comio: esas lentes hay que correrlas otra vez.
   motivo y sus veces: los que antes faltaban entre "irian" y "de verdad".
   Lo que salga mas arriba es lo siguiente que hay que abrir.
 - `iommu` en el escritorio: `tablas N de 256` (eran 128).
+- LA PANTALLA DIRECTA (la 3060 a pantalla completa, Z1): ningun metal de
+  Cyberpunk la ha pedido nunca. Se pide tras el primer lote del BACK
+  BUFFER (1280x720) que dibuja la 3060, y se suelta para siempre si uno del
+  back buffer va por la CPU. El censo dice ahora `al back buffer: N
+  lote(s), M por la 3060` y por que fue cada uno por la CPU. Si N sale 0,
+  el juego no dibuja el back buffer con lotes: lo escribe un computo o una
+  copia, y la pieza que falta es esa.
 
 ## Que mirar en la corrida anterior (14-10, F1)
 
