@@ -641,7 +641,14 @@ pub fn escribir(c: &Cuerpos, l: &Lote, b: Blanco, limpiar_z: Option<u32>, nula: 
         if c.mips && m.lod.min.is_some_and(|f| f != m.filtro) {
             return Err(format!("t{tn} con s{sm}: el filtro de lejos (MIN) no es el de cerca (MAG), y la 3060 elige la mip con uno solo todavia"));
         }
-        let muestreo = Muestreo { lineal: m.filtro == Filtro::Lineal, u: d3d(m.u), v: d3d(m.v), borde: m.borde };
+        // ** F1 (14-10): una de FLOAT la filtra el sombreador como la casa
+        // (`flotantes.rs`): su TSC en PUNTO; con BORDE, en la CPU todavia (el
+        // color del borde en un float no se ha medido en la 3060).
+        let flotante = crate::mipmap::formato_de(t).is_some_and(|f| f.flotante());
+        if flotante && (m.u == Direccion::Borde || m.v == Direccion::Borde) {
+            return Err(format!("{FLOAT_CON_BORDE} (t{tn} con s{sm})"));
+        }
+        let muestreo = Muestreo { lineal: m.filtro == Filtro::Lineal && !flotante, u: d3d(m.u), v: d3d(m.v), borde: m.borde };
         let d = crate::mipmap::de_app(t, muestreo, c.mips, datos, tn)?;
         if c.mips {
             crate::mipmap::poner_filas(datos, c.filas_cb, k, &crate::mipmap::filas(t, m));
@@ -687,6 +694,8 @@ pub fn escribir(c: &Cuerpos, l: &Lote, b: Blanco, limpiar_z: Option<u32>, nula: 
 /// **La puerta `[3]` del censo** (G5, 13-10; S1, 14-10): un `SampleLevel`
 /// o un `Load` de un array o una 3D, de la mip 0 del TIC. Los de una 2D y el
 /// `Sample` ya van (`mipmap`).
+/// ** F1: lo que de una textura de float sigue en la CPU.
+pub const FLOAT_CON_BORDE: &str = "una textura de float con un muestreador de BORDE: la 3060 aun no se ha medido con el color del borde en float";
 pub const MIPS_SIN_2D: &str = "lee con SampleLevel o Load un array o una 3D de varias mips (o MIN y MAG distintos): la 3060 elige la mip solo en 2D todavia";
 
 /// A9c: de cada cuantos lotes de un PSO revisa uno el vigia (el primero,

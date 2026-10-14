@@ -577,6 +577,19 @@ marcada.
       VRAM no se vuelve a escribir (`ga10x::pluma`, `YA_VS`/`YA_PS` en el
       kernel). Un lote de 64 KiB y dos programas largos: de ~25.000
       lecturas a menos de 25 (banco). Falta el metal: `preparar` en us.
+- [x] **F1 -- las texturas de FLOAT (14-10, en el banco):** la puerta [1]
+      del censo de Cyberpunk (13 de los 16 lotes que dibujaba la CPU). Una
+      textura de cuatro floats (RGBA16F, R11G11B10F, RGBA32F... como las
+      guarda la casa) o de uno (R32) va a la 3060 como `Rgba32f`/`R32f`
+      (`clb097tex.h`: 0x01 y 0x0f, FLOAT 7; NIL: R32 es R001), su TSC en
+      PUNTO, y el FILTRO lo hace el sombreador con las cuentas de la casa
+      (`proton-x-sm86/src/flotantes.rs`): pesos de 1/256 y la suma de f32 en
+      su orden. El camino sale de un salto uniforme (el bit 8 de la fila 1).
+      Bit a bit contra la casa con NaN, infinitos, -0 y subnormales, PUNTO y
+      LINEAL, con sus mips, en `SampleLevel` y en `Sample` por cuadros. De
+      paso, la mezcla de G5 con `f = 0` ya no mezcla (con un infinito daba
+      NaN). Por la CPU: un muestreador de BORDE sobre una de float (sin
+      medir), y |u * ancho| >= 2^22. Emisor 5.
 - [ ] El envio rapido (muchos lotes por llamada, sin esperar cada uno).
 
 **Las fuentes publicas** (lo publico se trae; lo que no, se mide):

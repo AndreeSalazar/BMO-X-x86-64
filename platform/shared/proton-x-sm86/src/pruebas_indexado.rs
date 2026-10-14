@@ -151,7 +151,9 @@ pub(crate) fn por_la_puerta(p: &Programa, genericos: &[Option<u8>]) -> Result<us
     let pegado = pegamento::pixel(&r.codigo, r.registros, &crate::pso::cargas_con_posicion(&r, None, p.filas_cb as u32), Datos { filas, paso: 0, elementos: &[] }, genericos)?;
     let mut b = vec![0u8; tuberia::HUECO];
     let n = pegado.bytes(&mut b);
-    let v = juez::juzgar_programa(&b[..n], tuberia::REGISTROS).unwrap_or_else(|x| panic!("{x}"));
+    // LI2b: con los registros que pediria el kernel, como la puerta de
+    // verdad (`pso::traducir`, `tuberia::registros_para`).
+    let v = juez::juzgar_programa(&b[..n], tuberia::registros_para(pegado.registros)).unwrap_or_else(|x| panic!("{x}"));
     assert!(v.instrucciones <= juez::MAX_INSTRUCCIONES);
     Ok(v.instrucciones)
 }

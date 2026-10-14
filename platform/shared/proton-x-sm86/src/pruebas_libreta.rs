@@ -232,6 +232,50 @@ fn la_vista_de_otra_mip_va_a_la_3060() {
     assert_eq!((t.va, t.ancho), (texeles.as_ptr() as u64, 16));
 }
 
+/// ** F1 (14-10): una textura de FLOAT (cuatro floats por texel, como la
+/// guarda la casa) va a la 3060 como `Rgba32f` -- su cadena desde la mip 0,
+/// el TSC en PUNTO (filtra el sombreador) -- y el kernel la pega; con un
+/// muestreador de BORDE, por la CPU con su motivo.
+#[test]
+fn una_de_float_va_a_la_3060() {
+    use bmo_proton_x::textura::{Clase, Como, Direccion, Filtro, Lod, Muestreador, Recursos, Textura};
+    let en = textura();
+    let ia = std::vec![e("POSITION", 6, 0), e("TEXCOORD", 16, 12)];
+    // 16x16 y 8x8, cuatro floats por texel, empezando a 32 B.
+    let n = 4 * (256 + 64);
+    let todo = std::vec![1.5f32.to_bits(); n + 8];
+    let a = todo.as_ptr().align_offset(32);
+    let texeles = &todo[a..a + n];
+    let m = Muestreador { filtro: Filtro::Lineal, u: Direccion::Repetir, v: Direccion::Sujetar, borde: [0.0; 4], comparacion: 0, lod: Lod { min: Some(Filtro::Lineal), mip: Filtro::Lineal, sesgo: 0.0, minimo: 0.0, maximo: f32::MAX } };
+    let paso = 20usize;
+    let vertices: Vec<u8> = (0..3 * paso / 4).flat_map(|k| (k as f32 * 0.125).to_bits().to_le_bytes()).collect();
+    let cb = std::vec![0u8; 16 * en.vs.filas_cb.max(en.ps.filas_cb).max(1) as usize];
+    let reglas = bmo_proton_x::trama::Reglas { viewport: [0.0, 0.0, 1280.0, 720.0, 0.0, 1.0], tijera: [0, 0, 1280, 720], descarte: 1, antihorario: false, profundidad: None, mezcla: bmo_proton_x::mezcla::Mezclas::NINGUNA, z_del_sombreador: false, stencil: None };
+    let b = Blanco { va: 0x4000_0000, ancho: 1280, alto: 720, bgra: false, cadena: false, flotante: None, mas: crate::puerta::SIN_MAS };
+    let tx = [Some(Textura { texeles, ancho: 16, alto: 16, como: Como::Flotantes4, srgb: false, mapeo: Textura::MAPEO, mips: 2, capas: 1, hondo: 1, clase: Clase::Plana, mip: 0, capa: 0, niveles: 2, lod_min: 0.0, vista: None })];
+    for (borde, va) in [(false, true), (true, false)] {
+        let ms = [Some(if borde { Muestreador { u: Direccion::Borde, ..m } } else { m })];
+        let recursos = Recursos { texturas: &tx, muestreadores: &ms, buferes: &[], dinamicas: None };
+        let l = Lote { enlace: &en, entradas: &ia, vertices: &vertices, paso, ids: &[0, 1, 2], topologia: Topologia::Lista, cb: &cb, reglas, limpiar_z: None, limpiar_rt: None, recursos, oclusion: false, otros: &[], instancias: 1, primera_instancia: 0, base_vertice: 0, uavs: None };
+        let mut p = Puerta::nueva();
+        match p.preparar(&l, b) {
+            Ok(n) => {
+                assert!(va, "con borde no va");
+                let r = bmo_gpu_ga10x::receta::leer(&p.caja[..n]).expect("el kernel la lee");
+                let t = r.texturas()[0];
+                assert_eq!((t.va, t.ancho, t.fila, t.mips, t.formato), (texeles.as_ptr() as u64, 16, 256, 2, bmo_gpu_ga10x::texturas::Formato::Rgba32f));
+                assert!(!t.muestreo.lineal, "el TSC en PUNTO: filtra el sombreador");
+                let mut taller = alloc::boxed::Box::new(bmo_gpu_ga10x::receta::Taller::nuevo());
+                bmo_gpu_ga10x::receta::pegar(&r, &mut taller).unwrap_or_else(|x| panic!("{x:?}"));
+            }
+            Err(m) => {
+                assert!(!va, "{m}");
+                assert!(m.contains(crate::puerta::FLOAT_CON_BORDE), "{m}");
+            }
+        }
+    }
+}
+
 /// ** 12-10 (el censo de Cyberpunk: "t0 sin atar"): un lote que muestrea t0
 /// sin nada atado va a la 3060 con la TEXTURA NULA -- ceros, como la CPU --,
 /// y con su muestreador PROPIO aunque el lote ate uno (el borde del lote
