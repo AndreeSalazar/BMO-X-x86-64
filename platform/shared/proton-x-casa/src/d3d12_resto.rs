@@ -189,7 +189,7 @@ fn crear_computo(_this: u64, desc: *const u8, riid: *const Guid, pp: *mut u64) -
     // N5.5: compilar al CREAR (lo de DXVK: al cargar, no al dibujar).
     let preparado = bmo_proton_x::dxil::computo::preparar(&cs);
     if let Err(m) = &preparado {
-        aviso(&alloc::format!("CreateComputePipelineState: {m}; sus Dispatch no se haran"));
+        aviso(&crate::rechazados::guardar_y_decir(&[("cs", &cs)], &alloc::format!("CreateComputePipelineState: {m}; sus Dispatch no se haran")));
     }
     // E2.3b: y traducido a x86-64, una vez (lo que no se traduce, por el
     // interprete: da lo mismo, mas despacio).

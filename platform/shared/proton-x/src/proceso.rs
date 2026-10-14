@@ -53,6 +53,9 @@ pub struct Perfil {
     /// `bmo_proton_x::cifra`), `proton-x/<juego>/mapas`: el DXIL de ayer no
     /// se vuelve a leer.
     pub mapas: String,
+    /// M1 (14-10): los sombreadores que la casa no supo correr, como vinieron
+    /// (`proton-x/<juego>/rechazados`), para hacer su pieza contra `dxc`.
+    pub rechazados: String,
     /// La misma, como la ve el `.exe` (`C:\proton-x\cyberpunk2077\perfil`).
     pub windows: String,
 }
@@ -93,6 +96,7 @@ pub fn perfil_de(ruta_exe: &str) -> Option<Perfil> {
     let borrados = alloc::format!("proton-x/{juego}/borrados");
     let bsf = alloc::format!("proton-x/{juego}/bsf");
     let mapas = alloc::format!("proton-x/{juego}/mapas");
+    let rechazados = alloc::format!("proton-x/{juego}/rechazados");
     Some(Perfil {
         juego,
         volumen,
@@ -100,6 +104,7 @@ pub fn perfil_de(ruta_exe: &str) -> Option<Perfil> {
         borrados,
         bsf,
         mapas,
+        rechazados,
         windows,
     })
 }
@@ -115,6 +120,7 @@ impl Perfil {
             self.borrados.clone(),
             self.bsf.clone(),
             self.mapas.clone(),
+            self.rechazados.clone(),
         ];
         v.extend(
             CARPETAS_DEL_PERFIL

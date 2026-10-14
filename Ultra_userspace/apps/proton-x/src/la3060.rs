@@ -92,6 +92,48 @@ struct Estado {
     /// 12-10: los PORQUE de los NO del kernel (`INFO_GPU_PORQUE`), cada uno
     /// una vez y con cuantas veces: el censo los dice.
     porques: Vec<(String, u64)>,
+    /// ** 14-10: los lotes que PARO LA PUERTA (`preparar` dijo que no), por
+    /// motivo y con cuantas veces. El metal del 14-10 07:14: el censo decia
+    /// "32 irian" y la 3060 dibujo 15; los 17 de la diferencia los paraba la
+    /// puerta al final (la ranura de la textura, un muestreador sin atar) y
+    /// solo se veia el PRIMERO de cada motivo. El motivo va sin sus
+    /// direcciones (`sin_direcciones`), para que se junten.
+    parados: Vec<(String, u64)>,
+    /// ** 14-10: EL BACK BUFFER (la pantalla directa, Z1). La pantalla se
+    /// pide tras el primer lote de la CADENA que dibuja la 3060, y ningun
+    /// metal de Cyberpunk la pidio nunca. `(lotes, por la 3060)` de los que
+    /// dibujan en el back buffer, y por que fue cada uno por la CPU.
+    cadena: (u64, u64),
+    cadena_cpu: Vec<(String, u64)>,
+}
+
+/// Un lote del back buffer que fue por la CPU, con su porque.
+fn cadena_por_cpu(lista: &mut Vec<(String, u64)>, porque: &str) {
+    match lista.iter_mut().find(|x| x.0 == porque) {
+        Some(x) => x.1 += 1,
+        None => lista.push((String::from(porque), 1)),
+    }
+}
+
+/// El motivo sin sus `0x...`: la misma puerta con otra VA es el mismo porque.
+fn sin_direcciones(m: &str) -> String {
+    let mut s = String::with_capacity(m.len());
+    let b = m.as_bytes();
+    let mut i = 0;
+    while i < b.len() {
+        if b[i] == b'0' && b.get(i + 1) == Some(&b'x') {
+            s.push_str("0x..");
+            i += 2;
+            while i < b.len() && b[i].is_ascii_hexdigit() {
+                i += 1;
+            }
+        } else {
+            let c = m[i..].chars().next().unwrap_or('?');
+            s.push(c);
+            i += c.len_utf8();
+        }
+    }
+    s
 }
 
 /// **El recuerdo de los `.bsf` en ESTRATOS** (A9, 06-10): cada PSO, un
@@ -231,6 +273,9 @@ static ESTADO: Celda = Celda(core::cell::UnsafeCell::new(Estado {
     censo_dicho: (0, 0),
     numerados: Vec::new(),
     porques: Vec::new(),
+    parados: Vec::new(),
+    cadena: (0, 0),
+    cadena_cpu: Vec::new(),
 }));
 
 /// Cada cuanto se dice el censo (LI0), en la consola y en el DIARIO; en el
@@ -357,6 +402,24 @@ fn decir_censo(e: &mut Estado, ahora: u64) {
         NO_DEL_KERNEL.load(core::sync::atomic::Ordering::Relaxed),
         if e.apagada { "; la 3060 se dejo (los lotes, por la CPU)" } else { "" }
     ));
+    let parados: u64 = e.parados.iter().map(|x| x.1).sum();
+    if parados > 0 {
+        s.push_str(&alloc::format!("#   la puerta paro {parados} lote(s) al prepararlos (con los del censo):\n"));
+        let mut orden: Vec<&(String, u64)> = e.parados.iter().collect();
+        orden.sort_by(|a, b| b.1.cmp(&a.1));
+        for (motivo, veces) in orden.iter().take(10) {
+            s.push_str(&alloc::format!("#     {veces:>5} x {motivo}\n"));
+        }
+    }
+    s.push_str(&alloc::format!(
+        "#   al back buffer (lo que se ve): {} lote(s), {} por la 3060; la pantalla directa {}\n",
+        e.cadena.0,
+        e.cadena.1,
+        if e.pantalla_pedida { "PEDIDA" } else if e.sin_pantalla { "pedida y SOLTADA (un lote del back buffer fue por la CPU)" } else { "sin pedir" }
+    ));
+    for (porque, veces) in &e.cadena_cpu {
+        s.push_str(&alloc::format!("#     {veces:>5} x por la CPU: {porque}\n"));
+    }
     for (porque, veces) in &e.porques {
         s.push_str(&alloc::format!("#   el kernel dijo NO {veces} vez/veces porque: {porque}\n"));
     }
@@ -523,6 +586,14 @@ pub fn dibujar(l: &Lote, d: &mut Destino) -> Result<Cuenta, NoDibuja> {
     // con su formato y las palabras por texel de la casa: la 3060 escribe
     // floats de 32 redondeados como la CPU (`puerta::de_flotante`). Lo que no
     // sabe todavia lo dice la puerta, como cualquier otro porque.
+    if d.cadena {
+        e.cadena.0 += 1;
+        if e.apagada {
+            cadena_por_cpu(&mut e.cadena_cpu, "la 3060 ya se habia dejado");
+        } else if d.pixeles.is_empty() {
+            cadena_por_cpu(&mut e.cadena_cpu, "sin pixeles");
+        }
+    }
     if !e.apagada && !d.pixeles.is_empty() {
         let blanco = Blanco {
             va: d.pixeles.as_ptr() as u64,
@@ -579,6 +650,9 @@ pub fn dibujar(l: &Lote, d: &mut Destino) -> Result<Cuenta, NoDibuja> {
                             bmo::consola("PROTON-X: la 3060 dibuja los lotes (P3b4c: la puerta estrecha, la receta VRN2)\n");
                         }
                         e.por_la_3060 += 1;
+                        if d.cadena {
+                            e.cadena.1 += 1;
+                        }
                         // ** P3b4c.9 Z1: con el back buffer de la cadena ya por
                         // la 3060, se le pide al escritorio la pantalla directa;
                         // si la da, el kernel dibuja alli y el `Ok` lo dice.
@@ -600,6 +674,9 @@ pub fn dibujar(l: &Lote, d: &mut Destino) -> Result<Cuenta, NoDibuja> {
                     }
                     Ok(r) => {
                         NO_DEL_KERNEL.fetch_add(1, core::sync::atomic::Ordering::Relaxed);
+                        if d.cadena {
+                            cadena_por_cpu(&mut e.cadena_cpu, "la 3060 no pago el lote");
+                        }
                         // El metal (28-09): cada NO pagado costo 1 s entero
                         // (el tope del kernel) y 0 fps. Un canal GR que no
                         // paga tomo una excepcion (Xid): esta MUERTO hasta
@@ -612,6 +689,9 @@ pub fn dibujar(l: &Lote, d: &mut Destino) -> Result<Cuenta, NoDibuja> {
                     }
                     Err(m) if m == bmo::IOMMU_NO_CANAL_MUERTO => {
                         NO_DEL_KERNEL.fetch_add(1, core::sync::atomic::Ordering::Relaxed);
+                        if d.cadena {
+                            cadena_por_cpu(&mut e.cadena_cpu, "el canal de GR estaba muerto");
+                        }
                         p.despues(l, false);
                         e.apagada = true;
                         bmo::consola(&alloc::format!("PROTON-X: el kernel dice que el canal de GR de la 3060 esta MUERTO: {}. La 3060 se deja YA; el resto, por la CPU. Para recuperarla sin reiniciar: sal del juego y en el escritorio `gpu revivir`\n", el_porque()));
@@ -619,6 +699,9 @@ pub fn dibujar(l: &Lote, d: &mut Destino) -> Result<Cuenta, NoDibuja> {
                     }
                     Err(m) => {
                         NO_DEL_KERNEL.fetch_add(1, core::sync::atomic::Ordering::Relaxed);
+                        if d.cadena {
+                            cadena_por_cpu(&mut e.cadena_cpu, "el kernel dijo que no a la receta");
+                        }
                         p.despues(l, false);
                         e.negados += 1;
                         // 12-10: el kernel apunta SU porque (a este proceso).
@@ -637,6 +720,14 @@ pub fn dibujar(l: &Lote, d: &mut Destino) -> Result<Cuenta, NoDibuja> {
             }
             Err(motivo) => {
                 p.despues(l, false);
+                let clave = sin_direcciones(&motivo);
+                if d.cadena {
+                    cadena_por_cpu(&mut e.cadena_cpu, &clave);
+                }
+                match e.parados.iter_mut().find(|x| x.0 == clave) {
+                    Some(x) => x.1 += 1,
+                    None => e.parados.push((clave, 1)),
+                }
                 decir(e, motivo);
             }
         }

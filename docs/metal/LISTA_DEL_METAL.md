@@ -29,7 +29,29 @@ automatico se lo comio: esas lentes hay que correrlas otra vez.
    computos por la CPU y la imagen.
 5. Si el canal muere: `gpu aviso`, despues `gpu revivir`, y el parte entero.
 
-## Que mirar en la corrida siguiente (14-10)
+## Que mirar en la corrida siguiente (14-10, tarde)
+
+- La textura HDR: la ranura de textura mide 32 MiB (era 16). "no cabe en
+  su ranura" ya no tiene que salir para la de 1280x720 con 5 mips.
+- El censo dice ahora `la puerta paro N lote(s) al prepararlos`, con cada
+  motivo y sus veces: los que antes faltaban entre "irian" y "de verdad".
+  Lo que salga mas arriba es lo siguiente que hay que abrir.
+- `iommu` en el escritorio: `tablas N de 256` (eran 128).
+- LOS SOMBREADORES QUE NO SE SABEN CORRER (M1): cada uno se guarda en
+  ESTRATOS, `proton-x/cyberpunk2077/rechazados/`, como vino del juego
+  (`<huella>_cs.dxil`, `_vs`, `_ps`) con su porque (`<huella>.txt`), y
+  `INDICE.TXT` los lista TODOS con cada porque y cuantos lo tienen. Traer
+  esa carpeta entera: con el DXIL real, `dxc -dumpbin` dice la instruccion
+  exacta y cada pieza se hace contra eso, sin adivinar.
+- LA PANTALLA DIRECTA (la 3060 a pantalla completa, Z1): ningun metal de
+  Cyberpunk la ha pedido nunca. Se pide tras el primer lote del BACK
+  BUFFER (1280x720) que dibuja la 3060, y se suelta para siempre si uno del
+  back buffer va por la CPU. El censo dice ahora `al back buffer: N
+  lote(s), M por la 3060` y por que fue cada uno por la CPU. Si N sale 0,
+  el juego no dibuja el back buffer con lotes: lo escribe un computo o una
+  copia, y la pieza que falta es esa.
+
+## Que mirar en la corrida anterior (14-10, F1)
 
 - F1, las texturas de float: en el censo, la puerta "una textura de float"
   ya no tiene que salir (si sale "con un muestreador de BORDE", es la que

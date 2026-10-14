@@ -3493,3 +3493,17 @@ El banco: `proton-x-sm86/src/pruebas_lecturas.rs` (`niveles_de_dxc_en_la_
 3060`): el lector, el emisor -- tres TEX y dos TLD --, el juez (R0..R6, y R7
 con las asas del kernel), el simulador contra el interprete de la casa, bit
 a bit, y por la puerta del kernel.
+
+resto.dxil -- 14-10: el % de floats (frem) y los BINOP solo de enteros
+
+De `resto.hlsl`, con el mismo dxc de Linux (linux_dxc_2024_07_31.x86_64,
+libdxcompiler 1.8):
+
+   dxc -T cs_6_0 -E main -Fo resto.dxil resto.hlsl
+
+sha256: ee35310eb12ff730abd8b177092a826ff79239de2e4df8c59a6a043102beb60e
+
+`dxc -dumpbin` dice `%12 = frem fast float %7, %11` y lshr, shl, xor, and,
+or, urem, udiv de i32: lo que hace falta. Su juez: `pruebas_resto.rs` (la
+CPU contra `a - b * trunc(a / b)`) y `el_resto_de_floats_corre_igual` de
+bmo-proton-x-sm86 (la 3060 de mentira contra la CPU).

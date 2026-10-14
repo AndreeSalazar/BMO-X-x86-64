@@ -644,6 +644,8 @@ pub extern "C" fn _start() -> ! {
     la3060::poner_carpeta_bsf(perfil.as_ref().map(|p| p.bsf.clone()));
     // A9b: y los mapas de la CPU (lo compilado de cada PSO), en la suya.
     bmo_proton_x_casa::enlaces::poner_carpeta(perfil.as_ref().map(|p| p.mapas.clone()));
+    // M1 (14-10): y los sombreadores que la casa no sabe correr, guardados.
+    bmo_proton_x_casa::rechazados::poner_carpeta(perfil.as_ref().map(|p| p.rechazados.clone()));
     bmo_proton_x_casa::proceso::poner_exe_con_perfil(
         nombre,
         linea,

@@ -740,12 +740,14 @@ pub fn info_gpu() -> u64 {
 //                     por el physmap lo mismo que leera la IOMMU
 //
 // Las tablas viven en un AREA contigua NEUTRO (la IOMMU las lee por DMA), que
-// se pide la primera vez: 128 paginas = una raiz, directorios y ~125 tablas de
-// hojas, o sea ~250 MiB prestables. El GSP pide ~69 MB.
+// se pide la primera vez: 256 paginas (1 MiB) = una raiz, directorios y ~250
+// tablas de hojas, o sea ~500 MiB prestables. El GSP pide ~69 MB; el metal
+// del 14-10 medio 56 tablas en uso con Cyberpunk, y las ranuras de textura
+// de 32 MiB (14-10) pueden pedir hasta 32 mas: con 128 no quedaba holgura.
 
 /// El dominio de la 3060 traducida. El 1 es el de paso y el 2 el ciego.
 const DOMINIO_GPU: u16 = 3;
-const AREA_PAGINAS: u64 = 128;
+const AREA_PAGINAS: u64 = 256;
 
 pub const IOMMU_NO_SIN_AREA: u32 = 12;
 pub const IOMMU_NO_NO_TRADUCIDA: u32 = 13;

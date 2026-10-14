@@ -335,9 +335,10 @@ pub const fn va_iova_de(j: usize, uav: bool) -> (u64, u64) {
     }
 }
 
-/// Lo que mide una ranura (las dos clases, 16 MiB).
+/// Lo que mide una ranura (las dos clases, 16 MiB: la del destino; la de
+/// las texturas mide 32 desde el 14-10 y un SRV usa sus primeros 16).
 pub const RANURA_BYTES: u64 = crate::destino::MAX_BYTES;
-const _: () = assert!(crate::destino::MAX_BYTES == crate::texturas::RANURA);
+const _: () = assert!(crate::destino::MAX_BYTES <= crate::texturas::RANURA);
 
 /// **Preparar un despacho** con la entrada `e` del GPFIFO de GR: los
 /// semaforos a cero, el PEGADO en su region (lo que sobra de su ultima pagina

@@ -44,6 +44,34 @@ pub(super) fn es_entero(c: &Compilador, o: &Operandos) -> Result<bool, NoProgram
     Ok(matches!(c.valores.get(a), Some(Valor::Bits(_) | Valor::Entero(_) | Valor::Bool(_))))
 }
 
+/// Si el codigo del BINOP de `o` existe SOLO para enteros en LLVM (udiv 3,
+/// urem 5, shl 7, lshr 8, ashr 9, and 10, or 11, xor 12). Los de float son
+/// los de add 0, sub 1, mul 2, sdiv 4 (fdiv) y srem 6 (frem).
+pub(super) fn solo_de_enteros(o: &Operandos) -> Result<bool, NoPrograma> {
+    let mut p = o.copia();
+    p.con_tipo()?;
+    p.solo()?;
+    Ok(matches!(p.crudo()?, 3 | 5 | 7..=12))
+}
+
+/// **`frem` de floats** (14-10, el `%` de HLSL: Cyberpunk lo tiene en un
+/// CS): `a - b * trunc(a / b)`, cada paso redondeado. Es la definicion de
+/// `OpFRem` en la especificacion de Vulkan ("Precision and Operation of
+/// SPIR-V Instructions": inherited from x - y * trunc(x/y)), y dxil-spirv
+/// (el de vkd3d-proton) traduce el `frem` de DXIL a `OpFRem` tal cual. Con
+/// las piezas de siempre: la 3060 ya sabe cada una.
+pub(super) fn resto_float(c: &mut Compilador, a: super::programa::Reg, b: super::programa::Reg) -> Result<super::programa::Reg, NoPrograma> {
+    let q = c.registro(0.0)?;
+    c.ops.push(Op::Div { d: q, a, b });
+    let t = c.registro(0.0)?;
+    c.ops.push(Op::Mate { d: t, a: q, f: crate::mates::Mate::Trunca });
+    let m = c.registro(0.0)?;
+    c.ops.push(Op::Mul { d: m, a: b, b: t });
+    let d = c.registro(0.0)?;
+    c.ops.push(Op::Sub { d, a, b: m });
+    Ok(d)
+}
+
 /// Un BINOP de enteros (`[a, b, opcode, banderas?]`).
 pub(super) fn binop_entero(c: &mut Compilador, o: &mut Operandos) -> Result<(), NoPrograma> {
     let a = o.con_tipo()?;

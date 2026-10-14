@@ -404,7 +404,7 @@ unsafe fn pso_de(d: *const u8) -> Result<(Pso, bool), &'static str> {
     })?;
     if nuevo {
         if let Err(m) = &compilado.enlace {
-            aviso(m);
+            aviso(&crate::rechazados::guardar_y_decir(&[("vs", bytes_vs), ("gs", bytes_gs.unwrap_or(&[])), ("ps", bytes_ps.unwrap_or(&[]))], m));
         }
     }
     Ok((Pso {
