@@ -92,6 +92,34 @@ struct Estado {
     /// 12-10: los PORQUE de los NO del kernel (`INFO_GPU_PORQUE`), cada uno
     /// una vez y con cuantas veces: el censo los dice.
     porques: Vec<(String, u64)>,
+    /// ** 14-10: los lotes que PARO LA PUERTA (`preparar` dijo que no), por
+    /// motivo y con cuantas veces. El metal del 14-10 07:14: el censo decia
+    /// "32 irian" y la 3060 dibujo 15; los 17 de la diferencia los paraba la
+    /// puerta al final (la ranura de la textura, un muestreador sin atar) y
+    /// solo se veia el PRIMERO de cada motivo. El motivo va sin sus
+    /// direcciones (`sin_direcciones`), para que se junten.
+    parados: Vec<(String, u64)>,
+}
+
+/// El motivo sin sus `0x...`: la misma puerta con otra VA es el mismo porque.
+fn sin_direcciones(m: &str) -> String {
+    let mut s = String::with_capacity(m.len());
+    let b = m.as_bytes();
+    let mut i = 0;
+    while i < b.len() {
+        if b[i] == b'0' && b.get(i + 1) == Some(&b'x') {
+            s.push_str("0x..");
+            i += 2;
+            while i < b.len() && b[i].is_ascii_hexdigit() {
+                i += 1;
+            }
+        } else {
+            let c = m[i..].chars().next().unwrap_or('?');
+            s.push(c);
+            i += c.len_utf8();
+        }
+    }
+    s
 }
 
 /// **El recuerdo de los `.bsf` en ESTRATOS** (A9, 06-10): cada PSO, un
@@ -231,6 +259,7 @@ static ESTADO: Celda = Celda(core::cell::UnsafeCell::new(Estado {
     censo_dicho: (0, 0),
     numerados: Vec::new(),
     porques: Vec::new(),
+    parados: Vec::new(),
 }));
 
 /// Cada cuanto se dice el censo (LI0), en la consola y en el DIARIO; en el
@@ -357,6 +386,15 @@ fn decir_censo(e: &mut Estado, ahora: u64) {
         NO_DEL_KERNEL.load(core::sync::atomic::Ordering::Relaxed),
         if e.apagada { "; la 3060 se dejo (los lotes, por la CPU)" } else { "" }
     ));
+    let parados: u64 = e.parados.iter().map(|x| x.1).sum();
+    if parados > 0 {
+        s.push_str(&alloc::format!("#   la puerta paro {parados} lote(s) al prepararlos (con los del censo):\n"));
+        let mut orden: Vec<&(String, u64)> = e.parados.iter().collect();
+        orden.sort_by(|a, b| b.1.cmp(&a.1));
+        for (motivo, veces) in orden.iter().take(10) {
+            s.push_str(&alloc::format!("#     {veces:>5} x {motivo}\n"));
+        }
+    }
     for (porque, veces) in &e.porques {
         s.push_str(&alloc::format!("#   el kernel dijo NO {veces} vez/veces porque: {porque}\n"));
     }
@@ -637,6 +675,11 @@ pub fn dibujar(l: &Lote, d: &mut Destino) -> Result<Cuenta, NoDibuja> {
             }
             Err(motivo) => {
                 p.despues(l, false);
+                let clave = sin_direcciones(&motivo);
+                match e.parados.iter_mut().find(|x| x.0 == clave) {
+                    Some(x) => x.1 += 1,
+                    None => e.parados.push((clave, 1)),
+                }
                 decir(e, motivo);
             }
         }

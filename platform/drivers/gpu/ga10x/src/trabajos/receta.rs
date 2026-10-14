@@ -1028,12 +1028,12 @@ mod pruebas {
         mala.cargas_ps[2] = Carga::Asa { textura: 1, reg: 6 };
         assert!(escribir(&mut caja, &mala).is_none());
         let mut mala = r;
-        // 12-10: la ranura mide 16 MiB: 2 MiB caben; lo que pasa, no.
+        // 14-10: la ranura mide 32 MiB: 2 MiB caben; lo que pasa, no.
         let mut cabe = r;
         cabe.texturas[0].alto = 2048;
-        assert!(escribir(&mut caja, &cabe).is_some(), "2 MiB caben en la ranura de 16 MiB");
-        // 16384 filas de 1056 B (alto y fila validos): 16,5 MiB.
-        (mala.texturas[0].alto, mala.texturas[0].fila) = (16384, 1056);
+        assert!(escribir(&mut caja, &cabe).is_some(), "2 MiB caben en la ranura de 32 MiB");
+        // 16384 filas de 2112 B (alto y fila validos): 33 MiB.
+        (mala.texturas[0].alto, mala.texturas[0].fila) = (16384, 2112);
         assert!(escribir(&mut caja, &mala).is_none(), "lo que pasa de la ranura, no");
         let ps_malo = bytes(&[tex(0, 4, 7, crate::tuberia::carga(0)), c::exit(ALU_1 | 1 << 11)]);
         let mala = Receta { ps: &ps_malo, ..r };

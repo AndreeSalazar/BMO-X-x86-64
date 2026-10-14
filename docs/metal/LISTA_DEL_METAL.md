@@ -29,7 +29,16 @@ automatico se lo comio: esas lentes hay que correrlas otra vez.
    computos por la CPU y la imagen.
 5. Si el canal muere: `gpu aviso`, despues `gpu revivir`, y el parte entero.
 
-## Que mirar en la corrida siguiente (14-10)
+## Que mirar en la corrida siguiente (14-10, tarde)
+
+- La textura HDR: la ranura de textura mide 32 MiB (era 16). "no cabe en
+  su ranura" ya no tiene que salir para la de 1280x720 con 5 mips.
+- El censo dice ahora `la puerta paro N lote(s) al prepararlos`, con cada
+  motivo y sus veces: los que antes faltaban entre "irian" y "de verdad".
+  Lo que salga mas arriba es lo siguiente que hay que abrir.
+- `iommu` en el escritorio: `tablas N de 256` (eran 128).
+
+## Que mirar en la corrida anterior (14-10, F1)
 
 - F1, las texturas de float: en el censo, la puerta "una textura de float"
   ya no tiene que salir (si sale "con un muestreador de BORDE", es la que
