@@ -33,22 +33,26 @@ derivadas, que nunca se corrio, y la carpeta `rechazados/`).
 ## 0a. LA LAMINA ABSOLUTA: que quiere decir
 
 Hoy "lamina" es UNA cosa (los vertices de VERRANO, `BVER`) y cada bloque de
-RAM que se presta entre dos lados tiene su forma y su trato, escritos a mano:
+RAM que se presta entre dos lados tiene su forma y su trato, escritos a mano.
+Contados el 14-10 (A1), son OCHO -- el borrador de esta seccion decia seis y
+se habia dejado el canal y el bloque de computo --:
 
 ```text
-   bloque      donde                                   quien escribe -> quien lee
-   BSUP        bmo-abi .../surface/superficie.rs       la app -> el DIRECTOR
-               (la ventana y su buzon de entrada)      (y el buzon al reves)
-   BVER        platform/shared/verrano/src/lamina.rs   la app -> VERRANO
-               (dos ranuras, secuencia y SELLO)
-   la antena   platform/shared/bmo-antena/src/lamina.rs  la antena -> NAVEGAR
-               (una pagina maquetada, texto)
-   BGPU        platform/shared/bmo-pase-gpu/src/buzon.rs  el escritorio <-> kernel
-   BRED        platform/shared/bmo-puerta-red/src/buzon.rs  el proceso <-> kernel
-   CAB2        platform/services/cabina-core           el kernel -> CABINA
+   clase  donde                                          escribe -> lee        juez
+   BSUP   bmo-abi .../surface/superficie.rs              app <-> DIRECTOR      Ring 3
+   BVER   platform/shared/verrano/src/lamina.rs          app -> VERRANO        Ring 3
+   LAMI   platform/shared/bmo-antena/src/lamina.rs       DIRECTOR -> NAVEGAR   Ring 3
+   BGPU   platform/shared/bmo-pase-gpu/src/buzon.rs      escritorio <-> kernel Ring 0
+   BRED   platform/shared/bmo-puerta-red/src/buzon.rs    proceso <-> kernel    Ring 0
+   BMOC   platform/shared/bmo-channel/src/lib.rs         Ring 3 <-> Ring 0     Ring 0
+   VE5C   platform/drivers/gpu/ga10x/.../completa.rs     app -> kernel, 3060   Ring 0
+   CAB2   platform/services/cabina-core                  kernel -> CABINA      (sin uso hoy)
 ```
 
-Seis tratos para la misma idea. La LAMINA ABSOLUTA es que sean UNO: la
+La tabla vive en el codigo (`bmo_lamina::censo::CENSO`), con la herramienta
+de LA_RAM de cada una, su trato y su juez; esta es su copia para leer.
+
+Ocho tratos para la misma idea. La LAMINA ABSOLUTA es que sean UNO: la
 manera de que un programa tenga RAM, la PRESTE y la LLAME. Las reglas:
 
 ```text
@@ -71,6 +75,53 @@ manera de que un programa tenga RAM, la PRESTE y la LLAME. Las reglas:
                                   tabla dice
 ```
 
+## 0a2. EL MAPA DE GUERRA: por que la lamina se administra SOLA
+
+> El propietario, 14-10: *"la RAM se convierte ZONA DE MAPA DE GUERRA /
+> QUIROFANO EXTREMO porque alli es donde se administra todo [...] LAMINA es
+> inteligente por si sola y el kernel ya sabe que hacer y el CPU ya
+> administraria bien TODO en TIEMPO REAL"*.
+
+Leidos los documentos, la idea ya estaba en tres sitios y le faltaba juntarse:
+
+```text
+   LA_RAM.md (09-08)     el QUIROFANO: la RAM guarda lo de la operacion en
+                         curso, no la app. Siete reglas (malloc no miente, lo
+                         entregado es entero, copiar se cuenta, el destino es
+                         una capability) y la Parte IX: SEIS herramientas, y de
+                         cada transporte hay que poder decir cual es y por que
+   MONTON.md (20-08)     pedir es TENERLO EN LA MANO; el estado vive dentro
+                         del bloque, no en una global escondida
+   1e de esta pagina     la LAMINA QUIROFANO: un dato, un sitio; una palabra
+                         para saber si hay algo nuevo; nunca medio dato
+```
+
+Lo que la hace "inteligente por si sola" es que un bloque dice QUE ES en su
+palabra 0, y que esa palabra esta en un MAPA: el censo. El que toma el bloque
+no adivina, busca:
+
+```text
+   palabra 0  ->  censo::por_magia  ->  la clase: quien escribe, quien lee,
+                                        que herramienta de LA_RAM, que trato,
+                                        y si la lee Ring 0 (copiar una vez y
+                                        juzgar la copia) o Ring 3
+```
+
+El DIRECTOR ya lo hacia a mano con dos clases (`scene/surface.rs`: `BVER` a
+VERRANO, lo demas como superficie). Con el censo lo puede hacer el kernel con
+las ocho, y lo que hoy decide cada puerta por su cuenta pasa a estar ESCRITO.
+Eso es el mapa de guerra: cada bloque de la RAM compartida en el mapa, con
+su bando (quien escribe), su frente (quien lee) y sus reglas de combate (el
+trato). Un bloque que no esta en el mapa no existe para nadie: el guardian
+`laminas` para el build.
+
+Y el TIEMPO REAL sale del trato, no de la buena voluntad: el lector mira UNA
+palabra (la secuencia) para saber si hay algo nuevo, no se bloquea nunca, y
+lo que da por bueno es un dato entero y el ULTIMO publicado. El 14-10 la
+prueba castigada del trato encontro que eso ultimo no estaba garantizado
+(una de cada ~60 corridas, un fotograma iba hacia atras): el arreglo es una
+palabra mas al final de cada lectura (`trato::vigente`), y ya esta en BVER.
+
 ## 0b. LA ESCALERA, de lo mas facil a lo mas dificil
 
 Cada escalon entra con su prueba en el anfitrion; lo que pide el metal lo
@@ -78,15 +129,30 @@ dice, y el metal se junta en UNA corrida por escalon.
 
 **Escalon 1 -- solo el anfitrion (facil)**
 
-- [ ] **A1 -- el CENSO de laminas con juez.** La tabla de 0a, en el codigo:
-      un guardian que falla si aparece un bloque prestado nuevo (una magia
-      ofrecida por `MEM_OP_OFRECER`) que no este en ella. **Como se sabe:**
-      se agrega una magia de mentira y el build cae.
-- [ ] **A2 -- el TRATO uno** (`bmo-lamina`, puro, `no_std`): la cabecera
+- [x] **A1 -- el CENSO de laminas con juez.** La tabla de 0a, en el codigo:
+      un guardian que falla si aparece un bloque prestado nuevo que no este
+      en ella. **Como se sabe:** se agrega una magia de mentira y el build
+      cae. **HECHO el 14-10:** `bmo_lamina::censo` (las ocho clases, con su
+      herramienta, trato y juez; `por_magia` y `conoce`) y el guardian
+      `toolchain/tools/laminas/laminas.py`: las 37 constantes de magia del
+      arbol son una clase del censo o un formato que no se presta, con su
+      motivo; y ninguna fila del censo esta muerta. Saboteado con
+      `MAGIA_FALSA`: cae con su fichero y su linea. La de la antena, que es
+      texto, recibio su magia (`bmo_antena::lamina::MAGIA`, `LAMI`).
+- [x] **A2 -- el TRATO uno** (`bmo-lamina`, puro, `no_std`): la cabecera
       comun y el sello por ranura, sacados de `verrano/src/lamina.rs`.
       `BVER` pasa a usarlo SIN MOVER UN BYTE. **Como se sabe:** la prueba
       de dos hilos de la lamina, igual; y la lamina que publica
-      `cubogira.bex` es la misma byte a byte.
+      `cubogira.bex` es la misma byte a byte. **HECHO el 14-10:**
+      `bmo_lamina::trato` (crear, abrir, las dos ranuras, empezar, acabar,
+      mirar, intacto y `vigente`); BVER lo usa y sus campos son los de antes
+      (un `assert` en tiempo de compilacion). La castigada del trato cazo
+      que un lector podia dar por publicado un fotograma POSTERIOR y leer
+      despues uno anterior; `uno_posterior_en_la_misma_ranura_es_rota` lo
+      reproduce en VERRANO y `vigente` lo arregla (0 de 100 corridas
+      castigadas). Las pruebas de TITAN++ que leen lo que escribe su
+      emisor (`lamina`, `dos_cubos`, `mundo`, `navegar`), igual. **Falta el
+      metal:** `gpu verrano banco inti` con `cubogira.bex`, `IGUAL al juez`.
 - [ ] **A3 -- las demas clases al trato**, una por commit, de la mas suelta a
       la mas atada: la antena, BSUP, CAB2; y las de kernel (BGPU, BRED) al
       final, porque las lee Ring 0 (sus tres reglas de "copiar una vez y
@@ -143,8 +209,13 @@ dice, y el metal se junta en UNA corrida por escalon.
 
 **Escalon 4 -- lo mas duro**
 
-- [ ] **D1 -- V3 + V4 de VERRANO**: las constantes en un buffer y el emisor
-      SPIR-V a SM86 (los programas dejan de escribirse a mano).
+- [ ] **D1 -- V3 + V4 de VERRANO**: las constantes en un buffer, y que
+      `cubo.bsf` deje el SASS escrito a mano: lo emite el emisor de la casa,
+      cuya entrada es el Programa de BMO-X. **No SPIR-V al estilo de Linux**
+      (el propietario, 11-10 y 14-10): VERRANO OCUPA el sitio de Vulkan y de
+      D3D12, no va debajo. Lo de la casa habla VERRANO directo; Vulkan y
+      DX12 son EXTRANJEROS que se traducen a VERRANO (V5, PROTON-X), y
+      SPIR-V o DXIL solo son lo que trae un juego ajeno.
 - [ ] **D2 -- Cyberpunk, retomado** con todo lo de arriba debajo.
 
 ---
