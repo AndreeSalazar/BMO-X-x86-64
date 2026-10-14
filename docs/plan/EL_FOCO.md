@@ -233,12 +233,28 @@ dice, y el metal se junta en UNA corrida por escalon.
         hablen); hasta entonces una lamina es del programa que la pidio, y
         tampoco se devuelve de una fn. **Falta el metal:** un `.bex` del
         nivel 15 corriendo en el Ryzen.
-- [ ] **A5 -- LB3a: la LENTE lee x86** (`PLAN_LA_LENTE_BINARIA.md`, LB3): un
+- [x] **A5 -- LB3a: la LENTE lee x86** (`PLAN_LA_LENTE_BINARIA.md`, LB3): un
       decodificador del SUBCONJUNTO que emiten INTI y TITAN++ (prefijos,
       opcode, ModRM, SIB, desplazamiento), crate puro. Lo que no esta en la
       tabla se dice "fuera de la tabla" con sus bytes, nunca se adivina.
       **Como se sabe:** ida y vuelta -- cada codificacion que escribe el
       emisor, la lente la lee igual --, sobre TODOS los ejemplos de los dos.
+      **HECHO el 14-10:** `platform/shared/bmo-lente-x86` (`no_std`, sin
+      dependencias, compila para el objetivo del kernel): prefijos `66 F2 F3
+      F0`, REX, VEX de dos y tres bytes, los mapas `0F`, `0F 38` y `0F 3A`,
+      ModRM, SIB, `rip`+disp e inmediatos; la tabla (`tabla.rs`, del SDM y
+      del APM, recortada a lo que se emite); el texto en Intel; y lo que
+      puede venir despues de cada una (`Sigue`). **El oraculo fue mas alla
+      de INTI y TITAN++:** el `metro` del emisor corre sus 63 programas --
+      C, C++, COBOL, Ada, INTI y TITAN++ -- con una sonda que apunta cada
+      paso, y la lente lee cada instruccion que corrio y su siguiente tiene
+      que ser uno de sus sucesores (eso juzga el LARGO, y el DESPLAZAMIENTO de
+      cada salto). Las 35.208 instrucciones distintas que corrieron, leidas;
+      saboteada (sin la fila de `mov r, r/m`: 579 quejas; un inmediato de 3
+      bytes: 472), cae, y el `metro` es guardian del build. Y la ida y
+      vuelta con cada codificador de `bmo_lower::x86`, con los 16 registros.
+      **Lo que NO cubre, dicho:** el codigo que no corre en el banco (lo
+      leera B1 siguiendo los saltos desde la entrada).
 - [ ] **A6 -- LB6: el `.bex` dice que instrucciones usa.** El emisor de INTI
       y el de TITAN++ apuntan la extension de cada instruccion (SSE2, AVX2,
       FMA, BMI1, POPCNT...), el enlazador hace la union, y la puerta

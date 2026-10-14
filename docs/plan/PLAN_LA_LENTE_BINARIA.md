@@ -83,6 +83,13 @@ direccion mala, y de que programa y que funcion era.
 - banco: cada codificacion del subconjunto, ida (el emisor) y vuelta (la
   lente) dan lo mismo
 
+**La mitad de LEER, HECHA el 14-10** (A5 de `EL_FOCO.md`):
+`platform/shared/bmo-lente-x86` lee prefijos, REX, VEX, opcode, ModRM, SIB,
+desplazamiento e inmediato, y dice que viene despues; lo que no esta en su
+tabla, fuera de la tabla. La juzga el `metro` con los 63 programas del banco
+corriendo (las 35.208 instrucciones distintas que corrieron). **Queda la
+otra mitad:** la autopsia de Ring 3 que la usa en RIP (B2 del foco).
+
 ### [ ] LB4 -- los contadores del Zen 3, explicados
 
 El informe dice hoy `sin MPERF/APERF`. El Zen 3 tiene contadores de

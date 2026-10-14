@@ -7,8 +7,8 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   810 casillas ABIERTAS en 75 planes
-   625 hechas
+   809 casillas ABIERTAS en 75 planes
+   626 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -99,15 +99,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] A5 -- cada prestamo a la 3060 dice quien lo devuelve
 - ... y 22 mas
 
-## [`EL_FOCO.md`](EL_FOCO.md) -- 19 abiertas, 13 hechas
-
-*EL FOCO -- una cosa a la vez, hasta el final (10-10; el orden nuevo, 14-10)*
-
-- [ ] A4 -- TITAN++ pide RAM SOLO con laminas. director.lamina deja de
-- [ ] A5 -- LB3a: la LENTE lee x86 (PLAN_LA_LENTE_BINARIA.md, LB3): un
-- [ ] A6 -- LB6: el .bex dice que instrucciones usa. El emisor de INTI
-- ... y 16 mas
-
 ## [`PLAN_FASE.md`](PLAN_FASE.md) -- 19 abiertas, 3 hechas
 
 *PLAN FASE -- el escritorio que se TRANSFORMA*
@@ -116,6 +107,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] F5 -- EL PANEL IZQUIERDO TAMBIEN SE ARMA. Sus secciones como placas
 - [ ] F6 -- LO DATA-DENSE. Graficos circulares (la carga por nucleo, los
 - ... y 16 mas
+
+## [`EL_FOCO.md`](EL_FOCO.md) -- 18 abiertas, 14 hechas
+
+*EL FOCO -- una cosa a la vez, hasta el final (10-10; el orden nuevo, 14-10)*
+
+- [ ] A4 -- TITAN++ pide RAM SOLO con laminas. director.lamina deja de
+- [ ] A6 -- LB6: el .bex dice que instrucciones usa. El emisor de INTI
+- [ ] B1 -- LB7 + LB8: verificar una vez y apartarse. Al admitir un
+- ... y 15 mas
 
 ## [`PLAN_LA_3060.md`](PLAN_LA_3060.md) -- 18 abiertas, 2 hechas
 
