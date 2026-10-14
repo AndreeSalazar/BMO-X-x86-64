@@ -1,4 +1,4 @@
-# EL FOCO -- una cosa a la vez, hasta el final (10-10)
+# EL FOCO -- una cosa a la vez, hasta el final (10-10; el orden nuevo, 14-10)
 
 > Peticion del propietario, **2026-10-10**: *"enfoca en algo, terminar eso y
 > luego seguimos [...] me gustaria que enfoques mas en TITAN++ y VERRANO con
@@ -8,6 +8,144 @@
 > [`ABIERTO.md`](ABIERTO.md) dice QUE falta; [`EL_ORDEN.md`](EL_ORDEN.md), con
 > que CRITERIO. Esta pagina dice QUE SE HACE AHORA: UNA cosa, con su linea de
 > llegada, y la cola detras. Lo que no esta aqui espera.
+
+---
+
+# 0. EL FOCO DEL 14-10: LA LAMINA, INTI, VERRANO Y LA LENTE -- de lo FACIL a lo DIFICIL
+
+> El propietario, **2026-10-14**, despues de que Cyberpunk 2077 arrancara:
+> *"es hora de esto, a completar en orden de MAS facil y mas dificil [...]
+> RAM = convertir como LAMINA ABSOLUTA, LAMINA ese mismo para administrar y
+> llamar, no quiero tener que lidiar como hizo C con C++ [...] y INTI y
+> VERRANO [...] convertir mi Kernel que LEA PRECISO binarios 0 y 1"*.
+
+**Cyberpunk se APARCA, no se abandona.** Arranco y pinta su intro: eso ya es
+la prueba (README, `METAL_2026-10-13.md`). Lo que le falta es una cola de
+piezas sueltas contra DXIL real (el back buffer, ~13 computos, instancias,
+mas de 64 registros); queda entera y en orden en
+[`LISTA_DEL_METAL.md`](../metal/LISTA_DEL_METAL.md), con lo medido el 14-10.
+Se retoma el dia que se decida, con UNA corrida del metal antes (la lente de
+derivadas, que nunca se corrio, y la carpeta `rechazados/`).
+
+**Esperan, sin tocarse:** [`PLAN_LA_EDICION_AMD.md`](PLAN_LA_EDICION_AMD.md)
+(pide una GPU de AMD en la mesa) y [`PLAN_EL_VIDEO.md`](PLAN_EL_VIDEO.md).
+
+## 0a. LA LAMINA ABSOLUTA: que quiere decir
+
+Hoy "lamina" es UNA cosa (los vertices de VERRANO, `BVER`) y cada bloque de
+RAM que se presta entre dos lados tiene su forma y su trato, escritos a mano:
+
+```text
+   bloque      donde                                   quien escribe -> quien lee
+   BSUP        bmo-abi .../surface/superficie.rs       la app -> el DIRECTOR
+               (la ventana y su buzon de entrada)      (y el buzon al reves)
+   BVER        platform/shared/verrano/src/lamina.rs   la app -> VERRANO
+               (dos ranuras, secuencia y SELLO)
+   la antena   platform/shared/bmo-antena/src/lamina.rs  la antena -> NAVEGAR
+               (una pagina maquetada, texto)
+   BGPU        platform/shared/bmo-pase-gpu/src/buzon.rs  el escritorio <-> kernel
+   BRED        platform/shared/bmo-puerta-red/src/buzon.rs  el proceso <-> kernel
+   CAB2        platform/services/cabina-core           el kernel -> CABINA
+```
+
+Seis tratos para la misma idea. La LAMINA ABSOLUTA es que sean UNO: la
+manera de que un programa tenga RAM, la PRESTE y la LLAME. Las reglas:
+
+```text
+   1  PEDIR ES TENER EN LA MANO   no hay malloc ni free sueltos: una lamina se
+                                  pide con su medida y su CLASE, y para usarla
+                                  hay que tenerla (la idea de MONTON.md, un
+                                  piso mas arriba)
+   2  DE QUIEN ES, SIEMPRE        cada lamina tiene UN propietario; el kernel la
+                                  recoge cuando muere (como hoy `reap_dead`).
+                                  Sin new/delete, sin destructores, sin quien
+                                  libera dos veces: lo que no se le puede
+                                  hacer a la RAM, no se escribe
+   3  UN TRATO, UNA VEZ           la cabecera (magia, version, clase, medida,
+                                  secuencia) y el SELLO por ranura del BVER --
+                                  el que ya cazo el medio fotograma -- viven en
+                                  UN crate; cada bloque de la tabla es una
+                                  CLASE de ese trato, no un fichero aparte
+   4  UN DATO, UN SITIO           las seis reglas de la LAMINA QUIROFANO (1e):
+                                  se lee donde esta, se copia solo lo que la
+                                  tabla dice
+```
+
+## 0b. LA ESCALERA, de lo mas facil a lo mas dificil
+
+Cada escalon entra con su prueba en el anfitrion; lo que pide el metal lo
+dice, y el metal se junta en UNA corrida por escalon.
+
+**Escalon 1 -- solo el anfitrion (facil)**
+
+- [ ] **A1 -- el CENSO de laminas con juez.** La tabla de 0a, en el codigo:
+      un guardian que falla si aparece un bloque prestado nuevo (una magia
+      ofrecida por `MEM_OP_OFRECER`) que no este en ella. **Como se sabe:**
+      se agrega una magia de mentira y el build cae.
+- [ ] **A2 -- el TRATO uno** (`bmo-lamina`, puro, `no_std`): la cabecera
+      comun y el sello por ranura, sacados de `verrano/src/lamina.rs`.
+      `BVER` pasa a usarlo SIN MOVER UN BYTE. **Como se sabe:** la prueba
+      de dos hilos de la lamina, igual; y la lamina que publica
+      `cubogira.bex` es la misma byte a byte.
+- [ ] **A3 -- las demas clases al trato**, una por commit, de la mas suelta a
+      la mas atada: la antena, BSUP, CAB2; y las de kernel (BGPU, BRED) al
+      final, porque las lee Ring 0 (sus tres reglas de "copiar una vez y
+      juzgar la copia" se quedan). **Como se sabe:** las pruebas de cada uno,
+      iguales, y los tres lectores de BSUP (C, Rust, TITAN++) de acuerdo.
+- [ ] **A4 -- TITAN++ pide RAM SOLO con laminas.** `director.lamina` deja de
+      ser "la de vertices": una lamina con medida y clase, la que el programa
+      tiene en la mano para administrar y llamar. **Como se sabe:** un
+      ejemplo de TITAN++ que pide dos laminas, publica en una y lee la otra;
+      y los NO del compilador (usarla sin tenerla, pasarse de su medida).
+- [ ] **A5 -- LB3a: la LENTE lee x86** (`PLAN_LA_LENTE_BINARIA.md`, LB3): un
+      decodificador del SUBCONJUNTO que emiten INTI y TITAN++ (prefijos,
+      opcode, ModRM, SIB, desplazamiento), crate puro. Lo que no esta en la
+      tabla se dice "fuera de la tabla" con sus bytes, nunca se adivina.
+      **Como se sabe:** ida y vuelta -- cada codificacion que escribe el
+      emisor, la lente la lee igual --, sobre TODOS los ejemplos de los dos.
+- [ ] **A6 -- LB6: el `.bex` dice que instrucciones usa.** El emisor de INTI
+      y el de TITAN++ apuntan la extension de cada instruccion (SSE2, AVX2,
+      FMA, BMI1, POPCNT...), el enlazador hace la union, y la puerta
+      (`bmo-bex-gate`, al lado de `xcr0`) la compara con el CPUID. **Como se
+      sabe:** un CPUID de mentira sin AVX2 y un `.bex` que lo usa: NO, con
+      su nombre.
+
+**Escalon 2 -- anfitrion y UNA corrida del metal (medio)**
+
+- [ ] **B1 -- LB7 + LB8: verificar una vez y apartarse.** Al admitir un
+      `.bex`, la lente (A5) decodifica su codigo desde la entrada y comprueba
+      que no miente la cabecera (A6); lo demostrado se apunta por su hash y
+      no se vuelve a leer. **Como se sabe:** en el anfitrion, un `.bex` con
+      una instruccion no declarada: NO; en el metal, el segundo `run` del
+      mismo `.bex` no paga la lente.
+- [ ] **B2 -- LB3b: la autopsia de Ring 3 dice la instruccion.** El capitulo
+      7 de `save`: los bytes en RIP decodificados y explicados, de que
+      programa y que funcion. **Como se sabe:** un programa que falla a
+      proposito, y el informe dice su instruccion y su registro malo.
+- [ ] **B3 -- Q0a1..Q0a4: el cubo de TITAN++ en SU ventana, por la 3060**
+      (seccion 5): VERRANO dibuja la lamina dentro de la ventana, y el
+      DIRECTOR no nombra la 3060 (1c). **Como se sabe:** lo de la seccion 5.
+- [ ] **B4 -- LB10 + LB12: el perfil del Ryzen, UNA fuente, comprobado al
+      arrancar.** Lo leen el emisor, la puerta y la lente; si la CPU no es la
+      del perfil, lo generico de x86-64 y se dice.
+
+**Escalon 3 -- Ring 0 y el metal (dificil)**
+
+- [ ] **C1 -- S1: la lamina PRESTADA a la 3060** (`PLAN_VERRANO.md`): la
+      IOMMU, solo lectura, con la palabra de VUELTA (la ranura en vuelo) en
+      el trato de A2.
+- [ ] **C2 -- S3 + S4: el ritmo por el sello y la app en su nucleo.** El
+      92 % de la pared de S0 era esperar: aqui se gana.
+- [ ] **C3 -- Q0b: la 3060 COMPONE las ventanas** (la regla 1b): fuera los
+      27,6 ms de la CPU copiando la pantalla.
+- [ ] **C4 -- LB4 + LB5: los contadores del Zen 3, y INTI exprime con
+      evidencia.** Primero MEDIR que cuenta cada contador en este Ryzen.
+
+**Escalon 4 -- lo mas duro**
+
+- [ ] **D1 -- V3 + V4 de VERRANO**: las constantes en un buffer y el emisor
+      SPIR-V a SM86 (los programas dejan de escribirse a mano).
+- [ ] **D2 -- Cyberpunk, retomado** con todo lo de arriba debajo.
 
 ---
 
