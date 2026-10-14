@@ -547,6 +547,12 @@ marcada.
       BLOQUES (`mipmap::filas`, `fila_natural`). La 3060 los descomprime con
       SU redondeo (la casa da +-1 en BC1/BC3, `prometeo::bc`). Quedan en la
       CPU: BC6 (HDR) y BC4/BC5 con signo (la casa los guarda corridos a 0..1).
+- [x] **E1 -- la PLUMA (14-10):** el `preparar` en frio sin releer cada
+      palabra por el PCIe (de cada tramo, la primera y la ultima: por el
+      orden del PCIe dicen que llego entero) y un programa que ya esta en la
+      VRAM no se vuelve a escribir (`ga10x::pluma`, `YA_VS`/`YA_PS` en el
+      kernel). Un lote de 64 KiB y dos programas largos: de ~25.000
+      lecturas a menos de 25 (banco). Falta el metal: `preparar` en us.
 - [ ] El envio rapido (muchos lotes por llamada, sin esperar cada uno).
 
 **Las fuentes publicas** (lo publico se trae; lo que no, se mide):

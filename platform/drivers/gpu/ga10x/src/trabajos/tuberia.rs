@@ -56,12 +56,11 @@
 //! ```
 
 use crate::canal::GR;
-use crate::copia::{entrada, escribir};
+use crate::copia::entrada;
 use crate::cubo::{self as cu, con_control, mov, Ventana, ALU, SEMAFORO_FIN};
 use crate::lienzo::sombreador_va;
 use crate::raster::{programa, ESCALONES, N_ESCALONES, SPH, SUSTITUTO};
 use crate::sombreador::{EMPUJE, SEMAFOROS};
-use crate::vram::a_cero;
 use crate::Registros;
 
 /// La tabla de buffers (`SM86_V1`): la ranura 0, la de los vertices.
@@ -116,7 +115,7 @@ pub const fn registros_para(usados: u32) -> u32 {
 }
 /// Lo mas que mide cada uno: su SPH y su codigo (`juez::MAX_INSTRUCCIONES`:
 /// 128 desde E5, 4096 desde LI2b). Lo que queda de su ultima pagina se pone
-/// a cero ([`escribir_programa`]).
+/// a cero ([`crate::pluma::Pluma::programa`]).
 pub const HUECO: usize = 4 * SPH + 16 * crate::sass::juez::MAX_INSTRUCCIONES;
 /// Lo mas que mide un paquete entero (cabecera, dos programas y vertices):
 /// la caja que el escritorio tiene que reservar.
@@ -836,43 +835,6 @@ fn cerrar_paquete(out: &mut [u8], ficha: u32, vs: &[u8], ps: &[u8], n: usize, pa
     (medida(&out[..total]) == Some(total)).then_some(total)
 }
 
-/// Escribe bytes (multiplo de 4) en la VRAM, de 64 palabras en 64.
-pub(crate) fn escribir_bytes<R: Registros>(r: &mut R, dir: u64, b: &[u8]) -> bool {
-    let mut w = [0u32; 64];
-    for (k, trozo) in b.chunks(256).enumerate() {
-        let n = trozo.len() / 4;
-        for (i, p) in trozo.chunks_exact(4).enumerate() {
-            w[i] = u32le(p, 0);
-        }
-        if escribir(r, dir + 256 * k as u64, &w[..n]) != n {
-            return false;
-        }
-    }
-    true
-}
-
-/// **Un programa en su sitio** (LI2b): sus bytes, RELEIDOS, y lo que queda
-/// de su ultima pagina a cero (lo que hubiera de un programa anterior mas
-/// largo no queda detras del EXIT). Sin tocar las paginas que no usa: un
-/// programa de 40 instrucciones no paga las 17.
-pub(crate) fn escribir_programa<R: Registros>(r: &mut R, dir: u64, b: &[u8]) -> bool {
-    if !escribir_bytes(r, dir, b) {
-        return false;
-    }
-    let fin = dir + b.len() as u64;
-    let resto = (fin.next_multiple_of(0x1000) - fin) as usize / 4;
-    let ceros = [0u32; 64];
-    let mut k = 0;
-    while k < resto {
-        let m = (resto - k).min(64);
-        if escribir(r, fin + 4 * k as u64, &ceros[..m]) != m {
-            return false;
-        }
-        k += m;
-    }
-    true
-}
-
 // == Las ordenes y el preparar ===============================================
 
 /// **Las ordenes**: las de X5 hasta el dibujo, y UN dibujo de `3n` vertices.
@@ -974,22 +936,28 @@ pub fn ordenes_dibujo(v: &Ventana, n: usize, ligero: bool, d: Dibujo) -> cu::Ord
     e
 }
 
-/// **Preparar** un paquete: los semaforos a cero, los DOS programas (tal
-/// como llegan: el kernel no traduce nada), la tabla, los vertices, las
-/// ordenes y la entrada.
+/// **Preparar** un paquete:
+/// los semaforos a cero, los DOS programas (tal como llegan: el kernel no
+/// traduce nada), la tabla, los vertices, las ordenes y la entrada. Sin
+/// saber que programas hay ya en la VRAM (los escribe).
 pub fn preparar<R: Registros>(r: &mut R, e: u32, v: &Ventana, p: &Paquete) -> bool {
     preparar_con(r, e, v, p, false)
 }
 
 /// `preparar`, con las ordenes `ligero` o con su escalera.
 pub fn preparar_con<R: Registros>(r: &mut R, e: u32, v: &Ventana, p: &Paquete, ligero: bool) -> bool {
-    preparar_paso(r, e, v, p, ligero).is_ok()
+    preparar_paso(r, e, v, p, ligero, &mut crate::pluma::Escritos::default()).is_ok()
 }
 
 /// **`preparar_con`, diciendo QUE PASO fallo** (12-10): `Err(k)` con `k` el
 /// indice de `porque::PASOS`. El kernel lo apunta como
 /// `Porque::Preparar` (el metal daba un 79 sin mas).
-pub fn preparar_paso<R: Registros>(r: &mut R, e: u32, v: &Ventana, p: &Paquete, ligero: bool) -> Result<(), u8> {
+///
+/// ** E1 (14-10): con la PLUMA (`pluma`): nada se relee palabra a palabra
+/// -- de cada tramo, la primera y la ultima, que por el orden del PCIe dicen
+/// que llego entero --, y un programa que ya esta en la VRAM (`ya`, lo que
+/// guarda el kernel) no se vuelve a escribir.
+pub fn preparar_paso<R: Registros>(r: &mut R, e: u32, v: &Ventana, p: &Paquete, ligero: bool, ya: &mut crate::pluma::Escritos) -> Result<(), u8> {
     let n = p.n;
     if !crate::blur::entrada_valida(e) || n == 0 || n % 3 != 0 || n > MAX_VERTICES {
         return Err(0);
@@ -1004,16 +972,17 @@ pub fn preparar_paso<R: Registros>(r: &mut R, e: u32, v: &Ventana, p: &Paquete, 
         paso += 1;
         if bien { Ok(()) } else { Err(paso) }
     };
-    hecho(escribir(r, SEMAFORO_FIN, &[0; 4]) == 4)?;
-    hecho(escribir(r, ESCALONES, &[0; N_ESCALONES as usize]) == N_ESCALONES as usize)?;
-    hecho(a_cero(r, SUSTITUTO) as usize == crate::vram::PALABRAS)?;
-    hecho(escribir_programa(r, VS, p.vs))?;
-    hecho(escribir_programa(r, PS, p.ps))?;
-    hecho(escribir(r, TABLA, &[va as u32, (va >> 32) as u32]) == 2)?;
-    hecho(escribir(r, crate::libreta::LIBRETA, &[0]) == 1)?;
-    hecho(escribir_bytes(r, DATOS, p.vertices))?;
-    hecho(escribir(r, EMPUJE, &o.o[..o.n]) == o.n)?;
-    hecho(escribir(r, GR.gpfifo + 8 * e as u64, &[en as u32, (en >> 32) as u32]) == 2)?;
+    let mut w = crate::pluma::Pluma::nueva(r);
+    hecho(w.tramo(SEMAFORO_FIN, &[0; 4]))?;
+    hecho(w.tramo(ESCALONES, &[0; N_ESCALONES as usize]))?;
+    hecho(w.pagina_a_cero(SUSTITUTO))?;
+    hecho(crate::pluma::programa_si_falta(&mut w, VS, p.vs, &mut ya.vs))?;
+    hecho(crate::pluma::programa_si_falta(&mut w, PS, p.ps, &mut ya.ps))?;
+    hecho(w.tramo(TABLA, &[va as u32, (va >> 32) as u32]))?;
+    hecho(w.tramo(crate::libreta::LIBRETA, &[0]))?;
+    hecho(w.tramo_bytes(DATOS, p.vertices))?;
+    hecho(w.tramo(EMPUJE, &o.o[..o.n]))?;
+    hecho(w.tramo(GR.gpfifo + 8 * e as u64, &[en as u32, (en >> 32) as u32]))?;
     Ok(())
 }
 
@@ -1097,23 +1066,16 @@ pub fn preparar_caliente<R: Registros>(r: &mut R, e: u32, v: &Ventana, p: &Paque
     }
     let o = ordenes_dibujo(v, n / 3, ligero, p.dibujo);
     let en = entrada(sombreador_va(EMPUJE), o.n as u32);
-    let vol = crate::volcado::escribir_sin_releer;
-    vol(r, SEMAFORO_FIN, &[0; 4]);
+    let mut w = crate::pluma::Pluma::nueva(r);
+    w.palabras(SEMAFORO_FIN, &[0; 4]);
     // 9d: la libreta, a 0 en CADA dibujo (lo de otro no se arrastra).
-    vol(r, crate::libreta::LIBRETA, &[0]);
+    w.palabras(crate::libreta::LIBRETA, &[0]);
     if !ligero {
-        vol(r, ESCALONES, &[0; N_ESCALONES as usize]);
+        w.palabras(ESCALONES, &[0; N_ESCALONES as usize]);
     }
-    let mut w = [0u32; 64];
-    for (k, trozo) in p.vertices.chunks(256).enumerate() {
-        let m = trozo.len() / 4;
-        for (i, q) in trozo.chunks_exact(4).enumerate() {
-            w[i] = u32le(q, 0);
-        }
-        vol(r, DATOS + 256 * k as u64, &w[..m]);
-    }
-    vol(r, EMPUJE, &o.o[..o.n]);
-    vol(r, GR.gpfifo + 8 * e as u64, &[en as u32, (en >> 32) as u32]);
+    w.bytes(DATOS, p.vertices);
+    w.palabras(EMPUJE, &o.o[..o.n]);
+    w.palabras(GR.gpfifo + 8 * e as u64, &[en as u32, (en >> 32) as u32]);
     true
 }
 

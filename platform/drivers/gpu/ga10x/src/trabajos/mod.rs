@@ -60,6 +60,9 @@ pub mod mipmap;
 /// L1/L2: la LENTE de las derivadas -- lo que la 3060 hace con los cuadros
 /// de 2x2, medido en el metal (2026-10-14).
 pub mod derivadas;
+/// E1: la PLUMA -- escribir en la VRAM sin releer cada palabra, y los
+/// programas que ya estan, sin volver a escribirlos (2026-10-14).
+pub mod pluma;
 /// P3b4c: la RECETA (VRN2) -- lo que manda una APP: los cuerpos y como se
 /// cargan; el pegamento lo pone el kernel (2026-09-28).
 pub mod receta;
