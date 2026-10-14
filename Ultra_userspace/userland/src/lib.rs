@@ -1534,6 +1534,7 @@ pub const CONSOLA_OP_LEER: u32 = 0x01;
 pub const CONSOLA_OP_PERDIDOS: u32 = 0x02;
 pub const CONSOLA_OP_ESCRIBIR: u32 = 0x03;
 pub const CONSOLA_OP_HAY_HIJO: u32 = 0x04;
+pub const CONSOLA_OP_ESCUCHA: u32 = 0x05;
 
 // Operaciones sobre un handle de pantalla (`KIND_FRAMEBUFFER`).
 pub const FB_OP_BASE: u32 = 0x01;

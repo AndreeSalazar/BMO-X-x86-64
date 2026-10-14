@@ -130,6 +130,12 @@ impl Consola {
         invoke(self.cap, CONSOLA_OP_HAY_HIJO, 0, 0, 0).value != 0
     }
 
+    /// ** 14-10: el hijo ESCUCHA -- leyo su entrada alguna vez --? Un juego
+    /// escribe y no lee: lo que se teclea a su lado es una orden del terminal.
+    pub fn escucha(&self) -> bool {
+        invoke(self.cap, CONSOLA_OP_ESCUCHA, 0, 0, 0).value != 0
+    }
+
     /// Bytes descartados por anillo lleno. Un terminal que va lento tiene
     /// derecho a saber que esta perdiendo salida en vez de creerse completo.
     pub fn dropped(&self) -> u64 {
