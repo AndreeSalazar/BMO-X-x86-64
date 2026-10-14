@@ -24,7 +24,6 @@
 //! quedara, el programa lo dice (`emit`).
 
 use super::{Base, Fun, Helper, Place, E1};
-use bmo_abi::syscalls::surface::{CURRENT_TASK, MEM_OP_BASE, NR_INVOKE, TASK_OP_MEMORIA_PEDIR};
 use bmo_lower::x86::{self, RAX, RCX, RDI, RDX, RSI, R10, R8, R9};
 use bmo_lower::{console, memoria, task};
 use bmo_titan_front::calc::Class;
@@ -412,18 +411,11 @@ impl E1<'_> {
         x86::mov_r64_r64(&mut self.code, RDX, RAX);
         self.here(big);
         x86::push_r64(&mut self.code, RDX);
-        self.imm(RDI, CURRENT_TASK as i64);
-        self.imm(RSI, TASK_OP_MEMORIA_PEDIR as i64);
-        self.imm(RAX, NR_INVOKE as i64);
-        x86::syscall(&mut self.code);
+        // Por la PUERTA DE LA RAM (A4, `ram.rs`): rdx los bytes, y vuelve
+        // la base en rdx (el asa en rcx no hace falta: se pisa abajo).
+        self.pide_lamina();
         x86::test_r64_r64(&mut self.code, RAX, RAX);
         let fail1 = self.jcc(0x85);
-        x86::mov_r64_r64(&mut self.code, RDI, RDX);
-        self.imm(RSI, MEM_OP_BASE as i64);
-        self.imm(RAX, NR_INVOKE as i64);
-        x86::syscall(&mut self.code);
-        x86::test_r64_r64(&mut self.code, RAX, RAX);
-        let fail2 = self.jcc(0x85);
         x86::test_r64_r64(&mut self.code, RDX, RDX);
         let fail3 = self.jcc(0x84);
         x86::pop_r64(&mut self.code, RCX); // los bytes del trozo
@@ -449,7 +441,7 @@ impl E1<'_> {
         x86::pop_r64(&mut self.code, RCX);
         let again = self.jmp();
         x86::patch_jump_to(&mut self.code, again, head);
-        for f in [fail1, fail2, fail3] {
+        for f in [fail1, fail3] {
             self.here(f);
         }
         console::write_const(&mut self.code, b"NO T0060 al correr: el monton (la memoria de las listas y los mapas) se acabo\n");

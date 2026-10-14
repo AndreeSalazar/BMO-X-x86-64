@@ -46,6 +46,7 @@ mod forma;
 mod gpu;
 mod monton;
 mod numero;
+mod ram;
 mod entrada;
 mod letra;
 mod valor;
@@ -118,6 +119,9 @@ pub(crate) enum Helper {
     /// un glifo de la letra de BMO-X (con la fuente detras).
     Rect,
     Glifo,
+    /// A4 (EL_FOCO, `ram.rs`): LA PUERTA DE LA RAM, el unico sitio que le
+    /// pide un bloque al kernel.
+    PideLamina,
 }
 
 /// Un NO al correr, por escribir: el salto que lleva a el, su linea, y lo

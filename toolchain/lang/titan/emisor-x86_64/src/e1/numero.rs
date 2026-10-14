@@ -227,6 +227,7 @@ impl E1<'_> {
             Helper::F32Round => self.h_f32_round(),
             Helper::Rect => self.h_rect(),
             Helper::Glifo => self.h_glifo(),
+            Helper::PideLamina => self.h_pide_lamina(),
         }
     }
 

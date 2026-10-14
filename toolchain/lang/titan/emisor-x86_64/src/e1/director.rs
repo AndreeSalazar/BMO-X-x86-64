@@ -37,7 +37,7 @@ use super::{Place, E1};
 use super::entrada::{HZ, PLAZO, RBX};
 use super::ventana::R12;
 use bmo_abi::syscalls::surface::SUP_TOMADA;
-use bmo_abi::syscalls::surface::{CURRENT_TASK, INFO_TSC_HZ, MEM_OP_BASE, MEM_OP_OFRECER, NR_INVOKE, NR_WAIT, TASK_OP_INFO, TASK_OP_MEMORIA_PEDIR, TASK_OP_MI_PADRE};
+use bmo_abi::syscalls::surface::{CURRENT_TASK, INFO_TSC_HZ, MEM_OP_OFRECER, NR_INVOKE, NR_WAIT, TASK_OP_INFO, TASK_OP_MI_PADRE};
 use bmo_lower::memoria;
 use bmo_lower::x86::{self, RAX, RCX, RDI, RDX, RSI, R10, R11, R8, R9};
 use bmo_titan_front::calc::Class;
@@ -202,15 +202,9 @@ impl E1<'_> {
         self.store(bytes, RAX);
         // El bloque, con su cola: su asa, y donde esta.
         self.lea(RDX, RAX, COLA);
-        self.imm(RDI, CURRENT_TASK as i64);
-        self.imm(RSI, TASK_OP_MEMORIA_PEDIR as i64);
-        self.invoke();
+        self.pide_lamina();
         self.si_no_vale(&mut no);
-        self.store(bloque, RDX);
-        x86::mov_r64_r64(&mut self.code, RDI, RDX);
-        self.imm(RSI, MEM_OP_BASE as i64);
-        self.invoke();
-        self.si_no_vale(&mut no);
+        self.store(bloque, RCX);
         self.store(base, RDX);
         // La cabecera ENTERA antes de ofrecer (si el escritorio la tomara
         // antes, leeria basura): sus 64 bytes a cero, y lo que no es cero.
