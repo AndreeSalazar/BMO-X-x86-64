@@ -18,6 +18,7 @@ dependencies = [
  "bmo-disposicion",
  "bmo-hash",
  "bmo-hostile",
+ "bmo-lamina",
 ]
 
 [[package]]

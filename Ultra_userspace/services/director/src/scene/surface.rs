@@ -864,6 +864,9 @@ pub(crate) enum Adopcion {
     NadieOfrece,
     /// Alguien ofrecio una LAMINA DE VERRANO (magia `BVER`): la tiene VERRANO.
     Lamina { tid: u32, bytes: u64 },
+    /// Alguien ofrecio una lamina del censo que NO es para el DIRECTOR (o una
+    /// de las suyas con la version mala): se le devuelve, con su nombre.
+    NoEsParaMi { tid: u32, clase: &'static str, version_mala: bool },
 }
 
 impl Table {
@@ -1088,16 +1091,35 @@ impl Table {
         // superficie, se mira si es una LAMINA DE VERRANO. Si lo es, va a
         // VERRANO y no se suelta por "no ser BSUP". La vieja, si la habia, se
         // devuelve: una a la vez.
-        if bytes >= 4 {
-            // SAFETY: `tomar_prestado_de` acaba de mapear `bytes` (>= 4) bytes
-            // desde `base` en este proceso; se lee UNA palabra alineada.
-            let magia = unsafe { (base as *const u32).read_volatile() };
-            if magia == bmo_verrano::lamina::MAGIA {
-                if let Some(vieja) = self.lamina.take() {
-                    bmo::soltar_prestado(vieja.handle);
+        //
+        // ** LA PUERTA UNICA (14-10, A3 de docs/plan/EL_FOCO.md): las dos
+        // primeras palabras se le preguntan al CENSO de las laminas, no a una
+        // magia escrita aqui. BVER va a VERRANO; BSUP y lo que no es ninguna
+        // clase siguen por el camino de la superficie (que juzga lo suyo); y
+        // una clase que NO es para el DIRECTOR -- un buzon del kernel, una
+        // peticion de computo -- se devuelve diciendo cual es.
+        if bytes >= 8 {
+            // SAFETY: `tomar_prestado_de` acaba de mapear `bytes` (>= 8) bytes
+            // desde `base` en este proceso; se leen DOS palabras alineadas.
+            let (p0, p1) = unsafe { ((base as *const u32).read_volatile(), (base as *const u32).add(1).read_volatile()) };
+            match bmo_lamina::censo::reconocer(p0, p1) {
+                Ok(c) if c.magia == bmo_verrano::lamina::MAGIA => {
+                    if let Some(vieja) = self.lamina.take() {
+                        bmo::soltar_prestado(vieja.handle);
+                    }
+                    self.lamina = Some(LaminaTomada { handle, base, bytes, tid });
+                    return Adopcion::Lamina { tid, bytes };
                 }
-                self.lamina = Some(LaminaTomada { handle, base, bytes, tid });
-                return Adopcion::Lamina { tid, bytes };
+                Ok(c) if c.magia == MAGIC => {}
+                Ok(c) => {
+                    bmo::soltar_prestado(handle);
+                    return Adopcion::NoEsParaMi { tid, clase: c.nombre, version_mala: false };
+                }
+                Err(bmo_lamina::censo::NoReconocida::Version(c)) => {
+                    bmo::soltar_prestado(handle);
+                    return Adopcion::NoEsParaMi { tid, clase: c.nombre, version_mala: true };
+                }
+                Err(bmo_lamina::censo::NoReconocida::NoEsLamina) => {}
             }
         }
         // ** UNA APP, UNA VENTANA (2026-09-12). Si este tid ya tiene caja, lo

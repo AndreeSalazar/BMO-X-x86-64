@@ -9,6 +9,9 @@ version = "1.0.0"
 [[package]]
 name = "bmo-antena"
 version = "0.1.0"
+dependencies = [
+ "bmo-lamina",
+]
 
 [[package]]
 name = "bmo-app-bankcat"
@@ -291,6 +294,7 @@ dependencies = [
  "bmo-imagen",
  "bmo-iommu-amdvi",
  "bmo-juicio",
+ "bmo-lamina",
  "bmo-pase-gpu",
  "bmo-pila",
  "bmo-registro",

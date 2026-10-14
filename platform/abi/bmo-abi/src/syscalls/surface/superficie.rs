@@ -64,6 +64,10 @@
 /// `"BSUP"` en little-endian, en el primer `u32` del bloque. Sin el, el bloque
 /// no es una superficie y el DIRECTOR lo devuelve sin componer.
 pub const SUP_MAGIC: u64 = 0x5055_5342;
+// Atada a su fila del censo (A3, 14-10): la palabra 1 es el ancho, no una
+// version. Si una de las dos cambia, no compila.
+const _: () = assert!(SUP_MAGIC <= u32::MAX as u64);
+const _: () = assert!(bmo_lamina::censo::misma_version(bmo_lamina::censo::clase(SUP_MAGIC as u32).version, bmo_lamina::censo::Version::Ninguna));
 /// Lo que ocupa la cabecera antes del primer pixel.
 pub const SUP_CABECERA: u64 = 32;
 /// El formato de siempre: BGRA de 32 bits, el del framebuffer. Se compone COPIANDO.

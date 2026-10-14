@@ -14,6 +14,9 @@ bitflags = "2.13.0"
 bmo-hash = { path = "../../shared/bmo-hash" }
 # El lector de la tabla de requisitos, sin `alloc`, compartido con Ring 0.
 bmo-carga-juicio = { path = "../../shared/bmo-carga-juicio" }
+# El censo de las laminas (14-10, A3): la superficie BSUP es una de sus
+# clases, y si su fila cambia esta crate no compila. Puro, sin dependencias.
+bmo-lamina = { path = "../../shared/bmo-lamina" }
 
 [dev-dependencies]
 # Only for the hostile tests: nothing that runs on the machine links it.
