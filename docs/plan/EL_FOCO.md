@@ -183,6 +183,35 @@ dice, y el metal se junta en UNA corrida por escalon.
       tiene en la mano para administrar y llamar. **Como se sabe:** un
       ejemplo de TITAN++ que pide dos laminas, publica en una y lee la otra;
       y los NO del compilador (usarla sin tenerla, pasarse de su medida).
+      Partida en dos el 14-10 (el propietario: *"es TITAN++ tomando llamadas
+      a la RAM"*):
+  - [x] **A4a -- LA PUERTA DE LA RAM, en el emisor.** Cinco sitios de E1
+        pedian su bloque al kernel cada uno a su manera (el monton, la
+        ventana, la lamina de VERRANO, lo tenido y el fichero). Ahora los
+        cinco llaman a UNA subrutina, `Helper::PideLamina`
+        (`emisor-x86_64/src/e1/ram.rs`), emitida una vez por programa.
+        **Como se sabe:** `tests/puerta_ram.rs`, dos jueces que no se hablan:
+        ningun fichero del emisor salvo `ram.rs` nombra la operacion de pedir
+        memoria (saboteado en `director.rs`: cae); y corriendo en el
+        emulador, cada peticion de RAM de un programa sale de la MISMA
+        instruccion (el emulador apunta ahora el `rip` de cada llamada,
+        `ObservedSyscall::rip`). **HECHO el 14-10.** **Encontrado por el
+        camino:** el emulador da CUATRO peticiones por proceso
+        (`MEMORIA_MAX_PETICIONES`, que dice ser espejo del kernel) y el
+        kernel da OCHO desde `MEM_OP_SOLTAR` (`obj/memory.rs`). Un programa de
+        TITAN++ con ventana, lista, fichero y lamina gasta cinco: en el
+        emulador la lamina dice que no, en el metal que si. Arreglar el
+        espejo cambia una prueba del compilador de C (`la_quinta_peticion_
+        devuelve_cero`) y el comentario de `sonda_C.c`: va aparte, con su
+        commit.
+  - [ ] **A4b -- la LAMINA en el lenguaje** (pide decision del propietario:
+        es gramatica). La propuesta: `lamina` como TIPO, sin palabra nueva
+        (como `byte`): `let mut l = lamina(4096)` pide por la puerta;
+        `l[i] = byte(x)`, `l[i]` y `len(l)` como una `[byte]` pero de medida
+        FIJA y fuera del monton; NO se copia (`let b = l` es T0077: se presta
+        con `mut` o se entrega con `take`); se SUELTA sola al morir su
+        propietario (`MEM_OP_SOLTAR`): sin free, sin liberar dos veces; y
+        `director.ofrece(l)` la presta con la forma completa del trato.
 - [ ] **A5 -- LB3a: la LENTE lee x86** (`PLAN_LA_LENTE_BINARIA.md`, LB3): un
       decodificador del SUBCONJUNTO que emiten INTI y TITAN++ (prefijos,
       opcode, ModRM, SIB, desplazamiento), crate puro. Lo que no esta en la
