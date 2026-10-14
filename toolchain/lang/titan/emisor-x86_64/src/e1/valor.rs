@@ -62,6 +62,8 @@ impl E1<'_> {
                 (t, Class::Text)
             }
             Value::Number(inner, e, _) => self.number(inner, *e)?,
+            // `lamina(n)` (A4b): n bytes por la puerta de la RAM.
+            Value::Lamina(n, at) => self.lamina_nueva(n, *at)?,
             // `byte(x)` (TA1): el int, si cabe en un byte; si no, T0060.
             Value::Byte(inner, at) => {
                 let (p, _) = self.eval(inner)?;
@@ -127,6 +129,11 @@ impl E1<'_> {
             }
             Value::Index(b, i, at) => {
                 let (pb, cb) = self.eval(b)?;
+                // A4b: un byte de la lamina, como la celda de una [byte].
+                if cb == Class::Lamina {
+                    let p = self.lamina_index(pb, i, *at)?;
+                    return Ok((self.byte_cell_read(p), Class::Int));
+                }
                 if let Class::List(inner) = &cb {
                     let p = self.list_index(pb, inner, i, *at)?;
                     if **inner == Class::Byte {
@@ -194,7 +201,7 @@ impl E1<'_> {
             }
             Value::Len(inner, at) => {
                 let (p, c) = self.eval(inner)?;
-                if matches!(c, Class::List(_) | Class::Map(..) | Class::Any) {
+                if matches!(c, Class::List(_) | Class::Map(..) | Class::Any | Class::Lamina) {
                     return Ok((self.len_of(p), Class::Int));
                 }
                 let Class::Table(_, n) = c else { return Err(format!("linea {}: `len` de algo que no es tabla", at.0)) };
@@ -298,6 +305,13 @@ impl E1<'_> {
                         Some(Ty::List(it)) => Some(*it),
                         _ => None,
                     };
+                }
+                // A4b: `l[i] = byte(...)`, un byte de la lamina.
+                (PathStep::Index(i), Class::Lamina) => {
+                    p = self.lamina_index(p, i, at)?;
+                    byte_cell = true;
+                    c = Class::Byte;
+                    ty = Some(Ty::Byte);
                 }
                 (PathStep::Index(i), Class::Table(inner, n)) => {
                     p = self.index_place(p, &inner, n, i, at)?;

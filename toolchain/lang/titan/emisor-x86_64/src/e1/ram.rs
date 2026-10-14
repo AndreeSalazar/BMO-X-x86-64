@@ -23,13 +23,23 @@
 //! El asa sale en `rcx` y no en otro a proposito: `syscall` ya lo pisa, asi
 //! que ningun sitio que llamaba al kernel podia estar contando con el.
 //!
+//! ** Y LA VUELTA (A4b, 14-10): `Helper::SueltaLamina` devuelve un bloque al
+//! kernel (`MEM_OP_SOLTAR`). La usa la lamina de TITAN++ cuando muere su
+//! propietario (`lamina.rs`); pedir y soltar viven en el mismo fichero.
+//!
+//! ```text
+//!    entra    rdi   el asa
+//!    sale     rax   0 si el kernel la dio por vuelta
+//!    pisa     rsi, rcx, r11
+//! ```
+//!
 //! ** Lo que NO hace, todavia: llevar la cuenta de cada lamina por su clase.
 //! El kernel ya la lleva (`INFO_MEM_ENTREGADA`) y recoge todo al morir el
 //! programa; esta puerta es el sitio donde ira el dia que el programa tenga
 //! que decirla el mismo.
 
 use super::{Helper, E1};
-use bmo_abi::syscalls::surface::{CURRENT_TASK, MEM_OP_BASE, NR_INVOKE, TASK_OP_MEMORIA_PEDIR};
+use bmo_abi::syscalls::surface::{CURRENT_TASK, MEM_OP_BASE, MEM_OP_SOLTAR, NR_INVOKE, TASK_OP_MEMORIA_PEDIR};
 use bmo_lower::x86::{self, RAX, RCX, RDI, RDX, RSI};
 
 impl E1<'_> {
@@ -68,6 +78,14 @@ impl E1<'_> {
         self.here(no_dio);
         self.here(no_base);
         self.here(bien);
+        self.code.push(0xC3);
+    }
+
+    /// **`Helper::SueltaLamina`**: el bloque del asa de `rdi`, de vuelta.
+    pub(super) fn h_suelta_lamina(&mut self) {
+        self.imm(RSI, MEM_OP_SOLTAR as i64);
+        self.imm(RAX, NR_INVOKE as i64);
+        x86::syscall(&mut self.code);
         self.code.push(0xC3);
     }
 }

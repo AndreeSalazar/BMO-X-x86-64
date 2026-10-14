@@ -213,6 +213,11 @@ pub enum Value {
     /// `byte(x)` (TA1, `docs/plan/PLAN_LA_TINTA.md`): the int as a byte, 0 to
     /// 255 -- or a NO (T0060) when it does not fit. Never a silent cut.
     Byte(Box<Value>, At),
+    /// `lamina(n)` (A4b of `docs/plan/EL_FOCO.md`, 14-10): `n` bytes of RAM
+    /// asked of the kernel through the program's one door (`e1/ram.rs`). Only
+    /// the kernel knows if it gives them, so a module with one RUNS: it is
+    /// emitted, never computed when compiling (`from_outside`).
+    Lamina(Box<Value>, At),
     /// `lee()`: the line typed on the program's own console, as a text (E1,
     /// `docs/plan/PLAN_LA_ENTRADA.md`). Known only WHEN IT RUNS: a module
     /// that reads is not run when compiling (`calc.rs`), it is emitted.
@@ -482,6 +487,7 @@ impl Value {
             | Value::Payload(_, _, _, _, a)
             | Value::Number(_, _, a)
             | Value::Byte(_, a)
+            | Value::Lamina(_, a)
             | Value::Lib(_, _, a)
             | Value::Map(_, a)
             | Value::Director(_, _, a)
@@ -499,7 +505,7 @@ impl Value {
                     i.reads(out);
                 }
             }
-            Value::Repeat(v, _, _) | Value::Field(v, _, _) | Value::Len(v, _) | Value::Round(v, _, _) | Value::Is(v, _, _, _) | Value::Payload(v, _, _, _, _) | Value::Number(v, _, _) | Value::Byte(v, _) => v.reads(out),
+            Value::Repeat(v, _, _) | Value::Field(v, _, _) | Value::Len(v, _) | Value::Round(v, _, _) | Value::Is(v, _, _, _) | Value::Payload(v, _, _, _, _) | Value::Number(v, _, _) | Value::Byte(v, _) | Value::Lamina(v, _) => v.reads(out),
             Value::Lend(_, l, a) => out.push((*l, *a)),
             Value::Index(b, i, _) => {
                 b.reads(out);
@@ -542,7 +548,8 @@ impl Value {
     pub fn from_outside(&self) -> bool {
         match self {
             // What the director answers is known only when it runs (LB7b).
-            Value::Read(_) | Value::Director(..) => true,
+            // And a lamina (A4b): only the kernel knows if it gives the RAM.
+            Value::Read(_) | Value::Director(..) | Value::Lamina(..) => true,
             Value::Int(..) | Value::Text(..) | Value::Bool(..) | Value::Dec(..) | Value::F32(..) | Value::Local(..) | Value::Lend(..) => false,
             Value::Bin(_, a, b, _) | Value::Index(a, b, _) => a.from_outside() || b.from_outside(),
             Value::Neg(a, _) | Value::Not(a, _) | Value::Repeat(a, _, _) | Value::Field(a, _, _) | Value::Len(a, _) | Value::Round(a, _, _) | Value::Is(a, _, _, _) | Value::Payload(a, _, _, _, _) | Value::Number(a, _, _) | Value::Byte(a, _) => a.from_outside(),
@@ -653,6 +660,7 @@ fn value(e: &Expr, locals: &mut Vec<Local>, p: &Program) -> Value {
         }
         Expr::Call { callee, args, line, col } if callee == "len" => Value::Len(Box::new(value(&args[0], locals)), (*line, *col)),
         Expr::Call { callee, args, line, col } if callee == "byte" => Value::Byte(Box::new(value(&args[0], locals)), (*line, *col)),
+        Expr::Call { callee, args, line, col } if callee == "lamina" => Value::Lamina(Box::new(value(&args[0], locals)), (*line, *col)),
         // `get(m, k)` / `has(m, k)` (level 13): they read, and change nothing.
         Expr::Call { callee, args, line, col } if (callee == "get" || callee == "has") && !p.functions.iter().any(|f| &f.name == callee) => {
             let lib = if callee == "get" { Lib::Get } else { Lib::Has };

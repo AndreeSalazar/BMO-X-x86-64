@@ -179,6 +179,10 @@ pub enum Class {
     Map(Box<Class>, Box<Class>),
     /// `Opcion[T]`: `Hay(v)` or `NoHay`, what `get` and `pop` give (13).
     Opt(Box<Class>),
+    /// `lamina` (A4b): bytes of RAM the kernel gave, with one owner. Its
+    /// cells read and write like a `[byte]`'s; it never grows and is never
+    /// copied (`lamina.rs` of the frontend says the NOs).
+    Lamina,
     /// What `[]` and `{}` hold: nothing yet, so ANY class -- the type said
     /// where they go decides (`let l: [int] = []`). Never the class of a
     /// local: a list with nothing that says what it is, is a NO.
@@ -201,6 +205,7 @@ impl Class {
             Class::List(c) => format!("una lista [{}]", c.short(types)),
             Class::Map(k, v) => format!("un mapa {{{}: {}}}", k.short(types), v.short(types)),
             Class::Opt(c) => format!("un caso Opcion[{}] (Hay o NoHay)", c.short(types)),
+            Class::Lamina => "una lamina (RAM del kernel, de bytes)".into(),
             Class::Any => "algo sin decir".into(),
         }
     }
@@ -220,6 +225,7 @@ impl Class {
             Class::List(c) => format!("[{}]", c.short(types)),
             Class::Map(k, v) => format!("{{{}: {}}}", k.short(types), v.short(types)),
             Class::Opt(c) => format!("Opcion[{}]", c.short(types)),
+            Class::Lamina => "lamina".into(),
             Class::Any => "?".into(),
         }
     }
@@ -234,6 +240,7 @@ pub fn of_ty(t: &Ty, types: Defs) -> Class {
     match t {
         Ty::Int => Class::Int,
         Ty::Byte => Class::Byte,
+        Ty::Lamina => Class::Lamina,
         Ty::Text => Class::Text,
         Ty::Bool => Class::Bool,
         Ty::Dec | Ty::DecP(..) => Class::Dec,
@@ -713,6 +720,7 @@ impl Run<'_, '_> {
                 Const::Int(n) => return Err(numero::byte_no_cabe(*at, n)),
                 _ => unreachable!("classes: byte reads an int"),
             },
+            Value::Lamina(..) => unreachable!("calc: a module that asks the kernel for a lamina is emitted, never run when compiling (fold_with)"),
             Value::Read(_) => unreachable!("calc: a module that reads is emitted, never run when compiling (fold_with)"),
             Value::Director(..) => unreachable!("calc: a module that talks to the director is emitted, never run when compiling (fold_with)"),
             Value::Local(l, _) | Value::Lend(_, l, _) => known[*l].clone().expect("juez: every local read has a value"),

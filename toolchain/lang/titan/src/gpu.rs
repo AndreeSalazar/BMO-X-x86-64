@@ -598,6 +598,8 @@ fn expr(p: &Program, e: &Expr, hondo: usize, forma: Forma) -> Result<u64, Messag
         }
         Expr::Call { callee, line, col, .. } if callee.starts_with("director.") => Err(no_director(callee, *line, *col)),
         // TA1: el byte es de la CPU (los pixeles guardados); en la 3060 todo es f32.
+        // A4b: una gpu fn cuenta una celda; no le pide RAM al kernel.
+        Expr::Call { callee, line, col, .. } if callee == "lamina" => Err(no(*line, *col, "`lamina()` dentro de una gpu fn", "un hilo de la 3060 cuenta UNA celda: la RAM la pide la CPU, que es la que habla con el kernel", "pide la lamina en una fn de la CPU")),
         Expr::Call { callee, line, col, .. } if callee == "byte" => Err(no(*line, *col, "`byte()` dentro de una gpu fn", "en la 3060 cada numero es un f32: el byte es de la CPU, donde se GUARDAN los pixeles (`[byte]`, TA1); lo que la gpu fn cuenta llega y sale como f32", "cuenta en f32 aqui, y vuelvelo byte en la CPU: byte(...) al guardar")),
         // A name nobody declared is the checker's NO (T0051), after this one.
         Expr::Call { callee, args, .. } if !p.functions.iter().any(|g| g.name == *callee) => {

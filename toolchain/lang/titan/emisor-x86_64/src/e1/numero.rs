@@ -228,6 +228,7 @@ impl E1<'_> {
             Helper::Rect => self.h_rect(),
             Helper::Glifo => self.h_glifo(),
             Helper::PideLamina => self.h_pide_lamina(),
+            Helper::SueltaLamina => self.h_suelta_lamina(),
         }
     }
 

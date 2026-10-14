@@ -9,7 +9,7 @@ use crate::maestros::Master;
 use bmo_titan_contrato::{Permission, Permissions};
 
 /// El nombre de cada familia: el titulo de su nivel en GRAMATICA.md.
-pub static FAMILIES: [&str; 15] = [
+pub static FAMILIES: [&str; 16] = [
     "un programa que saluda",
     "calcular",
     "contar",
@@ -25,10 +25,11 @@ pub static FAMILIES: [&str; 15] = [
     "lo que viene de fuera",
     "lo que crece",
     "el byte",
+    "la lamina",
 ];
 
 /// Cuantos hay: la TAB mide sus tablas con esto.
-pub const COUNT: usize = 44;
+pub const COUNT: usize = 46;
 
 /// `static`, no `const`: UNA copia en `.rodata`, que Ring 3 lee por indice
 /// sin traerla a una pila de 64 KiB.
@@ -516,5 +517,27 @@ pub static MASTERS: [Master; COUNT] = [
         typed: &[],
         out: &["  . ::==", " .. :==#", "..: ==##", ".:: =###", "32 pixeles, 32 bytes; tinta: 3550"],
         source: "# sale:   . ::==\n# sale:  .. :==#\n# sale: ..: ==##\n# sale: .:: =###\n# sale: 32 pixeles, 32 bytes; tinta: 3550\n# una imagen de grises en una lista de BYTES: un pixel, UN byte -- como\n# guarda su pagina un programa de dibujo. `byte(x)` dice que cabe (de 0 a\n# 255) y si no, NO; leido, un byte cuenta como el int que es\nmod main \"un degradado de grises en una [byte]\"\n\nfn gris(x: int, y: int) -> byte\n    return byte((x + y) * 25)\n\nfn letra(v: int) -> text\n    if v < 50\n        return \" \"\n    if v < 100\n        return \".\"\n    if v < 150\n        return \":\"\n    if v < 200\n        return \"=\"\n    return \"#\"\n\nfn main()\n    let ancho = 8\n    let alto = 4\n    let mut px: [byte] = []\n    for y in range(alto)\n        for x in range(ancho)\n            push(mut px, gris(x, y))\n    # la goma: una franja vuelve a blanco (0)\n    for y in range(alto)\n        px[y * ancho + 3] = byte(0)\n    let mut suma = 0\n    for y in range(alto)\n        let mut fila = \"\"\n        for x in range(ancho)\n            let v = px[y * ancho + x]\n            suma = suma + v\n            fila = fila + letra(v)\n        print(fila)\n    print(len(px), \" pixeles, \", len(px), \" bytes; tinta: \", suma)\n",
+    },
+    Master {
+        name: "dos_laminas",
+        level: 15,
+        why: "pedir, prestar con `mut`, entregar con `take` y soltar sola: la RAM en la mano",
+        says: "dos laminas: una se llena, la otra se suma",
+        words: &["fn", "let", "mut", "for", "return", "take"],
+        asks: Permissions::NONE,
+        typed: &[],
+        out: &["100 50 3 7", "200", "497", "350"],
+        source: "# sale: 100 50 3 7\n# sale: 200\n# sale: 497\n# sale: 350\n# la RAM del programa, en LAMINAS: se piden al kernel por la puerta de la\n# RAM, se PRESTAN con `mut` para llenarlas, se ENTREGAN con `take`, y cada\n# una se suelta sola al morir quien la tiene. Sin free, sin copias\n# pedir, prestar con `mut`, entregar con `take` y soltar sola: la RAM en la mano\nmod main \"dos laminas: una se llena, la otra se suma\"\n\nfn llena(mut l: lamina, v: int)\n    for i in range(len(l))\n        l[i] = byte(v)\n\nfn suma(take l: lamina) -> int\n    let mut s = 0\n    for i in range(len(l))\n        s = s + l[i]\n    return s\n\nfn main()\n    let mut a = lamina(100)\n    let mut b = lamina(50)\n    llena(mut a, 3)\n    llena(mut b, 7)\n    print(len(a), \" \", len(b), \" \", a[0], \" \", b[49])\n    a[5] = byte(200)\n    print(a[5])\n    print(suma(take a))\n    print(suma(take b))\n",
+    },
+    Master {
+        name: "pide_y_suelta",
+        level: 15,
+        why: "veinte laminas en un bucle con un tope de ocho: cada vuelta suelta la suya",
+        says: "pedir y soltar en un bucle",
+        words: &["fn", "let", "mut", "for"],
+        asks: Permissions::NONE,
+        typed: &[],
+        out: &["20 laminas de 4096 bytes, una por vuelta: 190"],
+        source: "# sale: 20 laminas de 4096 bytes, una por vuelta: 190\n# cada vuelta pide su lamina y, al cerrarse la vuelta, se suelta sola. El\n# kernel deja tener OCHO a la vez: si no se soltaran, la novena diria NO\n# veinte laminas en un bucle con un tope de ocho: cada vuelta suelta la suya\nmod main \"pedir y soltar en un bucle\"\n\nfn main()\n    let mut n = 0\n    for i in range(20)\n        let mut x = lamina(4096)\n        x[4095] = byte(i)\n        n = n + x[4095]\n    print(\"20 laminas de 4096 bytes, una por vuelta: \", n)\n",
     },
 ];

@@ -40,6 +40,7 @@ justo antes de `mod main`) es su PORQUE en la TAB: que diga por que existe.
 | 12 | (ninguna) | lo que viene de fuera: `lee()` de la biblioteca, y el programa CORRE en la maquina | los de siempre, y T0060-T0062 tambien al correr (el plan: `docs/plan/PLAN_LA_ENTRADA.md`) |
 | 13 | (ninguna) | lo que crece: listas `[T]` y mapas `{K: V}`, con `push`, `pop`, `put`, `get`... | T0063, T0069, T0071, T0072, T0077, T0079 de nuevo (el plan: `docs/plan/PLAN_LISTAS_Y_MAPAS.md`) |
 | 14 | (ninguna) | el BYTE: `byte` de 0 a 255, `byte(x)`, y `[byte]` con UN byte por celda | T0060 y T0071 de nuevo (el plan: TA1 de `docs/plan/PLAN_LA_TINTA.md`) |
+| 15 | (ninguna) | la LAMINA: RAM del kernel con UN propietario, `lamina(n)`, que se presta, se entrega y se suelta sola | T0077, y T0060 y T0072 al correr (el plan: A4b de `docs/plan/EL_FOCO.md`) |
 
 ---
 
@@ -1369,6 +1370,76 @@ bajo. La vara, la de siempre (`emisor-x86_64/tests/bytes.rs`): el calculo y
 la maquina escriben lo mismo, o el mismo NO en la misma linea; y la medida
 que justifica el tipo -- tres millones de celdas caben en `[byte]` y no
 caben en `[int]` en el monton que da el emulador --.
+
+---
+
+## Nivel 15 -- la lamina (25 palabras: + ninguna; `lamina` y `lamina(n)`) -- 14-10, A4b de EL_FOCO
+
+```text
+# dos_laminas.titan (el corazon)
+fn llena(mut l: lamina, v: int)
+    for i in range(len(l))
+        l[i] = byte(v)
+
+fn suma(take l: lamina) -> int
+    let mut s = 0
+    for i in range(len(l))
+        s = s + l[i]
+    return s
+
+fn main()
+    let mut a = lamina(100)        # 100 bytes, pedidos al kernel
+    llena(mut a, 3)                # PRESTADA: se ve el cambio al volver
+    print(suma(take a))            # ENTREGADA: ahora es de `suma`, que la suelta
+```
+
+**Una LAMINA es RAM que el programa le pide al kernel y TIENE EN LA MANO.**
+El propietario, 14-10: *"RAM = convertir como LAMINA ABSOLUTA, LAMINA ese
+mismo para administrar y llamar, no quiero tener que lidiar como hizo C con
+C++"*. Lo que en C se escribe a mano (`malloc`, `free`, y el `free` de mas o
+de menos) aqui no se escribe:
+
+```text
+   lamina                el tipo: let mut l: lamina = ...   fn f(mut l: lamina)
+   lamina(n)             n bytes, por la PUERTA DE LA RAM del programa (A4a):
+                         si el kernel no los da, NO T0060 al correr, en su linea
+   l[i]    l[i] = b      sus celdas son BYTES, como las de una [byte]: leida
+                         cuenta como el int que es; se escribe con byte(x)
+   len(l)                cuantos bytes; fuera de ellos, NO T0072 al correr
+   f(mut l)  f(take l)   se PRESTA (nivel 7: un puntero) o se ENTREGA (su asa
+                         se mueve; quien la entrego ya no la tiene: T0075)
+   al morir quien        se suelta SOLA (MEM_OP_SOLTAR): al cerrar su bloque,
+   la tiene              al volver su fn, al tomar otro valor, con break, con
+                         continue. Nadie la suelta dos veces
+```
+
+**Y lo que NO, todo T0077: una lamina no se COPIA.** Una copia seria dos
+nombres para el mismo bloque del kernel, y uno lo soltaria debajo del otro.
+
+```text
+   let b = a               NO T0077: se copiaria
+   print(a)                NO T0077: imprimirla es copiarla
+   f(a)  con  fn f(l: lamina)   NO T0077: recibirla como copia
+   fn f() -> lamina        NO T0077: devolverla (aun: va con `director.ofrece`)
+   [a]   {k: a}   T { l: a }    NO T0077: una lamina no va dentro de otro valor
+   push(mut a, byte(1))    NO T0077: una lamina no crece ni encoge
+   a[0] = 7                NO T0071: un int no entra callado en un byte
+   lamina(10)  suelta      NO T0069: pedir RAM que nadie guarda
+```
+
+**Un programa con una lamina CORRE** (como uno que lee, nivel 12): si el
+kernel da la RAM, solo se sabe al correr. Y una `gpu fn` no pide laminas
+(T0090): un hilo de la 3060 cuenta una celda.
+
+**En la maquina** (E1, `emisor-x86_64/src/e1/lamina.rs`): su asa son cuatro
+palabras -- donde empiezan sus bytes, cuantos, cuantos caben y su asa del
+KERNEL --; las tres primeras son las de una lista, a proposito, y por eso
+`l[i]` lee y escribe un byte con el mismo `movzx` que una `[byte]`. Pedir y
+soltar salen por la puerta de la RAM (`e1/ram.rs`). La vara
+(`emisor-x86_64/tests/la_lamina.rs`): el emulador cuenta los bloques que se
+piden y los que vuelven -- veinte laminas en un bucle con un tope de ocho a
+la vez solo caben si cada vuelta suelta la suya --, y cada lamina se suelta
+UNA vez (saboteado: quien la entrega tambien la soltaria, y cae).
 
 ---
 

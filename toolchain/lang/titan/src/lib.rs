@@ -55,6 +55,7 @@ pub mod gpu;
 pub mod indent;
 pub mod ir;
 pub mod juez;
+pub mod lamina;
 pub mod manifest;
 pub mod lex;
 pub mod message;

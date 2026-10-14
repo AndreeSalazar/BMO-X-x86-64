@@ -77,6 +77,11 @@ impl E1<'_> {
     /// Un valor de clase `c` que aqui deja de ser de alguien: lo suyo del
     /// monton se suelta, y sus asas quedan a cero.
     pub fn drop_at(&mut self, p: Place, c: &Class) {
+        // A4b: la lamina vuelve al KERNEL, no al monton (`lamina.rs`).
+        if *c == Class::Lamina {
+            self.suelta_lamina(p);
+            return;
+        }
         if !self.forms.has_heap(c) {
             return;
         }
@@ -87,6 +92,10 @@ impl E1<'_> {
 
     /// Una copia ENTERA de `src` en `dst`: lo del monton, nuevo.
     pub fn clone_at(&mut self, dst: Place, src: Place, c: &Class) {
+        if *c == Class::Lamina {
+            self.copia_de_lamina();
+            return;
+        }
         if !self.forms.has_heap(c) {
             let size = self.forms.size(c);
             self.copy(dst, src, size);

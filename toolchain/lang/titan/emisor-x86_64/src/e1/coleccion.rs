@@ -62,7 +62,7 @@ impl E1<'_> {
     }
 
     /// La celda `i` (un sitio con un int) de lo que apunta el asa `h`.
-    fn cell_at(&mut self, h: Place, cell: i32, i: Place) -> Place {
+    pub(super) fn cell_at(&mut self, h: Place, cell: i32, i: Place) -> Place {
         self.load(i, RAX);
         self.imm(RCX, cell as i64);
         x86::imul_r64_r64(&mut self.code, RAX, RCX);
