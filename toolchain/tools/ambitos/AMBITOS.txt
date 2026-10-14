@@ -193,3 +193,6 @@ fraps            (2) FRAPS-X: medir y grabar la pantalla
 imagen           (1) `bmo-imagen`: leer y escribir imagenes (BMP, PNG, JPEG)
 avisos           (1) el trinquete de los avisos del compilador
 verrano-ayni     (1) AYNI sin GPU: el contrato de reparto CPU/3060
+# 2026-10-14: la LAMINA ABSOLUTA (EL_FOCO 0): `bmo-lamina` (el trato uno y el
+# censo de los bloques prestados) y su guardian `laminas`.
+lamina           (0) la RAM prestada entre dos lados: el trato, el censo y su guardian

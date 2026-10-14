@@ -153,6 +153,14 @@ Guardian 'Validating plan checkboxes are verifiable' `
 Guardian 'Validating the open-work index matches the plans' `
     'toolchain\tools\planes\planes.py' 'el indice de lo que falta' `
     'planes: el indice y los planes no dicen lo mismo (se arregla con --apply)'
+# ** LA LAMINA ABSOLUTA (2026-10-14, A1 de docs/plan/EL_FOCO.md). Un bloque
+# que un lado presta a otro dice QUE ES en su palabra 0, y el que lo toma lo
+# busca en el censo de `bmo-lamina`. Eso solo vale si el censo esta completo:
+# toda magia del arbol es una clase del censo o un formato que no se presta,
+# con su motivo. Ver toolchain/tools/laminas/laminas.py
+Guardian 'Validating every lent block is in the LAMINA census' `
+    'toolchain\tools\laminas\laminas.py' 'el censo de las laminas' `
+    'laminas: una magia no es una lamina del censo ni un formato con motivo'
 # ** QUIEN ESCRIBE CADA `static mut` DEL USB (2026-09-18, PLAN_EL_BUS_APARTE
 # A0.3). El bus quiere su propio nucleo, y la primera pregunta --cuales de
 # sus 57 estaticos tocan los dos lados-- no tenia respuesta sin leer el codigo

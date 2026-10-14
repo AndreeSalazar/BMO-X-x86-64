@@ -1,0 +1,14 @@
+[package]
+name = "bmo-lamina"
+version = "0.1.0"
+edition = "2021"
+description = "LA LAMINA: el trato UNO de la RAM que se presta entre dos lados (la cabecera, el sello por ranura y las dos ranuras) y el censo de cada clase de bloque prestado. Puro."
+license = "Apache-2.0"
+
+# Sin dependencias, a proposito: lo usan VERRANO (que enlaza el driver de la
+# 3060, y el driver el kernel) y Ring 3. Es aritmetica sobre palabras atomicas
+# que da quien llama, como `bmo-pase-gpu` y `bmo-puerta-red`.
+[dependencies]
+
+[lib]
+name = "bmo_lamina"

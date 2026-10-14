@@ -516,6 +516,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "bmo-lamina"
+version = "0.1.0"
+
+[[package]]
 name = "bmo-letra"
 version = "0.1.0"
 
@@ -950,6 +954,7 @@ name = "bmo-verrano"
 version = "0.1.0"
 dependencies = [
  "bmo-cubo",
+ "bmo-lamina",
 ]
 
 [[package]]

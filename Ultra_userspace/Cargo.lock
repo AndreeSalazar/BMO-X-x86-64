@@ -160,6 +160,10 @@ name = "bmo-juicio"
 version = "0.1.0"
 
 [[package]]
+name = "bmo-lamina"
+version = "0.1.0"
+
+[[package]]
 name = "bmo-letra"
 version = "0.1.0"
 
@@ -347,6 +351,9 @@ dependencies = [
 [[package]]
 name = "bmo-verrano"
 version = "0.1.0"
+dependencies = [
+ "bmo-lamina",
+]
 
 [[package]]
 name = "bmo-verrano-trama"

@@ -68,6 +68,14 @@
 //! cerrojo entre dos procesos deja al escritorio esperando a una app colgada.
 //! Aqui una app que se para deja el ultimo fotograma publicado, y ya.
 //!
+//! ** EL TRATO UNO (14-10, A2 de `docs/plan/EL_FOCO.md`): la cabecera comun,
+//! el sello y las dos ranuras viven ahora en `bmo_lamina::trato`, y BVER es una
+//! clase de su censo (`bmo_lamina::censo`). Sin mover un byte: los campos de
+//! abajo son los mismos y el emisor de TITAN++ los sigue importando de aqui. Y
+//! el trato trajo un arreglo: una ranura ENTERA pero POSTERIOR a la secuencia
+//! leida ya no se da por buena (`trato::vigente`); antes, una de cada muchas,
+//! el fotograma iba hacia atras.
+//!
 //! ** LA LAMINA QUIROFANO (10-10, 1e de `docs/plan/EL_FOCO.md`): un dato, un
 //! sitio. El que espera un fotograma mira UNA palabra -- la secuencia,
 //! [`Lamina::secuencia`] -- y solo con una publicacion nueva copia, y una vez
@@ -81,18 +89,21 @@
 
 use core::sync::atomic::{AtomicU32, Ordering};
 
+use bmo_lamina::trato;
+
 use crate::{Cull, Vertex, VERTEX_BYTES};
 
 /// `"BVER"` en little-endian, en la primera palabra.
 pub const MAGIA: u32 = 0x5245_5642;
 const _: () = assert!(MAGIA == u32::from_le_bytes(*b"BVER"));
+const _: () = assert!(bmo_lamina::censo::conoce(MAGIA));
 pub const VERSION: u32 = 1;
 /// Lo que ocupa la cabecera antes de la ranura 0.
 pub const CABECERA: usize = 64;
 /// Las palabras de la cabecera (indices de `u32`).
-pub const CAMPO_MAGIA: usize = 0;
-pub const CAMPO_VERSION: usize = 1;
-pub const CAMPO_CABECERA: usize = 2;
+pub const CAMPO_MAGIA: usize = trato::CAMPO_MAGIA;
+pub const CAMPO_VERSION: usize = trato::CAMPO_VERSION;
+pub const CAMPO_CABECERA: usize = trato::CAMPO_CABECERA;
 pub const CAMPO_CAPACIDAD: usize = 3;
 pub const CAMPO_SECUENCIA: usize = 4;
 /// Vertices de la ranura `k`: `CAMPO_VERTICES + k`.
@@ -110,6 +121,8 @@ pub const ESTADO_DESCARTE: u32 = 2;
 
 const PALABRAS_VERTICE: usize = VERTEX_BYTES / 4;
 const _: () = assert!(CAMPO_SELLO + 2 <= CABECERA / 4);
+// Sin mover un byte (A2): las palabras de BVER son las de antes del trato.
+const _: () = assert!(CAMPO_MAGIA == 0 && CAMPO_VERSION == 1 && CAMPO_CABECERA == 2 && CAMPO_CAPACIDAD == trato::PALABRAS_COMUNES);
 
 /// Lo que mide una lamina de `capacidad` vertices por ranura.
 pub const fn bytes_para(capacidad: usize) -> usize {
@@ -152,30 +165,20 @@ impl<'a> Lamina<'a> {
     /// **Crearla** (la app, una vez): la cabecera y la secuencia a cero.
     /// `None` si el bloque no es de al menos `bytes_para(capacidad)`.
     pub fn crear(w: &'a [AtomicU32], capacidad: usize) -> Option<Self> {
-        if capacidad == 0 || w.len() * 4 < bytes_para(capacidad) {
+        if capacidad == 0 || w.len() * 4 < bytes_para(capacidad) || !trato::crear(w, MAGIA, VERSION, CABECERA) {
             return None;
         }
-        for x in &w[..CABECERA / 4] {
-            x.store(0, Ordering::Relaxed);
-        }
-        w[CAMPO_MAGIA].store(MAGIA, Ordering::Relaxed);
-        w[CAMPO_VERSION].store(VERSION, Ordering::Relaxed);
-        w[CAMPO_CABECERA].store(CABECERA as u32, Ordering::Relaxed);
         w[CAMPO_CAPACIDAD].store(capacidad as u32, Ordering::Release);
         Some(Lamina { w, capacidad })
     }
 
     /// **Abrirla** (VERRANO): comprueba la cabecera contra lo prestado.
     pub fn abrir(w: &'a [AtomicU32]) -> Result<Self, NoEs> {
-        if w.len() * 4 < CABECERA {
-            return Err(NoEs::Corta);
-        }
-        if w[CAMPO_MAGIA].load(Ordering::Acquire) != MAGIA {
-            return Err(NoEs::Magia);
-        }
-        if w[CAMPO_VERSION].load(Ordering::Relaxed) != VERSION || w[CAMPO_CABECERA].load(Ordering::Relaxed) != CABECERA as u32 {
-            return Err(NoEs::Version);
-        }
+        trato::abrir(w, MAGIA, VERSION, CABECERA).map_err(|e| match e {
+            trato::NoEs::Corta => NoEs::Corta,
+            trato::NoEs::Magia => NoEs::Magia,
+            trato::NoEs::Version => NoEs::Version,
+        })?;
         let capacidad = w[CAMPO_CAPACIDAD].load(Ordering::Relaxed) as usize;
         if capacidad == 0 || capacidad > (w.len() * 4 - CABECERA) / (2 * VERTEX_BYTES) {
             return Err(NoEs::NoCabe);
@@ -211,13 +214,11 @@ impl<'a> Lamina<'a> {
         if v.len() > self.capacidad || v.len() % 3 != 0 {
             return false;
         }
-        let s = self.w[CAMPO_SECUENCIA].load(Ordering::Relaxed);
-        let k = (s.wrapping_add(1) % 2) as usize;
+        let s = trato::secuencia_propia(self.w, CAMPO_SECUENCIA);
+        let k = trato::ranura_para_escribir(s);
         let r = self.ranura(k);
         // El sello, IMPAR antes de tocar nada de la ranura.
-        let sello = self.w[CAMPO_SELLO + k].load(Ordering::Relaxed);
-        self.w[CAMPO_SELLO + k].store(sello.wrapping_add(1), Ordering::Relaxed);
-        core::sync::atomic::fence(Ordering::Release);
+        let sello = trato::empezar(self.w, CAMPO_SELLO + k);
         for (i, x) in v.iter().enumerate() {
             let p = r + i * PALABRAS_VERTICE;
             for (j, b) in x.position.iter().chain(x.color.iter()).enumerate() {
@@ -227,9 +228,9 @@ impl<'a> Lamina<'a> {
         self.w[CAMPO_VERTICES + k].store(v.len() as u32, Ordering::Relaxed);
         self.w[CAMPO_FOTOGRAMA + k].store(fotograma, Ordering::Relaxed);
         // PAR otra vez: la ranura esta entera.
-        self.w[CAMPO_SELLO + k].store(sello.wrapping_add(2), Ordering::Release);
+        trato::acabar(self.w, CAMPO_SELLO + k, sello);
         // La publicacion: todo lo de arriba se ve antes que este numero.
-        self.w[CAMPO_SECUENCIA].store(s.wrapping_add(1), Ordering::Release);
+        trato::publicar(self.w, CAMPO_SECUENCIA, s);
         true
     }
 
@@ -241,7 +242,7 @@ impl<'a> Lamina<'a> {
     /// La SECUENCIA publicada (0 = aun nada): mirarla cuesta una palabra, sin
     /// copiar nada.
     pub fn secuencia(&self) -> u32 {
-        self.w[CAMPO_SECUENCIA].load(Ordering::Acquire)
+        trato::secuencia(self.w, CAMPO_SECUENCIA)
     }
 
     /// ** LA LAMINA QUIROFANO (10-10): `leer`, pero SOLO si la app publico
@@ -263,12 +264,11 @@ impl<'a> Lamina<'a> {
     }
 
     fn leer_ranura(&self, s: u32, out: &mut [Vertex]) -> Leido {
-        let k = (s % 2) as usize;
-        let e1 = self.w[CAMPO_SELLO + k].load(Ordering::Acquire);
-        if e1 % 2 != 0 {
+        let k = trato::ranura_publicada(s);
+        let Some(e1) = trato::mirar(self.w, CAMPO_SELLO + k) else {
             // La app ya esta escribiendo aqui (va por el siguiente).
             return Leido::Rota;
-        }
+        };
         let n = self.w[CAMPO_VERTICES + k].load(Ordering::Relaxed) as usize;
         let fotograma = self.w[CAMPO_FOTOGRAMA + k].load(Ordering::Relaxed);
         let entero = n <= self.capacidad && n <= out.len() && n % 3 == 0;
@@ -280,9 +280,9 @@ impl<'a> Lamina<'a> {
                 *x = Vertex { position: [b(0), b(1), b(2), b(3)], color: [b(4), b(5), b(6), b(7)] };
             }
         }
-        // Lo leido vale si NADIE toco la ranura mientras tanto.
-        core::sync::atomic::fence(Ordering::Acquire);
-        if self.w[CAMPO_SELLO + k].load(Ordering::Relaxed) != e1 {
+        // Lo leido vale si NADIE toco la ranura mientras tanto, y si es el de
+        // `s` y no uno que la app dejo despues en la misma ranura (14-10).
+        if !trato::intacto(self.w, CAMPO_SELLO + k, e1) || !trato::vigente(self.w, CAMPO_SECUENCIA, s) {
             return Leido::Rota;
         }
         if !entero {
@@ -370,6 +370,29 @@ mod pruebas {
         assert_eq!(l.leer_si_nueva(s2, &mut out), (s2, Leido::Rota));
         b[CAMPO_SELLO + k].fetch_add(1, Ordering::Relaxed);
         assert_eq!(l.leer_si_nueva(s2, &mut out).1, Leido::Fotograma { fotograma: 3, vertices: 3 });
+    }
+
+    /// ** 14-10: el lector lee la secuencia, la app publica el siguiente y
+    /// deja ENTERO el de despues en la ranura que el lector va a copiar. Lo
+    /// copiado no esta roto, pero es POSTERIOR: darlo por el publicado hace
+    /// que la vuelta siguiente lea uno mas viejo (el fotograma va hacia
+    /// atras). Ahora es `Rota`, y se vuelve a mirar.
+    #[test]
+    fn uno_posterior_en_la_misma_ranura_es_rota() {
+        let b = bloque(6);
+        let l = Lamina::crear(&b, 6).unwrap();
+        assert!(l.publicar(1, &marca(1, 6)));
+        let s = l.secuencia();
+        // La app, entre la mirada del lector y su copia: el 2 y el 3.
+        assert!(l.publicar(2, &marca(2, 6)));
+        assert!(l.publicar(3, &marca(3, 6)));
+        // El 3 esta publicado (secuencia s + 2) y vive en la ranura de s:
+        // se deshace SOLO la publicacion, como si el lector llegara antes.
+        b[CAMPO_SECUENCIA].store(s + 1, Ordering::Relaxed);
+        let mut out = [Vertex::default(); 6];
+        assert_eq!(l.leer_ranura(s, &mut out), Leido::Rota, "el 3 no es el de la secuencia s");
+        b[CAMPO_SECUENCIA].store(s + 2, Ordering::Relaxed);
+        assert_eq!(l.leer_ranura(s + 2, &mut out), Leido::Fotograma { fotograma: 3, vertices: 6 });
     }
 
     /// El lector no se cree la cabecera.
