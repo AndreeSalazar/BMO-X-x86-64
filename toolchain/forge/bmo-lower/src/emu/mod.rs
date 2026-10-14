@@ -228,6 +228,11 @@ pub struct ObservedSyscall {
     pub arg1: u64,
     /// Y el quinto, en `r8`.
     pub arg2: u64,
+    /// **DE DONDE salio** (14-10, A4 de `docs/plan/EL_FOCO.md`): el `rip`
+    /// justo DESPUES del `syscall`, uno por cada sitio del codigo que llama
+    /// al kernel. Con el, "todo lo que pide RAM pasa por una puerta" es una
+    /// fila del banco y no una lectura del desensamblado.
+    pub rip: u64,
 }
 
 /// Un archivo abierto dentro del emulador.

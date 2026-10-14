@@ -577,6 +577,7 @@ impl Machine {
             // Los dos que ya se leian mas abajo y no se guardaban.
             arg1: self.regs[R10],
             arg2: self.regs[crate::x86::R8 as usize],
+            rip: self.rip as u64,
         };
         self.syscalls.push(call);
 
