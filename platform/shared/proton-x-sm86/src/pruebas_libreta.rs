@@ -311,6 +311,33 @@ fn la_textura_sin_atar_va_a_la_3060_a_ceros() {
 }
 
 
+/// ** 14-10 (el back buffer de Cyberpunk: "t0 con s0 y el lote no tiene s0
+/// atado"): un pixel que SOLO lee su textura con `Load` (`carga.hlsl`) no
+/// usa muestreador: con la textura atada y sin muestreador, va a la 3060
+/// con uno de punto y sujeto. El de `Sample` (arriba), no.
+#[test]
+fn un_load_sin_muestreador_va_a_la_3060() {
+    let ia = std::vec![e("POSITION", 6, 0), e("TEXCOORD", 16, 12)];
+    let en = lote::enlazar(&dxil::leer(TEX_VS).unwrap(), &dxil::leer(include_bytes!("../../proton-x/prueba/carga_ps.dxil")).unwrap(), &ia).unwrap();
+    assert!(!crate::puerta::muestrea(&en.ps, 0, 0), "Load no muestrea");
+    assert!(crate::puerta::muestrea(&textura().ps, 0, 0), "Sample si");
+    let paso = 20usize;
+    let vertices: Vec<u8> = (0..3 * paso / 4).flat_map(|k| (k as f32 * 0.125).to_bits().to_le_bytes()).collect();
+    let cb = std::vec![0u8; 16 * en.vs.filas_cb.max(en.ps.filas_cb).max(1) as usize];
+    let reglas = bmo_proton_x::trama::Reglas { viewport: [0.0, 0.0, 1280.0, 720.0, 0.0, 1.0], tijera: [0, 0, 1280, 720], descarte: 1, antihorario: false, profundidad: None, mezcla: bmo_proton_x::mezcla::Mezclas::NINGUNA, z_del_sombreador: false, stencil: None };
+    let b = Blanco { va: 0x4000_0000, ancho: 1280, alto: 720, bgra: false, cadena: true, flotante: None, mas: crate::puerta::SIN_MAS };
+    let todo = std::vec![0x8040_2010u32; 64 + 8];
+    let a = todo.as_ptr().align_offset(32);
+    let tx = [Some(bmo_proton_x::textura::Textura { texeles: &todo[a..a + 64], ancho: 8, alto: 8, como: bmo_proton_x::textura::Como::Rgba8, srgb: false, mapeo: bmo_proton_x::textura::Textura::MAPEO, mips: 1, capas: 1, hondo: 1, clase: bmo_proton_x::textura::Clase::Plana, mip: 0, capa: 0, niveles: 1, lod_min: 0.0, vista: None })];
+    let recursos = bmo_proton_x::textura::Recursos { texturas: &tx, muestreadores: &[], buferes: &[], dinamicas: None };
+    let l = Lote { enlace: &en, entradas: &ia, vertices: &vertices, paso, ids: &[0, 1, 2], topologia: Topologia::Lista, cb: &cb, reglas, limpiar_z: None, limpiar_rt: None, recursos, oclusion: false, otros: &[], instancias: 1, primera_instancia: 0, base_vertice: 0, uavs: None };
+    let mut p = Puerta::nueva();
+    let n = p.preparar(&l, b).unwrap_or_else(|x| panic!("{x}"));
+    let t = bmo_gpu_ga10x::receta::leer(&p.caja[..n]).expect("el kernel la lee").texturas()[0];
+    assert_eq!((t.ancho, t.alto), (8, 8), "la textura de verdad, no la nula");
+    assert!(!t.muestreo.lineal, "con el muestreador fijo: de punto");
+}
+
 /// La nula: ocho ceros, a 32 B, y lo que dice de si en la receta.
 #[test]
 fn la_nula_son_ceros_a_32_b() {

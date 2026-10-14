@@ -202,6 +202,7 @@ resolved by the Capability Engine. The system grows by adding *kinds* and
 | Input | `TECLA` / `MODIFICADORES` | 0x03 / 0x04 | stable |
 | Console | `LEER` / `PERDIDOS` | 0x01 / 0x02 | stable |
 | Console | `ESCRIBIR` / `HAY_HIJO` | 0x03 / 0x04 | stable |
+| Console | `ESCUCHA` | 0x05 | stable -- did the child ever read its input |
 | Directory | `SIGUIENTE` / `NOMBRE` | 0x01 / 0x02 | stable |
 
 **Five kinds, zero new doors.** Everything added -- the screen, input, a console

@@ -448,6 +448,31 @@ pub fn medida(b: &Blanco, flotante: Flotante, con_z: bool) -> Result<Destino, No
 
 /// **Escribir la receta de un lote** en `caja` (con `datos` de apoyo).
 /// `Err` = por que este lote NO va a la 3060 (va a la CPU, y se dice).
+/// **El muestreador de una textura que solo se lee con `Load`** (14-10):
+/// de punto y sujeto, sin borde ni comparacion. `Load` (TLD) no filtra ni
+/// envuelve -- lee el texel de sus coordenadas, o 0 fuera --; esto solo
+/// llena su TSC.
+pub(crate) const SIN_MUESTREO: bmo_proton_x::textura::Muestreador = bmo_proton_x::textura::Muestreador {
+    filtro: Filtro::Punto,
+    u: Direccion::Sujetar,
+    v: Direccion::Sujetar,
+    borde: [0.0; 4],
+    comparacion: 0,
+    lod: bmo_proton_x::textura::Lod { min: None, mip: Filtro::Punto, sesgo: 0.0, minimo: 0.0, maximo: f32::MAX },
+};
+
+/// Si el programa MUESTREA la pareja `(tN, sM)` (algo que mira el
+/// muestreador: `Sample`, `SampleLevel`, `Gather`, `SampleCmp`...). Un
+/// `Load` o un `GetDimensions` no lo mira.
+pub(crate) fn muestrea(p: &bmo_proton_x::dxil::programa::Programa, tn: u8, sm: u8) -> bool {
+    use bmo_proton_x::dxil::programa::{Lectura, Op};
+    p.ops.iter().any(|o| match *o {
+        Op::Muestra { t, s, .. } => (t, s) == (tn, sm),
+        Op::Lee { t, s, como, .. } => (t, s) == (tn, sm) && !matches!(como, Lectura::Carga { .. } | Lectura::Medidas | Lectura::Bufer(_) | Lectura::MedidasBufer(_)),
+        _ => false,
+    })
+}
+
 /// **LA TEXTURA NULA** (12-10, el censo de Cyberpunk: "t0 sin atar"): lo
 /// que lee la 3060 donde el lote no ata textura o muestreador. La CPU da
 /// CEROS ahi (`Recursos::muestrear`, el SRV nulo de D3D12); la 3060 lee 8x1
@@ -619,9 +644,16 @@ pub fn escribir(c: &Cuerpos, l: &Lote, b: Blanco, limpiar_z: Option<u32>, nula: 
             }
             continue;
         };
-        let Some(Some(m)) = l.recursos.muestreadores.get(sm as usize) else {
-            return Err(format!("el sombreador muestrea t{tn} con s{sm} y el lote no tiene s{sm} atado"));
+        // ** 14-10 (el back buffer de Cyberpunk, el censo: "t0 con s0 y el lote
+        // no tiene s0 atado"): una textura que el de pixeles SOLO lee con
+        // `Load` (y `GetDimensions`) no usa muestreador -- la CPU tampoco lo
+        // mira --: va con uno fijo, de punto y sujeto (`SIN_MUESTREO`).
+        let m = match l.recursos.muestreadores.get(sm as usize) {
+            Some(Some(m)) => *m,
+            _ if !muestrea(&l.enlace.ps, tn, sm) => SIN_MUESTREO,
+            _ => return Err(format!("el sombreador muestrea t{tn} con s{sm} y el lote no tiene s{sm} atado")),
         };
+        let m = &m;
         // 02-10: la 3060 lee aqui RGBA/BGRA de 8 bits, lineales y con el
         // mapeo de siempre; un BC, un float, un sRGB o un mapeo, en la CPU
         // (la casa los decodifica con SUS tablas: la 3060, con las suyas, no

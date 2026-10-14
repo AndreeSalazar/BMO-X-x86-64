@@ -1,13 +1,13 @@
 <!-- GENERADO por toolchain/tools/planes. No se edita a mano. -->
 
-# LO QUE FALTA -- las casillas abiertas de los 81 planes
+# LO QUE FALTA -- las casillas abiertas de los 83 planes
 
 > Generado por `toolchain/tools/planes`. **El build comprueba que
 > este fichero y los planes dicen lo mismo**, asi que no puede
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   773 casillas ABIERTAS en 72 planes
+   792 casillas ABIERTAS en 74 planes
    620 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
@@ -216,6 +216,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] E2 -- (C,T) DECLARADOS Y EL AFORO. Cada tarea trae su compas; el kernel
 - ... y 9 mas
 
+## [`PLAN_LA_LENTE_BINARIA.md`](PLAN_LA_LENTE_BINARIA.md) -- 12 abiertas, 0 hechas
+
+*PLAN LA LENTE BINARIA -- CABINA y LENTE hablan el binario, y lo dicen en castellano*
+
+- [ ] LB1 -- el MAPA: de la instruccion de la 3060 a la linea del DXIL
+- [ ] LB2 -- el vigia dice DONDE, no solo QUE
+- [ ] LB3 -- la autopsia de Ring 3 lee la instruccion que fallo
+- ... y 9 mas
+
 ## [`PLAN_LA_PUERTA_SE_PARTE.md`](PLAN_LA_PUERTA_SE_PARTE.md) -- 11 abiertas, 8 hechas
 
 *PLAN LA PUERTA SE PARTE -- dividir lo que no se puede abaratar*
@@ -322,6 +331,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] pendiente [~] a medias, y se dice cuanto [x] hecho, con fecha
 - [ ] A1.3 -- el AP con reloj: un LAPIC timer propio, o el MWAITX con plazo
 - [ ] A2.1 -- bmo-orquesta: una clase de parte nueva, RESIDENTE, que no
+- ... y 4 mas
+
+## [`PLAN_EL_VIDEO.md`](PLAN_EL_VIDEO.md) -- 7 abiertas, 0 hechas
+
+*PLAN EL VIDEO -- ver video en BMO-X con la 3060, y la plataforma como pala*
+
+- [ ] V1 -- NVDEC: la clase de video del RM, pedida y encendida
+- [ ] V2 -- la caja: leer el contenedor (WebM/MKV y MP4)
+- [ ] V3 -- el reproductor en TITAN++
 - ... y 4 mas
 
 ## [`PLAN_LA_CASA_ESCONDIDA.md`](PLAN_LA_CASA_ESCONDIDA.md) -- 7 abiertas, 0 hechas

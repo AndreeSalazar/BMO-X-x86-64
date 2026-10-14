@@ -89,9 +89,14 @@ match c {
         // ** Y se excluye el hijo que PUBLICA la lamina de VERRANO: ese no lee
         // la consola, y la orden que se teclea a su lado es para mirarlo.
         let productor = dsk.out.run.as_ref().is_some_and(|r| dsk.table.publica_lamina(r.tid));
+        // ** 14-10 (el metal de Cyberpunk: `smp all` tecleado con el juego
+        // corriendo se le mandaba AL JUEGO, que no lee): la linea es del hijo
+        // si ESCUCHA (ya leyo su entrada), o si no es una orden de aqui (un
+        // `ACCEPT` que aun no ha empezado a leer recibe su dato igual).
+        let es_orden = !matches!(parse(dsk.field.line()), Command::Unknown);
         let from_child = !dsk.calc.waiting
             && !productor
-            && dsk.out.console.as_ref().map(|cc| cc.has_child()).unwrap_or(false);
+            && dsk.out.console.as_ref().is_some_and(|cc| cc.has_child() && (cc.escucha() || !es_orden));
 
         if from_child {
             if let Some(cc) = dsk.out.console.as_ref() {
@@ -133,6 +138,7 @@ match c {
             Command::PersonalDiario(r) => (Command::PersonalCenso(r), 1u8),
             Command::PersonalLa3060(r) => (Command::PersonalCenso(r), 2u8),
             Command::PersonalEscalera(r) => (Command::PersonalCenso(r), 3u8),
+            Command::PersonalSoloGpu(r) => (Command::PersonalCenso(r), 4u8),
             o => (o, 0u8),
         };
         match orden {
@@ -163,6 +169,9 @@ match c {
                         if diario >= 2 && bmo::info(bmo::INFO_GPU_PUERTA) == 0 {
                             dsk.out.grid.with_ink(INK_ERR);
                             dsk.out.grid.text(b"  la 3060 NO esta lista para los lotes del juego: antes, `gpu verrano` (hasta `lienzo`) o `save mode`. Sin ella, todo por la CPU\n");
+                            if diario == 4 {
+                                dsk.out.grid.text(b"  y con `solo-gpu` la CPU no pinta: no se dibujara NADA\n");
+                            }
                             dsk.out.grid.with_ink(INK_PLAIN);
                         }
                         antes_de_proton_x(dsk, p, &buf[..tn]);

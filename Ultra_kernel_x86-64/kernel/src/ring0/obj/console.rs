@@ -83,6 +83,11 @@ pub const CONSOLA_OP_ESCRIBIR: u64 = 0x03;
 /// hijo vivo, la linea es PARA EL; si no, es un comando. Sin esto habria que
 /// inventar un prefijo o un modo, y las dos cosas se olvidan.
 pub const CONSOLA_OP_HAY_HIJO: u64 = 0x04;
+/// ** 14-10: el hijo ESCUCHA -- ha leido su entrada al menos una vez desde
+/// que se le dio esta consola --? Un juego (PROTON-X) escribe y nunca lee: la
+/// linea que se teclea a su lado (`smp all`) es una ORDEN para el terminal,
+/// no entrada para el. Un `ACCEPT` de COBOL si lee, y lo suyo le llega.
+pub const CONSOLA_OP_ESCUCHA: u64 = 0x05;
 
 /// Anillo de ENTRADA, mucho mas chico que el de salida: aqui cabe lo que una
 /// persona teclea, no lo que un programa escupe.
@@ -97,6 +102,9 @@ static mut WRITES: [usize; MAX_CONSOLAS] = [0; MAX_CONSOLAS];
 static mut PERDIDOS: [u32; MAX_CONSOLAS] = [0; MAX_CONSOLAS];
 /// Pid del LECTOR (el terminal). `NO_OWNER` = ranura libre.
 static mut LECTOR: [u32; MAX_CONSOLAS] = [NO_OWNER; MAX_CONSOLAS];
+/// Si un hijo leyo la ENTRADA de la consola desde que se le dio
+/// ([`CONSOLA_OP_ESCUCHA`]).
+static mut ESCUCHA: [bool; MAX_CONSOLAS] = [false; MAX_CONSOLAS];
 
 /// A que consola escribe cada proceso. `(pid, indice)`; pid `NO_OWNER` = vacio.
 ///
@@ -115,6 +123,7 @@ pub fn create(pid: u32) -> Result<u64, u32> {
         LEE[i] = 0;
         WRITES[i] = 0;
         PERDIDOS[i] = 0;
+        ESCUCHA[i] = false;
         LECTOR[i] = pid;
         match cap::grant(pid, cap::KIND_CONSOLE, cap::RIGHT_READ, i as u64) {
             Some(h) => {
@@ -136,6 +145,8 @@ pub fn assign_output(pid: u32, idx: usize) {
         return;
     }
     unsafe {
+        // Un hijo nuevo: aun no ha escuchado.
+        ESCUCHA[idx] = false;
         let tabla = &mut *core::ptr::addr_of_mut!(SALIDA);
         // Si ya tenia una asignada, se reemplaza en su sitio.
         for e in tabla.iter_mut() {
@@ -278,6 +289,7 @@ pub fn read_entry(idx: usize) -> u64 {
         return 0;
     }
     unsafe {
+        ESCUCHA[idx] = true;
         let mut w = [0u8; 8];
         let mut n = 0usize;
         while n < 7 && IN_LEE[idx] != IN_ESCRIBE[idx] {
@@ -316,6 +328,9 @@ pub fn operation(idx: u64, operation: u64, arg0: u64) -> Option<u64> {
             Some(0)
         }
         CONSOLA_OP_HAY_HIJO => Some(has_child(i) as u64),
+        // SAFETY: un indice de un handle de consola (`i < MAX_CONSOLAS`, lo
+        // comprueba el `get`); un bool.
+        CONSOLA_OP_ESCUCHA => Some(unsafe { (*core::ptr::addr_of!(ESCUCHA)).get(i).copied().unwrap_or(false) } as u64),
         _ => None,
     }
 }

@@ -75,11 +75,21 @@ fn clave(p: &Programa) -> (usize, usize, [u32; 3], u32) {
 pub fn computar(p: &Programa, grupos: [u32; 3], cb: &[u8], buferes: &[Option<Bufer>], uavs: &mut [Option<Uav>]) -> bool {
     use core::sync::atomic::Ordering;
     if !crate::la3060::en_modo_3060() || crate::la3060::apagada() || EN_MARCHA.swap(true, Ordering::AcqRel) {
+        // SOLO LA GPU: tampoco por la CPU.
+        if crate::la3060::es_solo_gpu() {
+            crate::la3060::computo_saltado();
+            return true;
+        }
         return false;
     }
     // SAFETY: `EN_MARCHA` tomado arriba: nadie mas toca el estado.
     let r = con_el_estado(unsafe { &mut *ESTADO.0.get() }, p, grupos, cb, buferes, uavs);
     EN_MARCHA.store(false, Ordering::Release);
+    // SOLO LA GPU (14-10): lo que la 3060 no corre no lo corre nadie.
+    if !r && crate::la3060::es_solo_gpu() {
+        crate::la3060::computo_saltado();
+        return true;
+    }
     r
 }
 

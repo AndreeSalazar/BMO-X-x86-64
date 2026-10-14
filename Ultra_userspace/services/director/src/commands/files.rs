@@ -351,12 +351,14 @@ pub(crate) fn linea_censo(ruta: &[u8], diario: u8, buf: &mut [u8; crate::PATH_MA
     };
     const PROGRAMA: &[u8] = b"sys/proton-x.bex ";
     // 0 censo, 1 diario, 2 el modo 3060 (12-10; `--3060` trae el diario),
-    // 3 el modo 3060 con la ESCALERA (13-10: para saber donde se para).
+    // 3 el modo 3060 con la ESCALERA (13-10: para saber donde se para),
+    // 4 SOLO LA GPU (14-10: lo que la 3060 no sabe se salta; la CPU no pinta).
     let bandera: &[u8] = match diario {
         0 => b"--censo \"d:",
         1 => b"--diario \"d:",
         2 => b"--3060 \"d:",
-        _ => b"--3060-escalera \"d:",
+        3 => b"--3060-escalera \"d:",
+        _ => b"--3060-solo \"d:",
     };
     let partes: [&[u8]; 4] = [PROGRAMA, bandera, ruta, b"\""];
     let n: usize = partes.iter().map(|x| x.len()).sum();

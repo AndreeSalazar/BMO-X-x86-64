@@ -264,6 +264,11 @@ pub const CONSOLA_OP_ESCRIBIR: u64 = 0x03;
 /// inventar un prefijo o un modo, y las dos cosas se olvidan.
 pub const CONSOLA_OP_HAY_HIJO: u64 = 0x04;
 
+/// El hijo ESCUCHA -- leyo su entrada al menos una vez desde que se le dio la
+/// consola -- (14-10)? Si no, lo que se teclea a su lado es una orden para el
+/// terminal: un juego escribe y nunca lee.
+pub const CONSOLA_OP_ESCUCHA: u64 = 0x05;
+
 // -- Las cuatro del FRAMEBUFFER (`KIND_FRAMEBUFFER`) ------------------------
 //
 // Cada una devuelve UN `u64`, que es lo que cabe en `BmoStatus.value`. Los
