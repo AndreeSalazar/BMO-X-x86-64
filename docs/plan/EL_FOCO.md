@@ -153,11 +153,31 @@ dice, y el metal se junta en UNA corrida por escalon.
       castigadas). Las pruebas de TITAN++ que leen lo que escribe su
       emisor (`lamina`, `dos_cubos`, `mundo`, `navegar`), igual. **Falta el
       metal:** `gpu verrano banco inti` con `cubogira.bex`, `IGUAL al juez`.
-- [ ] **A3 -- las demas clases al trato**, una por commit, de la mas suelta a
-      la mas atada: la antena, BSUP, CAB2; y las de kernel (BGPU, BRED) al
-      final, porque las lee Ring 0 (sus tres reglas de "copiar una vez y
-      juzgar la copia" se quedan). **Como se sabe:** las pruebas de cada uno,
-      iguales, y los tres lectores de BSUP (C, Rust, TITAN++) de acuerdo.
+- [x] **A3 -- las demas clases al trato**, una por commit, de la mas suelta a
+      la mas atada. **Lo que se encontro al leerlas, y cambia la casilla:**
+      lo UNICO que cumplen las ocho es la palabra 0 (la magia). La palabra 1
+      cada una la puso a su manera antes del trato -- version entera (BVER,
+      BGPU), media version (BRED: la otra mitad son las casillas), una medida
+      (BSUP, VE5C), la mitad alta de una magia de 64 bits (BMOC), texto
+      (LAMI) --. Igualar los BYTES tocaria el kernel, las cabeceras de C, el
+      emisor de TITAN++ y el metal a la vez, por nada que se gane hoy: NO se
+      movio un byte. **HECHO el 14-10, lo que si:** `censo::Version` dice la
+      forma de la palabra 1 de cada clase y `censo::reconocer` es LA PUERTA
+      UNICA -- dos palabras, la clase o por que no --. Cada clase esta atada a
+      su fila en compilacion (`const _: () = assert!(...)`: si su version y la
+      del censo se separan, no compila; saboteado en VERRANO, no compila): la
+      antena, `bmo-abi` (BSUP), `cabina-core` (CAB2, declarada y sin uso),
+      `bmo-pase-gpu`, `bmo-puerta-red`, `bmo-channel` y el DIRECTOR (VE5C:
+      `bmo-gpu-ga10x` no tiene dependencias a proposito). Y la usan: el
+      DIRECTOR toma lo que le ofrecen por la puerta unica (una clase que no
+      es para el se devuelve con su nombre: `[lamina] tid N ofrecio un bloque
+      BGPU`), el escritorio y el proceso dejan de usar un buzon BGPU o BRED
+      con otra version, y BMOC, cuya magia nadie leia, se puede reconocer
+      (`Channel::reconocido`). Los lados del KERNEL no cambian (copian una vez
+      y juzgan la copia). **Como se sabe:** 268 pruebas de los ocho crates,
+      el userspace entero y ESTUDIO para su objetivo, el kernel con
+      `cargo check`, y los guardianes como estaban. **Falta el metal:** la
+      ventana, el pase de la 3060 (`gpu pase`) y la red, como siempre.
 - [ ] **A4 -- TITAN++ pide RAM SOLO con laminas.** `director.lamina` deja de
       ser "la de vertices": una lamina con medida y clase, la que el programa
       tiene en la mano para administrar y llamar. **Como se sabe:** un

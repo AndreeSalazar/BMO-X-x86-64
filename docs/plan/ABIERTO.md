@@ -7,8 +7,8 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   811 casillas ABIERTAS en 75 planes
-   622 hechas
+   810 casillas ABIERTAS en 75 planes
+   623 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -99,14 +99,14 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] A5 -- cada prestamo a la 3060 dice quien lo devuelve
 - ... y 22 mas
 
-## [`EL_FOCO.md`](EL_FOCO.md) -- 20 abiertas, 10 hechas
+## [`EL_FOCO.md`](EL_FOCO.md) -- 19 abiertas, 11 hechas
 
 *EL FOCO -- una cosa a la vez, hasta el final (10-10; el orden nuevo, 14-10)*
 
-- [ ] A3 -- las demas clases al trato, una por commit, de la mas suelta a
 - [ ] A4 -- TITAN++ pide RAM SOLO con laminas. director.lamina deja de
 - [ ] A5 -- LB3a: la LENTE lee x86 (PLAN_LA_LENTE_BINARIA.md, LB3): un
-- ... y 17 mas
+- [ ] A6 -- LB6: el .bex dice que instrucciones usa. El emisor de INTI
+- ... y 16 mas
 
 ## [`PLAN_FASE.md`](PLAN_FASE.md) -- 19 abiertas, 3 hechas
 
