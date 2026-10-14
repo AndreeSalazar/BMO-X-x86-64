@@ -13,7 +13,9 @@
 //! hacia la region de codigo). Y juzga:
 //!
 //! ```text
-//!    una instruccion de una extension que el .bex NO declara   NO, con su sitio
+//!    una instruccion de una extension que el .bex NO declara
+//!      y que sin ella da `#UD`                                 NO, con su sitio
+//!      y que sin ella se ejecuta como otra (tzcnt -> bsf)      entra, y se cuenta
 //!    una que no sabe leer, o un salto que sale del codigo      se dice: NO DEMOSTRADO
 //!    todo lo alcanzable leido, declarado y dentro              DEMOSTRADO
 //! ```
@@ -24,6 +26,11 @@
 //! es un limite de la lente, no una falta del programa, y dejar de arrancar
 //! por el seria castigar al que no tiene la culpa. Se dice en la bitacora con
 //! su direccion. Lo que SI es una falta --usar lo que no declara-- es un NO.
+//!
+//! ** El caso de en medio lo trajo el DIRECTOR (14-10): LLVM emite `rep bsf`
+//! (`F3 0F BC`, que es `tzcnt`) en x86-64 BASE, porque una CPU sin BMI1
+//! ignora el `F3` y ejecuta `bsf`. La primera version de B1 lo daba por NO y
+//! habria dejado la maquina sin escritorio. Ver `Fila::sin_ella_falla`.
 //!
 //! ** Y SE APARTA (LB8): el veredicto se apunta con el HASH de la region de
 //! codigo (el que el cargador acaba de comprobar), la entrada y lo declarado.

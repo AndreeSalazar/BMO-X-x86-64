@@ -257,11 +257,19 @@ fn recorrer(bex: &[u8]) -> (bmo_lente_x86::recorre::Recorrido, usize, Vec<u8>) {
     (r, c.len(), visto)
 }
 
-/// Lo que le falta a un recorrido para quedar demostrado, dicho.
-fn que_falta(r: &bmo_lente_x86::recorre::Recorrido) -> String {
+/// Lo que le falta a un recorrido para quedar demostrado, dicho: con los
+/// bytes de cada sitio (y lo que la lente lee en ellos, si lee algo).
+fn que_falta(r: &bmo_lente_x86::recorre::Recorrido, c: &[u8]) -> String {
+    let sitio = |en: usize| {
+        let b: Vec<String> = c[en..(en + 10).min(c.len())].iter().map(|b| format!("{b:02x}")).collect();
+        match bmo_lente_x86::lee(&c[en..(en + 15).min(c.len())]) {
+            Ok(i) => format!("`{}` [{}]", i.texto(en as u64).as_str(), b.join(" ")),
+            Err(_) => format!("[{}]", b.join(" ")),
+        }
+    };
     let mut q = Vec::new();
-    if let Some((en, e)) = r.no_declarada { q.push(format!("en 0x{en:x} una instruccion de {e}, que el .bex NO declara")); }
-    if let Some((en, e)) = r.no_sabe { q.push(format!("en 0x{en:x} no sabe leer ({e:?})")); }
+    if let Some((en, e)) = r.no_declarada { q.push(format!("en 0x{en:x} una instruccion de {e}, que el .bex NO declara: {}", sitio(en))); }
+    if let Some((en, e)) = r.no_sabe { q.push(format!("en 0x{en:x} no sabe leer ({e:?}): {}", sitio(en))); }
     if let Some((de, a)) = r.fuera { q.push(format!("en 0x{de:x} un salto sale del codigo, a 0x{a:x}")); }
     if r.desborda { q.push("el recorrido desbordo".into()); }
     q.join("; ")
@@ -274,11 +282,12 @@ fn recorre_fichero(ruta: &str) {
         Err(e) => { eprintln!("recorre: no se lee {ruta}: {e}"); std::process::exit(2) }
     };
     let (r, largo, _) = recorrer(&bex);
-    println!("{ruta}: {} instrucciones, {} de {} B de codigo alcanzados desde la entrada, {} saltos indirectos", r.leidas, r.bytes, largo, r.indirectos);
+    println!("{ruta}: {} instrucciones, {} de {} B de codigo alcanzados desde la entrada, {} saltos indirectos; {} piden algo NO declarado, {} se degradan sin ello (tzcnt/lzcnt)", r.leidas, r.bytes, largo, r.indirectos, r.no_declaradas, r.degradan);
     if r.demostrado() {
         println!("DEMOSTRADO: todo lo alcanzable se lee, es de lo declarado y no sale del codigo");
     } else {
-        println!("NO DEMOSTRADO: {}", que_falta(&r));
+        let c = bmo_abi::bef2::leer(&bex).map(|v| v.region(bmo_abi::bef2::Region::Codigo).to_vec()).unwrap_or_default();
+        println!("NO DEMOSTRADO: {}", que_falta(&r, &c));
         std::process::exit(1);
     }
 }
@@ -377,7 +386,8 @@ fn medir(lenguaje: &str, rel: &str) -> Result<Medida, String> {
         let (r, largo, visto) = recorrer(&bex);
         let mut quejas = Vec::new();
         if !r.demostrado() {
-            quejas.push(format!("recorrido: no demostrado ({}/{} B): {}", r.bytes, largo, que_falta(&r)));
+            let c = bmo_abi::bef2::leer(&bex).map(|v| v.region(bmo_abi::bef2::Region::Codigo).to_vec()).unwrap_or_default();
+            quejas.push(format!("recorrido: no demostrado ({}/{} B): {}", r.bytes, largo, que_falta(&r, &c)));
         }
         let sin: Vec<usize> = pasos.iter().map(|p| p.0).filter(|&o| visto.get(o / 8).is_none_or(|b| b >> (o % 8) & 1 == 0)).collect();
         if !sin.is_empty() && r.indirectos == 0 {

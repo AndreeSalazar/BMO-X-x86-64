@@ -1064,6 +1064,9 @@ pub(crate) fn admit_payload_desde(
                     }
                 }
                 crate::ring0::cabina::info("lente", "bytes de codigo alcanzados", r.bytes as u64);
+                if r.degradan > 0 {
+                    crate::ring0::cabina::info("lente", "tzcnt/lzcnt sin declarar: sin la extension corren como bsf/bsr", r.degradan as u64);
+                }
             }
         }
     }

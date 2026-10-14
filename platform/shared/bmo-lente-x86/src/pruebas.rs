@@ -391,3 +391,16 @@ fn finds_the_call_before_a_return_address() {
     // sin call al final: nada (no se inventa uno)
     assert!(el_call_antes(&[0x48, 0x89, 0xC8]).is_none());
 }
+
+/// ** `tzcnt` sin BMI1 no falla: es `rep bsf`, y LLVM lo emite en x86-64 base
+/// (el DIRECTOR, 14-10). No es un NO: se cuenta aparte. `popcnt`, si.
+#[test]
+fn walk_tzcnt_without_bmi1_degrades_it_does_not_fail() {
+    // tzcnt rax, rsi / ret
+    let (r, _) = recorre_con(&[0xF3, 0x48, 0x0F, 0xBC, 0xC6, 0xC3], 0, &[], &[]);
+    assert_eq!((r.no_declarada, r.no_declaradas, r.degradan), (None, 0, 1));
+    assert!(r.demostrado());
+    // popcnt eax, eax / popcnt eax, eax / ret: dos NO, el primero dicho
+    let (r, _) = recorre_con(&[0xF3, 0x0F, 0xB8, 0xC0, 0xF3, 0x0F, 0xB8, 0xC0, 0xC3], 0, &[], &[]);
+    assert_eq!((r.no_declarada, r.no_declaradas), (Some((0, "POPCNT")), 2));
+}

@@ -319,6 +319,18 @@ dice, y el metal se junta en UNA corrida por escalon.
       el codigo -- TITAN++ guarda DATOS ahi, y probarlo leyo `cubo_gira`
       como instrucciones. **Lo que falta:** lanzar el mismo `.bex` dos veces
       en el Ryzen y ver `lente: ya leido` la segunda.
+      **CORREGIDO el 14-10, con B3 (antes de llegar al metal):** pasando el
+      recorrido por los `.bex` de Rust (el DIRECTOR, ESTUDIO, PROTON-X...),
+      el DIRECTOR salia con un NO -- `tzcnt rax, rsi` sin BMI1 declarado --
+      y B1 lo habria dejado fuera al arrancar. Era falso: `tzcnt` es `rep
+      bsf`, una CPU sin BMI1 ignora el `F3` y ejecuta `bsf`, y por eso LLVM
+      lo emite en x86-64 base. Ahora el NO es solo para lo que sin su
+      extension da `#UD` (`Fila::sin_ella_falla`); `tzcnt`/`lzcnt` se
+      cuentan aparte (`degradan`). Los diez `.bex` de Rust y DOOM: 0 NO.
+      [!] En los de Rust la lente se para pronto (LLVM usa `nopw cs:` y
+      `test al, imm8`, que su tabla no tiene) y lee del 3 al 70 % de su
+      codigo: si la tabla crece, que vuelvan a pasar por `--recorre` ANTES
+      de llegar al Ryzen.
 - [ ] **B2 -- LB3b: la autopsia de Ring 3 dice la instruccion.** El capitulo
       7 de `save`: los bytes en RIP decodificados y explicados, de que
       programa y que funcion. **Como se sabe:** un programa que falla a
@@ -345,6 +357,20 @@ dice, y el metal se junta en UNA corrida por escalon.
 - [ ] **B3 -- Q0a1..Q0a4: el cubo de TITAN++ en SU ventana, por la 3060**
       (seccion 5): VERRANO dibuja la lamina dentro de la ventana, y el
       DIRECTOR no nombra la 3060 (1c). **Como se sabe:** lo de la seccion 5.
+      **14-10, revisado: TODO lo del anfitrion esta hecho y sigue verde; solo
+      falta el metal.** Q0a1..Q0a4 se escribieron el 10-10 y el 12-10 (ver la
+      seccion 5); hoy, despues de A4..B2: 665 pruebas en verde de TITAN++,
+      ga10x, PROTON-X sm86 y VERRANO (la ventana y la lamina de `cubo_gira`,
+      los 360 fotogramas, el juez de la CPU a otra medida, `pruebas_medida`);
+      el DIRECTOR compila; el guardian `la-3060` (S3) limpio -- el DIRECTOR
+      no nombra la 3060 --; `titan/cubogira.bex` sale de `ejemplos.ps1`; y
+      las puertas nuevas lo dejan entrar: `cubo_gira` declara lo que usa (A6)
+      y la lente lo DEMUESTRA entero (B1, en el `metro`). Un parrafo de Q0a2
+      decia que a VRN1 le faltaba el color de fondo: ya lo lleva, corregido.
+      **Lo que falta, en el Ryzen** (la seccion 6, filas Q0a2..Q0a4): `run
+      titan/cubogira.bex` desde Ejecutar -- gira EN SU VENTANA, se mueve, se
+      tapa --, la consola dice `[Q0a3] el juez ... 640x360: la 3060 da lo
+      MISMO`, y con el cubo girando `gpu verrano banco inti enram` IGUAL.
 - [ ] **B4 -- LB10 + LB12: el perfil del Ryzen, UNA fuente, comprobado al
       arrancar.** Lo leen el emisor, la puerta y la lente; si la CPU no es la
       del perfil, lo generico de x86-64 y se dice.
@@ -810,9 +836,10 @@ y 4b). Lo que la regla 1b pide despues, leido en el DIRECTOR:
       puertas. **Falta el metal:** `run titan/cubogira.bex` y, mientras
       corre, `gpu verrano banco inti enram` (IGUAL a D3D12).
       **Por VERRANO (1c):** la Image de `Backend::draw` con su medida; la
-      puerta `sm86.rs` la traduce al `Destino` de Q0a1. Le falta al paquete
-      VRN1 el COLOR de fondo (hoy solo lo lleva la receta VRN2): o VRN1
-      crece, o el camino de la lamina pasa por la receta.
+      puerta `sm86.rs` la traduce al `Destino` de Q0a1. ~~Le falta al
+      paquete VRN1 el COLOR de fondo~~ -- **ya no (revisado el 14-10):** VRN1
+      crecio, +20 = 1 marca que +24 es el pixel de la limpieza
+      (`trabajos/tuberia.rs`), como dice el parrafo de arriba.
 - [ ] **Q0a3 -- el DIRECTOR dibuja la lamina DENTRO de la ventana de su
       app** (por VERRANO, 1c: el DIRECTOR pide, la puerta dibuja): si el tid de una ventana tiene lamina, cada fotograma NUEVO de
       la lamina lo dibuja el aparato en los pixeles de esa ventana (Ring 0:

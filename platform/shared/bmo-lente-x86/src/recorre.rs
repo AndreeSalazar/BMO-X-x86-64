@@ -45,9 +45,15 @@ pub struct Recorrido {
     /// La pila de pendientes se lleno, o el mapa no cubria el codigo: el
     /// recorrido quedo a medias.
     pub desborda: bool,
-    /// **La primera instruccion de una extension que el `.bex` NO declara**:
-    /// su offset y la extension. Esto es un NO.
+    /// **La primera instruccion de una extension que el `.bex` NO declara**
+    /// y que SIN ella falla (`#UD`): su offset y la extension. Esto es un NO.
     pub no_declarada: Option<(usize, &'static str)>,
+    /// Cuantas hay asi en total (la primera es la de arriba).
+    pub no_declaradas: usize,
+    /// Las que piden una extension no declarada pero SIN ella no fallan: se
+    /// ejecutan como otra (`tzcnt` como `bsf`, `lzcnt` como `bsr`; ver
+    /// [`crate::Fila::sin_ella_falla`]). No son un NO: se cuentan.
+    pub degradan: usize,
     /// La primera que no se sabe leer: su offset y por que.
     pub no_sabe: Option<(usize, NoSe)>,
     /// El primer salto (o caida) que se sale del codigo: de donde y adonde.
@@ -123,7 +129,12 @@ pub fn recorre(
                 }
             };
             if !i.fila.pide.is_empty() && !declara(i.fila.pide) {
-                r.no_declarada.get_or_insert((en, i.fila.pide));
+                if i.fila.sin_ella_falla() {
+                    r.no_declarada.get_or_insert((en, i.fila.pide));
+                    r.no_declaradas += 1;
+                } else {
+                    r.degradan += 1;
+                }
             }
             r.leidas += 1;
             r.bytes += i.largo;

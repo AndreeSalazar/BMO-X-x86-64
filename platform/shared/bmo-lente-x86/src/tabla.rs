@@ -128,6 +128,17 @@ pub struct Fila {
 }
 
 impl Fila {
+    /// **Sin su extension, falla?** Casi todas si: `#UD`. Pero `tzcnt` y
+    /// `lzcnt` son `F3` delante de `bsf` y `bsr`, y una CPU sin BMI1 o sin
+    /// LZCNT ignora el `F3` y ejecuta la vieja -- por eso LLVM emite `rep bsf`
+    /// en x86-64 BASE (el DIRECTOR lo lleva, visto el 14-10). Con una entrada
+    /// distinta de cero `tzcnt` y `bsf` dan lo mismo; `lzcnt` y `bsr`, no (son
+    /// complementarios): ese es el programa que miente, y lo juzga quien lo
+    /// emitio (A6), no esto.
+    pub const fn sin_ella_falla(&self) -> bool {
+        !matches!(self.op, 0xBC | 0xBD) || !matches!(self.mapa, crate::Mapa::Dos)
+    }
+
     /// La misma fila, pidiendo una extension.
     pub const fn pide(self, ext: &'static str) -> Fila {
         Fila { pide: ext, ..self }
