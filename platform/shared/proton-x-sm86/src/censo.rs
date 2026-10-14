@@ -216,10 +216,17 @@ fn texturas_del_lote(l: &Lote) -> Vec<&'static str> {
         };
         let Some(Some(tx)) = l.recursos.texturas.get(t as usize) else { continue };
         let q = match tx.como {
-            Como::Bloques(_) => "una textura comprimida BC (la 3060 la lee: falta medir que da los bits de la casa)",
+            // 13-10: BC1-5 sin signo, BC7 y sRGB ya van (`mipmap::formato_de`).
+            _ if crate::mipmap::formato_de(tx).is_some() && tx.mapeo & 0xFFF == Textura::MAPEO & 0xFFF && tx.clase == Clase::Plana => {
+                if muestrea && !matches!(l.recursos.muestreadores.get(s as usize), Some(Some(_))) {
+                    "un muestreador sin atar"
+                } else {
+                    continue;
+                }
+            }
+            Como::Bloques(_) => "una textura BC6 (HDR) o BC4/BC5 con signo",
             Como::Flotante | Como::Flotantes4 => "una textura de float (R32, RGBA16F...)",
             Como::Stencil8 => "el stencil visto como textura",
-            _ if tx.srgb => "una textura sRGB",
             _ if tx.mapeo & 0xFFF != Textura::MAPEO & 0xFFF => "una textura con otro mapeo de canales",
             _ if tx.clase != Clase::Plana => "una textura que no es 2D (array, 3D o cubo)",
             _ if muestrea && !matches!(l.recursos.muestreadores.get(s as usize), Some(Some(_))) => "un muestreador sin atar",

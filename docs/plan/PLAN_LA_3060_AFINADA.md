@@ -541,8 +541,13 @@ marcada.
 - [ ] **L4 -- ATOM/RED:** el `Atomico` del computo.
 - [ ] **L5 -- el microscopio:** el decodificador de SASS con nombres (de
       `sm70_encode.rs`): CABINA lee lo que corre la 3060 de cada PSO.
-- [ ] Fuera de la lente: las texturas BC por la 3060, y el envio rapido
-      (muchos lotes por llamada, sin esperar cada uno).
+- [x] **Las texturas BC por la 3060 (14-10, en el banco):** BC1, BC2, BC3,
+      BC4 y BC5 sin signo, BC7 y sRGB, con los codigos de `clb097tex.h` y el
+      swizzle de NIL (`texturas::Formato`); las mips y la cola por FILAS DE
+      BLOQUES (`mipmap::filas`, `fila_natural`). La 3060 los descomprime con
+      SU redondeo (la casa da +-1 en BC1/BC3, `prometeo::bc`). Quedan en la
+      CPU: BC6 (HDR) y BC4/BC5 con signo (la casa los guarda corridos a 0..1).
+- [ ] El envio rapido (muchos lotes por llamada, sin esperar cada uno).
 
 **Las fuentes publicas** (lo publico se trae; lo que no, se mide):
 

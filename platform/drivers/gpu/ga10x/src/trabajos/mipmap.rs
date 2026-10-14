@@ -40,7 +40,7 @@
 //! DATOS de la receta, que ya viajan a la VRAM en cada lote. La cola de una
 //! textura de 1024x1024 son 224 bytes; la de una de 1920x1088, 11,6 KiB.
 
-use crate::texturas::{tic, Imagen, PISCINAS_VA};
+use crate::texturas::{tic, Formato, Imagen, PISCINAS_VA};
 
 /// Huecos de TIC de cada textura.
 pub const HUECOS: u32 = 16;
@@ -75,44 +75,54 @@ pub const fn todas(ancho: u32, alto: u32) -> u32 {
     32 - m.leading_zeros()
 }
 
+/// Las FILAS de la mip `j` (de texeles, o de bloques de 4x4 en un BC).
+pub const fn filas(alto: u32, f: Formato, j: u32) -> u32 {
+    medidas(1, alto, j).1.div_ceil(f.bloque())
+}
+
+/// Los bytes de una fila de la mip `j` sin relleno, como los guarda la casa.
+pub const fn fila_natural(ancho: u32, f: Formato, j: u32) -> u32 {
+    medidas(ancho, 1, j).0.div_ceil(f.bloque()) * f.bytes()
+}
+
 /// La fila de la mip `j` en la RAM de la app: la de la mip 0 la dice la app
-/// (`fila`: la casa, `4 x ancho`; la prueba de `gpu verrano textura`, 32 con
+/// (`fila`: la casa, sin relleno; la prueba de `gpu verrano textura`, 32 con
 /// relleno); las demas, sin relleno, como las guarda la casa.
-pub const fn fila_de(ancho: u32, alto: u32, fila: u32, j: u32) -> u32 {
+pub const fn fila_de(ancho: u32, fila: u32, f: Formato, j: u32) -> u32 {
     if j == 0 {
         fila
     } else {
-        4 * medidas(ancho, alto, j).0
+        fila_natural(ancho, f, j)
     }
 }
 
 /// Bytes de la mip `j` en la RAM de la app.
-pub const fn bytes_de(ancho: u32, alto: u32, fila: u32, j: u32) -> u64 {
-    fila_de(ancho, alto, fila, j) as u64 * medidas(ancho, alto, j).1 as u64
+pub const fn bytes_de(ancho: u32, alto: u32, fila: u32, f: Formato, j: u32) -> u64 {
+    fila_de(ancho, fila, f, j) as u64 * filas(alto, f, j) as u64
 }
 
 /// Donde empieza la mip `j` (bytes desde la mip 0) en la RAM de la app.
-pub const fn desde(ancho: u32, alto: u32, fila: u32, j: u32) -> u64 {
+pub const fn desde(ancho: u32, alto: u32, fila: u32, f: Formato, j: u32) -> u64 {
     let mut s = 0;
     let mut k = 0;
     while k < j {
-        s += bytes_de(ancho, alto, fila, k);
+        s += bytes_de(ancho, alto, fila, f, k);
         k += 1;
     }
     s
 }
 
 /// La fila de la mip `j` en la COLA: alineada a 32.
-pub const fn fila_en_cola(ancho: u32, alto: u32, j: u32) -> u32 {
-    (4 * medidas(ancho, alto, j).0).next_multiple_of(32)
+pub const fn fila_en_cola(ancho: u32, f: Formato, j: u32) -> u32 {
+    fila_natural(ancho, f, j).next_multiple_of(32)
 }
 
 /// **Desde que mip va todo en la cola**: la primera cuya fila o cuyo
 /// principio (en la RAM de la app, `va` la de la mip 0) no cae en 32 B.
-pub const fn cola_desde(va: u64, ancho: u32, alto: u32, fila: u32, mips: u32) -> u32 {
+pub const fn cola_desde(va: u64, ancho: u32, alto: u32, fila: u32, f: Formato, mips: u32) -> u32 {
     let mut j = 0;
     while j < mips {
-        if fila_de(ancho, alto, fila, j) % 32 != 0 || (va + desde(ancho, alto, fila, j)) % 32 != 0 {
+        if fila_de(ancho, fila, f, j) % 32 != 0 || (va + desde(ancho, alto, fila, f, j)) % 32 != 0 {
             return j;
         }
         j += 1;
@@ -121,36 +131,32 @@ pub const fn cola_desde(va: u64, ancho: u32, alto: u32, fila: u32, mips: u32) ->
 }
 
 /// Donde empieza la mip `j` (de la cola) dentro de la cola.
-pub const fn en_cola(ancho: u32, alto: u32, cola: u32, j: u32) -> u64 {
+pub const fn en_cola(ancho: u32, alto: u32, f: Formato, cola: u32, j: u32) -> u64 {
     let mut s = 0;
     let mut k = cola;
     while k < j {
-        s += fila_en_cola(ancho, alto, k) as u64 * medidas(ancho, alto, k).1 as u64;
+        s += fila_en_cola(ancho, f, k) as u64 * filas(alto, f, k) as u64;
         k += 1;
     }
     s
 }
 
-/// Lo que mide la cola de `cola` a `mipmap`.
-pub const fn bytes_cola(ancho: u32, alto: u32, cola: u32, mips: u32) -> u64 {
-    en_cola(ancho, alto, cola, mips)
+/// Lo que mide la cola de `cola` a `mips`.
+pub const fn bytes_cola(ancho: u32, alto: u32, f: Formato, cola: u32, mips: u32) -> u64 {
+    en_cola(ancho, alto, f, cola, mips)
 }
 
 /// **El TIC de cada hueco** de la textura de la ranura `en_ranura` (la VA
 /// de la 3060 donde empieza su pagina prestada, mas el desplazamiento de su
 /// mip 0 en ella), con la cola en `en_datos` (la VA de la 3060 en los DATOS).
 #[allow(clippy::too_many_arguments)]
-pub fn tics(en_ranura: u64, en_datos: u64, ancho: u32, alto: u32, fila: u32, mips: u32, vista: u32, cola: u32, bgra: bool) -> Option<[[u32; 8]; HUECOS as usize]> {
-    let nula = tic(&Imagen { va: PISCINAS_VA + NULA, ancho: 1, alto: 1, fila: 32, bgra: false })?;
+pub fn tics(en_ranura: u64, en_datos: u64, ancho: u32, alto: u32, fila: u32, mips: u32, vista: u32, cola: u32, formato: Formato, srgb: bool) -> Option<[[u32; 8]; HUECOS as usize]> {
+    let nula = tic(&Imagen { va: PISCINAS_VA + NULA, ancho: 1, alto: 1, fila: 32, formato: Formato::Rgba8, srgb: false })?;
     let mut t = [nula; HUECOS as usize];
     let de = |j: u32| -> Option<[u32; 8]> {
         let (w, h) = medidas(ancho, alto, j);
-        let i = if j < cola {
-            Imagen { va: en_ranura + desde(ancho, alto, fila, j), ancho: w, alto: h, fila: fila_de(ancho, alto, fila, j), bgra }
-        } else {
-            Imagen { va: en_datos + en_cola(ancho, alto, cola, j), ancho: w, alto: h, fila: fila_en_cola(ancho, alto, j), bgra }
-        };
-        tic(&i)
+        let (va, fila) = if j < cola { (en_ranura + desde(ancho, alto, fila, formato, j), fila_de(ancho, fila, formato, j)) } else { (en_datos + en_cola(ancho, alto, formato, cola, j), fila_en_cola(ancho, formato, j)) };
+        tic(&Imagen { va, ancho: w, alto: h, fila, formato, srgb })
     };
     t[HUECO_VISTA as usize] = de(vista)?;
     for j in 0..mips {
@@ -175,40 +181,48 @@ mod pruebas {
         assert_eq!(todas(1, 1), 1);
         assert_eq!(medidas(1920, 1088, 6), (30, 17));
         assert_eq!(medidas(4, 4, 5), (1, 1));
-        assert_eq!(desde(4, 4, 16, 1), 64);
-        assert_eq!(desde(4, 4, 16, 2), 64 + 16);
+        let r = Formato::Rgba8;
+        assert_eq!(desde(4, 4, 16, r, 1), 64);
+        assert_eq!(desde(4, 4, 16, r, 2), 64 + 16);
         // La mip 0 con su relleno (la de `gpu verrano textura`).
-        assert_eq!(desde(4, 4, 32, 1), 128);
+        assert_eq!(desde(4, 4, 32, r, 1), 128);
+        // Un BC1 de 64x32: filas de bloques de 8 bytes, 16 de ancho y 8 de alto.
+        assert_eq!((fila_natural(64, Formato::Bc1, 0), filas(32, Formato::Bc1, 0)), (128, 8));
+        assert_eq!(desde(64, 32, 128, Formato::Bc1, 1), 128 * 8);
+        // Las mips de menos de un bloque siguen siendo UN bloque.
+        assert_eq!((fila_natural(64, Formato::Bc7, 6), filas(32, Formato::Bc7, 6)), (16, 1));
     }
 
     #[test]
     fn la_cola_empieza_donde_la_fila_deja_de_caer_en_32() {
         // 1024x1024 desde una pagina: hasta la de 8x8 en la RAM del juego; la
         // de 4x4, 2x2 y 1x1 en la cola, 224 bytes (filas de 32).
-        assert_eq!(cola_desde(0x1000_0000, 1024, 1024, 4096, 11), 8);
-        assert_eq!(bytes_cola(1024, 1024, 8, 11), 32 * 4 + 32 * 2 + 32);
+        assert_eq!(cola_desde(0x1000_0000, 1024, 1024, 4096, Formato::Rgba8, 11), 8);
+        assert_eq!(bytes_cola(1024, 1024, Formato::Rgba8, 8, 11), 32 * 4 + 32 * 2 + 32);
+        // Un BC1 de 1024: hasta la de 16 (4 bloques = 32 B) en la RAM.
+        assert_eq!(cola_desde(0x1000_0000, 1024, 1024, 2048, Formato::Bc1, 11), 7);
         // 1920x1088: la de 60 texeles (240 B por fila) ya no cae.
-        assert_eq!(cola_desde(0x1000_0000, 1920, 1088, 7680, 11), 5);
-        assert_eq!(bytes_cola(1920, 1088, 5, 11), 256 * 34 + 128 * 17 + 64 * 8 + 32 * 4 + 32 * 2 + 32);
+        assert_eq!(cola_desde(0x1000_0000, 1920, 1088, 7680, Formato::Rgba8, 11), 5);
+        assert_eq!(bytes_cola(1920, 1088, Formato::Rgba8, 5, 11), 256 * 34 + 128 * 17 + 64 * 8 + 32 * 4 + 32 * 2 + 32);
         // Una mip 0 que no empieza en 32: todo a la cola.
-        assert_eq!(cola_desde(0x1000_0010, 64, 64, 256, 7), 0);
+        assert_eq!(cola_desde(0x1000_0010, 64, 64, 256, Formato::Rgba8, 7), 0);
         // Sin mips de mas: la textura entera en la RAM del juego.
-        assert_eq!(cola_desde(0x1000_0000, 256, 256, 1024, 1), 1);
+        assert_eq!(cola_desde(0x1000_0000, 256, 256, 1024, Formato::Rgba8, 1), 1);
         // La 4x4 de `gpu verrano textura`: con su relleno, en la RAM.
-        assert_eq!(cola_desde(0x4000_0000, 4, 4, 32, 1), 1);
-        assert_eq!(cola_desde(0x4000_0000, 4, 4, 16, 1), 0);
+        assert_eq!(cola_desde(0x4000_0000, 4, 4, 32, Formato::Rgba8, 1), 1);
+        assert_eq!(cola_desde(0x4000_0000, 4, 4, 16, Formato::Rgba8, 1), 0);
     }
 
     #[test]
     fn los_16_huecos() {
-        let t = tics(0xA_0000_0000, 0x2_0001_0400, 64, 32, 256, 7, 2, cola_desde(0, 64, 32, 256, 7), true).unwrap();
+        let t = tics(0xA_0000_0000, 0x2_0001_0400, 64, 32, 256, 7, 2, cola_desde(0, 64, 32, 256, Formato::Rgba8, 7), Formato::Bgra8, false).unwrap();
         let va = |x: &[u32; 8]| x[1] as u64 | ((x[2] & 0xFFFF) as u64) << 32;
         let medida = |x: &[u32; 8]| ((x[4] & 0xFFFF) + 1, (x[5] & 0xFFFF) + 1, x[3] << 5);
         // El hueco 0 es la mip de la vista (la 2: 16x8, en la RAM).
         assert_eq!(t[0], t[(HUECO_BASE + 2) as usize]);
         assert_eq!((va(&t[0]), medida(&t[0])), (0xA_0000_0000 + 64 * 32 * 4 + 32 * 16 * 4, (16, 8, 64)));
         // La 3 (8x4) aun en la RAM; la 4 (4x2) ya en la cola, con filas de 32.
-        assert_eq!(cola_desde(0, 64, 32, 256, 7), 4);
+        assert_eq!(cola_desde(0, 64, 32, 256, Formato::Rgba8, 7), 4);
         assert_eq!((va(&t[5]), medida(&t[5])), (0x2_0001_0400, (4, 2, 32)));
         assert_eq!((va(&t[6]), medida(&t[6])), (0x2_0001_0400 + 64, (2, 1, 32)));
         assert_eq!((va(&t[7]), medida(&t[7])), (0x2_0001_0400 + 96, (1, 1, 32)));

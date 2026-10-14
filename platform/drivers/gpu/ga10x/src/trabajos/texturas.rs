@@ -89,30 +89,116 @@ pub const BORDE_DEL_MUESTREADOR: u32 = 7 << 29;
 /// `GM107_TIC2_5_NORMALIZED_COORDS`.
 pub const NORMALIZADAS: u32 = 1 << 31;
 
-/// **Una textura para la 3060**: 2D, 8 bits por canal, PITCH, en `va`.
+/// **El formato de una textura de la 3060** (13-10: tambien los BC, por la
+/// propia 3060). Los numeros, los de `clb097tex.h` (COMPONENTS: A8B8G8R8
+/// 0x08, DXT1 0x24, DXT23 0x25, DXT45 0x26, DXN1 0x27, DXN2 0x28, BC7U 0x17)
+/// y la tabla de NIL (`nil_formats.csv`, Mesa: los tipos y de donde sale cada
+/// canal): BC4 es (R, 0, 0, 1) y BC5 (R, G, 0, 1), como D3D.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Formato {
+    Rgba8,
+    Bgra8,
+    Bc1,
+    Bc2,
+    Bc3,
+    /// BC4 y BC5 SIN signo (los con signo la casa los guarda corridos a 0..1:
+    /// la 3060 daria -1..1, el D3D de verdad; se quedan en la CPU).
+    Bc4,
+    Bc5,
+    Bc7,
+}
+
+/// `..._SOURCE_IN_ZERO` y `..._IN_ONE_FLOAT`.
+pub const DE_CERO: u32 = 0;
+pub const DE_UNO: u32 = 7;
+
+impl Formato {
+    pub const TODOS: [Formato; 8] = [Formato::Rgba8, Formato::Bgra8, Formato::Bc1, Formato::Bc2, Formato::Bc3, Formato::Bc4, Formato::Bc5, Formato::Bc7];
+
+    /// Como viaja en la receta (4 bits).
+    pub const fn numero(self) -> u32 {
+        match self {
+            Formato::Rgba8 => 0,
+            Formato::Bgra8 => 1,
+            Formato::Bc1 => 2,
+            Formato::Bc2 => 3,
+            Formato::Bc3 => 4,
+            Formato::Bc4 => 5,
+            Formato::Bc5 => 6,
+            Formato::Bc7 => 7,
+        }
+    }
+
+    pub const fn de_numero(n: u32) -> Option<Formato> {
+        if n < 8 {
+            Some(Formato::TODOS[n as usize])
+        } else {
+            None
+        }
+    }
+
+    /// Texeles por lado de su bloque (1, o 4 en un BC).
+    pub const fn bloque(self) -> u32 {
+        match self {
+            Formato::Rgba8 | Formato::Bgra8 => 1,
+            _ => 4,
+        }
+    }
+
+    /// Bytes de un bloque (de un texel en 8 bits por canal).
+    pub const fn bytes(self) -> u32 {
+        match self {
+            Formato::Rgba8 | Formato::Bgra8 => 4,
+            Formato::Bc1 | Formato::Bc4 => 8,
+            _ => 16,
+        }
+    }
+
+    /// La palabra 0 del TIC: COMPONENTS, los cuatro UNORM y de donde sale
+    /// cada canal (X Y Z W).
+    pub const fn palabra0(self) -> u32 {
+        let (c, x, y, z, w) = match self {
+            Formato::Rgba8 => (A8B8G8R8, DE_R, DE_G, DE_B, DE_A),
+            Formato::Bgra8 => (A8B8G8R8, DE_B, DE_G, DE_R, DE_A),
+            Formato::Bc1 => (0x24, DE_R, DE_G, DE_B, DE_A),
+            Formato::Bc2 => (0x25, DE_R, DE_G, DE_B, DE_A),
+            Formato::Bc3 => (0x26, DE_R, DE_G, DE_B, DE_A),
+            Formato::Bc4 => (0x27, DE_R, DE_CERO, DE_CERO, DE_UNO),
+            Formato::Bc5 => (0x28, DE_R, DE_G, DE_CERO, DE_UNO),
+            Formato::Bc7 => (0x17, DE_R, DE_G, DE_B, DE_A),
+        };
+        c | UNORM << 7 | UNORM << 10 | UNORM << 13 | UNORM << 16 | x << 19 | y << 22 | z << 25 | w << 28
+    }
+}
+
+/// `TEXHEAD_PITCH_S_R_G_B_CONVERSION` (el 150: el 22 de la palabra 4).
+pub const SRGB: u32 = 1 << 22;
+
+/// **Una textura para la 3060**: 2D, PITCH, en `va`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Imagen {
     /// Donde la ve la 3060.
     pub va: u64,
     pub ancho: u32,
     pub alto: u32,
-    /// Bytes por fila.
+    /// Bytes por fila (de texeles, o de bloques de 4x4 en un BC).
     pub fila: u32,
-    /// `B8G8R8A8` en memoria (si no, `R8G8B8A8`).
-    pub bgra: bool,
+    pub formato: Formato,
+    /// Los canales de color en sRGB: la 3060 los pasa a lineal al leer.
+    pub srgb: bool,
 }
 
 impl Imagen {
     /// Lo que el TIC puede decir: medidas de 1..=16384 (16 bits menos uno),
-    /// filas de al menos `4 x ancho` alineadas a 32 B, la direccion en 48
-    /// bits y alineada a 32 B (el paso y la direccion van sin sus 5 bits
-    /// bajos).
+    /// filas de al menos su ancho (en bloques) alineadas a 32 B, la
+    /// direccion en 48 bits y alineada a 32 B (el paso y la direccion van sin
+    /// sus 5 bits bajos).
     pub const fn valida(&self) -> bool {
         self.ancho >= 1
             && self.alto >= 1
             && self.ancho <= 16384
             && self.alto <= 16384
-            && self.fila as u64 >= 4 * self.ancho as u64
+            && self.fila as u64 >= self.ancho.div_ceil(self.formato.bloque()) as u64 * self.formato.bytes() as u64
             && self.fila % 32 == 0
             && self.va % 32 == 0
             && self.va < 1 << 48
@@ -124,14 +210,12 @@ pub const fn tic(i: &Imagen) -> Option<[u32; 8]> {
     if !i.valida() {
         return None;
     }
-    let (x, z) = if i.bgra { (DE_B, DE_R) } else { (DE_R, DE_B) };
-    let formato = A8B8G8R8 | UNORM << 7 | UNORM << 10 | UNORM << 13 | UNORM << 16 | x << 19 | DE_G << 22 | z << 25 | DE_A << 28;
     Some([
-        formato,
+        i.formato.palabra0(),
         i.va as u32,
         (i.va >> 32) as u32 & 0xFFFF | VERSION_PITCH << 21,
         i.fila >> 5,
-        (i.ancho - 1) | DOS_D_SIN_MIPMAP << 23 | BORDE_DEL_MUESTREADOR,
+        (i.ancho - 1) | DOS_D_SIN_MIPMAP << 23 | BORDE_DEL_MUESTREADOR | if i.srgb { SRGB } else { 0 },
         (i.alto - 1) | NORMALIZADAS,
         0,
         0,
@@ -288,7 +372,8 @@ pub struct DeApp {
     /// ** G5: donde empieza la COLA en los DATOS de la receta (bytes; la
     /// escribe la puerta con filas de 32). Sin cola, 0.
     pub cola_en: u32,
-    pub bgra: bool,
+    pub formato: Formato,
+    pub srgb: bool,
     pub muestreo: Muestreo,
 }
 
@@ -296,22 +381,22 @@ pub struct DeApp {
 pub const BYTES_DE_APP: usize = 48;
 
 impl DeApp {
-    pub const NINGUNA: DeApp = DeApp { va: 0, ancho: 0, alto: 0, fila: 0, mips: 0, vista: 0, cola_en: 0, bgra: false, muestreo: Muestreo { lineal: false, u: 1, v: 1, borde: [0.0; 4] } };
+    pub const NINGUNA: DeApp = DeApp { va: 0, ancho: 0, alto: 0, fila: 0, mips: 0, vista: 0, cola_en: 0, formato: Formato::Rgba8, srgb: false, muestreo: Muestreo { lineal: false, u: 1, v: 1, borde: [0.0; 4] } };
 
     /// La primera mip que va en la cola (`mipmap::cola_desde`): la decide la
     /// direccion, no la app.
     pub const fn cola(&self) -> u32 {
-        crate::mipmap::cola_desde(self.va, self.ancho, self.alto, self.fila, self.mips)
+        crate::mipmap::cola_desde(self.va, self.ancho, self.alto, self.fila, self.formato, self.mips)
     }
 
     /// Lo que se presta de la RAM de la app: las mips de antes de la cola.
     pub const fn bytes(&self) -> u64 {
-        crate::mipmap::desde(self.ancho, self.alto, self.fila, self.cola())
+        crate::mipmap::desde(self.ancho, self.alto, self.fila, self.formato, self.cola())
     }
 
     /// Lo que mide la cola en los DATOS.
     pub const fn bytes_cola(&self) -> u64 {
-        crate::mipmap::bytes_cola(self.ancho, self.alto, self.cola(), self.mips)
+        crate::mipmap::bytes_cola(self.ancho, self.alto, self.formato, self.cola(), self.mips)
     }
 
     /// Cabe y se puede decir: medidas de 1..=16384, de 1 a `MAX_MIPS` mips
@@ -324,8 +409,8 @@ impl DeApp {
             && (1..=16384).contains(&self.alto)
             && (1..=MAX_MIPS.min(todas(self.ancho, self.alto))).contains(&self.mips)
             && self.vista < self.mips
-            && self.fila as u64 >= 4 * self.ancho as u64
-            && (self.mips == 1 || self.fila == 4 * self.ancho)
+            && self.fila >= crate::mipmap::fila_natural(self.ancho, self.formato, 0)
+            && (self.mips == 1 || self.fila == crate::mipmap::fila_natural(self.ancho, self.formato, 0))
             && self.va < 1 << 48
             && (self.bytes() == 0 || self.va != 0)
             && self.va % PAGINA + self.bytes() <= RANURA
@@ -350,15 +435,16 @@ impl DeApp {
     /// DATOS.
     pub fn tics(&self, k: usize) -> Option<[[u32; 8]; crate::mipmap::HUECOS as usize]> {
         let en_ranura = VA + k as u64 * RANURA + self.va % PAGINA;
-        crate::mipmap::tics(en_ranura, crate::vram::DATOS_VA + self.cola_en as u64, self.ancho, self.alto, self.fila, self.mips, self.vista, self.cola(), self.bgra)
+        crate::mipmap::tics(en_ranura, crate::vram::DATOS_VA + self.cola_en as u64, self.ancho, self.alto, self.fila, self.mips, self.vista, self.cola(), self.formato, self.srgb)
     }
 
-    /// Como viaja: la VA, las medidas, la fila, la bandera (bit 0 BGRA, bit 1
-    /// lineal, U en 4..7 y V en 8..11, los numeros de D3D12), el borde, donde
-    /// va la cola y (G5) las mips (8 bits) con la de la vista (<< 8).
+    /// Como viaja: la VA, las medidas, la fila, la bandera (bit 1 lineal, U en
+    /// 4..7 y V en 8..11, los numeros de D3D12; 13-10: el FORMATO en 12..15 y
+    /// sRGB en el 16), el borde, donde va la cola y (G5) las mips (8 bits) con
+    /// la de la vista (<< 8).
     pub fn escribir(&self, out: &mut [u8]) {
         let m = &self.muestreo;
-        let bandera = self.bgra as u32 | (m.lineal as u32) << 1 | (m.u & 0xF) << 4 | (m.v & 0xF) << 8;
+        let bandera = (m.lineal as u32) << 1 | (m.u & 0xF) << 4 | (m.v & 0xF) << 8 | self.formato.numero() << 12 | (self.srgb as u32) << 16;
         let w = [self.va as u32, (self.va >> 32) as u32, self.ancho, self.alto, self.fila, bandera, m.borde[0].to_bits(), m.borde[1].to_bits(), m.borde[2].to_bits(), m.borde[3].to_bits(), self.cola_en, self.mips | self.vista << 8];
         for (k, x) in w.iter().enumerate() {
             out[4 * k..4 * k + 4].copy_from_slice(&x.to_le_bytes());
@@ -368,12 +454,12 @@ impl DeApp {
     /// Leida de sus 48 bytes, o `None` si algo no se sostiene.
     pub fn leer(b: &[u8]) -> Option<DeApp> {
         let w = |k: usize| u32::from_le_bytes([b[4 * k], b[4 * k + 1], b[4 * k + 2], b[4 * k + 3]]);
-        if b.len() < BYTES_DE_APP || w(5) >> 12 != 0 || w(11) >> 16 != 0 {
+        if b.len() < BYTES_DE_APP || w(5) >> 17 != 0 || w(5) & 1 != 0 || w(11) >> 16 != 0 {
             return None;
         }
         let bandera = w(5);
         let borde = [f32::from_bits(w(6)), f32::from_bits(w(7)), f32::from_bits(w(8)), f32::from_bits(w(9))];
-        let t = DeApp { va: w(0) as u64 | (w(1) as u64) << 32, ancho: w(2), alto: w(3), fila: w(4), mips: w(11) & 0xFF, vista: w(11) >> 8, cola_en: w(10), bgra: bandera & 1 != 0, muestreo: Muestreo { lineal: bandera & 2 != 0, u: bandera >> 4 & 0xF, v: bandera >> 8 & 0xF, borde } };
+        let t = DeApp { va: w(0) as u64 | (w(1) as u64) << 32, ancho: w(2), alto: w(3), fila: w(4), mips: w(11) & 0xFF, vista: w(11) >> 8, cola_en: w(10), formato: Formato::de_numero(bandera >> 12 & 0xF)?, srgb: bandera >> 16 & 1 != 0, muestreo: Muestreo { lineal: bandera & 2 != 0, u: bandera >> 4 & 0xF, v: bandera >> 8 & 0xF, borde } };
         t.valida().then_some(t)
     }
 }
@@ -484,7 +570,7 @@ const _: () = assert!(indices(PISCINAS_VA)[3] == indices(VA)[3] + PTS - 1 && ind
 mod pruebas {
     use super::*;
 
-    const IMG: Imagen = Imagen { va: 0xA_0000_1000, ancho: 256, alto: 256, fila: 1024, bgra: false };
+    const IMG: Imagen = Imagen { va: 0xA_0000_1000, ancho: 256, alto: 256, fila: 1024, formato: Formato::Rgba8, srgb: false };
 
     #[test]
     fn el_tic_de_una_textura_pitch() {
@@ -506,8 +592,31 @@ mod pruebas {
 
     #[test]
     fn bgra_cruza_rojo_y_azul() {
-        let t = tic(&Imagen { bgra: true, ..IMG }).unwrap();
+        let t = tic(&Imagen { formato: Formato::Bgra8, ..IMG }).unwrap();
         assert_eq!((t[0] >> 19 & 7, t[0] >> 22 & 7, t[0] >> 25 & 7, t[0] >> 28 & 7), (DE_B, DE_G, DE_R, DE_A));
+    }
+
+    /// 13-10: los BC y sRGB, como NIL (`nil_formats.csv`: COMPONENTS, los
+    /// UNORM y el swizzle; BC4 (R,0,0,1), BC5 (R,G,0,1)) y `clb097tex.h`.
+    #[test]
+    fn los_bc_como_nil() {
+        let comp = |f: Formato| f.palabra0() & 0x7F;
+        let fuentes = |f: Formato| { let w = f.palabra0(); (w >> 19 & 7, w >> 22 & 7, w >> 25 & 7, w >> 28 & 7) };
+        assert_eq!([Formato::Bc1, Formato::Bc2, Formato::Bc3, Formato::Bc4, Formato::Bc5, Formato::Bc7].map(comp), [0x24, 0x25, 0x26, 0x27, 0x28, 0x17]);
+        assert_eq!(fuentes(Formato::Bc4), (DE_R, 0, 0, 7));
+        assert_eq!(fuentes(Formato::Bc5), (DE_R, DE_G, 0, 7));
+        assert_eq!(fuentes(Formato::Bc7), (DE_R, DE_G, DE_B, DE_A));
+        for f in Formato::TODOS {
+            assert_eq!(Formato::de_numero(f.numero()), Some(f));
+            for k in 0..4 {
+                assert_eq!(f.palabra0() >> (7 + 3 * k) & 7, UNORM);
+            }
+        }
+        // Un BC1 de 64x64: filas de 16 bloques de 8 bytes (128 B), y sRGB.
+        let bc = Imagen { formato: Formato::Bc1, fila: 128, ancho: 64, alto: 64, srgb: true, ..IMG };
+        let t = tic(&bc).unwrap();
+        assert_eq!((t[3], t[4] & SRGB, t[4] & 0xFFFF), (128 >> 5, SRGB, 63));
+        assert!(tic(&Imagen { fila: 96, ..bc }).is_none(), "una fila mas corta que sus bloques");
     }
 
     #[test]
@@ -738,7 +847,7 @@ pub mod prueba {
         let nv = bytes(&[mov_r(0, 0), exit(0)], &mut vs);
         let np = bytes(&[tex(0, 4, 6, carga(1)), exit(1 << 1)], &mut ps);
         let dst = Destino { fila: 4 * 1280, ancho: 1280, alto: 720, flotante: crate::destino::Flotante::No, rgb: true };
-        let t = DeApp { va: va_textura, ancho: ANCHO, alto: 4, fila: FILA, mips: 1, vista: 0, cola_en: 0, bgra: false, muestreo: Muestreo { lineal, u: modo, v: modo, borde: BORDE } };
+        let t = DeApp { va: va_textura, ancho: ANCHO, alto: 4, fila: FILA, mips: 1, vista: 0, cola_en: 0, formato: super::Formato::Rgba8, srgb: false, muestreo: Muestreo { lineal, u: modo, v: modo, borde: BORDE } };
         let mut r = Receta {
             n: VERTICES,
             vs: &vs[..nv],

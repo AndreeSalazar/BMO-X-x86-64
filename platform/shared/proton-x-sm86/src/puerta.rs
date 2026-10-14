@@ -35,7 +35,7 @@ pub use bmo_gpu_ga10x::destino::Flotante;
 use bmo_gpu_ga10x::pegamento::{Canal, Carga, Elemento, Redondeo};
 use bmo_gpu_ga10x::profundidad::Z;
 use bmo_gpu_ga10x::texturas::{DeApp, Muestreo, MAX_TEXTURAS};
-use bmo_proton_x::textura::{Clase, Como, Direccion, Filtro, Textura};
+use bmo_proton_x::textura::{Clase, Direccion, Filtro, Textura};
 use bmo_gpu_ga10x::receta::{self, Receta, Taller, MAX_CARGAS, MAX_ELEMENTOS, MAX_GENERICOS, NINGUNA, NINGUNO};
 use bmo_gpu_ga10x::tuberia::{Descarte, Dibujo, DATOS_MAX};
 use bmo_proton_x::lote::{ElementoIa, Enlace, Lote, Topologia};
@@ -469,7 +469,7 @@ impl Nula {
 
     /// Como viaja en la receta.
     pub fn de_app(&self) -> DeApp {
-        DeApp { va: self.0.as_ptr() as u64, ancho: 8, alto: 1, fila: 32, mips: 1, vista: 0, cola_en: 0, bgra: false, muestreo: Muestreo { lineal: false, u: 1, v: 1, borde: [0.0; 4] } }
+        DeApp { va: self.0.as_ptr() as u64, ancho: 8, alto: 1, fila: 32, mips: 1, vista: 0, cola_en: 0, formato: bmo_gpu_ga10x::texturas::Formato::Rgba8, srgb: false, muestreo: Muestreo { lineal: false, u: 1, v: 1, borde: [0.0; 4] } }
     }
 }
 
@@ -626,8 +626,12 @@ pub fn escribir(c: &Cuerpos, l: &Lote, b: Blanco, limpiar_z: Option<u32>, nula: 
         // mapeo de siempre; un BC, un float, un sRGB o un mapeo, en la CPU
         // (la casa los decodifica con SUS tablas: la 3060, con las suyas, no
         // se promete igual hasta medirlo -- DL10 --).
-        if !matches!(t.como, Como::Rgba8 | Como::Bgra8) || t.srgb || t.mapeo & 0xFFF != Textura::MAPEO & 0xFFF || t.clase != Clase::Plana {
-            return Err(format!("la textura t{tn} es BC, float, sRGB, con otro mapeo o no es una 2D: la 3060 todavia lee solo RGBA/BGRA de 8 bits"));
+        // 13-10: y los BC (BC1-5 sin signo y BC7) y sRGB, que la 3060
+        // descomprime y pasa a lineal ella misma (`mipmap::formato_de`; su
+        // redondeo es el suyo: lo que la casa da a +-1 en BC1 y BC3, ver
+        // `prometeo::bc`). Un float, BC6, otro mapeo o lo que no es 2D, aun no.
+        if t.mapeo & 0xFFF != Textura::MAPEO & 0xFFF || t.clase != Clase::Plana {
+            return Err(format!("la textura t{tn} tiene otro mapeo de canales o no es una 2D: la 3060 todavia no"));
         }
         // ** G5 (13-10): la textura como la lee la 3060 (`mipmap::de_app`): si
         // el de pixeles elige su mip, la CADENA entera desde la RAM del
