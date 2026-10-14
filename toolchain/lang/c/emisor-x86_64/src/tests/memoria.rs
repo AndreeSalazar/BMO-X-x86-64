@@ -7,7 +7,7 @@
 //! notaba porque ninguno pedia memoria.
 //!
 //! Lo que se prueba aqui es lo que **el programa** puede notar: que hay
-//! bloque, que las bases avanzan, que el tope de cuatro peticiones se cumple y
+//! bloque, que las bases avanzan, que el tope de ocho peticiones se cumple y
 //! que la quinta devuelve 0. Lo que NO se puede probar aqui es la fisica --que
 //! los marcos sean contiguos, que dos paginas no sean la misma-- porque la
 //! memoria del emulador es un mapa disperso donde toda direccion funciona.
@@ -19,8 +19,10 @@ use super::*;
 /// El primer bloque cae en `MEMORIA_VA_BASE` y no en otro sitio.
 ///
 /// Es un numero del contrato, no un detalle: `vmm::MEMORIA_VA_BASE` esta
-/// elegido para que quepan las cuatro peticiones del tope sin acercarse al
-/// framebuffer. Si alguien lo mueve, este test lo dice.
+/// elegido para que quepan las cuatro peticiones del tope de entonces sin
+/// acercarse al framebuffer (con ocho, y la VA que no se reusa, esa cuenta es
+/// del kernel y esta abierta: A4 de `docs/plan/EL_FOCO.md`). Si alguien lo
+/// mueve, este test lo dice.
 #[test]
 fn el_primer_bloque_cae_en_la_base_declarada() {
     let out = run_c(
@@ -64,24 +66,23 @@ fn dos_peticiones_no_se_pisan() {
     assert_eq!(out, "e0000000 e0001000 4096\n");
 }
 
-/// **El tope se cumple: la quinta peticion devuelve 0.**
+/// **El tope se cumple: la novena peticion devuelve 0.** (Ocho, como el
+/// kernel desde `MEM_OP_SOLTAR`; hasta el 14-10 el emulador decia cuatro.)
 ///
 /// No hay forma de devolver memoria, asi que el numero de peticiones ES el
 /// numero de fugas posibles. Que la quinta falle no es una limitacion
 /// incomoda: es lo que hace que un programa que pide en un bucle se rompa
 /// pronto en vez de comerse la RAM en silencio.
 #[test]
-fn la_quinta_peticion_devuelve_cero() {
+fn la_novena_peticion_devuelve_cero() {
     let out = run_c(
         "int main() {\n\
-         printf(\"%d\", malloc(4096) != 0);\n\
-         printf(\"%d\", malloc(4096) != 0);\n\
-         printf(\"%d\", malloc(4096) != 0);\n\
-         printf(\"%d\", malloc(4096) != 0);\n\
-         printf(\"%d\\n\", malloc(4096) != 0);\n\
+         int i;\n\
+         for (i = 0; i < 9; i = i + 1) { printf(\"%d\", malloc(4096) != 0); }\n\
+         printf(\"\\n\");\n\
          return 0; }",
     );
-    assert_eq!(out, "11110\n");
+    assert_eq!(out, "111111110\n");
 }
 
 /// Pedir mas del tope por peticion se rechaza, y **sin gastar peticion**.
@@ -136,7 +137,8 @@ fn el_ejemplo_de_memoria_pasa_sus_cuatro_pruebas() {
         "16 paginas verificadas, 0 malas",
         "ultimo byte del bloque = 42",
         "peticion 3 = 0xe0011000   peticion 4 = 0xe0012000",
-        "la 5a peticion devolvio 0: el tope se cumple",
+        "de la 5a a la 8a: dadas",
+        "la 9a peticion devolvio 0: el tope se cumple",
         "MEMORIA: las cuatro pruebas pasan",
     ]
     .map(|l| format!("{l}\n"))
@@ -144,9 +146,10 @@ fn el_ejemplo_de_memoria_pasa_sus_cuatro_pruebas() {
     assert_eq!(m.console, esperado);
 
     // Y lo que el programa NO puede contarse a si mismo: lo que el kernel dice
-    // que entrego. 4096 + 65536 + 4096 + 4096 -- el primer bloque son 1024
-    // bytes pedidos y una pagina entregada.
-    assert_eq!(m.memoria_entregada(), 4096 + 65536 + 4096 + 4096);
+    // que entrego. 4096 + 65536 + 4096 + 4096, y cuatro mas de 4096 (de la
+    // 5a a la 8a) -- el primer bloque son 1024 bytes pedidos y una pagina
+    // entregada.
+    assert_eq!(m.memoria_entregada(), 4096 + 65536 + 4096 + 4096 + 4 * 4096);
 }
 
 /// **Compilar C para Ring 0 se RECHAZA, y con su motivo.**

@@ -765,8 +765,9 @@ pub(crate) fn banda(dsk: &mut Desktop, p: &bmo::Pantalla) -> After {
 /// *** POR QUE NO SE PIDE CADA VEZ (corregido el 2026-09-07, ANTES de estrenarlo)
 ///
 /// `bmo::Memoria` **no tiene `Drop`**: un bloque pedido no se devuelve al salir
-/// del ambito. Y el kernel da **cuatro por proceso** --`MAX_PETICIONES` en
-/// `obj/memory.rs`-- que en el escritorio ya estan casi gastadas:
+/// del ambito. Y el kernel daba **cuatro por proceso** --`MAX_PETICIONES` en
+/// `obj/memory.rs`; ocho desde el 20-09-- que en el escritorio ya estaban
+/// casi gastadas:
 ///
 /// ```text
 ///    pantalla.rs   el doble bufer          se pide al arrancar, SIEMPRE

@@ -196,14 +196,18 @@ dice, y el metal se junta en UNA corrida por escalon.
         emulador, cada peticion de RAM de un programa sale de la MISMA
         instruccion (el emulador apunta ahora el `rip` de cada llamada,
         `ObservedSyscall::rip`). **HECHO el 14-10.** **Encontrado por el
-        camino:** el emulador da CUATRO peticiones por proceso
-        (`MEMORIA_MAX_PETICIONES`, que dice ser espejo del kernel) y el
-        kernel da OCHO desde `MEM_OP_SOLTAR` (`obj/memory.rs`). Un programa de
-        TITAN++ con ventana, lista, fichero y lamina gasta cinco: en el
-        emulador la lamina dice que no, en el metal que si. Arreglar el
-        espejo cambia una prueba del compilador de C (`la_quinta_peticion_
-        devuelve_cero`) y el comentario de `sonda_C.c`: va aparte, con su
-        commit.
+        camino, y ARREGLADO el 14-10:** el emulador daba CUATRO peticiones
+        por proceso (`MEMORIA_MAX_PETICIONES`, que decia ser espejo del
+        kernel) y el kernel da OCHO desde el 20-09 (`MEM_OP_SOLTAR`). Peor: el
+        ejemplo `memoria_C.c` (`c/memc.bex`) comprobaba que la quinta
+        devolviera 0, asi que en el Ryzen decia FALLO. Ahora el emulador da
+        ocho, `memoria_C.c` y la sonda de C lo comprueban con ocho, y un juez
+        (`bmo-lower`, `emu/espejo.rs`) lee el fuente del kernel y compara las
+        dos cifras (saboteado a cuatro: cae). **Queda abierto, del kernel:**
+        `vmm/verde.rs` justifica el hueco de `MEMORIA_VA_BASE` con "64 MiB x
+        cuatro peticiones"; con ocho son 512 MiB, y como la VA de un bloque
+        soltado no se reusa, un proceso que pide y suelta en bucle avanza su
+        cursor sin techo. Hay que medirlo antes de tocarlo.
   - [ ] **A4b -- la LAMINA en el lenguaje** (pide decision del propietario:
         es gramatica). La propuesta: `lamina` como TIPO, sin palabra nueva
         (como `byte`): `let mut l = lamina(4096)` pide por la puerta;

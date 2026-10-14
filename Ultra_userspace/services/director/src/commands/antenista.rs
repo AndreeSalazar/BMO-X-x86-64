@@ -24,8 +24,8 @@
 //! este bloque no se pudo pedir). No es un cache: es la MISMA lamina, y la
 //! app dice de donde la saco.
 //!
-//! [!] El bloque es UNA de las cuatro peticiones de memoria que el kernel da
-//! a cada proceso (`obj/memory.rs`, `MAX_PETICIONES`), y el DIRECTOR ya gasta
+//! [!] El bloque es UNA de las ocho peticiones de memoria que el kernel da
+//! a cada proceso (`obj/memory.rs`, `MAX_PETICIONES`; eran cuatro), y el DIRECTOR ya gasta
 //! otras en la consola, el visor y el fondo. Se pide la primera vez que hace
 //! falta y si no queda, se dice y queda el disco. Ese tope es deuda del
 //! kernel, no de aqui.

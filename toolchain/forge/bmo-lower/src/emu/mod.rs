@@ -111,6 +111,8 @@
 //! o en el flujo, aqui; lo que depende del silicio o del kernel, alli, y con su
 //! numero escrito antes de arrancar.**
 
+#[cfg(test)]
+mod espejo;
 mod director;
 mod grupo_f7;
 mod sistema;
@@ -160,9 +162,15 @@ const MXCSR_CONTROL: u32 = 0xFFC0;
 pub const MEMORIA_VA_BASE: u64 = 0xE000_0000;
 
 /// Cuanto puede pedir un proceso de una vez, y cuantas veces.
-/// Espejo de `ring0::obj::memoria::{MAX_BYTES, MAX_PETICIONES}`.
+/// Espejo de `ring0::obj::memory::{MAX_BYTES, MAX_PETICIONES}`.
+///
+/// [!] Del 14-10: este espejo decia CUATRO y el kernel da OCHO desde
+/// `MEM_OP_SOLTAR`. Lo encontro la puerta de la RAM de TITAN++ (A4 de
+/// `docs/plan/EL_FOCO.md`): un programa con ventana, lista, fichero y lamina
+/// pide cinco, y aqui la lamina decia que no y en el metal que si. El juez de
+/// que no se vuelvan a separar: `emu/espejo.rs`.
 pub const MEMORIA_MAX_BYTES: u64 = 64 * 1024 * 1024;
-pub const MEMORIA_MAX_PETICIONES: usize = 4;
+pub const MEMORIA_MAX_PETICIONES: usize = 8;
 
 /// Pagina de 4 KiB: el bloque se redondea hacia ARRIBA, igual que el kernel.
 const MEMORIA_PAGE: u64 = 4096;

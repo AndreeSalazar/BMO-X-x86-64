@@ -20,8 +20,9 @@
  *   3. son paginas de verdad -- 64 KiB = 16 paginas, una marca en cada una y
  *                              releidas despues. Si dos paginas fueran el
  *                              mismo marco, las marcas se pisarian.
- *   4. el tope se cumple  -- el kernel acepta CUATRO peticiones por proceso; la
- *                           quinta tiene que devolver 0, no memoria de nadie.
+ *   4. el tope se cumple  -- el kernel acepta OCHO peticiones por proceso (a
+ *                           la vez, desde `MEM_OP_SOLTAR`; eran cuatro); la
+ *                           novena tiene que devolver 0, no memoria de nadie.
  *
  * == Lo que se espera ver ==
  *
@@ -29,10 +30,14 @@
  *                             siempre ahi, y las siguientes mas arriba)
  *   1024 bytes verificados, 0 malos
  *   16 paginas verificadas, 0 malas
- *   la 5a peticion devolvio 0: el tope se cumple
+ *   la 9a peticion devolvio 0: el tope se cumple
  *
- * Si el tope NO se cumpliera, seria peor que un fallo: sin forma de devolver
- * memoria, el numero de peticiones ES el numero de fugas posibles.
+ * Si el tope NO se cumpliera, seria peor que un fallo: lo que nadie devuelve
+ * se queda pedido hasta que el programa muere.
+ *
+ * [!] 14-10: hasta hoy esto decia CUATRO, igual que el emulador, y el kernel
+ * daba ocho: en el Ryzen, la quinta se daba y esto decia FALLO. Lo encontro la
+ * puerta de la RAM de TITAN++ (A4 de `docs/plan/EL_FOCO.md`).
  *
  * == Como se lanza ==
  *
@@ -55,7 +60,9 @@ int main() {
     char *c;
     char *d;
     char *e;
+    char *x;
     int i;
+    int k;
     int malos;
     int esperado;
 
@@ -112,25 +119,33 @@ int main() {
     printf("ultimo byte del bloque = %d\n", b[65535]);
 
     /* -- 4. El tope se cumple --------------------------------------- */
-    /* Van dos peticiones gastadas. La tercera y la cuarta tienen que darse; la
-     * quinta, no. */
+    /* Van dos peticiones gastadas. De la tercera a la octava tienen que
+     * darse; la novena, no. */
     c = malloc(4096);
     d = malloc(4096);
     printf("peticion 3 = 0x%x   peticion 4 = 0x%x\n", c, d);
     if (c == 0) {
-        printf("FALLO: la 3a peticion se rechazo y el tope son 4\n");
+        printf("FALLO: la 3a peticion se rechazo y el tope son 8\n");
         return 1;
     }
     if (d == 0) {
-        printf("FALLO: la 4a peticion se rechazo y el tope son 4\n");
+        printf("FALLO: la 4a peticion se rechazo y el tope son 8\n");
         return 1;
     }
+    for (k = 5; k <= 8; k = k + 1) {
+        x = malloc(4096);
+        if (x == 0) {
+            printf("FALLO: la %da peticion se rechazo y el tope son 8\n", k);
+            return 1;
+        }
+    }
+    printf("de la 5a a la 8a: dadas\n");
 
     e = malloc(16);
     if (e == 0) {
-        printf("la 5a peticion devolvio 0: el tope se cumple\n");
+        printf("la 9a peticion devolvio 0: el tope se cumple\n");
     } else {
-        printf("FALLO: la 5a peticion dio 0x%x y el tope son 4\n", e);
+        printf("FALLO: la 9a peticion dio 0x%x y el tope son 8\n", e);
         return 1;
     }
 

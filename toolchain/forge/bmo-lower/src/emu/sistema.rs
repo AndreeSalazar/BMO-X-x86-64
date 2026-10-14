@@ -509,7 +509,7 @@ impl Machine {
     ///
     /// Los dos rechazos que un programa puede provocar SOLO son los mismos que
     /// los del kernel y **con sus mismos codigos**: pedir cero o pasarse del
-    /// tope (`0xE001`), y pedir una quinta vez (`0xE003`).
+    /// tope (`0xE001`), y pedir una novena vez (`0xE003`).
     ///
     /// Los otros dos no se modelan, y por el mismo motivo los dos: **aqui solo
     /// corre un proceso y la memoria es infinita**. `ERROR_NO_RAM` necesitaria

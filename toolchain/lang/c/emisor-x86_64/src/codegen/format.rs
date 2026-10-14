@@ -166,9 +166,9 @@ impl Codegen {
             // Ring 3. Un monton de verdad (bump + listas libres) se escribe
             // encima de `bmo::Memoria`, y ese es el siguiente paso.
             //
-            // **Limite declarado**: el kernel acepta CUATRO peticiones por
-            // proceso, porque no hay forma de devolver memoria y ese numero es
-            // el de fugas posibles. Un quinto `malloc` devuelve **0**, que es
+            // **Limite declarado**: el kernel acepta OCHO peticiones por
+            // proceso a la vez (eran cuatro hasta el 20-09, antes de
+            // `MEM_OP_SOLTAR`). Un `malloc` de mas devuelve **0**, que es
             // lo que un programa de C ya sabe comprobar. Falla pronto y con
             // un valor que significa algo, en vez de agotar la RAM callando.
             //

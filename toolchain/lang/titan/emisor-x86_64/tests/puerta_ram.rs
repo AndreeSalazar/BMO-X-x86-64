@@ -17,10 +17,10 @@ use bmo_lower::emu::{cargar_bex, run};
 
 const SCREEN: &str = "[package]\nname = \"x\"\n\n[permissions]\nscreen = true\n";
 
-/// Los cinco caminos de E1, en dos programas: el emulador da CUATRO
-/// peticiones por proceso (`MEMORIA_MAX_PETICIONES`), y los cinco a la vez
-/// gastarian una de mas.
-const VENTANA_LISTA_LAMINA: &str = "mod main \"la ventana, la lista y la lamina\"
+/// Los cinco caminos de E1 en un programa: la ventana, el monton de la
+/// lista, lo tenido, el fichero y la lamina. Son cinco peticiones; el kernel
+/// da ocho (y el emulador, desde el 14-10, tambien: decia cuatro).
+const CINCO: &str = "mod main \"pide ram por sus cinco caminos\"
 use director
 
 fn main()
@@ -31,19 +31,9 @@ fn main()
     for i in range(100)
         push(mut l, i)
     print(len(l))
-    print(director.lamina(6))
-";
-
-const FICHERO_LISTA: &str = "mod main \"lo tenido, el fichero y la lista\"
-use director
-
-fn main()
     if director.fichero(\"datos/ejemplo.lam\")
         print(director.medida())
-    let mut l: [int] = []
-    for i in range(100)
-        push(mut l, i)
-    print(len(l))
+    print(director.lamina(6))
 ";
 
 /// Corre `src` (lanzado por el escritorio, con un fichero en el disco) y da
@@ -97,16 +87,11 @@ fn only_ram_rs_names_the_memory_request() {
 /// instruccion, por los cinco caminos.
 #[test]
 fn every_ram_request_leaves_by_one_door() {
-    let (consola, p) = peticiones(VENTANA_LISTA_LAMINA);
-    assert_eq!(consola, "100\ntrue\n");
-    // La ventana (64 x 32 pixeles de 4 B, su cabecera y su buzon), el monton
-    // y la lamina.
-    assert_eq!(p.len(), 3, "{:?}", p);
-    assert_eq!(p[1].0, 16 << 20, "el primer trozo del monton");
-    una_puerta(&p);
-    let (consola, p) = peticiones(FICHERO_LISTA);
-    assert_eq!(consola, "13\n100\n");
-    // Lo tenido (64 B), el fichero (sus 13 bytes) y el monton.
-    assert_eq!(p.iter().map(|x| x.0).collect::<Vec<_>>(), vec![64, 13, 16 << 20]);
+    let (consola, p) = peticiones(CINCO);
+    assert_eq!(consola, "100\n13\ntrue\n");
+    // La ventana (64 x 32 pixeles de 4 B, su cabecera y su buzon), el primer
+    // trozo del monton, lo tenido (64 B), el fichero (sus 13 bytes) y la
+    // lamina de VERRANO (su cabecera y dos ranuras de 6 vertices).
+    assert_eq!(p.iter().map(|x| x.0).skip(1).collect::<Vec<_>>(), vec![16 << 20, 64, 13, 64 + 2 * 6 * 32 + 16]);
     una_puerta(&p);
 }
