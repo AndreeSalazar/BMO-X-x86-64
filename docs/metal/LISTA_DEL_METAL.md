@@ -34,3 +34,12 @@ actualiza cuando cambia; lo que ya se midio se tacha abajo, con la fecha.
   0; el PRIMER computo del juego por la 3060 (1.050 us). El fotograma, 35 s.
   El censo: la puerta [1] (texturas de float) para 13 de 16 lotes.
   La lente (paso 2) NO se corrio.
+- 14-10 07:14: F1 en el metal: la puerta "textura de float" desaparecio del
+  censo; irian 84..90% de los lotes (antes 52%). El fotograma, 35,8 s ->
+  27,9 -> 24,7 s. Pero la 3060 dibujo 15 de los 32 que el censo da por
+  buenos: los que faltan los para la PUERTA y el censo no los cuenta (una
+  HDR de 1280x720 con 5 mips en float, ~20 MiB, "no cabe en su ranura de 16
+  MiB"; "t0 con s0 sin atar"). Un lote de 12 ms de 3060 (un pase a pantalla
+  entera con el filtro de float). `NO a 0`, el vigia corrigio 0. El primer
+  computo, 465 us. La lente, `verrano textura` y `--prueba-computo`, sin
+  correr.
