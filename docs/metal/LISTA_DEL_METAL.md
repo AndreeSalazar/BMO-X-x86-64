@@ -37,6 +37,12 @@ automatico se lo comio: esas lentes hay que correrlas otra vez.
   motivo y sus veces: los que antes faltaban entre "irian" y "de verdad".
   Lo que salga mas arriba es lo siguiente que hay que abrir.
 - `iommu` en el escritorio: `tablas N de 256` (eran 128).
+- LOS SOMBREADORES QUE NO SE SABEN CORRER (M1): cada uno se guarda en
+  ESTRATOS, `proton-x/cyberpunk2077/rechazados/`, como vino del juego
+  (`<huella>_cs.dxil`, `_vs`, `_ps`) con su porque (`<huella>.txt`), y
+  `INDICE.TXT` los lista TODOS con cada porque y cuantos lo tienen. Traer
+  esa carpeta entera: con el DXIL real, `dxc -dumpbin` dice la instruccion
+  exacta y cada pieza se hace contra eso, sin adivinar.
 - LA PANTALLA DIRECTA (la 3060 a pantalla completa, Z1): ningun metal de
   Cyberpunk la ha pedido nunca. Se pide tras el primer lote del BACK
   BUFFER (1280x720) que dibuja la 3060, y se suelta para siempre si uno del

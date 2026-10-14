@@ -427,6 +427,7 @@ fn un_juego_de_d_tiene_su_perfil_en_estratos() {
     assert!(c.contains(&String::from("proton-x/cyberpunk2077/borrados")));
     assert!(c.contains(&String::from("proton-x/cyberpunk2077/bsf")), "A9: los .bsf de sus PSO");
     assert!(c.contains(&String::from("proton-x/cyberpunk2077/mapas")), "A9b: los mapas de la CPU");
+    assert!(c.contains(&String::from("proton-x/cyberpunk2077/rechazados")), "M1: los sombreadores que no se saben correr");
     assert!(
         c.iter().position(|x| x.ends_with("/AppData"))
             < c.iter().position(|x| x.ends_with("/AppData/Local"))

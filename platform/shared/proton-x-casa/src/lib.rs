@@ -131,6 +131,8 @@ pub mod proceso;
 pub mod red;
 pub mod rtti;
 pub mod red_puro;
+/// M1 (14-10): los sombreadores que no se saben correr, guardados.
+pub mod rechazados;
 /// El espia de Init y GetError de Galaxy, con el diario (01-10).
 mod espia;
 /// Los sockets de 127.0.0.1 dentro del proceso (01-10).

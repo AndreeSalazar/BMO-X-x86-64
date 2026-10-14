@@ -150,12 +150,17 @@ static PARA_LA_3060: Mutex<Vec<(Vec<(u8, u8)>, bool, usize)>> = Mutex::new(Vec::
 /// El ejecutor: la CPU dibuja (el juez de la imagen), y de paso se mira lo
 /// que la puerta de la 3060 haria con el PSO.
 fn dibujar_y_su_tex(l: &bmo_proton_x::lote::Lote, d: &mut bmo_proton_x::trama::Destino) -> Result<bmo_proton_x::trama::Cuenta, bmo_proton_x::lote::NoDibuja> {
-    use bmo_gpu_ga10x::pegamento::{asas, Carga};
+    use bmo_gpu_ga10x::pegamento::{asas, bases, Carga};
     if let Ok(c) = bmo_proton_x_sm86::puerta::cuerpos(l.enlace, l.entradas) {
         let cuerpo: Vec<(u64, u64)> = c.ps.chunks(16).map(|w| (u64::from_le_bytes(w[..8].try_into().unwrap()), u64::from_le_bytes(w[8..].try_into().unwrap()))).collect();
-        let juzgado = bmo_gpu_ga10x::sass::juez::juzgar_cuerpo_con_asas(&cuerpo, c.registros_ps, asas(&c.cargas_ps)).is_ok();
+        // G5 (13-10): como `receta::leer` -- las asas y, de ellas, las BASES de
+        // las mips (un `Sample` lee la mip de sus derivadas desde la base).
+        let permisos = bmo_gpu_ga10x::sass::juez::Permisos { asas: asas(&c.cargas_ps), bases: bases(&c.cargas_ps), ..Default::default() };
+        let juzgado = bmo_gpu_ga10x::sass::juez::juzgar_cuerpo_con(&cuerpo, c.registros_ps, permisos).is_ok();
         let texs = cuerpo.iter().filter(|w| w.0 & 0xFFF == 0x361).count();
-        assert!(c.cargas_ps.iter().any(|x| matches!(x, Carga::Asa { textura: 0, .. })));
+        // S1 (13-10): el `Sample` lee con la BASE de las mips de t0, no con el
+        // asa de su vista.
+        assert!(c.cargas_ps.iter().any(|x| matches!(x, Carga::Base { textura: 0, .. })));
         PARA_LA_3060.lock().unwrap().push((c.texturas.clone(), juzgado, texs));
     }
     bmo_proton_x::lote::en_cpu(l, d)
@@ -479,12 +484,14 @@ fn hellotexture_dibuja_su_textura() {
         }
         assert_eq!(malos, 0, "firma 1.1: {version_1_1}");
     }
-    // P3b4c.8 T2b: su PSO, para la 3060, es UN TEX de t0 con s0 (la
-    // textura 0 de la receta), con el asa que pone el kernel.
+    // P3b4c.8 T2b: su PSO, para la 3060, lee t0 con s0 (la textura 0 de la
+    // receta), juzgado con lo que pone el kernel. Desde S1 y F1 (13-10 y
+    // 14-10) su `Sample` lleva 12 TEX: las dos mips de sus derivadas (G5), por
+    // el muestreador de la 3060 y por el filtro de float (`flotantes.rs`).
     let vistos = PARA_LA_3060.lock().unwrap();
     assert!(!vistos.is_empty(), "el PSO de HelloTexture tiene cuerpos para la 3060");
     for (texturas, juzgado, texs) in vistos.iter() {
-        assert_eq!((texturas.as_slice(), *juzgado, *texs), (&[(0u8, 0u8)][..], true, 1));
+        assert_eq!((texturas.as_slice(), *juzgado, *texs), (&[(0u8, 0u8)][..], true, 12));
     }
 }
 
