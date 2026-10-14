@@ -96,7 +96,7 @@ use crate::{Cull, Vertex, VERTEX_BYTES};
 /// `"BVER"` en little-endian, en la primera palabra.
 pub const MAGIA: u32 = 0x5245_5642;
 const _: () = assert!(MAGIA == u32::from_le_bytes(*b"BVER"));
-const _: () = assert!(bmo_lamina::censo::conoce(MAGIA));
+const _: () = assert!(bmo_lamina::censo::misma_version(bmo_lamina::censo::clase(MAGIA).version, bmo_lamina::censo::Version::Palabra1(VERSION)));
 pub const VERSION: u32 = 1;
 /// Lo que ocupa la cabecera antes de la ranura 0.
 pub const CABECERA: usize = 64;

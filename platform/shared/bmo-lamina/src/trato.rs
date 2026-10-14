@@ -4,7 +4,16 @@
 //! [carril]  VERDE     aritmetica sobre palabras atomicas que da quien llama
 //! [consumo] NADA      se usa cuando alguien publica o lee
 //!
-//! # La cabecera comun: las tres primeras palabras
+//! # LA LEY: la palabra 0. Y la forma completa, para las que nacen ahora
+//!
+//! Lo que cumplen las OCHO clases del censo es una sola cosa: **la palabra 0
+//! es su magia**. La palabra 1 cada una la puso a su manera antes de que
+//! hubiera trato (una version entera, media, una medida, la mitad alta de una
+//! magia de 64 bits) y no se mueve: el censo dice cual es
+//! (`censo::Version`) y `censo::reconocer` la juzga.
+//!
+//! La FORMA COMPLETA -- la de BVER, y la de toda lamina que nazca desde hoy
+//! (A4) -- son tres palabras:
 //!
 //! ```text
 //!    palabra  campo           quien la escribe

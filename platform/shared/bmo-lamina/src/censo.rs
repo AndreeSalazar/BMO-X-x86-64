@@ -57,6 +57,24 @@ pub enum Juez {
     Ring0,
 }
 
+/// **Que dice la palabra 1** de cada clase. Las ocho nacieron antes del trato y
+/// cada una la puso a su manera; A3 (14-10) las ATA a su fila sin mover un
+/// byte -- moverlos tocaria el kernel, las cabeceras de C, el emisor de
+/// TITAN++ y el metal --, asi que el censo dice la forma que tiene cada una y
+/// la puerta la juzga ([`reconocer`]).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Version {
+    /// La palabra 1 ya es de la clase (una medida, o texto): no hay version.
+    Ninguna,
+    /// La palabra 1 entera es la version (BVER, BGPU).
+    Palabra1(u32),
+    /// La mitad baja (`u16`) de la palabra 1 es la version (BRED: la alta
+    /// son las casillas).
+    MitadBaja1(u16),
+    /// La magia es de 64 bits: la palabra 1 es su mitad alta, y es CERO.
+    MagiaDe64,
+}
+
 /// **Una clase de bloque prestado.**
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Clase {
@@ -71,6 +89,7 @@ pub struct Clase {
     pub herramienta: Herramienta,
     pub trato: Trato,
     pub juez: Juez,
+    pub version: Version,
     /// `false`: declarada, y ningun bloque la usa hoy.
     pub en_uso: bool,
 }
@@ -91,6 +110,7 @@ pub const CENSO: &[Clase] = &[
         herramienta: Herramienta::Prestar,
         trato: Trato::Superficie,
         juez: Juez::Ring3,
+        version: Version::Ninguna,
         en_uso: true,
     },
     Clase {
@@ -102,6 +122,7 @@ pub const CENSO: &[Clase] = &[
         herramienta: Herramienta::Prestar,
         trato: Trato::DosRanuras,
         juez: Juez::Ring3,
+        version: Version::Palabra1(1),
         en_uso: true,
     },
     Clase {
@@ -113,6 +134,7 @@ pub const CENSO: &[Clase] = &[
         herramienta: Herramienta::Prestar,
         trato: Trato::Texto,
         juez: Juez::Ring3,
+        version: Version::Ninguna,
         en_uso: true,
     },
     Clase {
@@ -124,6 +146,7 @@ pub const CENSO: &[Clase] = &[
         herramienta: Herramienta::Prestar,
         trato: Trato::Buzon,
         juez: Juez::Ring0,
+        version: Version::Palabra1(1),
         en_uso: true,
     },
     Clase {
@@ -135,6 +158,7 @@ pub const CENSO: &[Clase] = &[
         herramienta: Herramienta::Prestar,
         trato: Trato::Buzon,
         juez: Juez::Ring0,
+        version: Version::MitadBaja1(1),
         en_uso: true,
     },
     Clase {
@@ -146,6 +170,7 @@ pub const CENSO: &[Clase] = &[
         herramienta: Herramienta::Prestar,
         trato: Trato::Buzon,
         juez: Juez::Ring0,
+        version: Version::MagiaDe64,
         en_uso: true,
     },
     Clase {
@@ -157,6 +182,7 @@ pub const CENSO: &[Clase] = &[
         herramienta: Herramienta::SinEscala,
         trato: Trato::Peticion,
         juez: Juez::Ring0,
+        version: Version::Ninguna,
         en_uso: true,
     },
     Clase {
@@ -168,6 +194,7 @@ pub const CENSO: &[Clase] = &[
         herramienta: Herramienta::Prestar,
         trato: Trato::Buzon,
         juez: Juez::Ring3,
+        version: Version::Ninguna,
         en_uso: false,
     },
 ];
@@ -191,6 +218,65 @@ pub const fn por_magia(palabra: u32) -> Option<&'static Clase> {
         i += 1;
     }
     None
+}
+
+/// **Por que un bloque no se reconoce.**
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum NoReconocida {
+    /// Su palabra 0 no es de ninguna clase: no es una lamina (o la revocaron:
+    /// un buzon revocado tiene la magia a cero).
+    NoEsLamina,
+    /// Es de esta clase, pero su palabra 1 no dice lo que la clase dice.
+    Version(&'static Clase),
+}
+
+/// **LA PUERTA UNICA** (A3, 14-10): las dos primeras palabras de un bloque ->
+/// su clase, o por que no. La misma para el DIRECTOR, para VERRANO y para el
+/// kernel: el bloque dice que es, el censo dice como se le reconoce, y nadie
+/// lo decide por su cuenta. Lee DOS palabras: lo demas lo juzga la clase.
+pub const fn reconocer(palabra0: u32, palabra1: u32) -> Result<&'static Clase, NoReconocida> {
+    let Some(c) = por_magia(palabra0) else {
+        return Err(NoReconocida::NoEsLamina);
+    };
+    let buena = match c.version {
+        Version::Ninguna => true,
+        Version::Palabra1(v) => palabra1 == v,
+        Version::MitadBaja1(v) => palabra1 as u16 == v,
+        Version::MagiaDe64 => palabra1 == 0,
+    };
+    if buena {
+        Ok(c)
+    } else {
+        Err(NoReconocida::Version(c))
+    }
+}
+
+/// La clase de una magia, para un `const` (panic en compilacion si no esta).
+pub const fn clase(magia: u32) -> &'static Clase {
+    match por_magia(magia) {
+        Some(c) => c,
+        None => panic!("esa magia no esta en el censo de las laminas"),
+    }
+}
+
+/// **Este bloque es de la clase `magia` y esta ABIERTO?** La pregunta de cada
+/// vuelta del lado que usa un buzon: un buzon revocado tiene la magia a cero
+/// y deja de reconocerse.
+pub const fn abierta(magia: u32, palabra0: u32, palabra1: u32) -> bool {
+    match reconocer(palabra0, palabra1) {
+        Ok(c) => c.magia == magia,
+        Err(_) => false,
+    }
+}
+
+/// Dicen lo mismo dos versiones? (`PartialEq` no es `const`.)
+pub const fn misma_version(a: Version, b: Version) -> bool {
+    match (a, b) {
+        (Version::Ninguna, Version::Ninguna) | (Version::MagiaDe64, Version::MagiaDe64) => true,
+        (Version::Palabra1(x), Version::Palabra1(y)) => x == y,
+        (Version::MitadBaja1(x), Version::MitadBaja1(y)) => x == y,
+        _ => false,
+    }
 }
 
 /// Esta magia es una clase del censo? Para un `const _: () = assert!(...)`
@@ -237,6 +323,27 @@ mod pruebas {
         for c in CENSO.iter().filter(|c| c.juez == Juez::Ring0) {
             assert_ne!(c.trato, Trato::DosRanuras, "{}", c.nombre);
         }
+    }
+
+    /// La puerta unica, con cada forma de palabra 1.
+    #[test]
+    fn reconocer_juzga_la_palabra_1_de_cada_clase() {
+        let n = |r: Result<&Clase, NoReconocida>| r.map(|c| c.nombre);
+        assert_eq!(n(reconocer(letras(b"BVER"), 1)), Ok("BVER"));
+        assert_eq!(reconocer(letras(b"BVER"), 2), Err(NoReconocida::Version(clase(letras(b"BVER")))));
+        // BRED: la version en la mitad baja; la alta (las casillas) no cuenta.
+        assert_eq!(n(reconocer(letras(b"BRED"), 1 | 8 << 16)), Ok("BRED"));
+        assert!(reconocer(letras(b"BRED"), 2 | 8 << 16).is_err());
+        // BMOC: magia de 64 bits, la mitad alta a cero.
+        assert_eq!(n(reconocer(0x424D_4F43, 0)), Ok("BMOC"));
+        assert!(reconocer(0x424D_4F43, 1).is_err());
+        // BSUP: la palabra 1 es el ancho, cualquiera vale.
+        assert_eq!(n(reconocer(letras(b"BSUP"), 640)), Ok("BSUP"));
+        // Un buzon revocado (magia a cero) no es nada.
+        assert_eq!(reconocer(0, 1), Err(NoReconocida::NoEsLamina));
+        assert!(abierta(letras(b"BGPU"), letras(b"BGPU"), 1));
+        assert!(!abierta(letras(b"BGPU"), 0, 1), "revocado");
+        assert!(!abierta(letras(b"BGPU"), letras(b"BVER"), 1), "otra clase");
     }
 
     #[test]
