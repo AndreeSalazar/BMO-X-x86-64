@@ -285,6 +285,32 @@ const CENSO_CADA_NS_3060: u64 = 10_000_000_000;
 
 /// ** EL MODO 3060 (12-10, `--3060`).
 static MODO_3060: core::sync::atomic::AtomicBool = core::sync::atomic::AtomicBool::new(false);
+
+/// ** SOLO LA GPU (14-10, `--3060-solo`, `personal solo-gpu` en el
+/// escritorio). Pedido del propietario: *"que la CPU no pinte"* -- un Ryzen
+/// pintando pixel a pixel no tiene sentido. Lo que la 3060 no sabe dibujar
+/// (un lote) o correr (un computo) NO se hace: se SALTA y se cuenta. La
+/// imagen sale incompleta (lo saltado no esta) y el juego sigue; la 3060 y
+/// su juez, los de siempre: lo que va a ella va igual de juzgado.
+static SOLO_GPU: core::sync::atomic::AtomicBool = core::sync::atomic::AtomicBool::new(false);
+/// Lo saltado en modo solo GPU: lotes y computos.
+static SALTADOS: [core::sync::atomic::AtomicU64; 2] = [core::sync::atomic::AtomicU64::new(0), core::sync::atomic::AtomicU64::new(0)];
+
+/// Enciende el modo solo GPU (con el modo 3060).
+pub(crate) fn solo_gpu() {
+    MODO_3060.store(true, core::sync::atomic::Ordering::Relaxed);
+    SOLO_GPU.store(true, core::sync::atomic::Ordering::Relaxed);
+}
+
+/// Si esta en modo solo GPU.
+pub(crate) fn es_solo_gpu() -> bool {
+    SOLO_GPU.load(core::sync::atomic::Ordering::Relaxed)
+}
+
+/// Un computo saltado (no lo corre nadie).
+pub(crate) fn computo_saltado() {
+    SALTADOS[1].fetch_add(1, core::sync::atomic::Ordering::Relaxed);
+}
 /// Los NO del kernel a un lote de la 3060, en toda la corrida.
 static NO_DEL_KERNEL: core::sync::atomic::AtomicU64 = core::sync::atomic::AtomicU64::new(0);
 
@@ -417,6 +443,10 @@ fn decir_censo(e: &mut Estado, ahora: u64) {
         e.cadena.1,
         if e.pantalla_pedida { "PEDIDA" } else if e.sin_pantalla { "pedida y SOLTADA (un lote del back buffer fue por la CPU)" } else { "sin pedir" }
     ));
+    if es_solo_gpu() {
+        let n = |k: usize| SALTADOS[k].load(core::sync::atomic::Ordering::Relaxed);
+        s.push_str(&alloc::format!("#   SOLO GPU: {} lote(s) y {} computo(s) SALTADOS -- la CPU no pinta; lo de abajo \"por la CPU\" es lo que NO se hizo\n", n(0), n(1)));
+    }
     for (porque, veces) in &e.cadena_cpu {
         s.push_str(&alloc::format!("#     {veces:>5} x por la CPU: {porque}\n"));
     }
@@ -735,6 +765,12 @@ pub fn dibujar(l: &Lote, d: &mut Destino) -> Result<Cuenta, NoDibuja> {
     // Z1: un lote por la CPU con la pantalla pedida -- lo de la 3060 esta en
     // la pantalla y esto en la RAM: la pantalla se suelta, y lo compone el
     // escritorio.
+    // SOLO LA GPU: lo que no fue a la 3060 no se pinta (la pantalla, si la
+    // tenia, no se suelta: lo saltado no esta en ninguna parte).
+    if es_solo_gpu() {
+        SALTADOS[0].fetch_add(1, core::sync::atomic::Ordering::Relaxed);
+        return Ok(Cuenta::default());
+    }
     if d.cadena {
         soltar_pantalla(e);
     }

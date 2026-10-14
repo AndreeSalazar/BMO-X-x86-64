@@ -138,6 +138,7 @@ match c {
             Command::PersonalDiario(r) => (Command::PersonalCenso(r), 1u8),
             Command::PersonalLa3060(r) => (Command::PersonalCenso(r), 2u8),
             Command::PersonalEscalera(r) => (Command::PersonalCenso(r), 3u8),
+            Command::PersonalSoloGpu(r) => (Command::PersonalCenso(r), 4u8),
             o => (o, 0u8),
         };
         match orden {
@@ -168,6 +169,9 @@ match c {
                         if diario >= 2 && bmo::info(bmo::INFO_GPU_PUERTA) == 0 {
                             dsk.out.grid.with_ink(INK_ERR);
                             dsk.out.grid.text(b"  la 3060 NO esta lista para los lotes del juego: antes, `gpu verrano` (hasta `lienzo`) o `save mode`. Sin ella, todo por la CPU\n");
+                            if diario == 4 {
+                                dsk.out.grid.text(b"  y con `solo-gpu` la CPU no pinta: no se dibujara NADA\n");
+                            }
                             dsk.out.grid.with_ink(INK_PLAIN);
                         }
                         antes_de_proton_x(dsk, p, &buf[..tn]);

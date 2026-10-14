@@ -16,6 +16,8 @@ el segundo va a `..._HH-MM_b.txt`. El 14-10 07:14 el `save` a mano (con
 las lentes) y el automatico del `reboot` cayeron en el mismo minuto y el
 automatico se lo comio: esas lentes hay que correrlas otra vez.
 
+0. `smp all`, ANTES de nada (con un nucleo, el juego y el escritorio se
+   pelean el mismo).
 1. `gpu verrano textura`: los 96 puntos IGUAL (que nada nuevo rompio lo de
    antes).
 2. `gpu verrano derivadas`: LA LENTE. Que la gruesa diga `ddx(x)` y `ddy(y)`
@@ -28,6 +30,37 @@ automatico se lo comio: esas lentes hay que correrlas otra vez.
    NO a 0`, el vigia `corrigio 0`, el censo (que puerta para mas lotes), los
    computos por la CPU y la imagen.
 5. Si el canal muere: `gpu aviso`, despues `gpu revivir`, y el parte entero.
+6. `save`, y traer tambien `proton-x/cyberpunk2077/rechazados/` de ESTRATOS.
+7. (Opcional, para VER la 3060 sola) Cyberpunk con `personal solo-gpu`: lo
+   que la 3060 no sabe NO lo pinta la CPU, se SALTA. La imagen sale
+   incompleta. Mirar el fotograma (`[registro] ... fotograma N ms`) y la
+   linea del censo `SOLO GPU: N lote(s) y M computo(s) SALTADOS`: eso es lo
+   que falta, contado.
+
+## Lo que falta para que la 3060 lo haga TODO (14-10)
+
+Por que tarda: el 14-10 09:37, de 33,6 s de fotograma, 33,4 s eran la CPU
+pintando los POCOS lotes que no van a la 3060 (pases de pantalla entera con
+sombreadores pesados, pixel a pixel). La 3060 hace los suyos en ms. En
+orden de lo que mas da:
+
+1. EL BACK BUFFER (los 2 lotes que bloquean la pantalla directa): el `Load`
+   sin muestreador ya va (14-10); si sigue "s0 sin atar", ese pase muestrea
+   y la casa no encuentra su muestreador.
+2. LOS ULTIMOS LOTES DEL MENU: mas de 64 registros vivos, instancias, la
+   mezcla con triangulos que se pisan, el render target de 16x1 (filas que
+   no van de 128 en 128 B). Una pieza cada uno.
+3. LOS COMPUTOS QUE NI CORREN (~13 en la corrida de las 09:37): referencia
+   hacia delante fuera de un phi, arrays de structs, conversiones de 16/64
+   bits, RawBuffer de 16/64 bits, un puntero sin load; y dos PS con un grafo
+   que no se estructura. Sus Dispatch NO se hacen (ni la CPU): la imagen
+   puede salir incompleta o negra. Se hacen contra su DXIL (`rechazados/`).
+4. JUGANDO (no en el menu): miles de lotes por fotograma. Cada uno paga
+   ~2..4 ms de puerta y kernel: el ENVIO RAPIDO (muchos lotes por llamada) y
+   las imagenes en la VRAM en vez de en la RAM.
+
+`personal solo-gpu` (14-10) es el modo de VER lo que la 3060 ya hace sola:
+no arregla nada de lo de arriba, lo salta. El juez de la 3060 es el mismo.
 
 ## Que mirar en la corrida siguiente (14-10, tarde)
 

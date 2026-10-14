@@ -122,6 +122,7 @@ const LISTA: &[(&[u8], &[u8])] = &[
     (b"personal lee", b"la medida y los primeros bytes de un fichero de D:"),
     (b"personal censo", b"que DLL y funciones de Windows pide un .exe de D:, y cuantas tiene PROTON-X"),
     (b"personal diario", b"arranca un .exe de D: con PROTON-X y apunta cada funcion que llama (informe/diario.txt); sin ruta, repite la ultima"),
+    (b"personal solo-gpu", b"como personal 3060, y lo que la 3060 no sabe NO lo pinta la CPU: se salta. La imagen sale incompleta; el censo dice cuanto se salto"),
     (b"personal escalera", b"como personal 3060, y cada lote con su ESCALERA: mas lento, y si la 3060 no paga dice en que escalon se paro (y el parte del canal muerto)"),
     (b"personal 3060", b"como personal diario, en MODO 3060: dice si la tarjeta esta lista (gpu verrano antes), el censo de la 3060 cada 10 s y cuanto dibujo ella"),
     (b"cabina", b"lo que el kernel apunto"),
