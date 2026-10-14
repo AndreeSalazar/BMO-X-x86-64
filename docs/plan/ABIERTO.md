@@ -7,7 +7,7 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   780 casillas ABIERTAS en 73 planes
+   785 casillas ABIERTAS en 73 planes
    620 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
@@ -216,6 +216,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] E2 -- (C,T) DECLARADOS Y EL AFORO. Cada tarea trae su compas; el kernel
 - ... y 9 mas
 
+## [`PLAN_LA_LENTE_BINARIA.md`](PLAN_LA_LENTE_BINARIA.md) -- 12 abiertas, 0 hechas
+
+*PLAN LA LENTE BINARIA -- CABINA y LENTE hablan el binario, y lo dicen en castellano*
+
+- [ ] LB1 -- el MAPA: de la instruccion de la 3060 a la linea del DXIL
+- [ ] LB2 -- el vigia dice DONDE, no solo QUE
+- [ ] LB3 -- la autopsia de Ring 3 lee la instruccion que fallo
+- ... y 9 mas
+
 ## [`PLAN_LA_PUERTA_SE_PARTE.md`](PLAN_LA_PUERTA_SE_PARTE.md) -- 11 abiertas, 8 hechas
 
 *PLAN LA PUERTA SE PARTE -- dividir lo que no se puede abaratar*
@@ -331,15 +340,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] CE0 -- quien ve la casa, dicho. Una seccion del save y la orden
 - [ ] CE1 -- la MAC y el DHCP que cambian (LAN). Al arrancar, una MAC al
 - [ ] CE2 -- HERMES por un relevo PROPIO (es H11). Los amigos no se
-- ... y 4 mas
-
-## [`PLAN_LA_LENTE_BINARIA.md`](PLAN_LA_LENTE_BINARIA.md) -- 7 abiertas, 0 hechas
-
-*PLAN LA LENTE BINARIA -- CABINA y LENTE hablan el binario, y lo dicen en castellano*
-
-- [ ] LB1 -- el MAPA: de la instruccion de la 3060 a la linea del DXIL
-- [ ] LB2 -- el vigia dice DONDE, no solo QUE
-- [ ] LB3 -- la autopsia de Ring 3 lee la instruccion que fallo
 - ... y 4 mas
 
 ## [`PLAN_LA_MESA.md`](PLAN_LA_MESA.md) -- 7 abiertas, 2 hechas

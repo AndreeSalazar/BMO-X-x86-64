@@ -137,7 +137,87 @@ de una extension no declarada: NO, con su direccion y sus bytes.
 
 ---
 
-## 3. Lo que NO se hace
+## 3. Verificar una vez, y apartarse
+
+> 14-10, el propietario: *"que hable con mi Kernel que primero verifica con
+> respeto, luego se aparta y le habla a mi CPU (AMD) en binarios precisos"*.
+
+Lo que ya hacen otros, y lo que BMO-X ya hace con la 3060: eBPF en Linux (un
+verificador antes de cargar, y luego a toda velocidad), Native Client de
+Google (un subconjunto de x86 validado, y luego directo), y el juez de la
+3060 (R0..R7 una vez, y la receta en caliente).
+
+### [ ] LB8 -- lo DEMOSTRADO al admitir se apunta, y se paga una vez
+
+Lo que LB7 demuestra de un `.bex` (que extensiones usa, que su codigo no
+salta fuera de su region, que no toca lo que no declara) se apunta con su
+hash. La siguiente vez que se lance, el kernel lo sabe sin volver a leerlo:
+verifica con respeto UNA vez, y luego se aparta. Ningun coste en el camino
+caliente.
+
+### [ ] LB9 -- propiedades que se pueden demostrar en el binario
+
+Una lente que lee el binario puede comprobar lo que casi nadie comprueba.
+Cada una, una pieza con su banco, y solo cuando un programa la PIDA en su
+cabecera:
+
+```text
+   tiempo constante  ningun salto ni acceso depende de un secreto (bmo-cripto:
+                     AES, GCM, SHA-256; lo que evita robar claves midiendo)
+   tiempo real       un bucle sin caminos que se disparen (el audio, que no
+                     llegue tarde una trama)
+   sin escapes       nunca se salta fuera del codigo propio
+```
+
+---
+
+## 4. El perfil del Ryzen como LIBRERIA
+
+> 14-10, el propietario: *"mi PERFIL de Ryzen 5 5600X se convierte en
+> libreria 'CPU: ryzen 5 5600X' ... datos que emitio el CPU, y el kernel ya
+> sabra que hacer porque es su biblioteca"*.
+
+Ya hay dos mitades: `PERFIL/CPU.txt` (lo declarado; su tabla de EXTENSIONES
+ya la lee una maquina, y `perfil-campos` la compara con el codigo) y
+`cpu_vendor/ryzen_5_5600x/` (lo operativo, en el kernel). La regla de
+`PERFIL/README.md` sigue mandando: lo que se le PUEDE preguntar al silicio
+(CPUID) se pregunta; lo que NO, se escribe.
+
+### [ ] LB10 -- una sola fuente para el build, el kernel y la lente
+
+El perfil, como datos que leen TRES: INTI y TITAN++ al emitir (que
+instruccion usar y cual cuesta menos en el Zen 3), la puerta al admitir (LB6:
+que extensiones hay) y la lente (LB3/LB4: como se lee y que cuenta cada
+contador). Lo que hoy esta en dos sitios y lo vigila un guardian pasa a
+salir de uno.
+
+### [ ] LB11 -- lo MEDIDO vuelve al perfil
+
+Dos clases de dato, y no se mezclan:
+
+```text
+   DECLARADO   del APM y el PPR de AMD, y de las tablas publicas de
+               latencias del Zen 3: lo que el fabricante dice
+   MEDIDO      lo que este Ryzen dijo (las caches por CPUID, el TSC, los
+               contadores de LB4): con su fecha y su instrumento
+```
+
+El kernel guarda lo medido en el disco (como ya guarda el informe); el build
+lo lee la siguiente vez. Un numero medido que contradiga al declarado se
+dice, no se esconde.
+
+### [ ] LB12 -- el perfil se COMPRUEBA al arrancar
+
+Un perfil es una suposicion: si la CPU que hay debajo no es la del perfil (otra
+placa, otro Ryzen), el kernel lo dice y usa lo GENERICO de x86-64. Nunca
+instrucciones de un perfil que no es el de la maquina: un `.bex` hecho para el
+Zen 3 en otra CPU lo para la puerta (LB6), no un fallo a mitad de camino.
+Cuando haya otro perfil (otro AMD, o un Intel), es OTRO fichero con sus
+tablas, medido en su metal.
+
+---
+
+## 5. Lo que NO se hace
 
 - una lente que adivine: si una codificacion no esta en la tabla, se dice
   "no la conozco" con sus bytes en crudo
