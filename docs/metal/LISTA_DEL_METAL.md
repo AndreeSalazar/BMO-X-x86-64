@@ -51,6 +51,30 @@ automatico se lo comio: esas lentes hay que correrlas otra vez.
   el juego no dibuja el back buffer con lotes: lo escribe un computo o una
   copia, y la pieza que falta es esa.
 
+## Que mirar en la corrida siguiente (14-10, noche)
+
+- Antes de abrir el juego: `smp all` (09:37 corrio con `solo el BSP` y la
+  CPU al 100 %: el escritorio y el juego en un nucleo). Con el juego
+  corriendo, lo tecleado ya es una ORDEN (el juego no lee su consola).
+- El back buffer: `al back buffer: N lote(s), M por la 3060`. Si M pasa de
+  0, el ultimo pase era un `Load` y ya va; si sigue "t0 con s0 y el lote no
+  tiene s0 atado", ese pase MUESTREA y la casa no encuentra su muestreador
+  (y la CPU lo pinta a CEROS: la pantalla negra). Eso se mira despues.
+- La carpeta `proton-x/cyberpunk2077/rechazados/` de ESTRATOS (NO el
+  `informe/INDICE.TXT`, que es el indice del informe): sus `.dxil`, sus
+  `.txt` y su `INDICE.TXT`.
+
+## Lo medido el 14-10 09:37
+
+- El `%` de floats (C1) ya no sale: ese CS se sabe correr. El `save` de
+  antes del `reboot` fue a `_b` y no piso el bueno.
+- 21..29 lotes por la 3060, `NO a 0`, el vigia corrigio 0. Los 2 del back
+  buffer, por la CPU: "t0 con s0 sin atar". Fotograma 33,6 s.
+- Siguen sin correr: CS con referencia hacia delante fuera de un phi (x3),
+  arrays de structs (x2), conversiones de 16/64 bits (x4), RawBuffer de
+  16/64 bits (x3), un puntero sin load (x1); dos PS con un grafo que no se
+  estructura (guardados en rechazados/).
+
 ## Que mirar en la corrida anterior (14-10, F1)
 
 - F1, las texturas de float: en el censo, la puerta "una textura de float"
