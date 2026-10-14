@@ -5,6 +5,14 @@ actualiza cuando cambia; lo que ya se midio se tacha abajo, con la fecha.
 
 ## Cada corrida (en orden)
 
+Donde queda cada cosa: lo que se TECLEA y su respuesta (`gpu verrano ...`)
+va al capitulo 1 de `save` (`informe/SESION.TXT`), y cada `save` guarda solo
+lo de despues del `save` anterior; lo que ESCRIBE un programa (`proton-x
+--prueba-computo`, el juego) va a `informe/ESCRITO.TXT`, y ahi queda solo el
+ULTIMO programa. Por eso: un `save` justo despues de los pasos 1-3, ANTES de
+abrir el juego. Las copias de cada `save`, con fecha, en
+`informe/historial/`.
+
 1. `gpu verrano textura`: los 96 puntos IGUAL (que nada nuevo rompio lo de
    antes).
 2. `gpu verrano derivadas`: LA LENTE. Que la gruesa diga `ddx(x)` y `ddy(y)`
