@@ -501,6 +501,7 @@ dependencies = [
  "bmo-imagen-juicio",
  "bmo-input",
  "bmo-iommu-amdvi",
+ "bmo-lente-x86",
  "bmo-mmio-juicio",
  "bmo-net",
  "bmo-ntfs",

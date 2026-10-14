@@ -128,6 +128,8 @@ bmo-imagen-juicio = { path = "../../platform/shared/bmo-imagen-juicio" }
 # El juez del physmap. Ver `ring0/critic/amarilla.rs`: nacio de dos pantallas
 # azules seguidas por el mismo techo escrito a mano en el sitio equivocado.
 bmo-carga-juicio = { path = "../../platform/shared/bmo-carga-juicio" }
+# La lente de x86 (B1): lee el codigo de un `.bex` al admitirlo. Pura.
+bmo-lente-x86 = { path = "../../platform/shared/bmo-lente-x86" }
 bmo-fisica-juicio = { path = "../../platform/shared/bmo-fisica-juicio" }
 # La ciudad del arranque. La DIBUJA la CPU --cero bytes de datos-- y vive
 # fuera de las dos orillas porque es aritmetica pura: asi se puede probar en

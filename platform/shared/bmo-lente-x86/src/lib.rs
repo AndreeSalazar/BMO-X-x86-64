@@ -32,11 +32,15 @@
 #![no_std]
 #![forbid(unsafe_code)]
 
+pub mod recorre;
 pub mod tabla;
 mod texto;
 
 pub use tabla::{Ext, Fila, Forma, Pref};
 pub use texto::Texto;
+
+/// Lo mas que mide una instruccion de x86.
+pub const LARGO_MAX: usize = 15;
 
 /// En que mapa de opcodes esta la instruccion.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -137,7 +141,7 @@ impl Lector<'_> {
     fn u8(&mut self) -> Result<u8, NoSe> {
         let v = *self.b.get(self.i).ok_or(NoSe::Corta)?;
         self.i += 1;
-        if self.i > 15 {
+        if self.i > LARGO_MAX {
             return Err(NoSe::Larga);
         }
         Ok(v)

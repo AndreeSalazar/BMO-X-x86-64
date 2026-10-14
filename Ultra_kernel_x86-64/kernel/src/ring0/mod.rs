@@ -111,6 +111,8 @@ pub mod task {
     /// compartido tiene que volverse una estructura-- y un hash no lo puede
     /// demostrar. Ver la cabecera del fichero.
     pub mod admitir;
+    /// **La lente al admitir** (B1): verificar una vez y apartarse.
+    pub mod lente;
     pub mod proc;
     pub mod scheduler;
     /// **LA ALARMA** (EXPROPIAR, 07-10): el tick le quita el turno a un hilo

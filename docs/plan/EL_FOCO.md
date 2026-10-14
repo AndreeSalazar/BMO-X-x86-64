@@ -295,6 +295,30 @@ dice, y el metal se junta en UNA corrida por escalon.
       no se vuelve a leer. **Como se sabe:** en el anfitrion, un `.bex` con
       una instruccion no declarada: NO; en el metal, el segundo `run` del
       mismo `.bex` no paga la lente.
+      **HECHO EN EL ANFITRION el 14-10; FALTA LA MITAD DEL METAL** (por eso
+      la casilla sigue abierta). `bmo_lente_x86::recorre` lee el codigo como
+      lo correra la CPU: desde la ENTRADA, por saltos y llamadas (un `call`
+      indirecto vuelve; un `jmp` indirecto, no), y desde cada RELOCACION que
+      apunta al codigo -- los punteros a funcion que el programa guarda, que
+      escribio el enlazador. No necesita memoria propia: quien llama da el
+      mapa de lo leido y la pila. En el kernel, `task/lente.rs` lo corre en
+      `admitir` sobre las paginas ya mapeadas y con el hash ya comprobado:
+      una extension NO declarada es un NO (con su sitio, y `run` lo pinta);
+      lo que no sabe leer o un salto que sale del codigo se dice "NO
+      DEMOSTRADO" y ENTRA -- un limite de la lente no es una falta del
+      programa. Lo leido se recuerda por el hash de la region de codigo (32
+      `.bex`), y la bitacora dice `lente: ya leido` cuando se ahorra.
+      **Como se sabe:** el `metro` recorre sus 64 programas en cada build y
+      todos quedan DEMOSTRADOS (cobertura 98-100 %; `cuentas.cpp` tiene una
+      vtable) y todo lo que corrio lo alcanzo el recorrido; DOOM, compilado
+      del commit fijado, DEMOSTRADO en 0,1 s con el 84 % del codigo
+      alcanzado (lo demas: unas 57 funciones a las que nada llama, y punteros
+      tomados con `lea`); y `bmo-metro --recorre x.bex` lo dice de cualquier
+      `.bex`. Saboteado (el emisor de C sin declarar `popcnt`): NO, con
+      BMI1 en `0xa4`. **Lo que NO se siembra:** un `lea [rip+x]` que cae en
+      el codigo -- TITAN++ guarda DATOS ahi, y probarlo leyo `cubo_gira`
+      como instrucciones. **Lo que falta:** lanzar el mismo `.bex` dos veces
+      en el Ryzen y ver `lente: ya leido` la segunda.
 - [ ] **B2 -- LB3b: la autopsia de Ring 3 dice la instruccion.** El capitulo
       7 de `save`: los bytes en RIP decodificados y explicados, de que
       programa y que funcion. **Como se sabe:** un programa que falla a

@@ -7,8 +7,8 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   807 casillas ABIERTAS en 75 planes
-   628 hechas
+   806 casillas ABIERTAS en 75 planes
+   629 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -225,15 +225,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] E2 -- (C,T) DECLARADOS Y EL AFORO. Cada tarea trae su compas; el kernel
 - ... y 9 mas
 
-## [`PLAN_LA_LENTE_BINARIA.md`](PLAN_LA_LENTE_BINARIA.md) -- 11 abiertas, 1 hechas
-
-*PLAN LA LENTE BINARIA -- CABINA y LENTE hablan el binario, y lo dicen en castellano*
-
-- [ ] LB1 -- el MAPA: de la instruccion de la 3060 a la linea del DXIL
-- [ ] LB2 -- el vigia dice DONDE, no solo QUE
-- [ ] LB3 -- la autopsia de Ring 3 lee la instruccion que fallo
-- ... y 8 mas
-
 ## [`PLAN_LA_PUERTA_SE_PARTE.md`](PLAN_LA_PUERTA_SE_PARTE.md) -- 11 abiertas, 8 hechas
 
 *PLAN LA PUERTA SE PARTE -- dividir lo que no se puede abaratar*
@@ -268,6 +259,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] D2a -- un TRINQUETE. static mut declarados en
 - [ ] D2b -- el reparto, por fichero, cuando SMP se retome. No antes: sin
 - [ ] D3a -- el codegen de COBOL. Es el mayor, y es el que va a crecer con
+- ... y 7 mas
+
+## [`PLAN_LA_LENTE_BINARIA.md`](PLAN_LA_LENTE_BINARIA.md) -- 10 abiertas, 2 hechas
+
+*PLAN LA LENTE BINARIA -- CABINA y LENTE hablan el binario, y lo dicen en castellano*
+
+- [ ] LB1 -- el MAPA: de la instruccion de la 3060 a la linea del DXIL
+- [ ] LB2 -- el vigia dice DONDE, no solo QUE
+- [ ] LB3 -- la autopsia de Ring 3 lee la instruccion que fallo
 - ... y 7 mas
 
 ## [`PLAN_MAQUETA.md`](PLAN_MAQUETA.md) -- 10 abiertas, 35 hechas

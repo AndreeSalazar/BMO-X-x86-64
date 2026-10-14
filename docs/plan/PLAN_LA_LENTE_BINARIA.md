@@ -135,7 +135,14 @@ emite el codigo:
                     se admite, con su nombre (como `xcr0` hoy)
 ```
 
-### [ ] LB7 -- la lente comprueba que la cabecera no miente (el juez de x86)
+### [x] LB7 -- la lente comprueba que la cabecera no miente (el juez de x86)
+
+**HECHO el 14-10 (B1 de `EL_FOCO.md`), con un cambio dicho:** una instruccion
+de una extension NO declarada es un NO; una que la lente no sabe leer NO es un
+NO sino "no demostrado", y el `.bex` entra -- un limite de la tabla no es una
+falta del programa, y DOOM no puede dejar de arrancar por una fila que falte.
+El recorrido sale de la entrada y de las relocaciones hacia el codigo
+(`bmo_lente_x86::recorre`), no de los `lea`: TITAN++ guarda datos en el codigo.
 
 Como el juez de la 3060: al admitir un `.bex`, la lente DECODIFICA su region
 de CODIGO con las tablas del APM (LB3) y comprueba que cada instruccion es de
@@ -164,6 +171,11 @@ Google (un subconjunto de x86 validado, y luego directo), y el juez de la
 3060 (R0..R7 una vez, y la receta en caliente).
 
 ### [ ] LB8 -- lo DEMOSTRADO al admitir se apunta, y se paga una vez
+
+**ESCRITO el 14-10, sin ver en el metal:** `task/lente.rs` recuerda el
+veredicto por el hash de la region de codigo, la entrada y lo declarado (32
+`.bex`), y dice `lente: ya leido` al ahorrarse la lectura. Se cierra cuando el
+Ryzen lo diga en el segundo `run` del mismo `.bex`.
 
 Lo que LB7 demuestra de un `.bex` (que extensiones usa, que su codigo no
 salta fuera de su region, que no toca lo que no declara) se apunta con su

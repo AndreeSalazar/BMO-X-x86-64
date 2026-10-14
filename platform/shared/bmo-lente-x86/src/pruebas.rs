@@ -238,3 +238,104 @@ fn the_cpu_column_of_the_intrinsics_tells_the_truth() {
     assert!(mal.is_empty(), "\n  {}", mal.join("\n  "));
     assert_eq!(sin_leer, SIN_LEER, "las filas que la lente no lee cambiaron: mirar si piden algo");
 }
+
+// -------------------------------------------------------------------
+//  B1: el recorrido desde la entrada
+// -------------------------------------------------------------------
+
+/// Recorre `c` con lo que se declara y unas semillas.
+fn recorre_con(c: &[u8], entrada: usize, semillas: &[u64], declara: &[&str]) -> (recorre::Recorrido, Vec<u8>) {
+    let mut visto = std::vec![0u8; c.len().div_ceil(8)];
+    let mut pila = std::vec![0u32; 64];
+    let r = recorre::recorre(
+        c.len(),
+        entrada,
+        semillas.iter().copied(),
+        |en, b| {
+            let n = (c.len() - en).min(b.len());
+            b[..n].copy_from_slice(&c[en..en + n]);
+            n
+        },
+        |n| declara.contains(&n),
+        &mut visto,
+        &mut pila,
+    );
+    (r, visto)
+}
+
+fn leido(visto: &[u8], o: usize) -> bool {
+    visto[o / 8] >> (o % 8) & 1 != 0
+}
+
+/// ** EL CASO DEL PLAN: un `popcnt` que el `.bex` no declara es un NO, con su
+/// sitio; declarado, queda demostrado.
+#[test]
+fn walk_an_undeclared_extension_is_a_no() {
+    // 0: mov eax, 7 / 5: popcnt eax, eax / 9: ret
+    let c = [0xB8, 7, 0, 0, 0, 0xF3, 0x0F, 0xB8, 0xC0, 0xC3];
+    let (r, _) = recorre_con(&c, 0, &[], &[]);
+    assert_eq!(r.no_declarada, Some((5, "POPCNT")));
+    assert!(!r.demostrado());
+    let (r, _) = recorre_con(&c, 0, &[], &["POPCNT"]);
+    assert!(r.demostrado(), "{r:?}");
+    assert_eq!((r.leidas, r.bytes), (3, 10));
+}
+
+/// ** Los DATOS metidos en el codigo no se leen: un salto los rodea. Una
+/// lectura lineal desde el byte 0 se habria tragado `0F 0D` (que la tabla
+/// no tiene) y lo de detras, desalineado.
+#[test]
+fn walk_jumps_around_data_in_the_code() {
+    // 0: jmp +3 / 2: [0F 0D FF] datos / 5: ret
+    let c = [0xEB, 0x03, 0x0F, 0x0D, 0xFF, 0xC3];
+    let (r, visto) = recorre_con(&c, 0, &[], &[]);
+    assert!(r.demostrado(), "{r:?}");
+    assert!(leido(&visto, 0) && leido(&visto, 5) && !leido(&visto, 2));
+}
+
+/// ** Las llamadas: se lee el destino Y lo de detras; `call rax` no dice
+/// adonde va, pero vuelve; `jmp rax`, no. Lo que solo se alcanza por un
+/// puntero lo trae la SEMILLA (una relocacion hacia el codigo); un `lea` de
+/// `rip` que cae dentro NO siembra (puede ser un dato).
+#[test]
+fn walk_follows_calls_seeds_and_lea() {
+    // 0: call +6 (a 11)        5: call rax       7: jmp rax
+    // 9: ret (solo por semilla) 10: int3          11: lea rcx, [rip-0xb] (a 7) / 18: ret
+    let c = [
+        0xE8, 0x06, 0, 0, 0, //
+        0xFF, 0xD0, //
+        0xFF, 0xE0, //
+        0xC3, //
+        0xCC, //
+        0x48, 0x8D, 0x0D, 0xF5, 0xFF, 0xFF, 0xFF, //
+        0xC3,
+    ];
+    let (r, visto) = recorre_con(&c, 0, &[], &[]);
+    assert!(r.demostrado(), "{r:?}");
+    assert_eq!(r.indirectos, 2);
+    assert!(leido(&visto, 11) && leido(&visto, 5) && leido(&visto, 7), "destino y detras del call indirecto");
+    assert!(!leido(&visto, 9), "detras de `jmp rax` no se sabe");
+    assert!(!leido(&visto, 10), "el `lea` apunta a 7, que ya se leyo por el camino; a nada mas");
+    let (r, visto) = recorre_con(&c, 0, &[9], &[]);
+    assert!(r.demostrado() && leido(&visto, 9), "la semilla lo trae: {r:?}");
+}
+
+/// ** Y lo que no puede demostrar, lo dice: lo que no sabe leer, un salto
+/// que sale del codigo, una semilla fuera, y una pila que no da.
+#[test]
+fn walk_says_what_it_cannot_prove() {
+    let (r, _) = recorre_con(&[0x0F, 0x0D, 0x00], 0, &[], &[]);
+    assert!(matches!(r.no_sabe, Some((0, NoSe::FueraDeLaTabla { .. }))));
+    let (r, _) = recorre_con(&[0xEB, 0x10], 0, &[], &[]);
+    assert_eq!(r.fuera, Some((0, 0x12)));
+    let (r, _) = recorre_con(&[0x90], 0, &[], &[]);
+    assert_eq!(r.fuera, Some((0, 1)), "caer por el final tambien es salir");
+    let (r, _) = recorre_con(&[0xC3], 0, &[40], &[]);
+    assert_eq!(r.fuera, Some((0, 40)));
+    for r in [r, recorre_con(&[0xC3; 4], 0, &[], &[]).0] {
+        assert!(!r.desborda);
+    }
+    let mut visto = [0u8; 1];
+    let r = recorre::recorre(100, 0, [], |_, _| 0, |_| true, &mut visto, &mut []);
+    assert!(r.desborda && !r.demostrado(), "un mapa que no cubre el codigo no demuestra nada");
+}

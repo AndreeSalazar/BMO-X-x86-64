@@ -230,6 +230,59 @@ fn declara(bex: &[u8]) -> u64 {
     t.iter().filter(|r| r.clase == CLASE_INSTRUCCIONES && r.es_obligatorio()).fold(0, |m, r| m | r.cantidad)
 }
 
+/// **El recorrido de B1** (`bmo_lente_x86::recorre`) sobre el codigo de un
+/// `.bex`, con lo que declara: el veredicto, el largo del codigo y el mapa de lo
+/// leido.
+fn recorrer(bex: &[u8]) -> (bmo_lente_x86::recorre::Recorrido, usize, Vec<u8>) {
+    let Ok(v) = bmo_abi::bef2::leer(bex) else {
+        return (bmo_lente_x86::recorre::Recorrido { desborda: true, ..Default::default() }, 0, Vec::new());
+    };
+    let c = v.region(bmo_abi::bef2::Region::Codigo);
+    let d = declara(bex);
+    let mut visto = vec![0u8; c.len().div_ceil(8)];
+    let mut pila = vec![0u32; 1 << 16];
+    let r = bmo_lente_x86::recorre::recorre(
+        c.len(),
+        v.entrada as usize,
+        v.relocs().filter(|r| r.destino == bmo_abi::bef2::Region::Codigo).map(|r| r.addend),
+        |en, b| {
+            let n = (c.len() - en).min(b.len());
+            b[..n].copy_from_slice(&c[en..en + n]);
+            n
+        },
+        |n| bmo_abi::bef::requisitos::instrucciones::por_nombre(n).is_some_and(|e| d & e.bit != 0),
+        &mut visto,
+        &mut pila,
+    );
+    (r, c.len(), visto)
+}
+
+/// Lo que le falta a un recorrido para quedar demostrado, dicho.
+fn que_falta(r: &bmo_lente_x86::recorre::Recorrido) -> String {
+    let mut q = Vec::new();
+    if let Some((en, e)) = r.no_declarada { q.push(format!("en 0x{en:x} una instruccion de {e}, que el .bex NO declara")); }
+    if let Some((en, e)) = r.no_sabe { q.push(format!("en 0x{en:x} no sabe leer ({e:?})")); }
+    if let Some((de, a)) = r.fuera { q.push(format!("en 0x{de:x} un salto sale del codigo, a 0x{a:x}")); }
+    if r.desborda { q.push("el recorrido desbordo".into()); }
+    q.join("; ")
+}
+
+/// `--recorre <fichero.bex>`: el veredicto de B1 para cualquier `.bex`.
+fn recorre_fichero(ruta: &str) {
+    let bex = match std::fs::read(ruta) {
+        Ok(b) => b,
+        Err(e) => { eprintln!("recorre: no se lee {ruta}: {e}"); std::process::exit(2) }
+    };
+    let (r, largo, _) = recorrer(&bex);
+    println!("{ruta}: {} instrucciones, {} de {} B de codigo alcanzados desde la entrada, {} saltos indirectos", r.leidas, r.bytes, largo, r.indirectos);
+    if r.demostrado() {
+        println!("DEMOSTRADO: todo lo alcanzable se lee, es de lo declarado y no sale del codigo");
+    } else {
+        println!("NO DEMOSTRADO: {}", que_falta(&r));
+        std::process::exit(1);
+    }
+}
+
 fn raiz() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("..").join("..").join("..")
 }
@@ -316,6 +369,27 @@ fn medir(lenguaje: &str, rel: &str) -> Result<Medida, String> {
         return Err("no termino por EXIT".into());
     }
     let lente = juzgar_lente(&codigo, &pasos, declara(&bex));
+    // ** B1: el recorrido desde la ENTRADA, el que hara el kernel al admitir.
+    // Cada programa del banco tiene que quedar DEMOSTRADO, y todo lo que corrio
+    // tiene que haberlo leido -- salvo lo que solo se alcanza por un salto
+    // indirecto, que el recorrido cuenta y no puede seguir.
+    let lente = {
+        let (r, largo, visto) = recorrer(&bex);
+        let mut quejas = Vec::new();
+        if !r.demostrado() {
+            quejas.push(format!("recorrido: no demostrado ({}/{} B): {}", r.bytes, largo, que_falta(&r)));
+        }
+        let sin: Vec<usize> = pasos.iter().map(|p| p.0).filter(|&o| visto.get(o / 8).is_none_or(|b| b >> (o % 8) & 1 == 0)).collect();
+        if !sin.is_empty() && r.indirectos == 0 {
+            quejas.push(format!("recorrido: {} instrucciones corrieron y no las alcanzo (la primera en 0x{:x}), sin un salto indirecto que lo explique", sin.len(), sin.iter().min().unwrap()));
+        }
+        // Los dos jueces hablan: el de lo que corrio y el del recorrido.
+        match lente {
+            Ok(n) if quejas.is_empty() => Ok(n),
+            Ok(_) => Err(quejas),
+            Err(mut q) => { q.extend(quejas); Err(q) }
+        }
+    };
     Ok(Medida { pasos: m.pasos, accesos: m.censo.accesos(), codigo: bytes_de_codigo(&bex), salida: huella(&m.console), censo: m.censo, lente })
 }
 
@@ -448,6 +522,10 @@ fn caliente(rel: &str, salida: Option<&str>) {
 
 fn main() {
     let modo = std::env::args().nth(1).unwrap_or_default();
+    if modo == "--recorre" {
+        recorre_fichero(&std::env::args().nth(2).unwrap_or_default());
+        return;
+    }
     if modo == "--caliente" {
         let rel = std::env::args().nth(2).unwrap_or_default();
         let salida = std::env::args().nth(3);
@@ -535,7 +613,7 @@ fn main() {
                 exit(1);
             }
             let aviso = if bajaron > 0 { format!("; {bajaron} bajaron: fija con --fijar") } else { String::new() };
-            println!("clean: metro del emisor -- {} programas (C, C++, COBOL, Ada, INTI, TITAN++), {pasos} instrucciones, {accesos} accesos a memoria, {codigo} B de codigo, ninguna salida cambio{aviso}; la lente lee las {leidas} instrucciones distintas que corrieron", medidas.len());
+            println!("clean: metro del emisor -- {} programas (C, C++, COBOL, Ada, INTI, TITAN++), {pasos} instrucciones, {accesos} accesos a memoria, {codigo} B de codigo, ninguna salida cambio{aviso}; la lente lee las {leidas} instrucciones distintas que corrieron, y el recorrido desde la entrada (B1) los demuestra a todos", medidas.len());
         }
         _ => {
             println!("{:<58} {:>12} {:>9} {:>9}  salida", "programa", "pasos", "accesos", "codigo");
