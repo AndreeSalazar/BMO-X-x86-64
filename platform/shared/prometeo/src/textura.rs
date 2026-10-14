@@ -531,13 +531,15 @@ impl<'a> Textura<'a> {
     /// Unclamped`): log2 del lado mayor del pixel en texeles de la mip mas
     /// detallada de la vista, sin raiz: `log2(max(lado_x^2, lado_y^2)) / 2`.
     /// Sin gradientes (todo 0: un carril solo), -infinito.
+    ///
+    /// ** S1 (14-10): en f32, con la RECETA `exponencial::lambda` -- la misma
+    /// que corre la 3060, instruccion a instruccion --. Hasta hoy, en f64 con
+    /// el `log2` de la casa: los mismos lambdas a una unidad del ultimo bit,
+    /// que la 3060 no sabia repetir.
     pub fn lambda(&self, g: [f32; 4]) -> f32 {
         let (w, h, _) = self.medidas_de(self.mip);
-        let lado = |du: f32, dv: f32| {
-            let (a, b) = (du as f64 * w as f64, dv as f64 * h as f64);
-            a * a + b * b
-        };
-        crate::mates::log2(lado(g[0], g[1]).max(lado(g[2], g[3])) as f32) * 0.5
+        let l = crate::exponencial::lambda(&mut crate::cuentas::Casa, g.map(f32::to_bits), (w as f32).to_bits(), (h as f32).to_bits());
+        f32::from_bits(l)
     }
 
     /// D4.4: un lambda (con los sesgos ya sumados) SUJETO como D3D, en mips

@@ -212,8 +212,15 @@ impl Paso {
 /// **Grabar la receta de `f`** y dejar solo lo que llega al resultado: los
 /// pasos, y el valor que es el resultado.
 fn grabar(f: Mate) -> Option<(Vec<Paso>, V)> {
-    let mut g = Graba::default();
-    let res = cuentas::receta(&mut g, f, 0)?;
+    grabar_con(1, |g, x| cuentas::receta(g, f, x[0]))
+}
+
+/// ** S1 (14-10): **grabar una receta de `n` entradas** (los valores 0..n):
+/// la de una Mate, o la del lambda de un muestreo (seis).
+fn grabar_con(n: u16, f: impl FnOnce(&mut Graba, &[V]) -> Option<V>) -> Option<(Vec<Paso>, V)> {
+    let mut g = Graba { valores: n - 1, ..Graba::default() };
+    let entradas: Vec<V> = (0..n).collect();
+    let res = f(&mut g, &entradas)?;
     // Lo que se lee, de atras adelante (los predicados con su propio
     // espacio: se marcan aparte).
     let mut vivo = vec![false; g.valores as usize + 1];
@@ -354,7 +361,28 @@ impl Emisor<'_> {
             return Ok(false);
         };
         let entrada = self.registro(a, paso)?;
-        let n = pasos.iter().filter_map(|p| p.escribe()).max().unwrap_or(0) as usize + 1;
+        self.receta(&pasos, res, &[entrada], |e| e.destino(d, i))?;
+        Ok(true)
+    }
+
+    /// ** S1 (14-10): **el lambda de un muestreo** (`exponencial::lambda` de
+    /// PROMETEO, la receta que corre la casa) de los gradientes `g` y las
+    /// medidas `w`, `h` (floats), en un registro nuevo.
+    pub(super) fn lambda(&mut self, g: [u8; 4], w: u8, h: u8) -> Result<u8, NoEmite> {
+        let (pasos, res) = grabar_con(6, |m, x| Some(bmo_proton_x::exponencial::lambda(m, [x[0], x[1], x[2], x[3]], x[4], x[5]))).ok_or(NoEmite::Registros)?;
+        let mut sale = 0;
+        self.receta(&pasos, res, &[g[0], g[1], g[2], g[3], w, h], |e| {
+            sale = e.pedir()?;
+            Ok(sale)
+        })?;
+        Ok(sale)
+    }
+
+    /// **Una receta grabada, traducida**: sus entradas en `entradas` (no se
+    /// sueltan: son de quien llama) y el resultado donde diga `destino`.
+    fn receta(&mut self, pasos: &[Paso], res: V, entradas: &[u8], destino: impl FnOnce(&mut Self) -> Result<u8, NoEmite>) -> Result<(), NoEmite> {
+        let mut destino = Some(destino);
+        let n = (pasos.iter().filter_map(|p| p.escribe()).max().unwrap_or(0) as usize).max(entradas.len() - 1) + 1;
         let np = pasos.iter().filter_map(|p| p.escribe_p()).max().unwrap_or(0) as usize + 1;
         // La ultima lectura de cada valor, de cada predicado y de cada
         // constante en registro.
@@ -376,7 +404,9 @@ impl Emisor<'_> {
             }
         }
         let mut s = Sitios { reg: vec![None; n], pred: vec![None; np], ks: Vec::new() };
-        s.reg[0] = Some(entrada);
+        for (j, &r) in entradas.iter().enumerate() {
+            s.reg[j] = Some(r);
+        }
         let mut libres_p: Vec<u8> = PREDICADOS.to_vec();
         let fin = pasos.len() - 1;
         debug_assert_eq!(pasos[fin].escribe(), Some(res), "la ultima escribe el resultado");
@@ -392,7 +422,7 @@ impl Emisor<'_> {
             // Los registros que mueren aqui (sus valores y sus constantes).
             let mut muere: Vec<u8> = Vec::new();
             for x in p.lee() {
-                if x != 0 && ultimo[x as usize] == k {
+                if x as usize >= entradas.len() && ultimo[x as usize] == k {
                     let r = s.reg[x as usize].expect("un valor sin registro");
                     if !muere.contains(&r) {
                         muere.push(r);
@@ -411,7 +441,7 @@ impl Emisor<'_> {
             // -- pedido DESPUES de soltar lo que muere: puede ser el de una
             // fuente, que se lee antes de escribirse --.
             let dest = match p.escribe() {
-                Some(_) if k == fin => Some(self.destino(d, i)?),
+                Some(_) if k == fin => Some((destino.take().expect("un destino"))(self)?),
                 Some(_) => {
                     for &r in &muere {
                         self.soltar(r);
@@ -444,7 +474,7 @@ impl Emisor<'_> {
                 }
             }
         }
-        Ok(true)
+        Ok(())
     }
 
     /// Un paso, en su instruccion (con sus fuentes ya en registros).

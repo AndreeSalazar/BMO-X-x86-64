@@ -28,7 +28,8 @@ pub fn tsc(m: &Muestreador) -> Option<[u32; 8]> {
 /// filas juntas (`4 x ancho` bytes, como las guarda la casa). `None` si esa
 /// fila no va alineada a 32 B: hara falta copiarla con otro paso (T2).
 pub fn tic(va: u64, ancho: u32, alto: u32, bgra: bool) -> Option<[u32; 8]> {
-    tx::tic(&Imagen { va, ancho, alto, fila: ancho.checked_mul(4)?, bgra })
+    let formato = if bgra { tx::Formato::Bgra8 } else { tx::Formato::Rgba8 };
+    tx::tic(&Imagen { va, ancho, alto, fila: ancho.checked_mul(4)?, formato, srgb: false })
 }
 
 #[cfg(test)]

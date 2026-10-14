@@ -69,6 +69,10 @@ pub mod planifica;
 pub mod simula;
 /// LI2f (12-10): un grupo de computo -- sus hilos, su compartida y sus barreras.
 pub mod simula_grupo;
+/// L2 (14-10): un cuadro de 2x2 en la 3060 de mentira (los SHFL).
+pub mod simula_cuadro;
+/// L2 (14-10): `ddx` y `ddy` con SHFL, los bits de la casa.
+mod derivadas;
 /// DL10 (09-10): la FFMA exacta, en sus cuatro redondeos (la del simulador).
 pub mod fma;
 
@@ -89,7 +93,7 @@ mod constantes;
 mod lecturas;
 /// G5 (13-10): la mip de un `SampleLevel` o un `Load` de 2D, elegida por el
 /// sombreador con las cuentas de la casa (una mip por TIC).
-pub mod mips;
+pub mod mipmap;
 /// E6 (02-10): lo que se mira antes de emitir un programa que salta.
 mod saltos;
 /// P3b4a: un PSO de la casa, listo y juzgado para la 3060.
@@ -121,7 +125,7 @@ mod uav;
 mod compartida;
 /// LI2f (12-10): lo que todo el grupo corre a la vez (para la barrera).
 mod uniforme;
-pub use uav::{permisos_computo, receta_computo, DelUav, CONTADOR, SRV};
+pub use uav::{cabe_entero, forma_de, permisos_computo, receta_computo, DelUav, Forma, CONTADOR, SRV};
 /// LI2f: la receta de computo y lo que contesta el kernel (del driver).
 pub use bmo_gpu_ga10x::trabajos::{computo_app, receta_computo as vrc1};
 
@@ -174,12 +178,12 @@ pub enum Precarga {
     /// de otra mientras la 3060 aun lo lee.
     AsaPar { textura: u8, muestreador: u8, reg: u8 },
     /// ** G5 (13-10): la BASE de las mips de (tN, sM) en `reg` -- el asa del
-    /// hueco de su mip 0 (`bmo_gpu_ga10x::mips`); la pone el pegamento --:
-    /// un `SampleLevel` o un `Load` de 2D le suma la mip sujeta (`mips.rs`).
+    /// hueco de su mip 0 (`bmo_gpu_ga10x::mipmap`); la pone el pegamento --:
+    /// un `SampleLevel` o un `Load` de 2D le suma la mip sujeta (`mipmap.rs`).
     Base { textura: u8, muestreador: u8, reg: u8 },
     /// ** G5: la fila `fila` (0 o 1) de las constantes de las mips de (tN,
     /// sM), en `reg`..`reg + 3`: las escribe la PUERTA en cada lote detras
-    /// del cbuffer (`mips::FILAS` por textura), y el pegamento las carga como
+    /// del cbuffer (`mipmap::FILAS` por textura), y el pegamento las carga como
     /// una fila mas (`Carga::Fila`).
     Mips { textura: u8, muestreador: u8, fila: u8, reg: u8 },
     /// ** LI2f (12-10): lo que el KERNEL dice del UAV `u` ([`DelUav`]), en
@@ -611,7 +615,7 @@ pub fn emitir_libreta(p: &Programa, registros: u32, abi: Abi, libreta: bool) -> 
     }
 }
 
-fn emitir_modo(p: &Programa, registros: u32, abi: Abi, libreta: bool, frugal: bool) -> Result<Emitido, NoEmite> {
+pub(crate) fn emitir_modo(p: &Programa, registros: u32, abi: Abi, libreta: bool, frugal: bool) -> Result<Emitido, NoEmite> {
     let n = p.iniciales.len();
     let reservados = 4 * p.salidas;
     if reservados as u32 > registros || registros > 255 {
@@ -679,13 +683,17 @@ fn emitir_modo(p: &Programa, registros: u32, abi: Abi, libreta: bool, frugal: bo
                 Op::Entrada { d, elemento, componente } => (e.precarga(Precarga::Entrada { elemento, componente, reg: 0 })?, d, 1),
                 Op::Constantes { d, fila, .. } => (e.precarga(Precarga::Fila { fila, reg: 0 })?, d, 4),
                 // El asa: fija TODO el programa (la lee un TEX desacoplado).
+                // ** S1 (14-10): un `Sample` elige su mip como un SampleLevel
+                // (`mipmap.rs`): su base y sus dos filas.
                 Op::Muestra { t, s, .. } => {
-                    e.precarga(Precarga::Asa { textura: t, muestreador: s, reg: 0 })?;
+                    e.precarga(Precarga::Base { textura: t, muestreador: s, reg: 0 })?;
+                    e.precarga(Precarga::Mips { textura: t, muestreador: s, fila: 1, reg: 0 })?;
+                    e.precarga(Precarga::Mips { textura: t, muestreador: s, fila: 0, reg: 0 })?;
                     continue;
                 }
-                // ** G5 (13-10): la de una 2D elige su mip (`mips.rs`): su
+                // ** G5 (13-10): la de una 2D elige su mip (`mipmap.rs`): su
                 // base y sus filas de constantes (la 0, solo con nivel).
-                Op::Lee { t, s, como: como @ (bmo_proton_x::dxil::programa::Lectura::Nivel | bmo_proton_x::dxil::programa::Lectura::Carga { .. }), .. } if t != bmo_proton_x::dxil::programa::DINAMICA && mips::es_2d(p, t) => {
+                Op::Lee { t, s, como: como @ (bmo_proton_x::dxil::programa::Lectura::Nivel | bmo_proton_x::dxil::programa::Lectura::Carga { .. }), .. } if t != bmo_proton_x::dxil::programa::DINAMICA && mipmap::es_2d(p, t) => {
                     e.precarga(Precarga::Base { textura: t, muestreador: s, reg: 0 })?;
                     e.precarga(Precarga::Mips { textura: t, muestreador: s, fila: 1, reg: 0 })?;
                     if matches!(como, bmo_proton_x::dxil::programa::Lectura::Nivel) {
@@ -916,36 +924,10 @@ fn emitir_modo(p: &Programa, registros: u32, abi: Abi, libreta: bool, frugal: bo
                     }
                 }
             }
-            // ** P3b4c.8 T2b: el muestreo, un TEX (2D, nivel 0) con el asa
-            // que pone el KERNEL. Solo con el ABI de registros (el del
-            // pegamento); con el del banco, no hay asa: se dice.
-            // D4.4: sin mirar `g`: el TEX de la 3060 saca la mip de sus
-            // derivadas el solo (la puerta mira que de lo mismo, `preparar`).
-            Op::Muestra { d, t, s, u, v, .. } => {
-                if e.abi != Abi::Registros {
-                    return Err(NoEmite::Operacion(i));
-                }
-                if (0..4).any(|k| e.valor.get(d as usize + k).is_none_or(|x| x.is_some())) {
-                    return Err(NoEmite::NoSsa(i));
-                }
-                let asa = e.precarga(Precarga::Asa { textura: t, muestreador: s, reg: 0 })?;
-                // Las coordenadas, en un par alineado que no se devuelve.
-                let par = e.bloque(2, true)?;
-                for (k, r) in [u, v].into_iter().enumerate() {
-                    let f = e.fuente(r);
-                    e.poner(c::mov(par + k as u8, f, 0), Clase::Alu, Some(par + k as u8), [reg_de(f), None, None]);
-                }
-                // Los cuatro canales, seguidos y alineados; cada uno se
-                // devuelve tras su ultimo uso, como cualquier valor.
-                let q = e.bloque(4, false)?;
-                e.poner(c::tex(q, par, asa, 0), Clase::Tex, Some(q), [Some(par), Some(par + 1), Some(asa)]);
-                if let Some(m) = e.metas.last_mut() {
-                    m.escribe_n = 4;
-                }
-                for k in 0..4u8 {
-                    e.valor[d as usize + k as usize] = Some(Valor::Reg(q + k));
-                }
-            }
+            // ** P3b4c.8 T2b: el muestreo, un TEX con el asa del KERNEL. ** S1
+            // (14-10): con la mip de sus gradientes, como la casa: el lambda
+            // de su cuadro y las mips de G5 (`mipmap.rs`).
+            Op::Muestra { d, t, s, u, v, g } => e.muestra_mips(d, t, s, u, v, g, i, &mut paso)?,
             Op::Entrada { d, elemento, componente } => {
                 if e.valor[d as usize].is_some() {
                     return Err(NoEmite::NoSsa(i));
@@ -1054,8 +1036,8 @@ fn emitir_modo(p: &Programa, registros: u32, abi: Abi, libreta: bool, frugal: bo
             // Load en 2D y array (`lecturas.rs`); lo demas -- el cubo, los
             // gradientes, GetDimensions, los desplazamientos, la textura
             // elegida al correr -- en la CPU todavia.
-            Op::Lee { d, t, como: bmo_proton_x::dxil::programa::Lectura::Bufer(modo), c: co, .. } if t != bmo_proton_x::dxil::programa::DINAMICA && t < SRV => e.lee_uav(d, t | SRV, modo, co[0], co[1], i, &mut paso)?,
-            Op::Lee { d, t, como: bmo_proton_x::dxil::programa::Lectura::MedidasBufer(_), .. } if t != bmo_proton_x::dxil::programa::DINAMICA && t < SRV => e.medidas_uav(d, t | SRV, i)?,
+            Op::Lee { d, t, como: bmo_proton_x::dxil::programa::Lectura::Bufer(modo), c: co, .. } if t != bmo_proton_x::dxil::programa::DINAMICA && t < SRV => e.lee_uav(d, t | SRV, modo, co[0], co[1], None, i, &mut paso)?,
+            Op::Lee { d, t, como: bmo_proton_x::dxil::programa::Lectura::MedidasBufer(modo), .. } if t != bmo_proton_x::dxil::programa::DINAMICA && t < SRV => e.medidas_uav(d, t | SRV, modo, i)?,
             Op::Lee { d, t, s, como, c: co, nivel, desp } => e.lee_textura(d, t, s, como, co, nivel, desp, i, &mut paso)?,
             // N5.4: elegir la textura al correr, la 3060 todavia no.
             Op::EligeTextura { .. } => return Err(NoEmite::Operacion(i)),
@@ -1063,13 +1045,13 @@ fn emitir_modo(p: &Programa, registros: u32, abi: Abi, libreta: bool, frugal: bo
             // los UAV crudos y estructurados; lo demas, por la CPU todavia.
             Op::IdHilo { d, que, c: comp } => e.id_hilo(d, que, comp, i, &mut paso)?,
             Op::Barrera => e.barrera(i)?,
-            Op::LeeUav { d, u, modo, i: indice, desp, .. } => e.lee_uav(d, u, modo, indice, desp, i, &mut paso)?,
-            Op::EscribeUav { u, modo, i: indice, desp, v, mascara, .. } => e.escribe_uav(u, modo, indice, desp, v, mascara, i, &mut paso)?,
+            Op::LeeUav { d, u, modo, i: indice, desp, z } => e.lee_uav(d, u, modo, indice, desp, Some(z), i, &mut paso)?,
+            Op::EscribeUav { u, modo, i: indice, desp, z, v, mascara } => e.escribe_uav(u, modo, indice, desp, Some(z), v, mascara, i, &mut paso)?,
             Op::LeeCompartida { d, base, n, i: indice } => e.lee_compartida(d, base, n, indice, i, &mut paso)?,
             Op::EscribeCompartida { base, n, i: indice, s } => e.escribe_compartida(base, n, indice, s, i, &mut paso)?,
             Op::AtomicoCompartido { d, base, n, i: indice, v, como } => e.atomico_compartido(d, base, n, indice, v, como, i, &mut paso)?,
-            Op::MedidasUav { d, u, .. } => e.medidas_uav(d, u, i)?,
-            Op::Atomico { d, u, modo, i: indice, desp, como, v, igual, .. } => e.atomico_uav(d, u, modo, indice, desp, como, v, igual, i, &mut paso)?,
+            Op::MedidasUav { d, u, modo } => e.medidas_uav(d, u, modo, i)?,
+            Op::Atomico { d, u, modo, i: indice, desp, z, como, v, igual } => e.atomico_uav(d, u, modo, indice, desp, Some(z), como, v, igual, i, &mut paso)?,
             // E2.3b: el sombreador de geometria, igual (va por la CPU).
             Op::EntradaDe { .. } | Op::Emite { .. } | Op::Corta { .. } => return Err(NoEmite::Operacion(i)),
             // E2.4: el contador de un UAV, igual; y (05-10) sus Interlocked.
@@ -1099,9 +1081,10 @@ fn emitir_modo(p: &Programa, registros: u32, abi: Abi, libreta: bool, frugal: bo
             Op::ConstantesEn { d, fila, filas, i: indice, .. } => e.constantes_en(d, fila, filas, indice, i, &mut paso)?,
             // E2.5: las olas (`vote`, `shfl` de la 3060) todavia no: por la CPU,
             // donde van de 32 en 32 carriles como en un warp.
-            // D4.4: las derivadas de la mip de un muestreo no se emiten: solo
-            // las lee el `Op::Muestra` de la CPU, y el TEX las hace solo.
-            Op::Ola { que: bmo_proton_x::dxil::olas::Ola::Derivada { muestra: true, .. }, .. } => {}
+            // ** L2 (14-10): `ddx`, `ddy` y la fina en x, con SHFL
+            // (`derivadas.rs`): los bits de la casa. ** S1: tambien las de la
+            // mip de un `Sample` (sus gradientes).
+            Op::Ola { d, a, que: bmo_proton_x::dxil::olas::Ola::Derivada { y, fina, .. }, .. } => e.derivada(d, a, y, fina, i, &mut paso)?,
             Op::Ola { .. } => return Err(NoEmite::Operacion(i)),
         }
         // Lo de paso, y lo que ya nadie lee, se devuelve.
@@ -1198,3 +1181,9 @@ mod pruebas_constantes;
 mod pruebas_lecturas;
 #[cfg(test)]
 mod pruebas_censo;
+#[cfg(test)]
+mod pruebas_derivadas;
+#[cfg(test)]
+mod pruebas_muestra;
+#[cfg(test)]
+mod pruebas_uav_tipo;

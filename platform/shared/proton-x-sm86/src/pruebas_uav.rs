@@ -19,7 +19,7 @@ use crate::{emitir_con, Abi, DelUav, NoEmite, Precarga};
 
 /// Un UAV de la prueba: sus bytes, su vista, y donde lo ve la 3060.
 #[derive(Clone)]
-struct Vista {
+pub(super) struct Vista {
     bytes: Vec<u8>,
     modo: Modo,
     elementos: u32,
@@ -28,9 +28,9 @@ struct Vista {
 
 /// La memoria de la 3060: cada UAV en su ventana (la IOVA de la ranura k,
 /// `BASE + k * RANURA`); fuera de ellas, un fallo.
-struct Ventanas(Vec<Vec<u8>>);
-const BASE: u64 = 0x1_2340_0000;
-const RANURA: u64 = 0x10_0000;
+pub(super) struct Ventanas(pub(super) Vec<Vec<u8>>);
+pub(super) const BASE: u64 = 0x1_2340_0000;
+pub(super) const RANURA: u64 = 0x10_0000;
 
 impl Ventanas {
     fn donde(&self, dir: u64) -> Option<(usize, usize)> {
@@ -57,7 +57,7 @@ impl Memoria for Ventanas {
     }
 }
 
-fn programa(ops: Vec<Op>, iniciales: Vec<u32>, uavs: usize, hilos: [u32; 3]) -> Programa {
+pub(super) fn programa(ops: Vec<Op>, iniciales: Vec<u32>, uavs: usize, hilos: [u32; 3]) -> Programa {
     programa_con(ops, iniciales, uavs, hilos, 0)
 }
 
@@ -136,7 +136,7 @@ fn cargar(e: &crate::Emitido, vistas: &[Vista], srvs: &[Vista], cb: &[u8], m: &m
     }
 }
 
-fn palabras(v: &[u32]) -> Vec<u8> {
+pub(super) fn palabras(v: &[u32]) -> Vec<u8> {
     v.iter().flat_map(|x| x.to_le_bytes()).collect()
 }
 
@@ -271,8 +271,6 @@ fn la_direccion_nunca_sale_de_lo_prestado() {
 /// barrera dentro de un `si`, y lo de computo en un programa que no lo es.
 #[test]
 fn lo_que_no_va_todavia() {
-    let tipado = programa(vec![Op::LeeUav { d: 0, u: 0, modo: Modo::Tipado, i: 4, desp: 4, z: 4 }], vec![0; 5], 1, [1, 1, 1]);
-    assert_eq!(emitir_con(&tipado, 64, Abi::Registros).err(), Some(NoEmite::Operacion(0)));
     // La barrera bajo un `si` del id del HILO: no se demuestra que lleguen
     // todos (por la CPU); bajo uno del cbuffer o del id del GRUPO, si.
     let en_si = programa(vec![Op::IdHilo { d: 0, que: 2, c: 0 }, Op::Si { c: 0 }, Op::Barrera, Op::FinSi], vec![1; 1], 0, [2, 1, 1]);
@@ -498,7 +496,7 @@ fn nbody_por_el_camino_del_kernel() {
     // PROTON-X: emitir y armar la receta (las VA del PROCESO, que el kernel
     // no usa para la 3060: le da otras).
     let e = emitir_con(&p, 248, Abi::Registros).unwrap();
-    let buferes = [rc::Bufer { va: 0x7000_0000, bytes: uav.bytes.len() as u32, elementos: n as u32, paso: 32, ranura: 0 }, rc::Bufer { va: 0x7100_0000, bytes: srv.bytes.len() as u32, elementos: n as u32, paso: 32, ranura: crate::SRV }];
+    let buferes = [rc::Bufer { va: 0x7000_0000, bytes: uav.bytes.len() as u32, elementos: n as u32, paso: 32, ranura: 0, forma: Default::default() }, rc::Bufer { va: 0x7100_0000, bytes: srv.bytes.len() as u32, elementos: n as u32, paso: 32, ranura: crate::SRV, forma: Default::default() }];
     let mut bytes = vec![0u8; 512 * 1024];
     let largo = crate::receta_computo(&mut bytes, &e, &p, [2, 1, 1], &buferes, &filas).unwrap();
     // EL KERNEL: leer, juzgar, valores, pegar.

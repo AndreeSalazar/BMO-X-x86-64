@@ -73,13 +73,13 @@ pub enum Carga {
     /// La fila `fila` del cbuffer, en `reg`..`reg + 3`.
     Fila { fila: u16, reg: u8 },
     /// P3b4c.8 T2: el ASA de la textura `textura` (`texturas::asa(16 k,
-    /// k)`: el hueco de la mip de su vista, `mips::HUECO_VISTA`), en `reg`.
+    /// k)`: el hueco de la mip de su vista, `mipmap::HUECO_VISTA`), en `reg`.
     /// La pone el pegamento con un MOV: la app no elige que TIC ni que TSC
     /// lee la 3060. Solo en el de pixel.
     Asa { textura: u8, reg: u8 },
     /// ** G5 (13-10): la BASE de las mips de la textura `textura` (el asa
-    /// del hueco de su mip 0, `mips::HUECO_BASE`), en `reg`. El cuerpo le
-    /// suma la mip SUJETA a `mips::TOPE` (el juez R7 lo exige): no sale de los
+    /// del hueco de su mip 0, `mipmap::HUECO_BASE`), en `reg`. El cuerpo le
+    /// suma la mip SUJETA a `mipmap::TOPE` (el juez R7 lo exige): no sale de los
     /// 16 huecos de su textura.
     Base { textura: u8, reg: u8 },
     /// ** LI2a (12-10): `SV_Position` en el de PIXEL, su componente
@@ -220,8 +220,8 @@ pub fn bases(cargas: &[Carga]) -> u64 {
 /// El asa que pone el pegamento para la textura `k`: la de la vista, o la
 /// base de sus mips (G5).
 pub const fn asa_de(k: u32, base: bool) -> u32 {
-    let hueco = if base { crate::mips::HUECO_BASE } else { crate::mips::HUECO_VISTA };
-    crate::texturas::asa(crate::mips::HUECOS * k + hueco, k)
+    let hueco = if base { crate::mipmap::HUECO_BASE } else { crate::mipmap::HUECO_VISTA };
+    crate::texturas::asa(crate::mipmap::HUECOS * k + hueco, k)
 }
 
 /// Donde esta un elemento de entrada dentro de un vertice (del input layout

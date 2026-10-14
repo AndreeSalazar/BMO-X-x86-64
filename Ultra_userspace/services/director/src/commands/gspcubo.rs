@@ -24,6 +24,8 @@ mod verrano;
 mod tablero;
 /// VERRANO: la UNICA puerta a la RTX 3060 12G (SM86). Ver PLAN_EL_AISLAMIENTO.
 mod sm86;
+/// L1/L2 (14-10): la LENTE de las derivadas (`gpu verrano derivadas`).
+mod lente;
 /// Q0a3 (EL_FOCO, 10-10): la lamina de una app, dibujada en su ventana.
 mod laminas;
 pub(crate) use laminas::vuelta as laminas_en_su_ventana;

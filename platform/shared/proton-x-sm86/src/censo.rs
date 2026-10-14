@@ -168,16 +168,20 @@ pub fn del_lote(l: &Lote, z_a_la_3060: bool) -> Vec<&'static str> {
     if l.enlace.vs.olas_propias() || l.enlace.ps.olas_propias() {
         v.push("las olas (Wave*, Quad*)");
     }
-    if l.enlace.vs.deriva() || l.enlace.ps.deriva() {
-        v.push("las derivadas (ddx, ddy, fwidth)");
+    // L2 (14-10): las del de pixeles ya van; las del de vertices, no.
+    if l.enlace.vs.deriva() {
+        v.push("derivadas en el sombreador de vertices");
     }
-    // G5 (13-10): la de las mips, en sus dos motivos (la de una 2D con
-    // nivel ya va: `mips`).
-    if l.enlace.ps.mip_por_derivadas() && l.recursos.mip_importa() {
-        v.push("Sample de una textura de varias mips (las derivadas del cuadro)");
-    }
-    if crate::mips::nivel_sin_mips(&l.enlace.ps) && l.recursos.mip_importa() {
+    // G5 (13-10): la de las mips (la de una 2D con nivel ya va: `mipmap`).
+    // ** S1 (14-10): y la de un `Sample`, tambien (su lambda, `mipmap`).
+    if crate::mipmap::nivel_sin_mips(&l.enlace.ps) && l.recursos.mip_importa() {
         v.push("SampleLevel o Load de un array o una 3D de varias mips");
+    }
+    // Metal 13-10 17:53: lo que la puerta mira de cada TEXTURA que lee el
+    // de pixeles, con su nombre (el censo no lo veia: "es BC, float o
+    // sRGB" salia en la consola y no en el censo).
+    for q in texturas_del_lote(l) {
+        v.push(q);
     }
     if l.instancias != 1 || l.entradas.iter().any(|e| e.por_instancia.is_some()) {
         v.push("varias instancias o datos por instancia");
@@ -191,6 +195,46 @@ pub fn del_lote(l: &Lote, z_a_la_3060: bool) -> Vec<&'static str> {
     }
     if l.reglas.profundidad.is_some() && !z_a_la_3060 {
         v.push("la Z sin la sombra en bloque");
+    }
+    v
+}
+
+/// **Lo que para un lote en sus TEXTURAS** (lo de `puerta::escribir`), por
+/// la clase de cada una: lo que la 3060 todavia no lee, para saber CUAL abrir.
+fn texturas_del_lote(l: &Lote) -> Vec<&'static str> {
+    use bmo_proton_x::dxil::programa::Op;
+    use bmo_proton_x::textura::{Clase, Como, Textura};
+    let mut v = Vec::new();
+    for o in &l.enlace.ps.ops {
+        let (t, s, muestrea) = match *o {
+            Op::Muestra { t, s, .. } => (t, s, true),
+            Op::Lee { t, s, .. } => (t, s, false),
+            _ => continue,
+        };
+        let Some(Some(tx)) = l.recursos.texturas.get(t as usize) else { continue };
+        let q = match tx.como {
+            // 13-10: BC1-5 sin signo, BC7 y sRGB ya van (`mipmap::formato_de`).
+            _ if crate::mipmap::formato_de(tx).is_some() && tx.mapeo & 0xFFF == Textura::MAPEO & 0xFFF && tx.clase == Clase::Plana => {
+                if muestrea && !matches!(l.recursos.muestreadores.get(s as usize), Some(Some(_))) {
+                    "un muestreador sin atar"
+                } else if matches!(l.recursos.muestreadores.get(s as usize), Some(Some(m)) if m.lod.min.is_some_and(|f| f != m.filtro)) && tx.niveles_vista() > 1 {
+                    // G5/S1: la mip la elige el sombreador con UN filtro.
+                    "un muestreador con MIN y MAG distintos sobre una textura de varias mips"
+                } else {
+                    continue;
+                }
+            }
+            Como::Bloques(_) => "una textura BC6 (HDR) o BC4/BC5 con signo",
+            Como::Flotante | Como::Flotantes4 => "una textura de float (R32, RGBA16F...)",
+            Como::Stencil8 => "el stencil visto como textura",
+            _ if tx.mapeo & 0xFFF != Textura::MAPEO & 0xFFF => "una textura con otro mapeo de canales",
+            _ if tx.clase != Clase::Plana => "una textura que no es 2D (array, 3D o cubo)",
+            _ if muestrea && !matches!(l.recursos.muestreadores.get(s as usize), Some(Some(_))) => "un muestreador sin atar",
+            _ => continue,
+        };
+        if !v.contains(&q) {
+            v.push(q);
+        }
     }
     v
 }

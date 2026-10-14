@@ -91,6 +91,11 @@ static CALIENTE_ENTRADA: AtomicU32 = AtomicU32::new(u32::MAX);
 static CALIENTE_TSC: AtomicU64 = AtomicU64::new(0);
 /// La huella de los programas del ultimo dibujo pagado (ya juzgados).
 static CALIENTE_PROGRAMAS: AtomicU64 = AtomicU64::new(0);
+/// ** E1 (14-10): los programas que YA ESTAN en la VRAM de la tuberia (sus
+/// huellas, `pluma::Escritos`; 0 = no se sabe). Con el cerrojo del GR; se
+/// olvidan cuando el anillo escribe alli y en `olvidar`.
+static YA_VS: AtomicU64 = AtomicU64::new(0);
+static YA_PS: AtomicU64 = AtomicU64::new(0);
 
 /// EL ANILLO: su pagina de RAM (los vertices de las cuatro ranuras) y si ya
 /// se presto y mapeo (una vez por arranque).
@@ -511,7 +516,7 @@ fn a_la_pantalla(pid: u32, d: &bmo_gpu_ga10x::tuberia::Dibujo) -> bool {
 /// **P3b4c.8 T2: prestar las texturas de una receta a la 3060**: cada una
 /// es un bloque de QUIEN la manda (lo dice `fisica_de`), prestado SOLO
 /// LECTURA en su ranura de `texturas::IOVA` (G5: sus mips de antes de la
-/// cola, `bmo_gpu_ga10x::mips`); y sus 16 TIC y su TSC, escritos y releidos
+/// cola, `bmo_gpu_ga10x::mipmap`); y sus 16 TIC y su TSC, escritos y releidos
 /// en las piscinas. Lo que salga mal devuelve lo ya prestado.
 fn prestar_texturas(bar0: u64, pid: u32, texturas: &[bmo_gpu_ga10x::texturas::DeApp]) -> Result<Prestadas, u32> {
     use bmo_gpu_ga10x::texturas as tx;
@@ -523,7 +528,7 @@ fn prestar_texturas(bar0: u64, pid: u32, texturas: &[bmo_gpu_ga10x::texturas::De
     let aspace = crate::ring0::mm::vmm::read_cr3();
     for (k, t) in texturas.iter().enumerate().take(tx::MAX_TEXTURAS) {
         // G5 (13-10): una textura cuyas mips van TODAS en la cola (en los
-        // DATOS, `mips`) no presta nada de la RAM de la app.
+        // DATOS, `mipmap`) no presta nada de la RAM de la app.
         if t.paginas() == 0 {
             continue;
         }
@@ -719,7 +724,15 @@ fn en_frio(bar0: u64, pid: u32, e: u32, p: &bmo_gpu_ga10x::pantalla::Pantalla, v
     let mut preparar_ciclos = 0u64;
     let preparar = |r: &mut Bar0| {
         let desde = crate::ring0::task::scheduler::rdtsc();
-        let bien = if caliente { tu::preparar_caliente(r, e, &v, &paquete, ligero).then_some(()).ok_or(0) } else { tu::preparar_paso(r, e, &v, &paquete, ligero) };
+        let bien = if caliente {
+            tu::preparar_caliente(r, e, &v, &paquete, ligero).then_some(()).ok_or(0)
+        } else {
+            let mut ya = bmo_gpu_ga10x::pluma::Escritos { vs: YA_VS.load(Ordering::Acquire), ps: YA_PS.load(Ordering::Acquire) };
+            let paso = tu::preparar_paso(r, e, &v, &paquete, ligero, &mut ya);
+            YA_VS.store(ya.vs, Ordering::Release);
+            YA_PS.store(ya.ps, Ordering::Release);
+            paso
+        };
         preparar_ciclos = crate::ring0::task::scheduler::rdtsc() - desde;
         bien
     };
@@ -958,6 +971,8 @@ pub(super) fn olvidar() {
     CALIENTE_HUELLA.store(0, Ordering::Release);
     CALIENTE_ENTRADA.store(u32::MAX, Ordering::Release);
     CALIENTE_PROGRAMAS.store(0, Ordering::Release);
+    YA_VS.store(0, Ordering::Release);
+    YA_PS.store(0, Ordering::Release);
     ANILLO_HUELLA.store(0, Ordering::Release);
     ANILLO_ENTRADA.store(u32::MAX, Ordering::Release);
     ANILLO_NUMERO.store(0, Ordering::Release);
@@ -1123,6 +1138,9 @@ fn armar_anillo(r: &mut Bar0, e: u32, v: &cu::Ventana, paquete: &bmo_gpu_ga10x::
     asegurar_pagina(r)?;
     super::memoria(ANILLO_F.load(Ordering::Acquire), an::PAGINAS * super::PAGINA).fill(0);
     a_la_ranura(an::ranura(1), paquete.vertices);
+    // E1: el anillo escribe sus programas en la misma region.
+    YA_VS.store(0, Ordering::Release);
+    YA_PS.store(0, Ordering::Release);
     if !an::armar(r, e, v, paquete, 1, coopera) {
         crate::ring0::cabina::warn("gpu", "V1b: el anillo no quedo armado; no se toca el timbre", n as u64);
         return Err(IOMMU_NO_BLUR_PREPARAR);

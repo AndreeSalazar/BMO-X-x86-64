@@ -74,12 +74,12 @@ fn el_caliente_con_otra_cuenta_es_el_frio() {
 fn un_programa_largo_en_su_region() {
     let largo: std::vec::Vec<u8> = (0..HUECO).map(|k| (k % 251) as u8 | 1).collect();
     let mut r = Vram(Default::default(), 0);
-    assert!(escribir_programa(&mut r, VS, &largo));
+    assert!(crate::pluma::Pluma::nueva(&mut r).programa(VS, &largo));
     let palabra = |r: &Vram, d: u64| r.0.get(&d).copied().unwrap_or(0);
     assert_eq!(palabra(&r, VS + HUECO as u64 - 4), u32le(&largo, HUECO - 4), "la ultima palabra del largo");
     assert!(VS + HUECO as u64 <= PS, "no pisa el de pixel");
     let corto = [0x11u8; 4 * SPH + 16 * 40];
-    assert!(escribir_programa(&mut r, VS, &corto));
+    assert!(crate::pluma::Pluma::nueva(&mut r).programa(VS, &corto));
     let fin = VS + corto.len() as u64;
     assert!((fin..fin.next_multiple_of(0x1000)).step_by(4).all(|d| palabra(&r, d) == 0), "su ultima pagina, a cero tras el");
     assert_eq!(palabra(&r, VS + 0x1000 * 5), u32le(&largo, 0x1000 * 5), "las paginas que no usa, sin tocar (nadie las lee)");
@@ -119,13 +119,13 @@ fn preparar_dice_el_paso_que_fallo() {
     bytes(&pixel(), &mut ps);
     let x: std::vec::Vec<u8> = (0..6 * BYTES_VERTICE).map(|k| (k * 7 + 1) as u8).collect();
     let p = Paquete { ficha: 1, vs: &vs, ps: &ps, vertices: &x, n: 6, limpiar: None, dibujo: Dibujo::default() };
-    assert_eq!(preparar_paso(&mut Vram(Default::default(), 0), 3, &v, &p, false), Ok(()));
+    assert_eq!(preparar_paso(&mut Vram(Default::default(), 0), 3, &v, &p, false, &mut crate::pluma::Escritos::default()), Ok(()));
     for (tramo, paso) in [(VS..VS + 4, 4u8), (PS..PS + 4, 5), (DATOS..DATOS + 4, 8)] {
-        let r = preparar_paso(&mut Sorda(Vram(Default::default(), 0), tramo.clone()), 3, &v, &p, false);
+        let r = preparar_paso(&mut Sorda(Vram(Default::default(), 0), tramo.clone()), 3, &v, &p, false, &mut crate::pluma::Escritos::default());
         assert_eq!(r, Err(paso), "el tramo {tramo:#x?}: {}", crate::porque::PASOS[paso as usize]);
     }
     let vacio = Paquete { n: 0, ..p };
-    assert_eq!(preparar_paso(&mut Vram(Default::default(), 0), 3, &v, &vacio, false), Err(0));
+    assert_eq!(preparar_paso(&mut Vram(Default::default(), 0), 3, &v, &vacio, false, &mut crate::pluma::Escritos::default()), Err(0));
 }
 
 /// ** Q0a1b (12-10): un destino que empieza a mitad de pagina (el mip de
@@ -214,4 +214,42 @@ fn con_z_el_color_va_a_la_sombra() {
         assert_eq!(limpiezas.len(), limpias, "{d:?}");
         assert!(limpiezas.iter().all(|&k| k > ultimo), "nada se limpia en el pitch: {d:?}");
     }
+}
+
+/// ** E1 (14-10): el frio con la PLUMA. Un lote con 64 KiB de datos y dos
+/// programas largos se prepara con unas pocas lecturas por el PCIe (antes,
+/// una por palabra: ~25.000), deja la VRAM como antes, y el siguiente con
+/// los mismos programas no los vuelve a escribir.
+#[test]
+fn e1_el_frio_casi_sin_lecturas() {
+    struct Cuenta(Vram, usize, usize);
+    impl Registros for Cuenta {
+        fn leer(&mut self, reg: u32) -> u32 {
+            self.1 += 1;
+            self.0.leer(reg)
+        }
+        fn escribir(&mut self, reg: u32, v: u32) {
+            self.2 += 1;
+            self.0.escribir(reg, v)
+        }
+    }
+    let gop = crate::pantalla::Pantalla { vram: 0x100_0000, pitch: 1920, ancho: 1920, alto: 1080, rgb: false };
+    let v = crate::cubo::ventana(&gop).unwrap();
+    let vs: std::vec::Vec<u8> = (0..4 * SPH + 16 * 1500).map(|k| (k % 251) as u8 | 1).collect();
+    let ps: std::vec::Vec<u8> = (0..4 * SPH + 16 * 900).map(|k| (k % 241) as u8 | 2).collect();
+    let datos: std::vec::Vec<u8> = (0..DATOS_MAX).map(|k| (k * 7 + 1) as u8).collect();
+    let p = Paquete { ficha: 1, vs: &vs, ps: &ps, vertices: &datos, n: 3, limpiar: None, dibujo: Dibujo::default() };
+    let mut ya = crate::pluma::Escritos::NADA;
+    let mut r = Cuenta(Vram(Default::default(), 0), 0, 0);
+    assert_eq!(preparar_paso(&mut r, 3, &v, &p, false, &mut ya), Ok(()));
+    assert!(r.1 <= 24, "{} lecturas", r.1);
+    assert_eq!(ya, crate::pluma::Escritos { vs: crate::pluma::huella(&vs), ps: crate::pluma::huella(&ps) });
+    for (k, q) in datos.chunks_exact(4).enumerate() {
+        assert_eq!(r.0 .0[&(DATOS + 4 * k as u64)], u32le(q, 0));
+    }
+    assert_eq!(r.0 .0[&(PS + ps.len() as u64 - 4)], u32le(&ps, ps.len() - 4));
+    let primeras = r.2;
+    r.2 = 0;
+    assert_eq!(preparar_paso(&mut r, 3, &v, &p, false, &mut ya), Ok(()));
+    assert!(r.2 + (vs.len() + ps.len()) / 4 <= primeras, "los programas, no otra vez: {} contra {primeras}", r.2);
 }

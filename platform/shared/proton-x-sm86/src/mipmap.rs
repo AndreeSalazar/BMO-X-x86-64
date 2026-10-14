@@ -2,7 +2,7 @@
 //! `SampleLevel` o un `Load` de una 2D con varias mips, en la 3060, con las
 //! MISMAS cuentas que la casa (`Textura::elegir`, `muestrear_lod`, `cargar`).
 //! Cada mip es un TIC PITCH de un nivel leido de la RAM del juego
-//! (`bmo_gpu_ga10x::mips`): no hay mips en el TIC, asi que el `.LL` de la
+//! (`bmo_gpu_ga10x::mipmap`): no hay mips en el TIC, asi que el `.LL` de la
 //! 3060 no las elegiria; las elige esto, y lee cada una con `.LZ`.
 //!
 //! capa: puro -- instrucciones y numeros; la textura la presta el kernel
@@ -23,6 +23,8 @@
 //!             c       128.0 con la mip PUNTO, 0.5 con LINEAL (abajo)
 //!    fila 1   vista   la mip que mira la vista (entera)
 //!             peso    255 con LINEAL, 0 con PUNTO (entera)
+//!             w, h    (S1) las medidas de la mip de la vista (floats): las
+//!                     del lambda de un `Sample`
 //! ```
 //!
 //! # Un `SampleLevel(s, uv, nivel)`
@@ -45,6 +47,17 @@
 //! mezcla da `q1` bit a bit. `l <= hi <= mips - 1`, asi que `k` no pasa de
 //! la ultima, y con `l == hi` entero, `f = 0`.
 //!
+//! # Un `Sample(s, uv)` (S1, 14-10)
+//!
+//! El nivel es el LAMBDA de la casa (`Textura::lambda`): los gradientes de
+//! (u, v) en su cuadro -- las derivadas gruesas de `derivadas.rs`, los bits
+//! de la casa -- y la RECETA `exponencial::lambda` de PROMETEO, que la casa
+//! corre y aqui se graba y se traduce (`series.rs`). Despues, lo de un
+//! `SampleLevel` con ese nivel: la casa suma `lambda + 0 + sesgo` y aqui
+//! `lambda + sesgo`; solo difieren en el signo de un cero, y de un cero
+//! sujeto sale la misma `F`. Sin gradientes (`g` de nada), -infinito, como
+//! la casa con los suyos a cero. Con MIN y MAG distintos, la puerta no deja.
+//!
 //! # Un `Load(x, y, mip)`
 //!
 //! `TLD.LZ(hueco 1 + min(mip + vista, 14))`: la casa da ceros con
@@ -56,8 +69,8 @@ use alloc::format;
 use alloc::string::String;
 use alloc::vec::Vec;
 
-use bmo_gpu_ga10x::mips as gm;
-use bmo_gpu_ga10x::texturas::{DeApp, Muestreo};
+use bmo_gpu_ga10x::mipmap as gm;
+use bmo_gpu_ga10x::texturas::{DeApp, Formato, Muestreo};
 
 use bmo_proton_x::dxil::programa::Reg;
 use bmo_proton_x::textura::{Filtro, Muestreador, Textura};
@@ -90,7 +103,8 @@ pub fn filas(t: &Textura, m: &Muestreador) -> [[u32; 4]; 2] {
     let (lo, hi) = (g(f32::NEG_INFINITY), g(f32::INFINITY));
     let lineal = m.lod.mip == Filtro::Lineal;
     let c = if lineal { C_LINEAL } else { C_PUNTO };
-    [[m.lod.sesgo.to_bits(), lo.to_bits(), hi.to_bits(), c.to_bits()], [t.mip, if lineal { 255 } else { 0 }, 0, 0]]
+    let (w, h, _) = t.medidas_de(t.mip);
+    [[m.lod.sesgo.to_bits(), lo.to_bits(), hi.to_bits(), c.to_bits()], [t.mip, if lineal { 255 } else { 0 }, (w as f32).to_bits(), (h as f32).to_bits()]]
 }
 
 /// **Una textura del lote para la receta** (G5): con `elige` (el de
@@ -98,6 +112,9 @@ pub fn filas(t: &Textura, m: &Muestreador) -> [[u32; 4]; 2] {
 /// vista; si no, el plano de la vista, como antes. Lo que no cae en 32 B --
 /// la COLA -- se pone con filas de 32 detras de lo que ya hay en `datos`.
 pub(crate) fn de_app(t: &Textura, muestreo: Muestreo, elige: bool, datos: &mut Vec<u8>, tn: u8) -> Result<DeApp, String> {
+    let Some(formato) = formato_de(t) else {
+        return Err(format!("la textura t{tn} es de float, BC6 o BC4/BC5 con signo: la 3060 todavia lee RGBA/BGRA de 8 bits y BC1-5 y BC7"));
+    };
     let (texeles, ancho, alto, mips, vista) = if elige {
         let Some((cadena, mips)) = t.cadena() else {
             return Err(format!("la textura t{tn}: sus mips no estan en la memoria que dio la casa"));
@@ -112,12 +129,13 @@ pub(crate) fn de_app(t: &Textura, muestreo: Muestreo, elige: bool, datos: &mut V
         };
         (plano, ancho, alto, 1, 0)
     };
-    let mut d = DeApp { va: texeles.as_ptr() as u64, ancho, alto, fila: 4 * ancho, mips, vista, cola_en: 0, bgra: t.bgra(), muestreo };
-    let fin = gm::desde(ancho, alto, 4 * ancho, mips);
-    if (texeles.len() as u64) * 4 < fin {
+    let fila = gm::fila_natural(ancho, formato, 0);
+    let mut d = DeApp { va: texeles.as_ptr() as u64, ancho, alto, fila, mips, vista, cola_en: 0, formato, srgb: t.srgb, muestreo };
+    if (texeles.len() as u64) * 4 < gm::desde(ancho, alto, fila, formato, mips) {
         return Err(format!("la textura t{tn} ({ancho}x{alto}, {mips} mips) no cabe en la memoria que dio la casa"));
     }
-    // La cola: cada mip desde la primera que no cae en 32 B, con filas de 32.
+    // La cola: cada mip desde la primera que no cae en 32 B, sus filas (de
+    // texeles o de bloques) a 32.
     let cola = d.cola();
     if cola < mips {
         let en = datos.len().next_multiple_of(32);
@@ -126,14 +144,13 @@ pub(crate) fn de_app(t: &Textura, muestreo: Muestreo, elige: bool, datos: &mut V
             return Err(format!("la textura t{tn}: sus mips de filas que no caen en 32 B miden {n} bytes (la cola lleva {})", gm::MAX_COLA));
         }
         datos.resize(en + n, 0);
+        let byte = |b: usize| (texeles[b / 4] >> (8 * (b % 4))) as u8;
         for j in cola..mips {
-            let (w, h) = gm::medidas(ancho, alto, j);
-            let (de, a) = ((gm::desde(ancho, alto, 4 * ancho, j) / 4) as usize, en + gm::en_cola(ancho, alto, cola, j) as usize);
-            let fila = gm::fila_en_cola(ancho, alto, j) as usize;
-            for y in 0..h as usize {
-                for x in 0..w as usize {
-                    let o = a + y * fila + 4 * x;
-                    datos[o..o + 4].copy_from_slice(&texeles[de + y * w as usize + x].to_le_bytes());
+            let (de, a) = (gm::desde(ancho, alto, fila, formato, j) as usize, en + gm::en_cola(ancho, alto, formato, cola, j) as usize);
+            let (natural, en_cola) = (gm::fila_natural(ancho, formato, j) as usize, gm::fila_en_cola(ancho, formato, j) as usize);
+            for y in 0..gm::filas(alto, formato, j) as usize {
+                for x in 0..natural {
+                    datos[a + y * en_cola + x] = byte(de + y * natural + x);
                 }
             }
         }
@@ -143,6 +160,24 @@ pub(crate) fn de_app(t: &Textura, muestreo: Muestreo, elige: bool, datos: &mut V
         return Err(format!("la textura t{tn} ({ancho}x{alto}, {mips} mips, VA {:#x}): no cabe en su ranura de {} MiB", d.va, bmo_gpu_ga10x::texturas::RANURA >> 20));
     }
     Ok(d)
+}
+
+/// **El formato de la 3060 de una textura de la casa** (13-10: tambien los
+/// BC, que la 3060 descomprime ella misma); `None` lo que todavia no.
+pub(crate) fn formato_de(t: &Textura) -> Option<Formato> {
+    use bmo_proton_x::bc::Bc;
+    use bmo_proton_x::textura::Como;
+    Some(match t.como {
+        Como::Rgba8 => Formato::Rgba8,
+        Como::Bgra8 => Formato::Bgra8,
+        Como::Bloques(Bc::Bc1) => Formato::Bc1,
+        Como::Bloques(Bc::Bc2) => Formato::Bc2,
+        Como::Bloques(Bc::Bc3) => Formato::Bc3,
+        Como::Bloques(Bc::Bc4) => Formato::Bc4,
+        Como::Bloques(Bc::Bc5) => Formato::Bc5,
+        Como::Bloques(Bc::Bc7) => Formato::Bc7,
+        _ => return None,
+    })
 }
 
 /// **Las filas de la textura `k`** en los DATOS (detras de las `filas_cb`
@@ -177,7 +212,7 @@ impl Emisor<'_> {
     fn asa_de_mip(&mut self, base: u8, k: u8, paso: &mut Vec<u8>) -> Result<u8, NoEmite> {
         let kc = self.pedir()?;
         paso.push(kc);
-        self.poner(c::imnmx(kc, k, Fuente::Imm(bmo_gpu_ga10x::mips::TOPE), false, false, 0), Clase::Alu, Some(kc), [Some(k), None, None]);
+        self.poner(c::imnmx(kc, k, Fuente::Imm(bmo_gpu_ga10x::mipmap::TOPE), false, false, 0), Clase::Alu, Some(kc), [Some(k), None, None]);
         let h = self.pedir()?;
         paso.push(h);
         self.poner(c::iadd3(h, base, c::r(kc), 0), Clase::Alu, Some(h), [Some(base), Some(kc), None]);
@@ -194,10 +229,9 @@ impl Emisor<'_> {
     /// de una 2D, con sus mips (ver el modulo). `ra` las coordenadas, ya en
     /// su par.
     #[allow(clippy::too_many_arguments)]
-    pub(super) fn lee_mips(&mut self, d: Reg, t: u8, s: u8, carga: bool, ra: u8, nivel: Reg, paso: &mut Vec<u8>) -> Result<(), NoEmite> {
+    pub(super) fn lee_mips(&mut self, d: Reg, t: u8, s: u8, carga: bool, ra: u8, fuente_nivel: Fuente, paso: &mut Vec<u8>) -> Result<(), NoEmite> {
         let base = self.base_de(t, s)?;
         let m1 = self.fila_de(t, s, 1)?;
-        let fuente_nivel = self.fuente(nivel);
         let q = self.bloque(4, false)?;
         if carga {
             // La mip de la vista mas la pedida (enteros).
@@ -253,15 +287,75 @@ impl Emisor<'_> {
         }
         Ok(())
     }
+
+    /// ** S1 (14-10): **`d..d+4 = tN.Sample(sM, (u, v))`** con la mip de los
+    /// gradientes `g` (ver el modulo).
+    #[allow(clippy::too_many_arguments)]
+    pub(super) fn muestra_mips(&mut self, d: Reg, t: u8, s: u8, u: Reg, v: Reg, g: Option<Reg>, k: usize, paso: &mut Vec<u8>) -> Result<(), NoEmite> {
+        if self.abi != super::Abi::Registros {
+            return Err(NoEmite::Operacion(k));
+        }
+        if (0..4).any(|j| self.valor.get(d as usize + j).is_none_or(|x| x.is_some())) {
+            return Err(NoEmite::NoSsa(k));
+        }
+        let ra = self.bloque(2, false)?;
+        paso.extend([ra, ra + 1]);
+        for (j, r) in [u, v].into_iter().enumerate() {
+            let f = self.fuente(r);
+            self.poner(c::mov(ra + j as u8, f, 0), Clase::Alu, Some(ra + j as u8), [reg_de(f), None, None]);
+        }
+        let nivel = match g {
+            Some(g) => {
+                let m1 = self.fila_de(t, s, 1)?;
+                let mut gr = [0u8; 4];
+                for (j, x) in gr.iter_mut().enumerate() {
+                    *x = self.registro(g + j as Reg, paso)?;
+                }
+                let l = self.lambda(gr, m1 + 2, m1 + 3)?;
+                paso.push(l);
+                c::r(l)
+            }
+            None => Fuente::Imm(f32::NEG_INFINITY.to_bits()),
+        };
+        self.lee_mips(d, t, s, false, ra, nivel, paso)
+    }
 }
 
 #[cfg(test)]
 mod pruebas {
     use super::*;
     use bmo_proton_x::textura::{Clase as Cl, Como, Direccion, Lod};
+    use bmo_gpu_ga10x::mipmap as gm;
 
     fn tex(t: &[u32], mips: u32, mip: u32) -> Textura<'_> {
         Textura { texeles: t, ancho: 16, alto: 8, como: Como::Rgba8, srgb: false, mapeo: Textura::MAPEO, mips, capas: 1, hondo: 1, clase: Cl::Plana, mip, capa: 0, niveles: u32::MAX, lod_min: 0.0, vista: None }
+    }
+
+    /// 13-10: un BC1 de 64x32 con sus 7 mips va a la 3060 como esta: las
+    /// mips de filas de bloques de 32 B en la RAM de la app; desde la de 8x4
+    /// (dos bloques de 8 B por fila) a la cola, con sus filas a 32.
+    #[test]
+    fn un_bc1_con_sus_mips() {
+        use bmo_proton_x::bc::Bc;
+        let palabras = [16 * 8, 8 * 4, 4 * 2, 2, 1, 1, 1].iter().sum::<usize>() * 2;
+        let todo: alloc::vec::Vec<u32> = (0..palabras as u32 + 8).map(|k| k.wrapping_mul(0x9E37_79B9)).collect();
+        // Desde 32 B, como un bloque de la casa (los del juego, en pagina).
+        let salto = (32 - todo.as_ptr() as usize % 32) % 32 / 4;
+        let t = &todo[salto..salto + palabras];
+        let tx = Textura { como: Como::Bloques(Bc::Bc1), mips: 7, ..tex(t, 7, 0) };
+        let tx = Textura { ancho: 64, alto: 32, ..tx };
+        let m = Muestreo { lineal: true, u: 1, v: 1, borde: [0.0; 4] };
+        let mut datos = alloc::vec![0u8; 48];
+        let d = de_app(&tx, m, true, &mut datos, 0).expect("va");
+        assert_eq!((d.formato, d.fila, d.mips), (Formato::Bc1, 128, 7));
+        // La 2 (16x8: 4 bloques, 32 B) aun en la RAM; la 3 (8x4) a la cola.
+        assert_eq!(d.cola(), 3);
+        assert_eq!(d.cola_en, 64, "la cola, tras lo que habia, en 32");
+        let byte = |b: usize| (t[b / 4] >> (8 * (b % 4))) as u8;
+        let de = gm::desde(64, 32, 128, Formato::Bc1, 3) as usize;
+        assert_eq!(&datos[64..80], &(0..16).map(|k| byte(de + k)).collect::<alloc::vec::Vec<u8>>()[..], "la de 8x4: sus dos bloques");
+        assert!(datos[80..96].iter().all(|&b| b == 0), "y el relleno de su fila");
+        assert_eq!(datos.len(), 64 + 32 * 4, "la 3, 4, 5 y 6: una fila de 32 cada una");
     }
 
     #[test]
@@ -271,10 +365,11 @@ mod pruebas {
         let f = filas(&tex(&t, 5, 1), &m);
         // La vista desde la mip 1 ve 4: hasta 3. MaxLOD 2.5 manda.
         assert_eq!(f[0].map(f32::from_bits), [0.5, 0.25, 2.5, C_LINEAL]);
-        assert_eq!(f[1], [1, 255, 0, 0]);
+        // S1: y las medidas de la mip 1 (8x4), las del lambda.
+        assert_eq!(f[1], [1, 255, 8.0f32.to_bits(), 4.0f32.to_bits()]);
         let p = Muestreador { lod: Lod { mip: Filtro::Punto, maximo: f32::MAX, ..m.lod }, ..m };
         let f = filas(&tex(&t, 5, 3), &p);
         assert_eq!(f[0].map(f32::from_bits), [0.5, 0.25, 1.0, C_PUNTO]);
-        assert_eq!(f[1], [3, 0, 0, 0]);
+        assert_eq!(f[1], [3, 0, 2.0f32.to_bits(), 1.0f32.to_bits()]);
     }
 }

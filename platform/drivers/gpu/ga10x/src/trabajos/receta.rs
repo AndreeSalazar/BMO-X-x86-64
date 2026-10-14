@@ -357,7 +357,7 @@ pub fn leer(b: &[u8]) -> Option<Receta<'_>> {
     }
     let datos = &b[desde_datos..];
     // ** G5: la cola de mips de cada textura, DENTRO de los DATOS (la 3060
-    // la lee alli: `mips`).
+    // la lee alli: `mipmap`).
     if texturas[..n_texturas].iter().any(|t| t.cola_en as u64 + t.bytes_cola() > datos.len() as u64) {
         return None;
     }
@@ -960,7 +960,7 @@ mod pruebas {
         let ps = bytes(&[tex(0, 4, 6, crate::tuberia::carga(0)), c::exit(ALU_1 | 1 << 11)]);
         let datos = std::vec![0u8; 96];
         let dst = Destino { fila: 5120, ancho: 1280, alto: 720, flotante: crate::destino::Flotante::No, rgb: false };
-        let t = DeApp { va: 0x4000_0000, ancho: 256, alto: 256, fila: 1024, mips: 1, vista: 0, cola_en: 0, bgra: false, muestreo: Muestreo { lineal: true, u: 1, v: 3, borde: [0.0, 0.0, 0.0, 1.0] } };
+        let t = DeApp { va: 0x4000_0000, ancho: 256, alto: 256, fila: 1024, mips: 1, vista: 0, cola_en: 0, formato: crate::texturas::Formato::Rgba8, srgb: false, muestreo: Muestreo { lineal: true, u: 1, v: 3, borde: [0.0, 0.0, 0.0, 1.0] } };
         let mut r = Receta {
             n: 3,
             vs: &vs,

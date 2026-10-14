@@ -319,6 +319,11 @@ pub fn juzgar_cuerpo_con(codigo: &[(u64, u64)], registros: u32, permisos: Permis
             // `discard` --. No toca memoria: el hilo acaba y su pixel no se
             // escribe. Que el programa sea de pixel y su SPH lo diga es R5.
             0x15B => &[4],
+            // ** L2 (14-10): SHFL con la lane y la c inmediatas (0xF89) y
+            // FSWZADD: hablan entre los hilos del warp (los cuadros de las
+            // derivadas), no tocan memoria.
+            0x189 => &[7],
+            0x022 => &[4],
             // TEX y (E8g) TLD: con un asa que puso el kernel (abajo).
             0x161 | 0x167 if asas != 0 => &[1],
             // ** E8f: LDC, del banco que ato el kernel (abajo).

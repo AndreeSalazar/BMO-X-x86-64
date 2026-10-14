@@ -210,7 +210,7 @@ impl Rebanadas {
 /// Los formatos con 32 bits por canal (float, uint y sint de 4, 3, 2 y 1
 /// canales): los que un `RWBuffer` con tipo escribe aqui tal cual, palabra a
 /// palabra. Los demas (UNORM, 16 bits...) piden convertir: todavia no.
-fn canales_de_32(formato: u32) -> Option<usize> {
+pub fn canales_de_32(formato: u32) -> Option<usize> {
     match formato {
         2..=4 => Some(4),
         6..=8 => Some(3),

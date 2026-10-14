@@ -64,8 +64,31 @@
 //! **El contador** (`Op::Contador`: `Append`, `Consume`) es un ATOMG.ADD de
 //! +1 o -1 sobre su palabra (`u | CONTADOR`), por la misma cadena.
 //!
-//! Lo que NO va todavia (va por la CPU, con su indice): los UAV con tipo y
-//! de textura, y la barrera donde el control no es uniforme.
+//! ** L3 (14-10): **los UAV CON TIPO y DE TEXTURA** (`RWBuffer<T>`,
+//! `RWTexture2D<T>`, y el `Buffer<T>` de leer), en las palabras en que los
+//! guarda la casa (`bufer::Uav`): un elemento de `Salto` bytes -- cuatro
+//! floats (16), o `Canales` palabras de 32 bits --, el de una textura en
+//! `y * Ancho + x`. Sin SUST ni SULD: la memoria es la del juego, LINEAL, y
+//! va por la MISMA cadena sujeta (lo que hace el juez seguro no cambia):
+//!
+//! ```text
+//!    vale       textura: x < Ancho, y < Alto, z = 0; los dos: t < Texeles
+//!    lim        Canales si vale, 0 si no: la palabra j vale si j < lim
+//!    e          t * Salto: la palabra j, en e + 4j
+//!    leer       la j < lim; si no, 0 (y el canal 3, Alfa si vale: lo que
+//!               `formato_ia::leer` da al canal que el formato no guarda)
+//!    escribir   las de la mascara que valen, y en cuatro floats las de
+//!               `Relleno` (las que no son canales: 0, y Alfa la 3), que la
+//!               casa reescribe en cada escritura
+//!    atomico    la palabra 0, y el relleno
+//! ```
+//!
+//! Que formatos van lo decide quien despacha (`Forma`, por vista: los de
+//! 32 bits por canal, o cuatro floats que solo se leen); el cuerpo es el
+//! mismo para todos.
+//!
+//! Lo que NO va todavia (va por la CPU, con su indice): la barrera donde el
+//! control no es uniforme.
 
 use alloc::vec::Vec;
 
@@ -113,7 +136,7 @@ pub const CONTADOR: u8 = 0x40;
 /// Lo que el kernel pone de un UAV (ver el modulo): la regla es del driver
 /// (`bmo_gpu_ga10x::trabajos::computo_app::DelUav`), una vez, para el
 /// kernel y para PROTON-X.
-pub use bmo_gpu_ga10x::trabajos::computo_app::DelUav;
+pub use bmo_gpu_ga10x::trabajos::computo_app::{DelUav, Forma};
 
 /// Los predicados de la guarda: el acarreo, si la palabra vale, y el
 /// acarreo de la direccion. P0 es del `si` fundido: no se toca.
@@ -137,6 +160,46 @@ enum Como {
     Crudo { s: u8, limite: u8 },
     /// `q` = i * paso + desp, `m` = desp (o NO_VALE si `i` no vale), y el paso.
     Estructurado { q: u8, m: u8, paso: u8 },
+    /// L3: `e` = t * Salto, `lim` = Canales (o 0 si no vale), `alf` = Alfa (o
+    /// 0) y `rell` = Relleno (o 0).
+    Tipo { e: u8, lim: u8, alf: u8, rell: u8 },
+}
+
+/// ** L3: **la forma con que la 3060 ve una vista de la casa** de formato
+/// `formato` (`bufer::Uav::formato`): sin tipo (0), la de siempre; con tipo,
+/// la de sus palabras -- un formato de 32 bits por canal (en cuatro floats
+/// o en sus canales), o cuatro floats que el cuerpo solo LEE (los lee tal
+/// cual: un RGBA16F, un R11G11B10F) --. `None`: por la CPU (un formato que
+/// se escribe empaquetado o cuantizado, otra vista de los mismos bytes, o
+/// una textura 3D o de array: `plana` falso).
+pub fn forma_de(formato: u32, escribe: bool, plana: bool) -> Option<Forma> {
+    use bmo_proton_x::bufer::{canales_de_32, guardado_y_vista, CUATRO_FLOATS};
+    if formato == 0 {
+        return Some(Forma::SIN_TIPO);
+    }
+    if !plana {
+        return None;
+    }
+    let cuatro = formato & CUATRO_FLOATS != 0;
+    let (g, vista) = if cuatro { guardado_y_vista(formato) } else { (formato, None) };
+    if vista.is_some() {
+        return None;
+    }
+    let entero = bmo_proton_x::formato_ia::es_entero(g);
+    let n = match (canales_de_32(g), cuatro, escribe) {
+        (_, true, false) => 4,
+        (Some(n), _, _) => n as u8,
+        (None, _, _) => return None,
+    };
+    Some(Forma::nueva(n, cuatro, entero))
+}
+
+/// ** L3: si la 3060 ve una vista con tipo como la casa: en sus canales
+/// (sin cuatro floats), la casa lee el ultimo elemento a medias como 0 pero
+/// escribe sus palabras que caben; la 3060, todo o nada. Una vista asi (mas
+/// elementos de los que caben en su bufer) va por la CPU.
+pub fn cabe_entero(forma: Forma, bytes: usize, elementos: u32) -> bool {
+    forma.0 == 0 || forma.cuatro() || elementos as u64 * forma.salto() as u64 <= bytes as u64
 }
 
 impl Emisor<'_> {
@@ -161,7 +224,8 @@ impl Emisor<'_> {
         let resto: &[DelUav] = match modo {
             Modo::Crudo => &[DelUav::Limite],
             Modo::Estructurado => &[DelUav::Elementos, DelUav::Paso],
-            _ => return Err(NoEmite::Operacion(k)),
+            Modo::Tipado => &[DelUav::Texeles, DelUav::Salto, DelUav::Canales, DelUav::Alfa, DelUav::Relleno],
+            Modo::Textura => &[DelUav::Texeles, DelUav::Salto, DelUav::Canales, DelUav::Alfa, DelUav::Relleno, DelUav::Ancho, DelUav::Alto],
         };
         for &q in [DelUav::Base, DelUav::Tope].iter().chain(resto) {
             self.precarga_uav(u, q)?;
@@ -170,30 +234,35 @@ impl Emisor<'_> {
     }
 
     /// Lo que pide un `GetDimensions` del UAV `u` (la pasada de antes del
-    /// cuerpo).
+    /// cuerpo). L3: el de una textura, su ancho y su alto.
     pub(super) fn precarga_medida(&mut self, u: u8, modo: Modo, k: usize) -> Result<(), NoEmite> {
         self.hilos(k)?;
-        if !matches!(modo, Modo::Crudo | Modo::Estructurado) {
-            return Err(NoEmite::Operacion(k));
+        if modo == Modo::Textura {
+            self.precarga_uav(u, DelUav::Ancho)?;
+            return self.precarga_uav(u, DelUav::Alto).map(|_| ());
         }
         self.precarga_uav(u, DelUav::Medida).map(|_| ())
     }
 
-    /// **`d` = `GetDimensions` del UAV `u`** (`d+1..d+4`, 0).
-    pub(super) fn medidas_uav(&mut self, d: Reg, u: u8, k: usize) -> Result<(), NoEmite> {
-        let Some(m) = self.precargas.iter().find_map(|p| match *p {
-            Precarga::Uav { u: u2, que: DelUav::Medida, reg } if u2 == u => Some(reg),
-            _ => None,
-        }) else {
-            return Err(NoEmite::Operacion(k));
+    /// **`d` = `GetDimensions` del UAV `u`** (`d+1..d+4`, 0; de una textura,
+    /// `d` el ancho y `d+1` el alto).
+    pub(super) fn medidas_uav(&mut self, d: Reg, u: u8, modo: Modo, k: usize) -> Result<(), NoEmite> {
+        let de = |e: &Self, q: DelUav| {
+            e.precargas.iter().find_map(|p| match *p {
+                Precarga::Uav { u: u2, que, reg } if u2 == u && que == q => Some(reg),
+                _ => None,
+            })
         };
-        let x = self.destino(d, k)?;
-        self.poner(c::mov(x, c::r(m), 0), Clase::Alu, Some(x), [Some(m), None, None]);
-        for j in 1..4 {
+        let medidas: Vec<u8> = if modo == Modo::Textura { [de(self, DelUav::Ancho), de(self, DelUav::Alto)].into_iter().collect::<Option<Vec<u8>>>() } else { de(self, DelUav::Medida).map(|m| alloc::vec![m]) }.ok_or(NoEmite::Operacion(k))?;
+        for j in 0..4 {
             let r = d as usize + j;
-            if self.ultimo.get(r).copied().unwrap_or(0) > k || self.variable.get(r).copied().unwrap_or(false) {
-                let y = self.destino(r as Reg, k)?;
-                self.poner(c::mov(y, Fuente::Imm(0), 0), Clase::Alu, Some(y), [None; 3]);
+            if j > 0 && self.ultimo.get(r).copied().unwrap_or(0) <= k && !self.variable.get(r).copied().unwrap_or(false) {
+                continue;
+            }
+            let y = self.destino(r as Reg, k)?;
+            match medidas.get(j) {
+                Some(&m) => self.poner(c::mov(y, c::r(m), 0), Clase::Alu, Some(y), [Some(m), None, None]),
+                None => self.poner(c::mov(y, Fuente::Imm(0), 0), Clase::Alu, Some(y), [None; 3]),
             }
         }
         Ok(())
@@ -268,7 +337,8 @@ impl Emisor<'_> {
     }
 
     /// Lo comun a las palabras de un acceso al UAV `u`.
-    fn guia(&mut self, u: u8, modo: Modo, i: Reg, desp: Reg, k: usize, paso: &mut Vec<u8>) -> Result<Guia, NoEmite> {
+    #[allow(clippy::too_many_arguments)]
+    fn guia(&mut self, u: u8, modo: Modo, i: Reg, desp: Reg, z: Option<Reg>, k: usize, paso: &mut Vec<u8>) -> Result<Guia, NoEmite> {
         self.hilos(k)?;
         let una = |e: &Self, q: DelUav| {
             e.precargas.iter().find_map(|p| match *p {
@@ -297,9 +367,64 @@ impl Emisor<'_> {
                 self.poner_meta(c::sel(m, rd, Fuente::Imm(NO_VALE), P_VALE, false, 0), Meta { lee_p: Some((P_VALE, false)), ..Meta::de(Clase::Alu, Some(m), [Some(rd), None, None]) });
                 Como::Estructurado { q, m, paso: pa }
             }
+            (Modo::Tipado | Modo::Textura, _, _, _) => self.guia_tipo(u, modo, ri, desp, z, k, paso)?,
             _ => return Err(NoEmite::Operacion(k)),
         };
         Ok(Guia { base, tope, como })
+    }
+
+    fn vale_si(&mut self, como: Cmp, a: u8, b: Fuente) {
+        self.poner_meta(c::isetp(P_VALE, como, a, b, true, 0), Meta { escribe_p: Some(P_VALE), ..Meta::de(Clase::Alu, None, [Some(a), reg_de(b), None]) });
+    }
+
+    /// `x = P_VALE ? a : RZ`.
+    fn si_vale(&mut self, x: u8, a: u8) {
+        self.poner_meta(c::sel(x, a, c::r(RZ), P_VALE, false, 0), Meta { lee_p: Some((P_VALE, false)), ..Meta::de(Clase::Alu, Some(x), [Some(a), None, None]) });
+    }
+
+    /// ** L3: la guia de un UAV con tipo o de textura (ver el modulo).
+    #[allow(clippy::too_many_arguments)]
+    fn guia_tipo(&mut self, u: u8, modo: Modo, ri: u8, desp: Reg, z: Option<Reg>, k: usize, paso: &mut Vec<u8>) -> Result<Como, NoEmite> {
+        let de = |e: &Self, q: DelUav| {
+            e.precargas.iter().find_map(|p| match *p {
+                Precarga::Uav { u: u2, que, reg } if (u2, que) == (u, q) => Some(reg),
+                _ => None,
+            })
+        };
+        let (Some(tex), Some(salto), Some(can), Some(alfa), Some(rel)) = (de(self, DelUav::Texeles), de(self, DelUav::Salto), de(self, DelUav::Canales), de(self, DelUav::Alfa), de(self, DelUav::Relleno)) else {
+            return Err(NoEmite::Operacion(k));
+        };
+        let (e, lim, alf, rell) = (self.pedir()?, self.pedir()?, self.pedir()?, self.pedir()?);
+        paso.extend([e, lim, alf, rell]);
+        if modo == Modo::Textura {
+            let (Some(an), Some(al)) = (de(self, DelUav::Ancho), de(self, DelUav::Alto)) else {
+                return Err(NoEmite::Operacion(k));
+            };
+            let ry = self.registro(desp, paso)?;
+            self.vale_si(Cmp::Lt, ri, c::r(an));
+            self.si_vale(lim, can);
+            self.vale_si(Cmp::Lt, ry, c::r(al));
+            self.si_vale(lim, lim);
+            // La casa: una textura plana, su rebanada 0 (`Uav::texel`).
+            if let Some(z) = z {
+                let rz = self.registro(z, paso)?;
+                self.vale_si(Cmp::Eq, rz, c::r(RZ));
+                self.si_vale(lim, lim);
+            }
+            self.poner(c::imad(e, ry, c::r(an), ri, 0), Clase::Fma, Some(e), [Some(ry), Some(an), Some(ri)]);
+            self.vale_si(Cmp::Lt, e, c::r(tex));
+            self.si_vale(lim, lim);
+            self.poner(c::imad(e, e, c::r(salto), RZ, 0), Clase::Fma, Some(e), [Some(e), Some(salto), None]);
+        } else {
+            self.vale_si(Cmp::Lt, ri, c::r(tex));
+            self.si_vale(lim, can);
+            self.poner(c::imad(e, ri, c::r(salto), RZ, 0), Clase::Fma, Some(e), [Some(ri), Some(salto), None]);
+        }
+        // Vale si lim no es 0 (los canales son 1..4).
+        self.vale_si(Cmp::Ne, lim, c::r(RZ));
+        self.si_vale(alf, alfa);
+        self.si_vale(rell, rel);
+        Ok(Como::Tipo { e, lim, alf, rell })
     }
 
     /// `x = a + b`, o NO_VALE si se paso de 32 bits.
@@ -332,8 +457,46 @@ impl Emisor<'_> {
                     x
                 }
             }
+            Como::Tipo { e, lim, .. } => {
+                self.vale_si(Cmp::Gt, lim, Fuente::Imm(j));
+                if j == 0 {
+                    e
+                } else {
+                    self.poner(c::iadd3(x, e, Fuente::Imm(o), 0), Clase::Alu, Some(x), [Some(e), None, None]);
+                    x
+                }
+            }
         };
-        // La cadena que reconoce el juez: alinear, sujetar, sumar a la base.
+        self.cadena(gu, desde, a);
+    }
+
+    /// ** L3: la palabra `j` (1..3) de RELLENO de un elemento en cuatro
+    /// floats: P_VALE si se reescribe, y su direccion sujeta en `a`.
+    fn palabra_relleno(&mut self, gu: &Guia, j: u32, a: u8, x: u8) {
+        let Como::Tipo { e, rell, .. } = gu.como else { return };
+        self.poner(c::lop3(x, rell, Fuente::Imm(1 << j), c::Y, 0), Clase::Alu, Some(x), [Some(rell), None, None]);
+        self.vale_si(Cmp::Ne, x, c::r(RZ));
+        self.poner(c::iadd3(x, e, Fuente::Imm(4 * j), 0), Clase::Alu, Some(x), [Some(e), None, None]);
+        self.cadena(gu, x, a);
+    }
+
+    /// ** L3: el relleno de un elemento con tipo tras escribirlo: 0 en las
+    /// palabras 1 y 2, Alfa en la 3 (las que `Relleno` dice).
+    fn relleno(&mut self, gu: &Guia, a: u8, x: u8, paso: &mut Vec<u8>) -> Result<(), NoEmite> {
+        let Como::Tipo { alf, .. } = gu.como else { return Ok(()) };
+        let cero = self.pedir()?;
+        paso.push(cero);
+        self.poner(c::mov(cero, Fuente::Imm(0), 0), Clase::Alu, Some(cero), [None; 3]);
+        for j in 1..4u32 {
+            self.palabra_relleno(gu, j, a, x);
+            let v = if j == 3 { alf } else { cero };
+            self.poner_meta(g::stg(P_VALE, a, 0, v, 0), Meta { lee_p: Some((P_VALE, true)), lee_tarde: true, ..Meta::de(Clase::Tex, None, [Some(a), Some(a + 1), Some(v)]) });
+        }
+        Ok(())
+    }
+
+    /// La cadena que reconoce el juez: alinear, sujetar, sumar a la base.
+    fn cadena(&mut self, gu: &Guia, desde: u8, a: u8) {
         self.poner(c::lop3(a, desde, Fuente::Imm(PALABRA), c::Y, 0), Clase::Alu, Some(a), [Some(desde), None, None]);
         self.poner(c::imnmx(a, a, c::r(gu.tope), false, false, 0), Clase::Alu, Some(a), [Some(a), Some(gu.tope), None]);
         self.poner_meta(c::iadd3_acarreo(a, P_DIR, gu.base, c::r(a), 0), Meta { escribe_p: Some(P_DIR), ..Meta::de(Clase::Alu, Some(a), [Some(gu.base), Some(a), None]) });
@@ -350,8 +513,8 @@ impl Emisor<'_> {
 
     /// **`d..d+4` = el UAV `u`** (`bufferLoad`): solo las palabras que se leen.
     #[allow(clippy::too_many_arguments)]
-    pub(super) fn lee_uav(&mut self, d: Reg, u: u8, modo: Modo, i: Reg, desp: Reg, k: usize, paso: &mut Vec<u8>) -> Result<(), NoEmite> {
-        let gu = self.guia(u, modo, i, desp, k, paso)?;
+    pub(super) fn lee_uav(&mut self, d: Reg, u: u8, modo: Modo, i: Reg, desp: Reg, z: Option<Reg>, k: usize, paso: &mut Vec<u8>) -> Result<(), NoEmite> {
+        let gu = self.guia(u, modo, i, desp, z, k, paso)?;
         let (a, x) = self.par_y_temporal(paso)?;
         for j in 0..4u32 {
             let r = d as usize + j as usize;
@@ -361,7 +524,13 @@ impl Emisor<'_> {
             self.palabra(&gu, j, a, x);
             let v = self.destino(r as Reg, k)?;
             self.poner_meta(g::ldg(SIEMPRE, v, a, 0, 0), Meta { lee_tarde: true, ..Meta::de(Clase::Tex, Some(v), [Some(a), Some(a + 1), None]) });
-            self.poner_meta(c::sel(v, v, c::r(RZ), P_VALE, false, 0), Meta { lee_p: Some((P_VALE, false)), ..Meta::de(Clase::Alu, Some(v), [Some(v), None, None]) });
+            // L3: el canal 3 que el formato no guarda, Alfa (si vale).
+            let otro = match gu.como {
+                Como::Tipo { alf, .. } if j == 3 => alf,
+                _ => RZ,
+            };
+            let lee = if otro == RZ { None } else { Some(otro) };
+            self.poner_meta(c::sel(v, v, c::r(otro), P_VALE, false, 0), Meta { lee_p: Some((P_VALE, false)), ..Meta::de(Clase::Alu, Some(v), [Some(v), lee, None]) });
         }
         Ok(())
     }
@@ -369,10 +538,10 @@ impl Emisor<'_> {
     /// **`d` = lo de antes; la palabra 0 del elemento = `como(antes, v)`**
     /// (`Interlocked*`; en el CAS, solo si lo de antes es `igual`).
     #[allow(clippy::too_many_arguments)]
-    pub(super) fn atomico_uav(&mut self, d: Reg, u: u8, modo: Modo, i: Reg, desp: Reg, como: bmo_proton_x::bufer::Atomo, v: Reg, igual: Reg, k: usize, paso: &mut Vec<u8>) -> Result<(), NoEmite> {
+    pub(super) fn atomico_uav(&mut self, d: Reg, u: u8, modo: Modo, i: Reg, desp: Reg, z: Option<Reg>, como: bmo_proton_x::bufer::Atomo, v: Reg, igual: Reg, k: usize, paso: &mut Vec<u8>) -> Result<(), NoEmite> {
         let rv = self.registro(v, paso)?;
         let ri = if como == bmo_proton_x::bufer::Atomo::CambiaSiIgual { Some(self.registro(igual, paso)?) } else { None };
-        let gu = self.guia(u, modo, i, desp, k, paso)?;
+        let gu = self.guia(u, modo, i, desp, z, k, paso)?;
         let (a, x) = self.par_y_temporal(paso)?;
         self.palabra(&gu, 0, a, x);
         let rd = self.destino(d, k)?;
@@ -385,7 +554,7 @@ impl Emisor<'_> {
         let lee_mas = [ri, None, None];
         self.poner_meta(w, Meta { lee_p: Some((P_VALE, true)), lee_tarde: true, lee_mas, ..Meta::de(Clase::Tex, Some(rd), [Some(a), Some(a + 1), Some(rv)]) });
         self.poner_meta(c::sel(rd, rd, c::r(RZ), P_VALE, false, 0), Meta { lee_p: Some((P_VALE, false)), ..Meta::de(Clase::Alu, Some(rd), [Some(rd), None, None]) });
-        Ok(())
+        self.relleno(&gu, a, x, paso)
     }
 
     /// **El contador del UAV `u`** (`bufferUpdateCounter`): `inc` +1 sube y
@@ -430,8 +599,8 @@ impl Emisor<'_> {
 
     /// **El UAV `u` = los canales de `v` que dice `mascara`** (`bufferStore`).
     #[allow(clippy::too_many_arguments)]
-    pub(super) fn escribe_uav(&mut self, u: u8, modo: Modo, i: Reg, desp: Reg, v: [Reg; 4], mascara: u8, k: usize, paso: &mut Vec<u8>) -> Result<(), NoEmite> {
-        let gu = self.guia(u, modo, i, desp, k, paso)?;
+    pub(super) fn escribe_uav(&mut self, u: u8, modo: Modo, i: Reg, desp: Reg, z: Option<Reg>, v: [Reg; 4], mascara: u8, k: usize, paso: &mut Vec<u8>) -> Result<(), NoEmite> {
+        let gu = self.guia(u, modo, i, desp, z, k, paso)?;
         let (a, x) = self.par_y_temporal(paso)?;
         for j in 0..4u32 {
             if mascara & 1 << j == 0 {
@@ -440,6 +609,9 @@ impl Emisor<'_> {
             let rv = self.registro(v[j as usize], paso)?;
             self.palabra(&gu, j, a, x);
             self.poner_meta(g::stg(P_VALE, a, 0, rv, 0), Meta { lee_p: Some((P_VALE, true)), lee_tarde: true, ..Meta::de(Clase::Tex, None, [Some(a), Some(a + 1), Some(rv)]) });
+        }
+        if mascara & 0xF != 0 {
+            self.relleno(&gu, a, x, paso)?;
         }
         Ok(())
     }

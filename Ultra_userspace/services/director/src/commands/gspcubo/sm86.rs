@@ -139,6 +139,7 @@ pub(super) const PALABRAS: &[(&[u8], &[u8])] = &[
     (b"z", b"con bmox12: sin descarte y con la PROFUNDIDAD de la 3060; bien = IGUAL a D3D12"),
     (b"ambas", b"con bmox12: sin descarte y SIN profundidad, el testigo de z: tiene que salir DISTINTO"),
     (b"textura", b"T3: la 3060 MUESTREA por la puerta de las apps los 96 puntos de la prueba de CUDA; bien = IGUAL a la 3060 bajo Windows"),
+    (b"derivadas", b"L1/L2, la LENTE: la 3060 saca ddx y ddy de la posicion de cada pixel (SHFL y FSWZADD); bien = ddx(x) = ddy(y) = 1 y lo cruzado 0"),
 ];
 
 impl Opciones {

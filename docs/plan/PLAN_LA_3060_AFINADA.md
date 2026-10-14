@@ -498,9 +498,9 @@ piezas; las tres estan escritas y NINGUNA ha corrido en el metal:
       cierra el camino de las mips en un solo TIC sin copiar. Asi que cada
       mip es un TIC de un nivel leido de la RAM del juego (16 huecos por
       textura: el 0 la mip de la vista, del 1 al 14 las del recurso, el 15
-      ceros; `platform/drivers/gpu/ga10x/src/trabajos/mips.rs`), y el
+      ceros; `platform/drivers/gpu/ga10x/src/trabajos/mipmap.rs`), y el
       SOMBREADOR elige la mip con las cuentas de la casa
-      (`platform/shared/proton-x-sm86/src/mips.rs`: el clamp de `sujetar`,
+      (`platform/shared/proton-x-sm86/src/mipmap.rs`: el clamp de `sujetar`,
       `fijo`, dos TEX `.LZ` y la mezcla `x + (y - x) * f`). Las mips de filas
       que no caen en 32 B (la COLA: 224 B en una de 1024x1024, 11,6 KiB en
       una de 1920x1088) viajan en los DATOS del lote. El juez R7 deja un asa
@@ -513,6 +513,83 @@ piezas; las tres estan escritas y NINGUNA ha corrido en el metal:
       el `Sample` con la mip de sus DERIVADAS (las del cuadro, que el emisor
       no saca todavia) y las de un array o una 3D: el censo las cuenta aparte.
       NADA de esto ha corrido en el metal.
+
+### La LENTE y lo que el emisor no sabe (13-10, noche)
+
+El kernel como LENTE: lo que Mesa dice (`../metal/mesa_nak/INFORME_NAK.md`)
+y `ptxas` codifica, la 3060 lo corre con entradas conocidas, el kernel lee el
+resultado y CABINA dice IGUAL o DISTINTO contra la CPU. Solo lo medido entra
+al emisor. Si una variante cuelga la 3060: el parte, `gpu revivir`, y queda
+marcada.
+
+- [x] **L1 -- la lente, la primera (14-10):** `gpu verrano derivadas`
+      (`platform/drivers/gpu/ga10x/src/trabajos/derivadas.rs` y
+      `director/.../gspcubo/lente.rs`): dos dibujos a pantalla entera que
+      sacan `ddx`/`ddy` de la posicion de cada pixel; CABINA cuenta, canal a
+      canal, cuantos dieron 1, 0 y -1. Falta en el metal. La lente general
+      (`gpu lente <familia>`, computo) viene con L3/L4.
+- [x] **L2 -- las derivadas (14-10, en el banco):** el oro de SHFL (`ptxas`,
+      `bmo-sm86/src/olas.rs`) y FSWZADD leido por `nvdisasm`; el juez los
+      conoce; el simulador corre CUADROS (`simula_cuadro.rs`); el emisor hace
+      `ddx`, `ddy` y la fina en x con SHFL.IDX y una resta
+      (`proton-x-sm86/src/derivadas.rs`): bit a bit contra los carriles de la
+      casa, con NaN, infinitos y subnormales. La puerta deja pasar las del de
+      pixeles. **Falta:** que la lente diga que el hilo 1 es la derecha y el
+      2 abajo; y la fina en y (FSWZADD, con su signo medido).
+- [x] **S1 -- el `Sample` con mips (14-10, en el banco):** el lambda de la
+      casa pasa de f64 a UNA receta de cuentas f32 (`prometeo::exponencial::
+      lambda`: FMUL, FFMA y el `log2` de DL13) que la casa corre y la 3060
+      repite instruccion a instruccion (`proton-x-sm86/src/series.rs`, ahora
+      con recetas de varias entradas). Los gradientes, las derivadas gruesas
+      de L2; la mip, la de G5 (`mipmap.rs`, la fila 1 lleva las medidas de la
+      vista). Bit a bit contra los carriles de la casa en 1.815 cuadros (3
+      vistas, 5 muestreadores, de cerca a lejos, anisotropos, girados, NaN e
+      infinitos: `pruebas_muestra.rs`). La puerta ya no para "Sample de una
+      textura de varias mips"; MIN y MAG distintos, aun no (un solo filtro).
+      Emisor 4. **Falta:** el metal (los lotes que el censo paraba ahi), y
+      SampleBias, SampleGrad y SampleCmp con mips (`Lectura::Gradientes`).
+- [x] **L3 -- los UAV con tipo y de textura (14-10, en el banco), SIN
+      SUST/SULD:** la memoria de un UAV de la casa es LINEAL en la RAM del
+      juego (cuatro floats por texel, o los canales de 32 bits), asi que va
+      por la MISMA cadena sujeta de LDG/STG que ya pasa el juez: el elemento
+      `y * Ancho + x`, su `Salto`, los `Canales` y el `Relleno` que la casa
+      reescribe (`proton-x-sm86/src/uav.rs`, `computo_app::Forma` en el byte
+      21 del bufer de VRC1). La forma la decide quien despacha
+      (`forma_de`): los formatos de 32 bits por canal, y cualquiera en
+      cuatro floats que solo se lee. Bit a bit contra la casa
+      (`pruebas_uav_tipo.rs`). Por la CPU: lo que se escribe empaquetado o
+      cuantizado (RGBA8, RGBA16F...), otra vista de los mismos bytes, 3D y
+      arrays.
+- [x] **L4 -- los atomicos:** ATOMG ya estaba en los crudos y estructurados
+      (LI2f); desde L3 tambien en las texturas y buferes con tipo (la palabra
+      0 y el relleno), como la casa.
+- [ ] **L5 -- el microscopio:** el decodificador de SASS con nombres (de
+      `sm70_encode.rs`): CABINA lee lo que corre la 3060 de cada PSO.
+- [x] **Las texturas BC por la 3060 (14-10, en el banco):** BC1, BC2, BC3,
+      BC4 y BC5 sin signo, BC7 y sRGB, con los codigos de `clb097tex.h` y el
+      swizzle de NIL (`texturas::Formato`); las mips y la cola por FILAS DE
+      BLOQUES (`mipmap::filas`, `fila_natural`). La 3060 los descomprime con
+      SU redondeo (la casa da +-1 en BC1/BC3, `prometeo::bc`). Quedan en la
+      CPU: BC6 (HDR) y BC4/BC5 con signo (la casa los guarda corridos a 0..1).
+- [x] **E1 -- la PLUMA (14-10):** el `preparar` en frio sin releer cada
+      palabra por el PCIe (de cada tramo, la primera y la ultima: por el
+      orden del PCIe dicen que llego entero) y un programa que ya esta en la
+      VRAM no se vuelve a escribir (`ga10x::pluma`, `YA_VS`/`YA_PS` en el
+      kernel). Un lote de 64 KiB y dos programas largos: de ~25.000
+      lecturas a menos de 25 (banco). Falta el metal: `preparar` en us.
+- [ ] El envio rapido (muchos lotes por llamada, sin esperar cada uno).
+
+**Las fuentes publicas** (lo publico se trae; lo que no, se mide):
+
+| Fuente | Para que |
+|---|---|
+| Mesa `src/nouveau` (gitlab.freedesktop.org) | NAK (instrucciones), NIL (texturas), NVK (estado del 3D) |
+| Mesa `src/compiler/nir` | estructurar grafos de saltos, bajar lo que el hardware no tiene |
+| envytools (`rnndb`) | los registros y metodos de las clases, con nombre |
+| dxil-spirv y vkd3d-proton | cada forma de DXIL y cada regla de D3D12 traducidas por quien ya corre Cyberpunk |
+| DirectXShaderCompiler (`docs/DXIL.rst`) y DirectX-Specs | lo que DXIL y D3D12 PROMETEN |
+| CuAssembler | tablas de SASS sm_86 sacadas de `nvdisasm` |
+| NVIDIA open-gpu-doc y open-gpu-kernel-modules, nouveau de Linux | lo que ya se usa (clases, GSP-RM) |
 
 ---
 

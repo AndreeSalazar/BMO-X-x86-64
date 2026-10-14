@@ -65,7 +65,7 @@ use crate::lienzo::sombreador_va;
 use crate::raster::{ESCALONES, N_ESCALONES, SUSTITUTO};
 use crate::sombreador::{EMPUJE, SEMAFOROS};
 use crate::tresde as td;
-use crate::tuberia::{escribir_programa, Paquete, BYTES_VERTICE, PS, TABLA, VS};
+use crate::tuberia::{Paquete, BYTES_VERTICE, PS, TABLA, VS};
 use crate::vram::{a_cero, escribir64, leer64, ventana, TRAMO_VA, VENTANA, VENTANA_REG};
 use crate::Registros;
 
@@ -213,8 +213,8 @@ pub fn armar<R: Registros>(r: &mut R, e: u32, v: &Ventana, p: &Paquete, numero: 
         && escribir(r, MARCAS, &[0; 8 * RANURAS as usize]) == 8 * RANURAS as usize
         && escribir(r, ESCALONES, &[0; N_ESCALONES as usize]) == N_ESCALONES as usize
         && a_cero(r, SUSTITUTO) as usize == crate::vram::PALABRAS
-        && escribir_programa(r, VS, p.vs)
-        && escribir_programa(r, PS, p.ps)
+        && crate::pluma::Pluma::nueva(r).programa(VS, p.vs)
+        && crate::pluma::Pluma::nueva(r).programa(PS, p.ps)
         && escribir(r, TABLA, &[va as u32, (va >> 32) as u32]) == 2;
     // Las cuatro, enteras: la cabeza de cada una no se vuelve a escribir.
     // (Una `Ordenes` a la vez: son 4 KiB y esto corre en la pila del

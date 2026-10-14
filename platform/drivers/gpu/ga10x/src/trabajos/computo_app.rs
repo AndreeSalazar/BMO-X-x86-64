@@ -63,6 +63,20 @@ pub const BANCO_DE_REGISTROS: u32 = 64 * 1024;
 ///    Paso       estructurado: los bytes de un elemento
 ///    Medida     lo que dice `GetDimensions`
 /// ```
+///
+/// ** L3 (14-10): un UAV CON TIPO (`RWBuffer<T>`) o DE TEXTURA
+/// (`RWTexture2D<T>`), en las palabras en que lo guarda la casa
+/// (`bufer::Uav`): la [`Forma`] de la vista, por despacho, y de ella
+///
+/// ```text
+///    Ancho, Alto   la textura (x < Ancho, y < Alto)
+///    Texeles       los elementos que caben enteros en lo prestado
+///    Salto         los bytes de un elemento (16 en cuatro floats, 4n si no)
+///    Canales       los de 32 bits que guarda (1..4)
+///    Alfa          el canal 3 que no se guarda: 1.0, o 1 en uno de enteros
+///    Relleno       las palabras de un elemento en cuatro floats que no son
+///                  canales (bit j): la casa las reescribe en cada escritura
+/// ```
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[repr(u8)]
 pub enum DelUav {
@@ -74,10 +88,61 @@ pub enum DelUav {
     /// Lo que dice `GetDimensions`: los elementos de la vista (en un crudo,
     /// sus bytes), sin mirar lo prestado.
     Medida = 5,
+    Ancho = 6,
+    Alto = 7,
+    Texeles = 8,
+    Salto = 9,
+    Canales = 10,
+    Alfa = 11,
+    Relleno = 12,
+}
+
+/// ** L3: **la forma de una vista con tipo**, en un byte (el 21 de un bufer
+/// de VRC1): los canales de 32 bits (1..4) en 0..3, si va en CUATRO floats
+/// por elemento (el 3), y si es de enteros (el 4). 0: sin tipo.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct Forma(pub u8);
+
+impl Forma {
+    pub const SIN_TIPO: Forma = Forma(0);
+
+    pub const fn nueva(canales: u8, cuatro: bool, entero: bool) -> Forma {
+        Forma(canales & 7 | (cuatro as u8) << 3 | (entero as u8) << 4)
+    }
+    pub const fn canales(self) -> u32 {
+        (self.0 & 7) as u32
+    }
+    pub const fn cuatro(self) -> bool {
+        self.0 & 8 != 0
+    }
+    pub const fn entero(self) -> bool {
+        self.0 & 16 != 0
+    }
+    /// Una que se entiende: sin tipo, o de 1 a 4 canales y nada mas.
+    pub const fn valida(self) -> bool {
+        self.0 == 0 || (self.0 < 32 && self.canales() >= 1 && self.canales() <= 4)
+    }
+    pub const fn salto(self) -> u32 {
+        if self.cuatro() { 16 } else { 4 * self.canales() }
+    }
 }
 
 impl DelUav {
-    pub const TODOS: [DelUav; 6] = [DelUav::Base, DelUav::Tope, DelUav::Limite, DelUav::Elementos, DelUav::Paso, DelUav::Medida];
+    pub const TODOS: [DelUav; 13] = [
+        DelUav::Base,
+        DelUav::Tope,
+        DelUav::Limite,
+        DelUav::Elementos,
+        DelUav::Paso,
+        DelUav::Medida,
+        DelUav::Ancho,
+        DelUav::Alto,
+        DelUav::Texeles,
+        DelUav::Salto,
+        DelUav::Canales,
+        DelUav::Alfa,
+        DelUav::Relleno,
+    ];
 
     /// El de un numero (el de la receta y el del .bsf vivo).
     pub fn de(n: u8) -> Option<DelUav> {
@@ -92,9 +157,18 @@ impl DelUav {
     /// alinear). [!] Un estructurado cuyo ultimo elemento no cabe entero en
     /// lo prestado lo pierde entero (la casa leeria sus palabras de dentro).
     pub fn valor(self, base: u64, bytes: u32, elementos: u32, paso: u32) -> Option<u64> {
-        if bytes < 4 || base % 4 != 0 {
+        self.valor_con(base, bytes, elementos, paso, Forma::SIN_TIPO)
+    }
+
+    /// [`valor`](Self::valor) de una vista con su [`Forma`] (L3): con tipo,
+    /// `paso` es el ancho de una textura (0 en un bufer) y `elementos` sus
+    /// texeles, como en la casa.
+    pub fn valor_con(self, base: u64, bytes: u32, elementos: u32, paso: u32, forma: Forma) -> Option<u64> {
+        if bytes < 4 || base % 4 != 0 || !forma.valida() {
             return None;
         }
+        let salto = forma.salto();
+        let n = forma.canales();
         Some(match self {
             DelUav::Base => base,
             DelUav::Tope => (bytes & !3) as u64 - 4,
@@ -102,9 +176,19 @@ impl DelUav {
             DelUav::Elementos if paso == 0 => 0,
             DelUav::Elementos => elementos.min(bytes / paso) as u64,
             DelUav::Paso => paso as u64,
-            // La de la casa (`Bufer::medidas`): un crudo, en bytes.
+            // La de la casa (`Bufer::medidas`): un tipado, sus elementos;
+            // un crudo, en bytes.
+            DelUav::Medida if forma.0 != 0 => elementos as u64,
             DelUav::Medida if paso == 0 => elementos.saturating_mul(4) as u64,
             DelUav::Medida => elementos as u64,
+            DelUav::Ancho => paso as u64,
+            DelUav::Alto => elementos.checked_div(paso).unwrap_or(0) as u64,
+            DelUav::Texeles => bytes.checked_div(salto).map_or(0, |c| elementos.min(c)) as u64,
+            DelUav::Salto => salto as u64,
+            DelUav::Canales => n as u64,
+            DelUav::Alfa if forma.entero() => 1,
+            DelUav::Alfa => 1.0f32.to_bits() as u64,
+            DelUav::Relleno => ((1u32 << (salto / 4)) - 1) as u64 & !((1u64 << n) - 1),
         })
     }
 }
@@ -314,6 +398,22 @@ const _: () = assert!(SEMAFORO_QMD >= crate::completa::SEMAFORO_FIN + 0x70 && SE
 #[cfg(test)]
 mod pruebas {
     use super::*;
+
+    /// L3: lo de una vista con tipo. Un R32_UINT de textura de 5 x 3 en
+    /// cuatro floats (16 B por texel) con 200 B prestados: caben 12 texeles
+    /// enteros; sus palabras 1..3 son relleno y su alfa, 1 (de enteros). Un
+    /// RWBuffer<float2> de 32 bits: 8 B por elemento, sin relleno, alfa 1.0.
+    #[test]
+    fn lo_de_una_vista_con_tipo() {
+        let tex = Forma::nueva(1, true, true);
+        let v = |q: DelUav, f, bytes, elementos, paso| q.valor_con(0x1000, bytes, elementos, paso, f).unwrap();
+        assert_eq!([DelUav::Ancho, DelUav::Alto, DelUav::Texeles, DelUav::Salto, DelUav::Canales, DelUav::Alfa, DelUav::Relleno].map(|q| v(q, tex, 200, 15, 5)), [5, 3, 12, 16, 1, 1, 0b1110]);
+        let buf = Forma::nueva(2, false, false);
+        assert_eq!([DelUav::Texeles, DelUav::Salto, DelUav::Canales, DelUav::Alfa, DelUav::Relleno, DelUav::Medida].map(|q| v(q, buf, 4096, 10, 0)), [10, 8, 2, 0x3F80_0000, 0, 10]);
+        assert_eq!(DelUav::Medida.valor(0x1000, 4096, 10, 0), Some(40), "sin tipo, un crudo: sus bytes");
+        assert_eq!(DelUav::Base.valor_con(0x1000, 64, 1, 0, Forma(0x28)), None, "una forma que no se entiende");
+        assert!(DelUav::TODOS.iter().all(|q| DelUav::de(*q as u8) == Some(*q)));
+    }
     use crate::motores::sombreador::leer_campo;
     use crate::sass::juez::{juzgar_drenado, Contexto, RESERVADOS};
 

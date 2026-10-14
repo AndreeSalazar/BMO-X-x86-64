@@ -18,7 +18,8 @@
 //!                                     bufer de ranura `a` en reg (la base, en
 //!                                     el par reg, reg+1)
 //!    un bufer      va (u64), bytes, elementos, paso (u32), ranura (u8: la
-//!                  del UAV, o 0x80 | t la del SRV tN), y 3 a cero
+//!                  del UAV, o 0x80 | t la del SRV tN), la forma (u8, L3:
+//!                  `computo_app::Forma`, 0 sin tipo) y 2 a cero
 //! ```
 //!
 //! Lo que se comprueba aqui: que todo cae dentro de la receta y alineado, los
@@ -27,7 +28,7 @@
 //! misma ranura. Lo que NO: que el cuerpo sea bueno (el juez), ni que la VA
 //! de un bufer sea del proceso (el kernel, con sus cuentas).
 
-use super::computo_app::{DelUav, Despacho};
+use super::computo_app::{DelUav, Despacho, Forma};
 
 pub const MAGIA: [u8; 4] = *b"VRC1";
 pub const CABECERA: usize = 72;
@@ -69,6 +70,8 @@ pub struct Bufer {
     pub elementos: u32,
     pub paso: u32,
     pub ranura: u8,
+    /// L3: la forma de una vista con tipo (`Forma::SIN_TIPO` si no tiene).
+    pub forma: Forma,
 }
 
 impl Bufer {
@@ -110,7 +113,7 @@ impl NoReceta {
             NoReceta::Tabla => "una tabla de la receta de computo se sale de ella o va sin alinear",
             NoReceta::Techo => "la receta de computo pide mas de lo que cabe (instrucciones, precargas, buferes o filas)",
             NoReceta::Precarga(_) => "una precarga que no se entiende, o que nombra un bufer, una fila o un registro que no hay",
-            NoReceta::Bufer(_) => "un bufer mal dicho: sin bytes, la VA sin alinear, o su ranura repetida",
+            NoReceta::Bufer(_) => "un bufer mal dicho: sin bytes, la VA sin alinear, su ranura repetida o una forma que no se entiende",
             NoReceta::Despacho(d) => d.texto(),
         }
     }
@@ -164,7 +167,7 @@ impl<'a> Receta<'a> {
 
     pub fn bufer(&self, k: usize) -> Bufer {
         let o = 24 * k;
-        Bufer { va: u64_(self.buferes, o), bytes: u32_(self.buferes, o + 8), elementos: u32_(self.buferes, o + 12), paso: u32_(self.buferes, o + 16), ranura: self.buferes[o + 20] }
+        Bufer { va: u64_(self.buferes, o), bytes: u32_(self.buferes, o + 8), elementos: u32_(self.buferes, o + 12), paso: u32_(self.buferes, o + 16), ranura: self.buferes[o + 20], forma: Forma(self.buferes[o + 21]) }
     }
 
     /// El bufer de la ranura `ranura`.
@@ -213,7 +216,7 @@ pub fn leer(b: &[u8]) -> Result<Receta<'_>, NoReceta> {
     for k in 0..r.n_buferes() {
         let x = r.bufer(k);
         let repetida = (0..k).any(|j| r.bufer(j).ranura == x.ranura);
-        if x.bytes < 4 || x.va % 4 != 0 || x.va.checked_add(x.bytes as u64).is_none() || repetida || buferes[24 * k + 21..24 * k + 24] != [0; 3] {
+        if x.bytes < 4 || x.va % 4 != 0 || x.va.checked_add(x.bytes as u64).is_none() || repetida || !x.forma.valida() || buferes[24 * k + 22..24 * k + 24] != [0; 2] {
             return Err(NoReceta::Bufer(k));
         }
     }
@@ -270,6 +273,7 @@ pub fn escribir(out: &mut [u8], d: &Despacho, codigo: &[(u64, u64)], precargas: 
         out[o + 12..o + 16].copy_from_slice(&x.elementos.to_le_bytes());
         out[o + 16..o + 20].copy_from_slice(&x.paso.to_le_bytes());
         out[o + 20] = x.ranura;
+        out[o + 21] = x.forma.0;
     }
     for (k, p) in precargas.iter().enumerate() {
         out[o_p + 4 * k..o_p + 4 * k + 4].copy_from_slice(p);
@@ -297,7 +301,7 @@ pub fn valores(r: &Receta, va_3060: impl Fn(usize) -> u64, out: &mut [(u8, u32)]
             }
             Precarga::Bufer { k: b, que, reg } => {
                 let x = r.bufer(b);
-                let v = que.valor(va_3060(b), x.bytes, x.elementos, x.paso)?;
+                let v = que.valor_con(va_3060(b), x.bytes, x.elementos, x.paso, x.forma)?;
                 poner(reg, v as u32)?;
                 if que == DelUav::Base {
                     poner(reg + 1, (v >> 32) as u32)?;
@@ -347,8 +351,8 @@ mod pruebas {
         escribir(out, &d(), &codigo, precargas, buferes, &[[1, 2, 3, 4]]).unwrap()
     }
 
-    const UAV: Bufer = Bufer { va: 0x7000_0000, bytes: 4096, elementos: 1024, paso: 0, ranura: 0 };
-    const SRV_0: Bufer = Bufer { va: 0x7100_0000, bytes: 64, elementos: 2, paso: 32, ranura: SRV };
+    const UAV: Bufer = Bufer { va: 0x7000_0000, bytes: 4096, elementos: 1024, paso: 0, ranura: 0, forma: Forma::SIN_TIPO };
+    const SRV_0: Bufer = Bufer { va: 0x7100_0000, bytes: 64, elementos: 2, paso: 32, ranura: SRV, forma: Forma::SIN_TIPO };
 
     #[test]
     fn se_escribe_y_se_lee_igual() {
@@ -390,8 +394,15 @@ mod pruebas {
         assert_eq!(leer(&x[..n2]).unwrap_err(), NoReceta::Precarga(0));
         let n2 = una(&mut x, &[[1, 1, 0, 4]], &[UAV]);
         assert_eq!(leer(&x[..n2]).unwrap_err(), NoReceta::Precarga(0));
-        let n2 = una(&mut x, &[[5, 0, 9, 4]], &[UAV]);
+        let n2 = una(&mut x, &[[5, 0, 13, 4]], &[UAV]);
         assert_eq!(leer(&x[..n2]).unwrap_err(), NoReceta::Precarga(0));
+        // L3: una forma de 0 canales, de 5, o con bits de mas.
+        for f in [8u8, 5, 0x21] {
+            let n2 = una(&mut x, &[], &[Bufer { forma: Forma(f), ..UAV }]);
+            assert_eq!(leer(&x[..n2]).unwrap_err(), NoReceta::Bufer(0), "forma {f:#x}");
+        }
+        let n2 = una(&mut x, &[[5, 0, 12, 4]], &[Bufer { forma: Forma::nueva(1, true, true), ..UAV }]);
+        assert_eq!(leer(&x[..n2]).unwrap().bufer(0).forma, Forma::nueva(1, true, true), "la forma va y vuelve");
         // Dos buferes con la misma ranura; uno sin bytes; la VA sin alinear.
         let n2 = una(&mut x, &[], &[UAV, UAV]);
         assert_eq!(leer(&x[..n2]).unwrap_err(), NoReceta::Bufer(1));

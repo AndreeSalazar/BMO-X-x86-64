@@ -19,7 +19,8 @@ use crate::{emitir_con, Abi};
 
 /// *** Lo que ya cabia en 64 sale IGUAL, byte a byte (y con los mismos
 /// registros): darle mas al emisor no cambia un programa que no los usa. Los
-/// sombreadores de `proton-x/prueba` enteros.
+/// sombreadores de `proton-x/prueba` enteros. (S1, 14-10: lo que cabia SIN
+/// ser frugal: un `Sample` con sus mips pide mas, y a 64 sale frugal.)
 #[test]
 fn lo_que_cabia_en_64_sale_igual() {
     let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../proton-x/prueba");
@@ -32,7 +33,7 @@ fn lo_que_cabia_en_64_sale_igual() {
         let Ok(s) = bmo_proton_x::dxil::leer(&std::fs::read(&f).unwrap()) else { continue };
         let Ok(p) = programa::compilar(&s) else { continue };
         for libreta in [false, true] {
-            let Ok(a) = crate::emitir_libreta(&p, 64, Abi::Registros, libreta) else { continue };
+            let Ok(a) = crate::emitir_modo(&p, 64, Abi::Registros, libreta, false) else { continue };
             let b = crate::emitir_libreta(&p, crate::puerta::REGISTROS, Abi::Registros, libreta).unwrap_or_else(|x| panic!("{f:?}: con mas registros, {x:?}"));
             assert_eq!((a.codigo, a.registros, a.termometro), (b.codigo, b.registros, b.termometro), "{f:?} (libreta {libreta})");
             comparados += 1;
@@ -99,3 +100,4 @@ fn los_registros_que_pide_un_dibujo() {
     assert_eq!(tuberia::registros_para(246), 248);
     assert_eq!(crate::puerta::REGISTROS + juez::RESERVADOS + 8, tuberia::MAX_REGISTROS);
 }
+

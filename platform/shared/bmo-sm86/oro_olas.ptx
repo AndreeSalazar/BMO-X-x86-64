@@ -1,0 +1,39 @@
+// oro_olas.ptx -- el PTX de las PALABRAS DE ORO de SHFL (`ORO_OLAS` en
+// src/codifica.rs; L2 de PLAN_LA_3060_AFINADA, las derivadas).
+// Rehacerlas (CUDA 12.9 y nvdisasm 13.4.92, de PyPI):
+//   pip download --no-deps "nvidia-cuda-nvcc-cu12==12.9.*"
+//   pip download --no-deps "nvidia-cuda-nvdisasm==13.4.*"
+//   ptxas -arch=sm_86 -O3 oro_olas.ptx -o oro.cubin
+//   nvdisasm -hex oro.cubin
+// El intercambio DENTRO del cuadro de 4 hilos: en mariposa (BFLY, el de NAK
+// para ddx y ddy: lane 1 y 2) y por indice (IDX, el de las derivadas GRUESAS
+// de la casa: el hilo 0, el 1 y el 2 del cuadro), con c = 0x1c03 (el tope 3
+// y la mascara de segmento 0x1c: el cuadro); y por pares de la fila (c =
+// 0x1e01: la fina en x).
+.version 8.0
+.target sm_86
+.address_size 64
+.visible .entry olas(.param .u64 o)
+{
+  .reg .b64 %rd<8>; .reg .b32 %r<16>;
+  ld.param.u64 %rd2, [o]; cvta.to.global.u64 %rd3, %rd2;
+  mov.u32 %r9, %tid.x;
+  mul.wide.u32 %rd4, %r9, 16;
+  add.s64 %rd5, %rd3, %rd4;
+  ld.global.u32 %r1, [%rd5];
+  shfl.sync.bfly.b32 %r2, %r1, 1, 0x1c03, 0xffffffff;
+  shfl.sync.bfly.b32 %r3, %r1, 2, 0x1c03, 0xffffffff;
+  shfl.sync.bfly.b32 %r4, %r1, 3, 0x1c03, 0xffffffff;
+  shfl.sync.idx.b32 %r5, %r1, 0, 0x1c03, 0xffffffff;
+  shfl.sync.idx.b32 %r6, %r1, 1, 0x1c03, 0xffffffff;
+  shfl.sync.idx.b32 %r7, %r1, 2, 0x1c03, 0xffffffff;
+  shfl.sync.idx.b32 %r8, %r1, 1, 0x1e01, 0xffffffff;
+  add.u32 %r10, %r5, %r6;
+  add.u32 %r11, %r7, %r8;
+  st.global.u32 [%rd5+16], %r10;
+  st.global.u32 [%rd5+20], %r11;
+  st.global.u32 [%rd5+4], %r2;
+  st.global.u32 [%rd5+8], %r3;
+  st.global.u32 [%rd5+12], %r4;
+  ret;
+}

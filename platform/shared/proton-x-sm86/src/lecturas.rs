@@ -71,7 +71,7 @@ impl Emisor<'_> {
             (Lectura::Carga { .. }, Some(7)) => (DimTex::Array2D, true),
             _ => return Err(NoEmite::Operacion(k)),
         };
-        // ** G5 (13-10): una 2D elige su mip aqui (`mips.rs`): las
+        // ** G5 (13-10): una 2D elige su mip aqui (`mipmap.rs`): las
         // coordenadas en su par y la lectura con `.LZ` de cada mip.
         if dim == DimTex::D2 {
             let ra = self.bloque(2, false)?;
@@ -80,6 +80,7 @@ impl Emisor<'_> {
                 let f = self.fuente(co[j]);
                 self.poner(c::mov(ra + j as u8, f, 0), Clase::Alu, Some(ra + j as u8), [reg_de(f), None, None]);
             }
+            let nivel = self.fuente(nivel);
             return self.lee_mips(d, t, s, carga, ra, nivel, paso);
         }
         let Some(asa) = self.pares.get(k).copied().flatten() else {

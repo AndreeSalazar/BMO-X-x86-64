@@ -5,7 +5,7 @@
 //!
 //! ```text
 //!    el Programa  emitido UNA vez por PSO (`emitir_con`, `Abi::Registros`) y
-//!                 guardado; lo que no se emite (un UAV con tipo, la barrera
+//!                 guardado; lo que no se emite (la barrera
 //!                 que no se demuestra uniforme...) se dice una vez y va por
 //!                 la CPU para siempre
 //!    la receta    VRC1 (`receta_computo`): sus buferes son la memoria del
@@ -27,7 +27,8 @@ use alloc::vec::Vec;
 
 use bmo_proton_x::bufer::{Bufer, Uav};
 use bmo_proton_x::dxil::programa::Programa;
-use bmo_proton_x_sm86::{computo_app, emitir_con, vrc1, Abi, Emitido, Precarga, CONTADOR, SRV};
+use bmo_proton_x::dxil::programa::Op;
+use bmo_proton_x_sm86::{cabe_entero, computo_app, emitir_con, forma_de, vrc1, Abi, Emitido, Forma, Precarga, CONTADOR, SRV};
 use bmo_userland as bmo;
 
 /// Lo emitido de un PSO, por su clave (`None`: no se emite, por la CPU).
@@ -104,33 +105,40 @@ fn con_el_estado(e: &mut Estado, p: &Programa, grupos: [u32; 3], cb: &[u8], bufe
     let Some(em) = e.guardados[i].emitido.as_deref() else { return false };
     // Los buferes de la receta: la memoria del juego, por ranura.
     let mut lista: Vec<vrc1::Bufer> = Vec::new();
+    // L3: los UAV que el cuerpo escribe (su forma: un formato que solo se
+    // lee puede ir en cuatro floats de cualquier formato).
+    let escribe = |u: u8| p.ops.iter().any(|o| matches!(*o, Op::EscribeUav { u: x, .. } | Op::Atomico { u: x, .. } if x == u));
     for q in &em.precargas {
         let Precarga::Uav { u, .. } = *q else { continue };
         if lista.iter().any(|b| b.ranura == u) {
             continue;
         }
-        let (va, bytes, elementos, paso, modo_ok) = if u & CONTADOR != 0 && u & SRV == 0 {
+        let (va, bytes, elementos, paso, forma) = if u & CONTADOR != 0 && u & SRV == 0 {
             // El contador oculto de un UAV: su palabra, como un crudo de una.
             match uavs.get((u & !CONTADOR) as usize) {
-                Some(Some(Uav { contador: Some(c), .. })) => (&**c as *const u32 as u64, 4, 1, 0, true),
-                _ => (0, 0, 0, 0, false),
+                Some(Some(Uav { contador: Some(c), .. })) => (&**c as *const u32 as u64, 4, 1, 0, Some(Forma::SIN_TIPO)),
+                _ => (0, 0, 0, 0, None),
             }
         } else if u & SRV != 0 {
             match buferes.get((u & !SRV) as usize) {
-                Some(Some(b)) => (b.bytes.as_ptr() as u64, b.bytes.len(), b.elementos, b.paso, b.formato == 0),
-                _ => (0, 0, 0, 0, false),
+                Some(Some(b)) => (b.bytes.as_ptr() as u64, b.bytes.len(), b.elementos, b.paso, forma_de(b.formato, false, true)),
+                _ => (0, 0, 0, 0, None),
             }
         } else {
             match uavs.get(u as usize) {
-                Some(Some(w)) => (w.bytes.as_ptr() as u64, w.bytes.len(), w.elementos, w.paso, w.formato == 0),
-                _ => (0, 0, 0, 0, false),
+                Some(Some(w)) => (w.bytes.as_ptr() as u64, w.bytes.len(), w.elementos, w.paso, forma_de(w.formato, escribe(u), w.rebanadas.capas == 0)),
+                _ => (0, 0, 0, 0, None),
             }
         };
-        if !modo_ok || bytes < 4 || bytes > u32::MAX as usize || va % 4 != 0 {
-            decir(e, alloc::format!("un bufer (ranura {u:#x}) que la 3060 no puede ver: sin atar, con formato, o sin alinear"));
+        let Some(forma) = forma.filter(|&f| cabe_entero(f, bytes, elementos)) else {
+            decir(e, alloc::format!("un bufer (ranura {u:#x}) que la 3060 no puede ver: sin atar, 3D o de array, con un formato que se escribe empaquetado, visto con otro formato, o mas corto que su vista"));
+            return false;
+        };
+        if bytes < 4 || bytes > u32::MAX as usize || va % 4 != 0 {
+            decir(e, alloc::format!("un bufer (ranura {u:#x}) que la 3060 no puede ver: sin alinear"));
             return false;
         }
-        lista.push(vrc1::Bufer { va, bytes: bytes as u32, elementos, paso, ranura: u });
+        lista.push(vrc1::Bufer { va, bytes: bytes as u32, elementos, paso, ranura: u, forma });
     }
     let filas: Vec<[u32; 4]> = cb.chunks(16).map(|c| core::array::from_fn(|j| c.get(4 * j..4 * j + 4).map_or(0, |b| u32::from_le_bytes([b[0], b[1], b[2], b[3]])))).collect();
     let medida = vrc1::MAX_RECETA.min(vrc1::CABECERA + 16 + 16 * em.codigo.len() + 16 * filas.len() + 24 * lista.len() + 4 * em.precargas.len());
