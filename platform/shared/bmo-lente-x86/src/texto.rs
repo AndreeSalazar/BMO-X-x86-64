@@ -108,6 +108,11 @@ fn rm(t: &mut Texto, i: &Instr, ancho: u8, xmm: Option<bool>) {
         return;
     }
     let _ = t.write_str(if xmm.is_some() { "" } else { medida(ancho) });
+    let _ = t.write_str(match i.segmento {
+        crate::SEG_FS => "fs:",
+        crate::SEG_GS => "gs:",
+        _ => "",
+    });
     let _ = t.write_str("[");
     let mut algo = false;
     if i.rip_relativa {
@@ -155,6 +160,7 @@ pub(crate) fn escribe(i: &Instr, en: u64) -> Texto {
         ("cmov", _, _, _) => write!(t, "cmov{}", cc),
         // `movd` con REX.W mueve 64 bits: el manual lo llama `movq`.
         ("movd", _, Mapa::Dos, _) if ancho == 8 => t.write_str("movq"),
+        ("fxsave" | "fxrstor", _, _, _) if ancho == 8 => write!(t, "{}64", f.nombre),
         ("vfmadd231ps", _, _, _) if ancho == 8 => t.write_str("vfmadd231pd"),
         (_, _, Mapa::Uno, 0x98) => t.write_str(if ancho == 8 { "cdqe" } else { "cwde" }),
         (_, _, Mapa::Uno, 0x99) => t.write_str(if ancho == 8 { "cqo" } else { "cdq" }),
@@ -302,6 +308,41 @@ pub(crate) fn escribe(i: &Instr, en: u64) -> Texto {
             rm(&mut t, i, 32, Some(y));
             sep(&mut t);
             xr(&mut t, i.reg(), y);
+        }
+        Forma::MRI8 | Forma::MRCl => {
+            sp(&mut t);
+            rm(&mut t, i, ancho, None);
+            let _ = write!(t, ", {}, ", gpr(i.reg(), ancho, hay_rex));
+            if f.forma == Forma::MRCl {
+                let _ = t.write_str("cl");
+            } else {
+                hex(&mut t, i.imm);
+            }
+        }
+        Forma::MSreg | Forma::SregM => {
+            const SREG: [&str; 8] = ["es", "cs", "ss", "ds", "fs", "gs", "?", "?"];
+            let s = SREG[(i.reg() & 7) as usize];
+            sp(&mut t);
+            if f.forma == Forma::SregM {
+                let _ = write!(t, "{s}, ");
+            }
+            rm(&mut t, i, 2, None);
+            if f.forma == Forma::MSreg {
+                let _ = write!(t, ", {s}");
+            }
+        }
+        Forma::M87q | Forma::M87w => {
+            sp(&mut t);
+            rm(&mut t, i, if f.forma == Forma::M87q { 8 } else { 2 }, None);
+        }
+        Forma::StI => {
+            let _ = write!(t, " st({})", i.modrm.unwrap_or(0) & 7);
+        }
+        Forma::StISt => {
+            let _ = write!(t, " st({}), st", i.modrm.unwrap_or(0) & 7);
+        }
+        Forma::StStI => {
+            let _ = write!(t, " st, st({})", i.modrm.unwrap_or(0) & 7);
         }
     }
     t

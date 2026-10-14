@@ -61,6 +61,10 @@ pub const PF2: u8 = 2;
 pub const PF3: u8 = 4;
 pub const PLOCK: u8 = 8;
 
+/// El segmento de la direccion: ninguno, `fs:` o `gs:`.
+pub const SEG_FS: u8 = 1;
+pub const SEG_GS: u8 = 2;
+
 /// Lo que dice un prefijo VEX (`C5` de dos bytes, `C4` de tres).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Vex {
@@ -99,6 +103,8 @@ pub struct Instr {
     pub imm_bytes: u8,
     /// La fila de la tabla: su nombre y su forma.
     pub fila: &'static Fila,
+    /// `fs:` ([`SEG_FS`]), `gs:` ([`SEG_GS`]) o ninguno (0).
+    pub segmento: u8,
 }
 
 /// **Por que no se leyo.**
@@ -179,9 +185,17 @@ fn casa(f: &Fila, pref: Pref) -> bool {
 pub fn lee(b: &[u8]) -> Result<Instr, NoSe> {
     let mut l = Lector { b, i: 0 };
     let mut prefijos = 0u8;
+    let mut segmento = 0u8;
     let mut byte = l.u8()?;
     loop {
         match byte {
+            // `cs:` `ds:` `es:` `ss:`: en 64 bits no hacen nada (LLVM rellena
+            // con `66 2E 0F 1F 84 ..`, un `nopw cs:[...]`). Se leen y se callan.
+            0x2E | 0x3E | 0x26 | 0x36 => {}
+            // `fs:` y `gs:` SI: suman su base (PROTON-X lee el bloque del hilo
+            // de Windows con `gs:[0x30]`). Se apuntan y el texto los dice.
+            0x64 => segmento = SEG_FS,
+            0x65 => segmento = SEG_GS,
             0x66 => prefijos |= P66,
             0xF2 => prefijos |= PF2,
             0xF3 => prefijos |= PF3,
@@ -255,7 +269,9 @@ pub fn lee(b: &[u8]) -> Result<Instr, NoSe> {
                 .filter(|f| casa(f, pref))
                 .find(|f| match f.ext {
                     Ext::No => true,
-                    Ext::Es(n) => n == reg && !(matches!(f.forma, Forma::Mem) && m >> 6 == 3),
+                    // Solo memoria (`ldmxcsr`, `fld qword`) o solo registro
+                    // (`fxch st(i)`): el mismo `/n` es otra instruccion.
+                    Ext::Es(n) => n == reg && !(f.forma.solo_memoria() && m >> 6 == 3) && !(f.forma.solo_registro() && m >> 6 != 3),
                     Ext::Byte(x) => x == m,
                 })
                 .ok_or(fuera(Some(reg)))?
@@ -287,7 +303,7 @@ pub fn lee(b: &[u8]) -> Result<Instr, NoSe> {
     }
     let ancho = ancho_de(rex, prefijos, vex);
     let imm_bytes: u8 = match fila.forma {
-        Forma::Rel8 | Forma::Acc8Imm8 | Forma::Imm8 | Forma::MovImm8 | Forma::MI8 | Forma::M8I8 | Forma::RMI8 | Forma::XI8 => 1,
+        Forma::Rel8 | Forma::Acc8Imm8 | Forma::Imm8 | Forma::MovImm8 | Forma::MI8 | Forma::M8I8 | Forma::RMI8 | Forma::XI8 | Forma::MRI8 => 1,
         Forma::Rel32 | Forma::Imm => 4,
         Forma::AccImm | Forma::MI | Forma::RMI => if ancho == 2 { 2 } else { 4 },
         Forma::MovImm => match ancho {
@@ -298,7 +314,7 @@ pub fn lee(b: &[u8]) -> Result<Instr, NoSe> {
         _ => 0,
     };
     let imm = l.le(imm_bytes)?;
-    Ok(Instr { largo: l.i, prefijos, rex, vex, mapa, op, modrm, sib, disp, rip_relativa, imm, imm_bytes, fila })
+    Ok(Instr { largo: l.i, prefijos, rex, vex, mapa, op, modrm, sib, disp, rip_relativa, imm, imm_bytes, fila, segmento })
 }
 
 /// La medida del operando: 8 con REX.W (o VEX.W), 2 con `66`, si no 4.
@@ -326,6 +342,9 @@ pub struct Memoria {
     pub disp: i64,
     /// `[rip + disp]`: la direccion no depende de ningun registro.
     pub rip_relativa: bool,
+    /// `fs:`/`gs:`: a la direccion se le suma esa base (que no esta en los
+    /// registros enteros).
+    pub segmento: u8,
 }
 
 /// **El `call` que acaba justo donde acaban `antes`** -- lo que hay antes de
@@ -359,7 +378,7 @@ impl Instr {
             Some(v) => (v.b as u8, v.x as u8),
             None => (self.rex & 1, (self.rex >> 1) & 1),
         };
-        let mut d = Memoria { base: None, indice: None, escala: 1, disp: self.disp, rip_relativa: false };
+        let mut d = Memoria { base: None, indice: None, escala: 1, disp: self.disp, rip_relativa: false, segmento: self.segmento };
         if rm == 4 {
             let s = self.sib?;
             let i = ((s >> 3) & 7) | (x << 3);

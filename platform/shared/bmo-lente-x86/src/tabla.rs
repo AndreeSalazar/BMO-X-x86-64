@@ -101,9 +101,32 @@ pub enum Forma {
     V3,
     V2,
     V2M,
+    /// `r/m, r, imm8` y `r/m, r, cl` (`shld`, `shrd`).
+    MRI8,
+    MRCl,
+    /// `r/m16, sreg` y `sreg, r/m16` (`mov [rcx+0x38], cs`).
+    MSreg,
+    SregM,
+    /// x87: solo memoria, de 8 bytes (`fld qword`) o de 2 (`fldcw`).
+    M87q,
+    M87w,
+    /// x87 de registro: `st(i)`, `st(i), st` y `st, st(i)` (solo `mod == 3`).
+    StI,
+    StISt,
+    StStI,
 }
 
 impl Forma {
+    /// Su ModRM tiene que ser memoria.
+    pub const fn solo_memoria(self) -> bool {
+        matches!(self, Forma::Mem | Forma::M87q | Forma::M87w)
+    }
+
+    /// Su ModRM tiene que ser registro (`mod == 3`).
+    pub const fn solo_registro(self) -> bool {
+        matches!(self, Forma::StI | Forma::StISt | Forma::StStI)
+    }
+
     /// Lleva ModRM?
     pub const fn modrm(self) -> bool {
         !matches!(self, Forma::Nada | Forma::Rel8 | Forma::Rel32 | Forma::Reg64 | Forma::Reg | Forma::MovImm | Forma::MovImm8 | Forma::Acc8Imm8 | Forma::AccImm | Forma::Imm | Forma::Imm8)
@@ -159,7 +182,7 @@ const fn v(mapa: Mapa, op: u8, pref: Pref, nombre: &'static str, forma: Forma) -
 
 use Ext::{Byte as B, Es as E, No as N};
 use Forma::*;
-use Mapa::{Dos as D, Tres38 as D38, Uno as U};
+use Mapa::{Dos as D, Tres38 as D38, Tres3A as D3A, Uno as U};
 use Pref::{Cualquiera as C, F2 as P2, F3 as P3, Ninguno as P0, P66 as P6};
 
 /// Las del grupo 1 (`80`, `81`, `83`), en el orden de su `/n`.
@@ -287,6 +310,8 @@ const SUELTAS: &[Fila] = &[
     f(D, 0xA2, C, N, "cpuid", Nada),
     f(D, 0xA3, C, N, "bt", MR),
     f(D, 0xAB, C, N, "bts", MR),
+    f(D, 0xAE, P0, E(0), "fxsave", Mem),
+    f(D, 0xAE, P0, E(1), "fxrstor", Mem),
     f(D, 0xAE, P0, E(2), "ldmxcsr", Mem),
     f(D, 0xAE, P0, E(3), "stmxcsr", Mem),
     f(D, 0xAE, P0, B(0xE8), "lfence", M),
@@ -402,6 +427,45 @@ const SUELTAS: &[Fila] = &[
     v(D, 0x58, P6, "vaddpd", V3),
     v(D, 0x59, P6, "vmulpd", V3),
     v(D, 0x5C, P6, "vsubpd", V3),
+    // -- Lo que LLVM emite en los programas de Rust (B4, 14-10) ---------
+    //    `bex-link --censo` sobre los diez `.bex` de Rust dijo que faltaba;
+    //    sin esto la lente se paraba en el 3..70 % de su codigo.
+    f(U, 0x8C, C, N, "mov", MSreg),
+    f(U, 0x8E, C, N, "mov", SregM),
+    f(U, 0xA8, C, N, "test", Acc8Imm8),
+    f(U, 0xA9, C, N, "test", AccImm),
+    f(D, 0xA4, C, N, "shld", MRI8),
+    f(D, 0xA5, C, N, "shld", MRCl),
+    f(D, 0xAC, C, N, "shrd", MRI8),
+    f(D, 0xAD, C, N, "shrd", MRCl),
+    f(D3A, 0x0A, P6, N, "roundss", XI8).pide("SSE4.1"),
+    f(D3A, 0x0B, P6, N, "roundsd", XI8).pide("SSE4.1"),
+    //    x87: el `crt_mates` de PROTON-X (`sin`, `atan`, `log`...) y la
+    //    palabra de control. De memoria, de registro y fijas.
+    f(U, 0xDD, C, E(0), "fld", M87q),
+    f(U, 0xDD, C, E(3), "fstp", M87q),
+    f(U, 0xDD, C, E(3), "fstp", StI),
+    f(U, 0xD9, C, E(5), "fldcw", M87w),
+    f(U, 0xD9, C, E(7), "fnstcw", M87w),
+    f(U, 0xD9, C, E(0), "fld", StI),
+    f(U, 0xD9, C, E(1), "fxch", StI),
+    f(U, 0xD8, C, E(1), "fmul", StStI),
+    f(U, 0xDC, C, E(5), "fsub", StISt),
+    f(U, 0xDE, C, E(0), "faddp", StISt),
+    f(U, 0xDE, C, E(4), "fsubrp", StISt),
+    f(U, 0xDF, C, B(0xE0), "fnstsw ax", M),
+    f(U, 0xD9, C, B(0xE8), "fld1", M),
+    f(U, 0xD9, C, B(0xED), "fldln2", M),
+    f(U, 0xD9, C, B(0xF0), "f2xm1", M),
+    f(U, 0xD9, C, B(0xF1), "fyl2x", M),
+    f(U, 0xD9, C, B(0xF2), "fptan", M),
+    f(U, 0xD9, C, B(0xF3), "fpatan", M),
+    f(U, 0xD9, C, B(0xF8), "fprem", M),
+    f(U, 0xD9, C, B(0xFA), "fsqrt", M),
+    f(U, 0xD9, C, B(0xFC), "frndint", M),
+    f(U, 0xD9, C, B(0xFD), "fscale", M),
+    f(U, 0xD9, C, B(0xFE), "fsin", M),
+    f(U, 0xD9, C, B(0xFF), "fcos", M),
     // -- Las de la tabla de intrinsecos que piden una extension (A6) -----
     f(D, 0x01, P0, B(0xF9), "rdtscp", M).pide("RDTSCP"),
     f(D, 0x01, P0, B(0xD0), "xgetbv", M).pide("OSXSAVE"),

@@ -174,8 +174,8 @@ fn what_it_does_not_know_it_says() {
     assert_eq!(lee(&[0x0F, 0x0D, 0x00]), Err(NoSe::FueraDeLaTabla { mapa: Mapa::Dos, op: 0x0D, ext: None, prefijos: 0, vex: false }));
     // `F6 /1` no existe en la tabla: dice la extension
     assert!(matches!(lee(&[0xF6, 0xC8, 1]), Err(NoSe::FueraDeLaTabla { op: 0xF6, ext: Some(1), .. })));
-    // un `fs:` (64): fuera de la tabla, no un prefijo que se salte
-    assert!(matches!(lee(&[0x64, 0x48, 0x8B, 0x04, 0x25, 0, 0, 0, 0]), Err(NoSe::FueraDeLaTabla { op: 0x64, .. })));
+    // un `fs:` (64) ya NO es fuera de la tabla (B4, 14-10): se lee y se dice
+    assert_eq!(una(&[0x64, 0x48, 0x8B, 0x04, 0x25, 0, 0, 0, 0]), "mov rax, qword fs:[0x0]");
     // cortada a medias
     assert_eq!(lee(&[0x48, 0x8B]), Err(NoSe::Corta));
     assert_eq!(lee(&[0xE8, 1, 2]), Err(NoSe::Corta));
@@ -403,4 +403,34 @@ fn walk_tzcnt_without_bmi1_degrades_it_does_not_fail() {
     // popcnt eax, eax / popcnt eax, eax / ret: dos NO, el primero dicho
     let (r, _) = recorre_con(&[0xF3, 0x0F, 0xB8, 0xC0, 0xF3, 0x0F, 0xB8, 0xC0, 0xC3], 0, &[], &[]);
     assert_eq!((r.no_declarada, r.no_declaradas), (Some((0, "POPCNT")), 2));
+}
+
+/// ** B4: lo que LLVM emite en los programas de Rust, como lo dice el manual
+/// (y como lo dice `objdump`: `bex-link --censo` lee TODO el `.text` de los
+/// diez `.bex` de Rust y cada instruccion empieza donde dice el).
+#[test]
+fn reads_what_llvm_writes() {
+    let casos: Vec<(Vec<u8>, &str)> = std::vec![
+        (std::vec![0x66, 0x66, 0x2E, 0x0F, 0x1F, 0x84, 0, 0, 0, 0, 0], "nop word [rax+rax*1]"),
+        (std::vec![0x65, 0x48, 0x8B, 0x04, 0x25, 0x30, 0, 0, 0], "mov rax, qword gs:[0x30]"),
+        (std::vec![0xA8, 0x01], "test al, 0x1"),
+        (std::vec![0x48, 0x0F, 0xA4, 0xC2, 0x01], "shld rdx, rax, 0x1"),
+        (std::vec![0x4C, 0x0F, 0xAD, 0xDA], "shrd rdx, r11, cl"),
+        (std::vec![0x66, 0x0F, 0x3A, 0x0B, 0xC0, 0x02], "roundsd xmm0, xmm0, 0x2"),
+        (std::vec![0xDD, 0x40, 0x08], "fld qword [rax+0x8]"),
+        (std::vec![0xDD, 0xD9], "fstp st(1)"),
+        (std::vec![0xD9, 0xC9], "fxch st(1)"),
+        (std::vec![0xDE, 0xC1], "faddp st(1), st"),
+        (std::vec![0xD9, 0xFE], "fsin"),
+        (std::vec![0xD9, 0xBC, 0x24, 0xA4, 0, 0, 0], "fnstcw word [rsp+0xa4]"),
+        (std::vec![0x8C, 0x49, 0x38], "mov word [rcx+0x38], cs"),
+    ];
+    for (b, want) in casos {
+        assert_eq!(una(&b), want, "{:02x?}", b);
+    }
+    // `roundsd` es SSE4.1, y sin el es `#UD`
+    let i = lee(&[0x66, 0x0F, 0x3A, 0x0B, 0xC0, 0x02]).unwrap();
+    assert_eq!((i.fila.pide, i.fila.sin_ella_falla()), ("SSE4.1", true));
+    // y `gs:` se dice en la direccion de la autopsia
+    assert_eq!(lee(&[0x65, 0x48, 0x8B, 0x04, 0x25, 0x30, 0, 0, 0]).unwrap().memoria().unwrap().segmento, SEG_GS);
 }
