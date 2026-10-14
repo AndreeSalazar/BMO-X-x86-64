@@ -29,6 +29,11 @@ pub const CABINA_MAGIC: u32 = 0x434142_31; // "CAB1" as u32
 pub const SHM_BUFFER_CAPACITY: u32 = 256;
 /// Magic value for a shared-memory buffer header.
 pub const SHM_MAGIC: u32 = 0x434142_32; // "CAB2" as u32
+// Atada a su fila del censo de las laminas (A3, 14-10). CAB2 esta DECLARADA
+// y ningun bloque la usa hoy: el censo lo dice (`en_uso: false`), y el dia
+// que se use, su forma (y su version en la palabra 1, si la lleva) se
+// escribe alli primero.
+const _: () = assert!(!bmo_lamina::censo::clase(SHM_MAGIC).en_uso);
 /// Current shared memory protocol version.
 pub const SHM_VERSION: u32 = 1;
 

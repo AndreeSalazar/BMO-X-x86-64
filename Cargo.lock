@@ -991,6 +991,9 @@ version = "2.0.0"
 [[package]]
 name = "cabina-core"
 version = "1.0.0"
+dependencies = [
+ "bmo-lamina",
+]
 
 [[package]]
 name = "equivalent"
