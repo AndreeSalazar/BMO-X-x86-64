@@ -43,8 +43,9 @@
 //!    d  = q1 + (q2 - q1) * (I2F(f) * 1/256)     la casa: x + (y - x) * f
 //! ```
 //!
-//! Con `f = 0` (PUNTO, o la ultima mip) `q2` es `q1` (la misma lectura) y la
-//! mezcla da `q1` bit a bit. `l <= hi <= mips - 1`, asi que `k` no pasa de
+//! Con `f = 0` (PUNTO, o la ultima mip) `q2` es `q1` (la misma lectura) y el
+//! resultado es `q1` TAL CUAL, con un SEL (F1, 14-10: la mezcla no lo daria
+//! con un infinito -- `inf + (inf - inf) * 0` es NaN --, y la casa no mezcla). `l <= hi <= mips - 1`, asi que `k` no pasa de
 //! la ultima, y con `l == hi` entero, `f = 0`.
 //!
 //! # Un `Sample(s, uv)` (S1, 14-10)
@@ -84,6 +85,9 @@ pub const FILAS: u32 = 2;
 /// `256.0f32`, `1.0 / 256.0`.
 const DOS_56: u32 = 0x4380_0000;
 const UN_256AVO: u32 = 0x3B80_0000;
+/// El predicado de "se mezclan dos mips" (P6: los de `flotantes.rs` ya no
+/// viven aqui).
+const MEZCLA: u8 = 6;
 /// `c` de cada filtro de mip.
 pub const C_PUNTO: f32 = 128.0;
 pub const C_LINEAL: f32 = 0.5;
@@ -104,7 +108,10 @@ pub fn filas(t: &Textura, m: &Muestreador) -> [[u32; 4]; 2] {
     let lineal = m.lod.mip == Filtro::Lineal;
     let c = if lineal { C_LINEAL } else { C_PUNTO };
     let (w, h, _) = t.medidas_de(t.mip);
-    [[m.lod.sesgo.to_bits(), lo.to_bits(), hi.to_bits(), c.to_bits()], [t.mip, if lineal { 255 } else { 0 }, (w as f32).to_bits(), (h as f32).to_bits()]]
+    // F1: encima de los 8 bits del peso, si es de float y su filtro.
+    let flotante = formato_de(t).is_some_and(|f| f.flotante());
+    let bits = if lineal { 255 } else { 0 } | if flotante { crate::flotantes::FLOTANTE } else { 0 } | if m.filtro == Filtro::Lineal { crate::flotantes::LINEAL } else { 0 };
+    [[m.lod.sesgo.to_bits(), lo.to_bits(), hi.to_bits(), c.to_bits()], [t.mip, bits, (w as f32).to_bits(), (h as f32).to_bits()]]
 }
 
 /// **Una textura del lote para la receta** (G5): con `elige` (el de
@@ -113,7 +120,7 @@ pub fn filas(t: &Textura, m: &Muestreador) -> [[u32; 4]; 2] {
 /// la COLA -- se pone con filas de 32 detras de lo que ya hay en `datos`.
 pub(crate) fn de_app(t: &Textura, muestreo: Muestreo, elige: bool, datos: &mut Vec<u8>, tn: u8) -> Result<DeApp, String> {
     let Some(formato) = formato_de(t) else {
-        return Err(format!("la textura t{tn} es de float, BC6 o BC4/BC5 con signo: la 3060 todavia lee RGBA/BGRA de 8 bits y BC1-5 y BC7"));
+        return Err(format!("la textura t{tn} es BC6, BC4/BC5 con signo u otro formato: la 3060 lee RGBA/BGRA de 8 bits, BC1-5, BC7 y (F1) las de float"));
     };
     let (texeles, ancho, alto, mips, vista) = if elige {
         let Some((cadena, mips)) = t.cadena() else {
@@ -176,6 +183,9 @@ pub(crate) fn formato_de(t: &Textura) -> Option<Formato> {
         Como::Bloques(Bc::Bc4) => Formato::Bc4,
         Como::Bloques(Bc::Bc5) => Formato::Bc5,
         Como::Bloques(Bc::Bc7) => Formato::Bc7,
+        // F1: las de float, como las guarda la casa.
+        Como::Flotantes4 => Formato::Rgba32f,
+        Como::Flotante => Formato::R32f,
         _ => return None,
     })
 }
@@ -209,7 +219,7 @@ impl Emisor<'_> {
 
     /// `x = base + min(k, TOPE)`: el asa de la mip `k`, en la forma que deja
     /// el juez R7 (`juez_asas`). `x` y el sujeto, de paso.
-    fn asa_de_mip(&mut self, base: u8, k: u8, paso: &mut Vec<u8>) -> Result<u8, NoEmite> {
+    pub(super) fn asa_de_mip(&mut self, base: u8, k: u8, paso: &mut Vec<u8>) -> Result<u8, NoEmite> {
         let kc = self.pedir()?;
         paso.push(kc);
         self.poner(c::imnmx(kc, k, Fuente::Imm(bmo_gpu_ga10x::mipmap::TOPE), false, false, 0), Clase::Alu, Some(kc), [Some(k), None, None]);
@@ -220,7 +230,7 @@ impl Emisor<'_> {
     }
 
     /// Un TEX o TLD `.LZ` 2D de los cuatro canales en `q` (alineado).
-    fn leer_lz(&mut self, q: u8, ra: u8, h: u8, carga: bool) {
+    pub(super) fn leer_lz(&mut self, q: u8, ra: u8, h: u8, carga: bool) {
         let w = if carga { c::tld(q, ra, h, DimTex::D2, NivelTex::Cero, 0) } else { c::tex_forma(q, ra, h, DimTex::D2, NivelTex::Cero, 0) };
         self.poner_meta(w, Meta { escribe_n: 4, lee_tarde: true, ..Meta::de(Clase::Tex, Some(q), [Some(ra), Some(ra + 1), Some(h)]) });
     }
@@ -250,28 +260,51 @@ impl Emisor<'_> {
             self.poner(c::fmnmx(l, c::r(l), c::r(m0 + 2), false, 0), Clase::Alu, Some(l), [Some(l), Some(m0 + 2), None]);
             self.poner(c::fmul(l, c::r(l), Fuente::Imm(DOS_56), false, 0), Clase::Fma, Some(l), [Some(l), None, None]);
             self.poner(c::fadd(l, c::r(l), c::r(m0 + 3), false, 0), Clase::Fma, Some(l), [Some(l), Some(m0 + 3), None]);
-            // F, y de el k (con la vista) y f (con el peso).
+            // F, y de el kr (desde la vista), k (con la vista) y f (con el peso).
             self.poner(c::f2i(l, l, false, 0), Clase::Mufu, Some(l), [Some(l), None, None]);
             self.mufus += 1;
-            let (k, f) = (self.pedir()?, self.pedir()?);
-            paso.extend([k, f]);
-            self.poner(c::shr(k, l, Fuente::Imm(8), false, 0), Clase::Alu, Some(k), [Some(l), None, None]);
+            let (kr, k, f) = (self.pedir()?, self.pedir()?, self.pedir()?);
+            paso.extend([kr, k, f]);
+            self.poner(c::shr(kr, l, Fuente::Imm(8), false, 0), Clase::Alu, Some(kr), [Some(l), None, None]);
             self.poner(c::lop3(f, l, Fuente::Imm(255), c::Y, 0), Clase::Alu, Some(f), [Some(l), None, None]);
             self.poner(c::lop3(f, f, c::r(m1 + 1), c::Y, 0), Clase::Alu, Some(f), [Some(f), Some(m1 + 1), None]);
-            self.poner(c::iadd3(k, k, c::r(m1), 0), Clase::Alu, Some(k), [Some(k), Some(m1), None]);
-            // La primera mip.
-            let h = self.asa_de_mip(base, k, paso)?;
-            self.leer_lz(q, ra, h, false);
+            self.poner(c::iadd3(k, kr, c::r(m1), 0), Clase::Alu, Some(k), [Some(kr), Some(m1), None]);
             // La segunda: k + min(f, 1) (con f = 0, la misma).
-            let uno = self.pedir()?;
-            paso.push(uno);
+            let (uno, kr2, k2) = (self.pedir()?, self.pedir()?, self.pedir()?);
+            paso.extend([uno, kr2, k2]);
             self.poner(c::imnmx(uno, f, Fuente::Imm(1), false, false, 0), Clase::Alu, Some(uno), [Some(f), None, None]);
-            self.poner(c::iadd3(uno, k, c::r(uno), 0), Clase::Alu, Some(uno), [Some(k), Some(uno), None]);
-            let h2 = self.asa_de_mip(base, uno, paso)?;
+            self.poner(c::iadd3(k2, k, c::r(uno), 0), Clase::Alu, Some(k2), [Some(k), Some(uno), None]);
+            self.poner(c::iadd3(kr2, kr, c::r(uno), 0), Clase::Alu, Some(kr2), [Some(kr), Some(uno), None]);
+            // `l` y `uno` ya no se leen: sueltos (el camino de float pide).
+            for x in [l, uno] {
+                paso.retain(|&y| y != x);
+                self.soltar(x);
+            }
             let q2 = self.bloque(4, false)?;
             paso.extend(q2..q2 + 4);
+            // ** F1 (14-10): una de FLOAT filtra en el sombreador, como la
+            // casa (`flotantes.rs`); una de 8 bits, con su TEX.
+            let a_flotante = self.si_flotante(m1, paso)?;
+            let mut v = Vec::new();
+            let h = self.asa_de_mip(base, k, &mut v)?;
+            self.leer_lz(q, ra, h, false);
+            let h2 = self.asa_de_mip(base, k2, &mut v)?;
             self.leer_lz(q2, ra, h2, false);
+            // Sus asas, sueltas ya: el camino de float no las ve.
+            for x in v {
+                self.soltar(x);
+            }
+            let al_final = self.saltar(bmo_sm86::codifica::PT);
+            let destino = self.codigo.len();
+            self.parchear(a_flotante, destino);
+            self.mip_flotante(q, ra, base, k, kr, m1)?;
+            self.mip_flotante(q2, ra, base, k2, kr2, m1)?;
+            let destino = self.codigo.len();
+            self.parchear(al_final, destino);
             // El peso, f / 256 (exacto), y la mezcla de la casa canal a canal.
+            // ** F1: con f = 0 la casa NO mezcla (una mip): la primera tal
+            // cual -- x + (y - x) * 0 no es x con un infinito (da NaN) --.
+            self.poner_meta(c::isetp(MEZCLA, bmo_sm86::codifica::Cmp::Ne, f, c::r(bmo_sm86::codifica::RZ), false, 0), Meta { escribe_p: Some(MEZCLA), ..Meta::de(Clase::Alu, None, [Some(f), None, None]) });
             self.poner(c::i2f(f, f, false, 0), Clase::Mufu, Some(f), [Some(f), None, None]);
             self.mufus += 1;
             self.poner(c::fmul(f, c::r(f), Fuente::Imm(UN_256AVO), false, 0), Clase::Fma, Some(f), [Some(f), None, None]);
@@ -279,7 +312,8 @@ impl Emisor<'_> {
                 let (x, y) = (q + j, q2 + j);
                 self.poner(c::fadd(y, c::r(y), c::neg(x), false, 0), Clase::Fma, Some(y), [Some(y), Some(x), None]);
                 self.poner(c::fmul(y, c::r(y), c::r(f), false, 0), Clase::Fma, Some(y), [Some(y), Some(f), None]);
-                self.poner(c::fadd(x, c::r(x), c::r(y), false, 0), Clase::Fma, Some(x), [Some(x), Some(y), None]);
+                self.poner(c::fadd(y, c::r(x), c::r(y), false, 0), Clase::Fma, Some(y), [Some(x), Some(y), None]);
+                self.poner_meta(c::sel(x, y, c::r(x), MEZCLA, false, 0), Meta { lee_p: Some((MEZCLA, false)), ..Meta::de(Clase::Alu, Some(x), [Some(y), Some(x), None]) });
             }
         }
         for j in 0..4u8 {
@@ -366,10 +400,10 @@ mod pruebas {
         // La vista desde la mip 1 ve 4: hasta 3. MaxLOD 2.5 manda.
         assert_eq!(f[0].map(f32::from_bits), [0.5, 0.25, 2.5, C_LINEAL]);
         // S1: y las medidas de la mip 1 (8x4), las del lambda.
-        assert_eq!(f[1], [1, 255, 8.0f32.to_bits(), 4.0f32.to_bits()]);
+        assert_eq!(f[1], [1, 255 | crate::flotantes::LINEAL, 8.0f32.to_bits(), 4.0f32.to_bits()]);
         let p = Muestreador { lod: Lod { mip: Filtro::Punto, maximo: f32::MAX, ..m.lod }, ..m };
         let f = filas(&tex(&t, 5, 3), &p);
         assert_eq!(f[0].map(f32::from_bits), [0.5, 0.25, 1.0, C_PUNTO]);
-        assert_eq!(f[1], [3, 0, 2.0f32.to_bits(), 1.0f32.to_bits()]);
+        assert_eq!(f[1], [3, crate::flotantes::LINEAL, 2.0f32.to_bits(), 1.0f32.to_bits()]);
     }
 }

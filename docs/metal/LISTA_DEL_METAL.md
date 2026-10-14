@@ -18,6 +18,15 @@ actualiza cuando cambia; lo que ya se midio se tacha abajo, con la fecha.
    computos por la CPU y la imagen.
 5. Si el canal muere: `gpu aviso`, despues `gpu revivir`, y el parte entero.
 
+## Que mirar en la corrida siguiente (14-10)
+
+- F1, las texturas de float: en el censo, la puerta "una textura de float"
+  ya no tiene que salir (si sale "con un muestreador de BORDE", es la que
+  queda). Cuantos lotes mas dibuja la 3060 y que la imagen se vea bien: un
+  filtro mal hecho se ve con escalones o manchas, no cuelga.
+- El tiempo del fotograma (`[registro] ... fotograma N ms`): con esos lotes
+  en la 3060 tiene que bajar mucho de 35 s.
+
 ## Lo medido
 
 - 13-10 23:24: E1 en el metal: `preparar` de 11.130 us a 79..234 us; el

@@ -272,7 +272,7 @@ fn el_pixel_de_hellotexture_es_un_tex() {
     use bmo_proton_x::textura::{Direccion, Filtro, Muestreador, Recursos, Textura};
     let p = programa(include_bytes!("../../proton-x/prueba/textura_ps.dxil"));
     let e = crate::pruebas_lecturas::emitido(&p);
-    assert_eq!(e.codigo.iter().filter(|w| w.0 & 0xFFF == 0x361).count(), 2, "un Sample, la mip y la siguiente");
+    assert_eq!(e.codigo.iter().filter(|w| w.0 & 0xFFF == 0x361).count(), 12, "un Sample: la mip y la siguiente, y diez del camino de float (F1)");
     assert!(e.precargas.iter().any(|q| matches!(q, Precarga::Base { textura: 0, muestreador: 0, .. })));
     assert!(!e.precargas.iter().any(|q| matches!(q, Precarga::Asa { .. })));
     assert_eq!(crate::pso::texturas_de(&e), std::vec![(0u8, 0u8)]);

@@ -94,6 +94,8 @@ mod lecturas;
 /// G5 (13-10): la mip de un `SampleLevel` o un `Load` de 2D, elegida por el
 /// sombreador con las cuentas de la casa (una mip por TIC).
 pub mod mipmap;
+/// F1: las texturas de float, filtradas en el sombreador como la casa.
+mod flotantes;
 /// E6 (02-10): lo que se mira antes de emitir un programa que salta.
 mod saltos;
 /// P3b4a: un PSO de la casa, listo y juzgado para la 3060.

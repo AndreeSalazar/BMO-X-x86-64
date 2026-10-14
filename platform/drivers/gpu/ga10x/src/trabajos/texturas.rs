@@ -106,14 +106,24 @@ pub enum Formato {
     Bc4,
     Bc5,
     Bc7,
+    /// ** F1 (14-10): las texturas de FLOAT como las guarda la casa: cuatro
+    /// floats por texel (`Como::Flotantes4`: RGBA16F, R11G11B10F, RGBA32F...
+    /// ya cuantizados) y uno (`Como::Flotante`: R32, una profundidad, que se
+    /// lee (r, 0, 0, 1)). `clb097tex.h`: COMPONENTS R32_G32_B32_A32 0x01 y
+    /// R32 0x0f, los canales FLOAT (7); NIL: R32_FLOAT es R001.
+    Rgba32f,
+    R32f,
 }
+
+/// `..._DATA_TYPE_NUM_FLOAT`.
+pub const FLOAT: u32 = 7;
 
 /// `..._SOURCE_IN_ZERO` y `..._IN_ONE_FLOAT`.
 pub const DE_CERO: u32 = 0;
 pub const DE_UNO: u32 = 7;
 
 impl Formato {
-    pub const TODOS: [Formato; 8] = [Formato::Rgba8, Formato::Bgra8, Formato::Bc1, Formato::Bc2, Formato::Bc3, Formato::Bc4, Formato::Bc5, Formato::Bc7];
+    pub const TODOS: [Formato; 10] = [Formato::Rgba8, Formato::Bgra8, Formato::Bc1, Formato::Bc2, Formato::Bc3, Formato::Bc4, Formato::Bc5, Formato::Bc7, Formato::Rgba32f, Formato::R32f];
 
     /// Como viaja en la receta (4 bits).
     pub const fn numero(self) -> u32 {
@@ -126,11 +136,13 @@ impl Formato {
             Formato::Bc4 => 5,
             Formato::Bc5 => 6,
             Formato::Bc7 => 7,
+            Formato::Rgba32f => 8,
+            Formato::R32f => 9,
         }
     }
 
     pub const fn de_numero(n: u32) -> Option<Formato> {
-        if n < 8 {
+        if n < 10 {
             Some(Formato::TODOS[n as usize])
         } else {
             None
@@ -140,15 +152,20 @@ impl Formato {
     /// Texeles por lado de su bloque (1, o 4 en un BC).
     pub const fn bloque(self) -> u32 {
         match self {
-            Formato::Rgba8 | Formato::Bgra8 => 1,
+            Formato::Rgba8 | Formato::Bgra8 | Formato::Rgba32f | Formato::R32f => 1,
             _ => 4,
         }
+    }
+
+    /// F1: de float (el sombreador filtra: `proton-x-sm86/src/flotantes.rs`).
+    pub const fn flotante(self) -> bool {
+        matches!(self, Formato::Rgba32f | Formato::R32f)
     }
 
     /// Bytes de un bloque (de un texel en 8 bits por canal).
     pub const fn bytes(self) -> u32 {
         match self {
-            Formato::Rgba8 | Formato::Bgra8 => 4,
+            Formato::Rgba8 | Formato::Bgra8 | Formato::R32f => 4,
             Formato::Bc1 | Formato::Bc4 => 8,
             _ => 16,
         }
@@ -166,8 +183,11 @@ impl Formato {
             Formato::Bc4 => (0x27, DE_R, DE_CERO, DE_CERO, DE_UNO),
             Formato::Bc5 => (0x28, DE_R, DE_G, DE_CERO, DE_UNO),
             Formato::Bc7 => (0x17, DE_R, DE_G, DE_B, DE_A),
+            Formato::Rgba32f => (0x01, DE_R, DE_G, DE_B, DE_A),
+            Formato::R32f => (0x0f, DE_R, DE_CERO, DE_CERO, DE_UNO),
         };
-        c | UNORM << 7 | UNORM << 10 | UNORM << 13 | UNORM << 16 | x << 19 | y << 22 | z << 25 | w << 28
+        let t = if self.flotante() { FLOAT } else { UNORM };
+        c | t << 7 | t << 10 | t << 13 | t << 16 | x << 19 | y << 22 | z << 25 | w << 28
     }
 }
 
@@ -606,10 +626,14 @@ mod pruebas {
         assert_eq!(fuentes(Formato::Bc4), (DE_R, 0, 0, 7));
         assert_eq!(fuentes(Formato::Bc5), (DE_R, DE_G, 0, 7));
         assert_eq!(fuentes(Formato::Bc7), (DE_R, DE_G, DE_B, DE_A));
+        // F1: los de float, de `clb097tex.h` y NIL (R32_FLOAT es R001).
+        assert_eq!([Formato::Rgba32f, Formato::R32f].map(comp), [0x01, 0x0f]);
+        assert_eq!(fuentes(Formato::R32f), (DE_R, 0, 0, 7));
+        assert_eq!([Formato::Rgba32f, Formato::R32f].map(|f| (f.bytes(), f.bloque())), [(16, 1), (4, 1)]);
         for f in Formato::TODOS {
             assert_eq!(Formato::de_numero(f.numero()), Some(f));
             for k in 0..4 {
-                assert_eq!(f.palabra0() >> (7 + 3 * k) & 7, UNORM);
+                assert_eq!(f.palabra0() >> (7 + 3 * k) & 7, if f.flotante() { FLOAT } else { UNORM });
             }
         }
         // Un BC1 de 64x64: filas de 16 bloques de 8 bytes (128 B), y sRGB.

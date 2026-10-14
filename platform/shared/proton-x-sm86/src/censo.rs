@@ -217,6 +217,9 @@ fn texturas_del_lote(l: &Lote) -> Vec<&'static str> {
             _ if crate::mipmap::formato_de(tx).is_some() && tx.mapeo & 0xFFF == Textura::MAPEO & 0xFFF && tx.clase == Clase::Plana => {
                 if muestrea && !matches!(l.recursos.muestreadores.get(s as usize), Some(Some(_))) {
                     "un muestreador sin atar"
+                } else if crate::mipmap::formato_de(tx).is_some_and(|f| f.flotante()) && matches!(l.recursos.muestreadores.get(s as usize), Some(Some(m)) if m.u == bmo_proton_x::textura::Direccion::Borde || m.v == bmo_proton_x::textura::Direccion::Borde) {
+                    // F1: las de float ya van; con BORDE, no.
+                    crate::puerta::FLOAT_CON_BORDE
                 } else if matches!(l.recursos.muestreadores.get(s as usize), Some(Some(m)) if m.lod.min.is_some_and(|f| f != m.filtro)) && tx.niveles_vista() > 1 {
                     // G5/S1: la mip la elige el sombreador con UN filtro.
                     "un muestreador con MIN y MAG distintos sobre una textura de varias mips"
@@ -225,7 +228,6 @@ fn texturas_del_lote(l: &Lote) -> Vec<&'static str> {
                 }
             }
             Como::Bloques(_) => "una textura BC6 (HDR) o BC4/BC5 con signo",
-            Como::Flotante | Como::Flotantes4 => "una textura de float (R32, RGBA16F...)",
             Como::Stencil8 => "el stencil visto como textura",
             _ if tx.mapeo & 0xFFF != Textura::MAPEO & 0xFFF => "una textura con otro mapeo de canales",
             _ if tx.clase != Clase::Plana => "una textura que no es 2D (array, 3D o cubo)",

@@ -23,7 +23,7 @@ use bmo_proton_x::textura::{Clase, Como, Direccion, Filtro, Lod, Muestreador, Re
 use crate::simula::{correr, LecturaTex, Maquina};
 use crate::{emitir_con, Abi, Emitido, NoEmite, Precarga};
 
-const TECHO: u32 = 64;
+const TECHO: u32 = 248;
 
 fn f(b: u32) -> f32 {
     f32::from_bits(b)
@@ -109,6 +109,8 @@ pub(super) fn tres_mil(rec: &Recursos, pares: &[(u8, u8)], l: &LecturaTex, enter
             una.cargar([l.c[0] as i32, l.c[1] as i32, 0], 0, [0; 3], enteros)
         } else {
             let m = rec.muestreadores[s as usize].expect("con muestreador");
+            // F1: una de float, su TSC en PUNTO (filtra el sombreador).
+            let m = if crate::mipmap::formato_de(tx).is_some_and(|x| x.flotante()) { Muestreador { filtro: Filtro::Punto, ..m } } else { m };
             una.muestrear_en(&m, [f(l.c[0]), f(l.c[1]), 0.0, 0.0], None, [0; 3]).map(f32::to_bits)
         };
     };
@@ -160,8 +162,10 @@ pub(super) fn igual(p: &Programa, e: &Emitido, rec: &Recursos, entradas: &[[f32;
     }
     precargar(&mut m, e, rec, entradas);
     correr(&e.codigo, &mut m).unwrap_or_else(|x| panic!("{x:?}"));
+    // Un NaN es un NaN: sus bits de carga no se prometen (como `vivo`).
     for k in 0..4 {
-        assert_eq!(m.r[k], casa[0][k].to_bits(), "canal {k} con {entradas:?}: la 3060 {:#x} y la casa {:#x}", m.r[k], casa[0][k].to_bits());
+        let (g, c) = (m.r[k], casa[0][k].to_bits());
+        assert!(g == c || (f32::from_bits(g).is_nan() && f32::from_bits(c).is_nan()), "canal {k} con {entradas:?}: la 3060 {g:#x} y la casa {c:#x}");
     }
 }
 
@@ -200,7 +204,7 @@ fn sample_level_en_2d() {
     let p = programa(Lectura::Nivel, 2);
     let e = emitido(&p);
     // G5: dos TEX .LZ (la mip y la siguiente), cada uno con su asa calculada.
-    assert_eq!(e.codigo.iter().filter(|w| w.0 & 0xFFF == 0x361).count(), 2, "dos TEX");
+    assert_eq!(e.codigo.iter().filter(|w| w.0 & 0xFFF == 0x361).count(), 12, "dos TEX, y diez del camino de float (F1)");
     assert!(e.codigo.iter().filter(|w| w.0 & 0xFFF == 0x361).all(|w| w.1 >> 23 & 7 == 1), "los dos .LZ");
     let t = texeles(16, 8, 1, 1, 5);
     // La vista entera, una desde la mip 1 (como la de Cyberpunk), y una con
@@ -320,7 +324,7 @@ fn dos_lecturas_una_textura() {
     assert_eq!(cuenta(&|q| matches!(q, Precarga::Mips { fila: 1, .. })), 1);
     assert_eq!(cuenta(&|q| matches!(q, Precarga::AsaPar { .. })), 0, "sin el par de E8g");
     assert_eq!(crate::pso::texturas_de(&e), vec![(0u8, 0u8)], "una textura");
-    assert_eq!(e.codigo.iter().filter(|w| w.0 & 0xFFF == 0x361).count(), 4);
+    assert_eq!(e.codigo.iter().filter(|w| w.0 & 0xFFF == 0x361).count(), 24, "cuatro, y veinte del camino de float (F1)");
     // Las filas, detras de las del cbuffer (aqui ninguna): la 0 y la 1.
     let filas: Vec<u16> = crate::pso::cargas_con_posicion(&e, None, 3).iter().filter_map(|c| if let bmo_gpu_ga10x::pegamento::Carga::Fila { fila, .. } = *c { Some(fila) } else { None }).collect();
     assert_eq!(filas.len(), 2);
@@ -363,7 +367,7 @@ fn niveles_de_dxc_en_la_3060() {
     assert_eq!([especies[por_registro(0)], especies[por_registro(1)], especies[por_registro(2)]], [Some(2), Some(4), Some(7)], "t0 2D, t1 3D, t2 array");
     let e = emitido(&p);
     // G5: el SampleLevel de la 2D son dos TEX (la mip y la siguiente).
-    assert_eq!((e.codigo.iter().filter(|w| w.0 & 0xFFF == 0x361).count(), e.codigo.iter().filter(|w| w.0 & 0xFFF == 0x367).count()), (4, 2), "cuatro TEX y dos TLD");
+    assert_eq!((e.codigo.iter().filter(|w| w.0 & 0xFFF == 0x361).count(), e.codigo.iter().filter(|w| w.0 & 0xFFF == 0x367).count()), (14, 2), "cuatro TEX (y diez del camino de float, F1) y dos TLD");
     let (t0, t1, t2) = (texeles(16, 8, 1, 1, 4), texeles(8, 8, 8, 1, 3), texeles(8, 8, 1, 4, 3));
     let mut tx = vec![None; 3];
     tx[por_registro(0)] = Some(textura(&t0, Clase::Plana, 16, 8, 1, 1, 4));
@@ -418,4 +422,43 @@ fn el_juez_en_vivo_sabe_cada_forma() {
         let n = crate::vivo::comprobar(&p, &e, "de pixel").unwrap_or_else(|x| panic!("{como:?} especie {especie}: {x}"));
         assert_eq!(n, 4 * 4, "cuatro tandas, cuatro salidas");
     }
+}
+
+/// Floats por texel de una de floats (`Como::Flotantes4`: cuatro; si no,
+/// uno), con NaN, infinitos, -0, subnormales y grandes entre los normales.
+pub(super) fn floats(ancho: u32, alto: u32, mips: u32, cuatro: bool) -> Vec<u32> {
+    let raros = [0x7FC0_0001u32, 0x7F80_0000, 0xFF80_0000, 0x8000_0000, 0x0000_0003, 0x7F7F_FFFF, 0x3F80_0001, 0xC0490FDB];
+    let n: u32 = (0..mips).map(|m| (ancho >> m).max(1) * (alto >> m).max(1)).sum::<u32>() * if cuatro { 4 } else { 1 };
+    (0..n).map(|k| if k % 7 == 3 { raros[(k / 7) as usize % raros.len()] } else { ((k as f32 * 0.37 - 20.0) * (1 + k % 5) as f32).to_bits() }).collect()
+}
+
+/// ** F1 (14-10): `SampleLevel` de una 2D de FLOAT (cuatro floats y uno),
+/// con sus mips, PUNTO y LINEAL, sin borde: el filtro de la casa en el
+/// sombreador, bit a bit.
+#[test]
+fn sample_level_de_float_como_la_casa() {
+    let p = programa(Lectura::Nivel, 2);
+    let e = emitido(&p);
+    let muestreadores: Vec<Muestreador> = muestreadores_2d().into_iter().filter(|m| m.u != Direccion::Borde && m.v != Direccion::Borde).collect();
+    assert!(muestreadores.len() >= 4);
+    let mut probados = 0;
+    for cuatro in [true, false] {
+        let t = floats(16, 8, 5, cuatro);
+        let como = if cuatro { Como::Flotantes4 } else { Como::Flotante };
+        let base = Textura { como, ..textura(&t, Clase::Plana, 16, 8, 1, 1, 5) };
+        for vista in [base, Textura { mip: 1, ..base }, Textura { niveles: 2, lod_min: 1.5, ..base }] {
+            let tx = [Some(vista)];
+            for m in &muestreadores {
+                let ms = [Some(*m)];
+                let rec = Recursos { texturas: &tx, muestreadores: &ms, buferes: &[], dinamicas: None };
+                for &(u, v) in UV.iter().chain(&[(0.03125f32, 0.0625f32), (0.5 + 1.0 / 64.0, 0.25), (-0.999, 3.0001), (f32::NAN, 0.5), (0.5, f32::NAN)]) {
+                    for &n in &NIVELES_2D {
+                        igual(&p, &e, &rec, &[[u, v, 0.0, 0.0], [n, 0.0, 0.0, 0.0]], false);
+                        probados += 1;
+                    }
+                }
+            }
+        }
+    }
+    assert!(probados > 1000, "{probados}");
 }

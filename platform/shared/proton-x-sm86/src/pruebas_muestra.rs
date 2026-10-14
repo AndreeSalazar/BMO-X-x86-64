@@ -64,19 +64,30 @@ fn sample_con_mips_como_la_casa() {
     let e = emitido(&p);
     // Ocho SHFL (cuatro gradientes), dos TEX .LZ, y sin MUFU en el lambda.
     assert_eq!(e.codigo.iter().filter(|w| w.0 & 0xFFF == 0xF89).count(), 8, "dos SHFL por gradiente");
-    assert_eq!(e.codigo.iter().filter(|w| w.0 & 0xFFF == 0x361).count(), 2, "la mip y la siguiente");
+    assert_eq!(e.codigo.iter().filter(|w| w.0 & 0xFFF == 0x361).count(), 12, "la mip y la siguiente, y diez del camino de float (F1)");
     assert!(e.precargas.iter().all(|q| !matches!(q, Precarga::Asa { .. })), "sin el asa de la vista");
     let t = texeles(16, 8, 1, 1, 5);
-    let vistas = [textura(&t, Clase::Plana, 16, 8, 1, 1, 5), Textura { mip: 1, ..textura(&t, Clase::Plana, 16, 8, 1, 1, 5) }, Textura { niveles: 2, lod_min: 1.5, ..textura(&t, Clase::Plana, 16, 8, 1, 1, 5) }];
+    // F1: y una de cuatro floats (filtrada en el sombreador).
+    let tf = crate::pruebas_lecturas::floats(16, 8, 5, true);
+    let flot = Textura { como: bmo_proton_x::textura::Como::Flotantes4, ..textura(&tf, Clase::Plana, 16, 8, 1, 1, 5) };
+    let vistas = [textura(&t, Clase::Plana, 16, 8, 1, 1, 5), Textura { mip: 1, ..textura(&t, Clase::Plana, 16, 8, 1, 1, 5) }, Textura { niveles: 2, lod_min: 1.5, ..textura(&t, Clase::Plana, 16, 8, 1, 1, 5) }, flot, Textura { mip: 1, ..flot }];
     let mut probados = 0;
     for vista in vistas {
         let tx = [Some(vista)];
         for m in muestreadores_2d() {
+            if vista.como != bmo_proton_x::textura::Como::Rgba8 && (m.u == bmo_proton_x::textura::Direccion::Borde || m.v == bmo_proton_x::textura::Direccion::Borde) {
+                continue;
+            }
             let ms = [Some(m)];
             let rec = Recursos { texturas: &tx, muestreadores: &ms, buferes: &[], dinamicas: None };
             let pares = crate::pso::texturas_de(&e);
             let leer = |l: &LecturaTex| tres_mil(&rec, &pares, l, false);
             for ((u, v), (xu, xv), (yu, yv)) in cuadros() {
+                // F1: una de float, exacta con |u * ancho| < 2^22 (ver
+                // `flotantes.rs`): un gradiente infinito lleva la u alli.
+                if vista.como != bmo_proton_x::textura::Como::Rgba8 && !(xu.is_finite() && xv.is_finite() && yu.is_finite() && yv.is_finite()) {
+                    continue;
+                }
                 let uv: [[f32; 4]; 4] = core::array::from_fn(|k| {
                     let (i, j) = ((k & 1) as f32, (k >> 1) as f32);
                     [u + i * xu + j * yu, v + i * xv + j * yv, 0.0, 0.0]
@@ -99,7 +110,7 @@ fn sample_con_mips_como_la_casa() {
                 for k in 0..4 {
                     for j in 0..4 {
                         let (g, c) = (hilos[k].r[j], salidas[k][0][j].to_bits());
-                        assert_eq!(g, c, "hilo {k} canal {j}, {uv:?}, {m:?}, la vista desde la mip {}: la 3060 {g:#x}, la casa {c:#x}", vista.mip);
+                        assert!(g == c || (f32::from_bits(g).is_nan() && f32::from_bits(c).is_nan()), "hilo {k} canal {j}, {uv:?}, {m:?}, la vista desde la mip {}: la 3060 {g:#x}, la casa {c:#x}", vista.mip);
                     }
                 }
                 probados += 1;
