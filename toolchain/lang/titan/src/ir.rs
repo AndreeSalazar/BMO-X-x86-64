@@ -329,7 +329,7 @@ pub enum Director {
     /// ** F3 (10-10): THE INPUT of the window, from its mailbox.
     /// `director.evento()`: the next event, and WHAT it is -- 0 none, 1 a key
     /// pressed, 2 a key released, 3 a letter, 4 the mouse, 5 the window
-    /// changed --. Its data, below, until the next one.
+    /// changed, 6 the WHEEL (15-10) --. Its data, below, until the next one.
     Evento,
     /// `director.codigo()`: the scancode or the letter (Latin-1) of the last
     /// event.
@@ -339,6 +339,10 @@ pub enum Director {
     RatonX,
     RatonY,
     Botones,
+    /// `director.rueda()` (15-10, PL9b of PLAN_ECCE): the notches of the last
+    /// wheel event, signed -- up is positive. Plain or with Alt: Ctrl + wheel
+    /// is the desktop's, like every Ctrl.
+    Rueda,
     /// `director.se_ve()`: whether the window is seen now (not minimized,
     /// covered or out of the panel): an app may skip drawing (R-APP8).
     SeVe,
@@ -396,7 +400,7 @@ pub enum Director {
 }
 
 impl Director {
-    pub const ALL: [Director; 35] = [
+    pub const ALL: [Director; 36] = [
         Director::Lamina,
         Director::Publica,
         Director::Espera,
@@ -418,6 +422,7 @@ impl Director {
         Director::RatonX,
         Director::RatonY,
         Director::Botones,
+        Director::Rueda,
         Director::SeVe,
         Director::Letra,
         Director::Texto,
@@ -458,6 +463,7 @@ impl Director {
             Director::RatonX => "director.raton_x",
             Director::RatonY => "director.raton_y",
             Director::Botones => "director.botones",
+            Director::Rueda => "director.rueda",
             Director::SeVe => "director.se_ve",
             Director::Letra => "director.letra",
             Director::Texto => "director.texto",
@@ -483,7 +489,7 @@ impl Director {
     /// How many values it takes.
     pub fn takes(self) -> usize {
         match self {
-            Director::Presenta | Director::Toma | Director::Cierra | Director::Medida | Director::Evento | Director::Codigo | Director::RatonX | Director::RatonY | Director::Botones | Director::SeVe | Director::Ms | Director::Contar | Director::SonidoToma | Director::SonidoSuelta => 0,
+            Director::Presenta | Director::Toma | Director::Cierra | Director::Medida | Director::Evento | Director::Codigo | Director::RatonX | Director::RatonY | Director::Botones | Director::Rueda | Director::SeVe | Director::Ms | Director::Contar | Director::SonidoToma | Director::SonidoSuelta => 0,
             Director::Lamina | Director::Espera | Director::Fichero | Director::Crea | Director::Escribe | Director::Byte | Director::Profundidad | Director::Contado | Director::SonidoBanco | Director::SonidoSuena | Director::SonidoCalla => 1,
             Director::Ventana | Director::Fila | Director::Guarda | Director::SonidoPita => 2,
             Director::Pixel => 3,

@@ -143,6 +143,10 @@ int bmo_sup_caracter(unsigned long long e) {
  * Los numeros los fija `bmo-golpe/src/configure.rs`, y su banco lee esta
  * cabecera: si cambias uno, el otro lado lo dice. */
 #define BMO_SUP_EV_CONFIGURE 0x2000000000000000ULL
+/* Bit 60: la RUEDA del raton; el byte bajo, las muescas con signo (arriba,
+   positivo); el bit 16, Alt pulsado. Ctrl + rueda es del escritorio. */
+#define BMO_SUP_EV_RUEDA 0x1000000000000000ULL
+#define BMO_SUP_RUEDA_ALT 0x10000ULL
 #define BMO_SUP_ESTADO_VENTANA 0
 #define BMO_SUP_ESTADO_MAXIMIZADA 1
 #define BMO_SUP_ESTADO_COMPLETA 2

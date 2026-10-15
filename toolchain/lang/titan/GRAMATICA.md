@@ -1055,9 +1055,13 @@ if director.toma() or director.fichero("datos/ejemplo.lam")
     let n = director.medida()                 # cuantos bytes se tienen
     let b = director.byte(0)                  # uno, o -1 fuera
 let que = director.evento()                   # 0 nada, 1 tecla pulsada, 2 soltada,
-                                              # 3 letra, 4 raton, 5 la ventana cambio
+                                              # 3 letra, 4 raton, 5 la ventana cambio,
+                                              # 6 la rueda (15-10)
 let tecla = director.codigo()                 # su scancode o su letra (Latin-1)
 let x = director.raton_x()                    # y raton_y(), botones()
+let muescas = director.rueda()                # con signo: arriba +, abajo -. Sola
+                                              # o con Alt; Ctrl + rueda es del
+                                              # escritorio (como todo Ctrl)
 if director.se_ve()                           # no minimizada ni tapada (R-APP8)
     x = director.texto(8, 8, "hola", 1, 16777215)   # la x de detras
     x = director.letra(x, 8, 241, 2, 16777215)      # un glifo (aqui la n con tilde)

@@ -6,7 +6,7 @@
 //! es lo que el antenista ofrece, `archivos` el disco, y `buzon_pendiente` lo
 //! que el DIRECTOR deja en el buzon cada vez que la app duerme.
 
-use bmo_abi::syscalls::surface::{SUP_CABECERA, SUP_EV_CARACTER, SUP_EV_CONFIGURE, SUP_EV_RATON};
+use bmo_abi::syscalls::surface::{SUP_CABECERA, SUP_EV_CARACTER, SUP_EV_CONFIGURE, SUP_EV_RATON, SUP_EV_RUEDA, SUP_RUEDA_ALT};
 use bmo_lower::emu::{cargar_bex, run, Machine};
 
 const SCREEN: &str = "[package]\nname = \"x\"\n\n[permissions]\nscreen = true\n";
@@ -85,6 +85,24 @@ fn the_mailbox_events() {
     let m = run(m, 2_000_000);
     assert!(m.exited, "{}", m.console);
     assert_eq!(m.console, "1 80 0 0 80\n2 72 0 0 72\n3 113 0 0 113\n4 1 30 12 1\n5 0 640 400 0\n0 0 0 0 0\ntrue\n");
+}
+
+/// ** LA RUEDA (15-10, PL9b de PLAN_ECCE): `evento()` dice 6 y `rueda()` las
+/// muescas CON SIGNO -- tres hacia abajo es -3 --, con Alt o sin el; otro
+/// evento despues no la deja colgando (`rueda()` es la del ULTIMO evento).
+#[test]
+fn the_wheel() {
+    let src = programa(&format!(
+        "{}    for k in range(3)\n        director.espera(16)\n        let que = director.evento()\n        print(que, \" \", director.rueda())\n",
+        VENTANA
+    ));
+    let mut m = maquina(&src);
+    for e in [SUP_EV_RUEDA | 0x100 | 0xFD, SUP_EV_RUEDA | SUP_RUEDA_ALT | 0x100 | 2, 0x100 | 0x200 | 80] {
+        m.buzon_pendiente.push_back(e);
+    }
+    let m = run(m, 2_000_000);
+    assert!(m.exited, "{}", m.console);
+    assert_eq!(m.console, "6 -3\n6 2\n1 80\n");
 }
 
 const BLANCO: u32 = 0xFFFF_FFFF;

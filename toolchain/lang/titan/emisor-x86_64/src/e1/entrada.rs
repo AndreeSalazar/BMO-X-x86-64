@@ -15,8 +15,10 @@
 //!    byte(i)         el byte i, o -1 fuera
 //!    evento()        el siguiente del buzon (cabeza, cola, 64 ranuras) y QUE
 //!                    es: 0 nada, 1 tecla pulsada, 2 soltada, 3 letra, 4 raton,
-//!                    5 la ventana cambio. Se guarda: codigo(), raton_x(),
-//!                    raton_y() y botones() lo leen
+//!                    5 la ventana cambio, 6 la RUEDA. Se guarda: codigo(),
+//!                    raton_x(), raton_y(), botones() y rueda() lo leen
+//!    rueda()         las muescas del ultimo evento de rueda, con signo
+//!                    (arriba, positivo): PL9b de PLAN_ECCE, 15-10
 //!    se_ve()         la VISTA del estado del buzon: se ve (R-APP8)
 //! ```
 //!
@@ -30,7 +32,7 @@
 use super::ventana::{BUZON, R12};
 use super::{Place, E1};
 use bmo_abi::syscalls::surface::{
-    ARCH_OP_CERRAR, ARCH_OP_LEER_EN, ARCH_OP_MEDIDA, CURRENT_TASK, NR_WAIT, PRESTADO_OP_BASE, PRESTADO_OP_BYTES, SUP_BUZON_CABECERA, SUP_BUZON_RANURA, SUP_EV_CARACTER, SUP_EV_CONFIGURE, SUP_EV_RATON, SUP_VISTA_SE_VE, TASK_OP_ARCHIVO_ABRIR, TASK_OP_RUTA, TASK_OP_TOMAR,
+    ARCH_OP_CERRAR, ARCH_OP_LEER_EN, ARCH_OP_MEDIDA, CURRENT_TASK, NR_WAIT, PRESTADO_OP_BASE, PRESTADO_OP_BYTES, SUP_BUZON_CABECERA, SUP_BUZON_RANURA, SUP_EV_CARACTER, SUP_EV_CONFIGURE, SUP_EV_RATON, SUP_EV_RUEDA, SUP_VISTA_SE_VE, TASK_OP_ARCHIVO_ABRIR, TASK_OP_RUTA, TASK_OP_TOMAR,
 };
 use bmo_lower::x86::{self, RAX, RCX, RDI, RDX, RSI, R10, R8};
 use bmo_titan_front::calc::Class;
@@ -64,7 +66,7 @@ const UN_FOTOGRAMA_NS: i64 = 16_000_000;
 const HAY: u32 = 0x100;
 const PULSADA: u32 = 0x200;
 
-const _: () = assert!(SUP_EV_RATON == 1 << 63 && SUP_EV_CARACTER == 1 << 62 && SUP_EV_CONFIGURE == 1 << 61 && SUP_VISTA_SE_VE == 0);
+const _: () = assert!(SUP_EV_RATON == 1 << 63 && SUP_EV_CARACTER == 1 << 62 && SUP_EV_CONFIGURE == 1 << 61 && SUP_EV_RUEDA == 1 << 60 && SUP_VISTA_SE_VE == 0);
 
 /// `and <dst>, <src>` (64 bits).
 fn and_r64_r64(code: &mut Vec<u8>, dst: u8, src: u8) {
@@ -99,6 +101,7 @@ impl E1<'_> {
             Director::RatonX => self.de_la_cola(COLA_EVENTO, 16, 0xFFFF, 0),
             Director::RatonY => self.de_la_cola(COLA_EVENTO, 32, 0xFFFF, 0),
             Director::Botones => self.de_la_cola(COLA_EVENTO, 0, 0xFF, 0),
+            Director::Rueda => self.rueda(),
             Director::SeVe => self.se_ve(),
             _ => Err(format!("linea {}: `{}` no es de la entrada (fallo del compilador)", at.0, what.name())),
         }
@@ -388,7 +391,7 @@ impl E1<'_> {
         x86::and_r64_imm32(&mut self.code, RAX, HAY);
         no.push(self.jcc(0x84));
         let mut fin = Vec::new();
-        for (bit, que) in [(63u8, 4i64), (62, 3), (61, 5)] {
+        for (bit, que) in [(63u8, 4i64), (62, 3), (61, 5), (60, 6)] {
             x86::mov_r64_r64(&mut self.code, RAX, RDX);
             x86::shl_r64_imm8(&mut self.code, RAX, 63 - bit);
             x86::shr_r64_imm8(&mut self.code, RAX, 63);
@@ -404,6 +407,23 @@ impl E1<'_> {
         fin.push(self.jcc(0x84));
         self.store_imm(out, 1);
         for j in no.into_iter().chain(fin) {
+            self.here(j);
+        }
+        Ok((out, Class::Int))
+    }
+
+    /// `director.rueda()`: el byte bajo del ultimo evento, CON SIGNO (las
+    /// muescas: arriba, positivo). Sin ventana, 0.
+    fn rueda(&mut self) -> Result<(Place, Class), String> {
+        let out = self.temp(8);
+        self.store_imm(out, 0);
+        let mut no = Vec::new();
+        self.con_ventana(&mut no);
+        self.cola();
+        x86::mov_r64_at_reg_disp32(&mut self.code, RAX, RSI, COLA_EVENTO);
+        x86::movsx_r64_r8(&mut self.code, RAX, RAX);
+        self.store(out, RAX);
+        for j in no {
             self.here(j);
         }
         Ok((out, Class::Int))

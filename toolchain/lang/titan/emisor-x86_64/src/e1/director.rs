@@ -112,7 +112,7 @@ impl E1<'_> {
             Director::SonidoCalla => self.sonido_calla(args).map(|_| None),
             Director::SonidoPita => self.sonido_pita(args).map(|_| None),
             Director::SonidoSuelta => self.sonido_suelta().map(|_| None),
-            Director::Toma | Director::Fichero | Director::Medida | Director::Byte | Director::Evento | Director::Codigo | Director::RatonX | Director::RatonY | Director::Botones | Director::SeVe => self.entrada(what, args, at).map(Some),
+            Director::Toma | Director::Fichero | Director::Medida | Director::Byte | Director::Evento | Director::Codigo | Director::RatonX | Director::RatonY | Director::Botones | Director::Rueda | Director::SeVe => self.entrada(what, args, at).map(Some),
         }
     }
 
