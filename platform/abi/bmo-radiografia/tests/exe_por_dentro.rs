@@ -141,3 +141,44 @@ fn todo_el_codigo_de_windows_tiene_su_frase() {
     assert!(faltan.is_empty(), "sin frase en castellano: {faltan:?}");
 }
 
+/// ** LX2: si a la casa le faltara una funcion que el BMOX-12 SI llama, se
+/// dice DESDE DONDE la llama y que hacia justo antes -- igual leyendo el
+/// fichero que la imagen ya colocada por PROTON-X.
+#[test]
+fn lo_que_falta_se_dice_con_el_binario_al_lado() {
+    let d = std::fs::read(Path::new(env!("CARGO_MANIFEST_DIR")).join("../../shared/proton-x/prueba/bmox12.exe")).unwrap();
+    let cuenta = |p: &pe::Pe, datos: &[u8], base: u64, quien: &str| -> (usize, String) {
+        let c = *p.codigo().unwrap();
+        let mut visto = vec![0u8; c.tam_en_imagen() as usize / 8 + 1];
+        let mut pila = vec![0u32; 1 << 16];
+        p.lente(datos, &mut visto, &mut pila, &mut pe::Extensiones::default()).unwrap();
+        let mut ranura = None;
+        p.importaciones(datos, |i| {
+            if i.nombre.is_some_and(|n| n == quien.as_bytes()) {
+                ranura = Some(i.ranura);
+            }
+        })
+        .unwrap();
+        let mut t = String::new();
+        let n = p.cuenta_falta(datos, &visto, base, ranura.expect("la importa"), quien, 2, &mut t);
+        (n, t)
+    };
+    let fichero = pe::leer(&d).unwrap();
+    let (n, texto) = cuenta(&fichero, &d, fichero.base, "D3D12CreateDevice");
+    println!("{texto}");
+    assert!(n >= 1, "nadie llama a D3D12CreateDevice:\n{texto}");
+    assert!(texto.contains("AQUI llama a D3D12CreateDevice, que la casa NO tiene"), "{texto}");
+    assert!(texto.contains("dentro de la funcion del juego que empieza en"), "{texto}");
+    // Antes de la llamada hay instrucciones dichas en castellano (los
+    // argumentos que prepara: rcx, rdx, r8, r9).
+    let antes: Vec<&str> = texto.lines().filter(|l| l.starts_with("        0x")).collect();
+    assert!(antes.len() >= 2, "sin instrucciones de antes:\n{texto}");
+    // La imagen colocada por PROTON-X dice LO MISMO (con su base).
+    let suyo = bmo_proton_x::pe::leer(&d).unwrap();
+    let img = bmo_proton_x::cargar::colocar(&suyo, &d, suyo.base).unwrap();
+    let colocada = pe::leer_colocada(&img).expect("la imagen colocada se lee");
+    let (n2, texto2) = cuenta(&colocada, &img, suyo.base, "D3D12CreateDevice");
+    assert_eq!(n, n2);
+    assert_eq!(texto, texto2);
+}
+

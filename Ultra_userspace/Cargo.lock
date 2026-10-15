@@ -78,6 +78,7 @@ dependencies = [
  "bmo-proton-x",
  "bmo-proton-x-casa",
  "bmo-proton-x-sm86",
+ "bmo-radiografia",
  "bmo-rtc",
  "bmo-userland",
 ]

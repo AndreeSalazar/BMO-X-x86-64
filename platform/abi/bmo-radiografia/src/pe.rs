@@ -27,6 +27,7 @@
 //! dos leen distinto, uno de los dos miente, y lo dice la prueba.
 
 use core::cell::RefCell;
+use core::fmt::Write;
 
 use bmo_lente_x86::recorre::Recorrido;
 
@@ -124,6 +125,9 @@ pub struct Pe {
     pub retrasadas: Dir,
     pub tls: Dir,
     pub es_dll: bool,
+    /// Leido de la IMAGEN ya colocada (las RVA son offsets), no del fichero:
+    /// lo que tiene PROTON-X despues de cargar (LX2).
+    pub colocada: bool,
 }
 
 /// Una funcion que el `.exe` pide.
@@ -168,6 +172,17 @@ pub fn es_pe(bytes: &[u8]) -> bool {
 
 /// **Lee la forma de un `.exe`**, con el veredicto de PROTON-X primero.
 pub fn leer(d: &[u8]) -> Result<Pe, NoPe> {
+    leer_como(d, false)
+}
+
+/// **Lo mismo sobre la IMAGEN ya colocada** (la de PROTON-X tras cargar:
+/// cada seccion en su RVA). Las secciones no se comprueban contra el
+/// fichero, que ya no esta.
+pub fn leer_colocada(img: &[u8]) -> Result<Pe, NoPe> {
+    leer_como(img, true)
+}
+
+fn leer_como(d: &[u8], colocada: bool) -> Result<Pe, NoPe> {
     if !es_pe(d) {
         return Err(NoPe::NoEsPe);
     }
@@ -214,6 +229,7 @@ pub fn leer(d: &[u8]) -> Result<Pe, NoPe> {
         tls: dir(9)?,
         retrasadas: dir(13)?,
         es_dll: coff & 0x2000 != 0,
+        colocada,
     };
     for k in 0..nsec {
         let s = opc + tam_opcional + 40 * k;
@@ -234,7 +250,7 @@ pub fn leer(d: &[u8]) -> Result<Pe, NoPe> {
         if sec.rva as u64 + sec.tam_en_imagen() as u64 > tam_imagen as u64 {
             return Err(NoPe::Seccion("una seccion no cabe en la imagen"));
         }
-        if sec.desde as u64 + sec.tam_fichero.min(sec.tam_en_imagen()) as u64 > d.len() as u64 {
+        if !colocada && sec.desde as u64 + sec.tam_fichero.min(sec.tam_en_imagen()) as u64 > d.len() as u64 {
             return Err(NoPe::Seccion("los datos de una seccion pasan del final del fichero"));
         }
         if pe.cuantas < SECCIONES_MAX {
@@ -258,6 +274,9 @@ impl Pe {
     /// **De una RVA a su byte en el fichero** (`None` si cae en lo que la
     /// imagen rellena con ceros, o fuera de todo).
     pub fn en_fichero(&self, rva: u32) -> Option<usize> {
+        if self.colocada {
+            return (rva < self.tam_imagen).then_some(rva as usize);
+        }
         if rva < self.tam_cabeceras {
             return Some(rva as usize);
         }
@@ -328,6 +347,16 @@ impl Pe {
         hallada
     }
 
+    /// **Los bytes de una seccion**: los del fichero, o en la imagen colocada
+    /// los de su RVA.
+    pub fn bytes_de<'a>(&self, s: &SeccionPe, d: &'a [u8]) -> &'a [u8] {
+        if !self.colocada {
+            return s.crudos(d);
+        }
+        let ini = s.rva as usize;
+        d.get(ini..ini.saturating_add(s.tam_en_imagen() as usize).min(d.len())).unwrap_or(&[])
+    }
+
     /// La seccion de CODIGO: la que ejecuta y lleva la entrada.
     pub fn codigo(&self) -> Option<&SeccionPe> {
         self.seccion_de(self.entrada).filter(|s| s.ejecuta())
@@ -339,7 +368,7 @@ impl Pe {
     /// como en [`crate::radiografiar`].
     pub fn lente(&self, d: &[u8], visto: &mut [u8], pila: &mut [u32], usadas: &mut Extensiones) -> Option<Recorrido> {
         let c = *self.codigo()?;
-        let codigo = c.crudos(d);
+        let codigo = self.bytes_de(&c, d);
         if codigo.is_empty() || visto.len() < codigo.len().div_ceil(8) {
             return None;
         }
@@ -370,6 +399,22 @@ impl Pe {
             visto,
             pila,
         );
+        // ** Lo que el recorrido no alcanzo (funciones a las que solo se
+        // llega por punteros que el `.exe` no apunta), se lee DE CORRIDO
+        // funcion a funcion de `.pdata`: MSVC no mete datos dentro de una
+        // funcion, asi que su rango es codigo de principio a fin. Se marcan
+        // sus inicios en `visto` (para LX2: quien llama a que) sin tocar las
+        // cuentas del recorrido.
+        for e in pdata.chunks_exact(12) {
+            let (ini, fin) = (u32::from_le_bytes([e[0], e[1], e[2], e[3]]), u32::from_le_bytes([e[4], e[5], e[6], e[7]]));
+            let (Some(a), Some(b)) = (ini.checked_sub(c.rva), fin.checked_sub(c.rva)) else { continue };
+            let (mut o, b) = (a as usize, (b as usize).min(codigo.len()));
+            while o < b {
+                let Ok(i) = bmo_lente_x86::lee(&codigo[o..(o + bmo_lente_x86::LARGO_MAX).min(codigo.len())]) else { break };
+                visto[o / 8] |= 1 << (o % 8);
+                o += i.largo;
+            }
+        }
         Some(r)
     }
 }
@@ -404,3 +449,154 @@ impl Extensiones {
         self.n == 0
     }
 }
+
+// == LX2: A QUIEN le falta, y que hacia el juego justo antes ==
+
+/// Cuantas instrucciones de antes se cuentan de cada sitio.
+pub const ANTES_MAX: usize = 6;
+
+impl Pe {
+    /// **La funcion (de `.pdata`) donde cae `rva`**: su principio.
+    pub fn funcion_de(&self, d: &[u8], rva: u32) -> Option<u32> {
+        let o = self.en_fichero(self.excepciones.rva).filter(|_| self.excepciones.rva != 0)?;
+        let pdata = d.get(o..o.saturating_add(self.excepciones.tam as usize).min(d.len()))?;
+        pdata.chunks_exact(12).find_map(|e| {
+            let (ini, fin) = (u32::from_le_bytes([e[0], e[1], e[2], e[3]]), u32::from_le_bytes([e[4], e[5], e[6], e[7]]));
+            (ini <= rva && rva < fin).then_some(ini)
+        })
+    }
+
+    /// El destino de un `call`/`jmp [rip+x]` en `rva`, si lo es.
+    fn destino_iat(i: &bmo_lente_x86::Instr, rva: u32) -> Option<u32> {
+        if i.fila.nombre != "call" && i.fila.nombre != "jmp" {
+            return None;
+        }
+        let m = i.memoria().filter(|m| m.rip_relativa)?;
+        Some((rva as u64 + i.largo as u64).wrapping_add(m.disp as u64) as u32)
+    }
+
+    /// **Cada sitio del codigo que llama por la ranura `ranura` de la IAT**,
+    /// con el mapa `visto` de [`Pe::lente`] (un bit por instruccion leida).
+    pub fn llamadas_a(&self, d: &[u8], visto: &[u8], ranura: u32, mut f: impl FnMut(u32)) -> usize {
+        let Some(c) = self.codigo().copied() else { return 0 };
+        let codigo = self.bytes_de(&c, d);
+        let mut n = 0;
+        for o in 0..codigo.len().min(visto.len() * 8) {
+            if visto[o / 8] >> (o % 8) & 1 == 0 {
+                continue;
+            }
+            let Ok(i) = bmo_lente_x86::lee(&codigo[o..(o + bmo_lente_x86::LARGO_MAX).min(codigo.len())]) else { continue };
+            if Self::destino_iat(&i, c.rva + o as u32) == Some(ranura) {
+                f(c.rva + o as u32);
+                n += 1;
+            }
+        }
+        n
+    }
+
+    /// **Las instrucciones de JUSTO ANTES de `sitio`** (RVA), de la mas
+    /// lejana a la mas cercana, en `out`: las que la lente leyo seguidas y
+    /// que caen ENTERAS hasta el sitio; se para en el principio de su funcion
+    /// o detras de un `ret`/`jmp` (eso ya era otro camino). Devuelve cuantas.
+    pub fn antes(&self, d: &[u8], visto: &[u8], sitio: u32, out: &mut [u32; ANTES_MAX]) -> usize {
+        let Some(c) = self.codigo().copied() else { return 0 };
+        let codigo = self.bytes_de(&c, d);
+        let inicio = self.funcion_de(d, sitio).unwrap_or(c.rva).max(c.rva);
+        let mut hasta = sitio;
+        let mut n = 0;
+        while n < ANTES_MAX && hasta > inicio {
+            // El inicio de instruccion mas cercano por detras que acaba justo en `hasta`.
+            let mut hallada = None;
+            for largo in 1..=bmo_lente_x86::LARGO_MAX as u32 {
+                let Some(o) = hasta.checked_sub(largo).filter(|&o| o >= inicio).map(|o| o - c.rva) else { break };
+                let o = o as usize;
+                if o / 8 < visto.len() && visto[o / 8] >> (o % 8) & 1 != 0 {
+                    if let Ok(i) = bmo_lente_x86::lee(&codigo[o..(o + bmo_lente_x86::LARGO_MAX).min(codigo.len())]) {
+                        if i.largo as u32 == largo {
+                            hallada = Some((c.rva + o as u32, i));
+                        }
+                    }
+                    break;
+                }
+            }
+            let Some((rva, i)) = hallada else { break };
+            if matches!(i.fila.nombre, "ret" | "jmp" | "int3" | "ud2") {
+                break;
+            }
+            out[n] = rva;
+            n += 1;
+            hasta = rva;
+        }
+        out[..n].reverse();
+        n
+    }
+
+    /// **Lo que la casa no tiene, dicho con el binario al lado** (LX2): de la
+    /// funcion de Windows de la ranura `ranura` (que se llama `quien`), cada
+    /// sitio que la llama (hasta `max_sitios`), la funcion del juego donde
+    /// esta y las instrucciones de justo antes, en castellano. `base`, la
+    /// direccion donde quedo el modulo (la de los informes de fallo).
+    pub fn cuenta_falta<W: Write>(&self, d: &[u8], visto: &[u8], base: u64, ranura: u32, quien: &str, max_sitios: usize, w: &mut W) -> usize {
+        let Some(c) = self.codigo().copied() else { return 0 };
+        let codigo = self.bytes_de(&c, d);
+        let mut sitios = [0u32; 8];
+        let mut cuantos = 0usize;
+        let total = self.llamadas_a(d, visto, ranura, |s| {
+            if cuantos < sitios.len() {
+                sitios[cuantos] = s;
+                cuantos += 1;
+            }
+        });
+        if total == 0 {
+            let _ = writeln!(w, "    ningun sitio del codigo leido la llama directa (puede ir por GetProcAddress o por un puntero)");
+            return 0;
+        }
+        let _ = writeln!(w, "    la llaman {total} sitio(s) del codigo{}:", if total > max_sitios { " (los primeros)" } else { "" });
+        let linea = |w: &mut W, rva: u32, marca: &str| {
+            let o = (rva - c.rva) as usize;
+            let Ok(i) = bmo_lente_x86::lee(&codigo[o..(o + bmo_lente_x86::LARGO_MAX).min(codigo.len())]) else { return };
+            let en = base + rva as u64;
+            let texto = i.texto(en);
+            let _ = write!(w, "      {marca} {en:#x}  {:<34}", texto.as_str());
+            match Self::destino_iat(&i, rva).and_then(|r| self.importada_en(d, r)) {
+                Some(f) if f.ranura == ranura => {
+                    let _ = writeln!(w, "AQUI llama a {quien}, que la casa NO tiene");
+                }
+                Some(f) => {
+                    let _ = w.write_str(if i.fila.nombre == "call" { "llama a " } else { "salta a " });
+                    let _ = w.write_str(core::str::from_utf8(f.dll).unwrap_or("?"));
+                    let _ = w.write_str("!");
+                    match f.nombre {
+                        Some(n) => {
+                            let _ = writeln!(w, "{}", core::str::from_utf8(n).unwrap_or("?"));
+                        }
+                        None => {
+                            let _ = writeln!(w, "#{}", f.ordinal);
+                        }
+                    }
+                }
+                None => {
+                    let _ = writeln!(w, "{}", bmo_lente_x86::castellano::explica(&i, en).as_str());
+                }
+            }
+        };
+        for &s in &sitios[..cuantos.min(max_sitios)] {
+            match self.funcion_de(d, s) {
+                Some(f) => {
+                    let _ = writeln!(w, "    en {:#x}, dentro de la funcion del juego que empieza en {:#x}; justo antes:", base + s as u64, base + f as u64);
+                }
+                None => {
+                    let _ = writeln!(w, "    en {:#x}; justo antes:", base + s as u64);
+                }
+            }
+            let mut previas = [0u32; ANTES_MAX];
+            let n = self.antes(d, visto, s, &mut previas);
+            for &p in &previas[..n] {
+                linea(w, p, " ");
+            }
+            linea(w, s, ">");
+        }
+        total
+    }
+}
+
