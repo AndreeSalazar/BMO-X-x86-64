@@ -177,12 +177,16 @@ guardadas como ESTRATOS (como la `.obra` de
       sale) unido a la siguiente; un clic en un nodo vuelve a su hoja. Tab y
       Enter como Final Draft (Tab cambia el elemento; tras un personaje, su
       dialogo). Lo que pide abajo, dicho:
-      - **Ctrl hoy es del escritorio** (`keys/app.rs`): a la app no le llega.
-        O el escritorio deja pasar Ctrl + RUEDA a la app enfocada (solo la
-        rueda: Ctrl + tecla sigue siendo suyo), o la mesa usa Alt + rueda,
-        como el deshacer usa Alt + Z. Lo decide el propietario.
-      - La RUEDA del raton tiene que llegar a una app de TITAN++ (hoy llegan
-        teclas y el puntero).
+      - **Ctrl es del escritorio** (`keys/app.rs`): CONTESTADA por el
+        propietario el 15-10, la mesa usa **Alt + rueda** (como el deshacer
+        usa Alt + Z). Es la regla que la casa ya tiene ("de quien es una
+        tecla: un orden, nunca una heuristica"): Ctrl, las F y Alt+Tab /
+        Alt+F4 / Alt+Enter son del escritorio; lo demas, de la ventana.
+      - [x] **La RUEDA llega a una app** (15-10): `SUP_EV_RUEDA` (bit 60;
+        las muescas con signo en el byte bajo, Alt en el bit 16), a la app
+        que esta DEBAJO del puntero, como un clic; Ctrl + rueda no llega. En
+        TITAN++, `director.evento()` dice 6 y `director.rueda()` da las
+        muescas (prueba `the_wheel`). En C, `BMO_SUP_EV_RUEDA`.
       - Pintar texto ESCALADO: hoy la letra de TITAN++ es de una medida; de
         lejos basta con rayas grises (lo que hace la maqueta por debajo de
         ~45 %), de cerca hace falta la letra a varias medidas (VERRANO).

@@ -7,8 +7,8 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   863 casillas ABIERTAS en 79 planes
-   650 hechas
+   862 casillas ABIERTAS en 79 planes
+   652 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -144,7 +144,7 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] S3 -- EL MEZCLADOR: N fuentes, una salida
 - ... y 14 mas
 
-## [`PLAN_ECCE.md`](PLAN_ECCE.md) -- 16 abiertas, 1 hechas
+## [`PLAN_ECCE.md`](PLAN_ECCE.md) -- 16 abiertas, 2 hechas
 
 *PLAN ECCE -- escribir en BMO-X: guiones al nivel de Final Draft, y todo lo demas*
 
@@ -297,15 +297,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] E3 las variables que las maquetas definen POR CAJA (--c en un
 - ... y 7 mas
 
-## [`PLAN_PROTON_X.md`](PLAN_PROTON_X.md) -- 10 abiertas, 10 hechas
-
-*PLAN PROTON-X -- un .exe de Windows en BMO-X, SOLO x86-64, y medido*
-
-- [ ] P3 -- el cubo D3D12. Partido en tres el 27-09, porque el .exe
-- [ ] P3b -- el cubo con sus sombreadores. Root signature, PSO,
-- [ ] P3c -- el BMOX-12 de EPICX-FRAMEWORK, sin tocar. [VISTO EN EL
-- ... y 7 mas
-
 ## [`PLAN_AYNI.md`](PLAN_AYNI.md) -- 9 abiertas, 2 hechas
 
 *PLAN AYNI -- que la GPU gaste MENOS, con un cerebro chico en la CPU*
@@ -313,6 +304,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] AY1 -- A0, el plazo. Un fotograma por VBlank, empezado tarde.
 - [ ] AY3 -- el mapa en la 3060. La imagen de tasas y su tabla por los
 - [ ] AY4 -- el juez sabe de tasas. El juez de la CPU dibuja con el mismo
+- ... y 6 mas
+
+## [`PLAN_PROTON_X.md`](PLAN_PROTON_X.md) -- 9 abiertas, 11 hechas
+
+*PLAN PROTON-X -- un .exe de Windows en BMO-X, SOLO x86-64, y medido*
+
+- [ ] P3 -- el cubo D3D12. Partido en tres el 27-09, porque el .exe
+- [ ] P3b -- el cubo con sus sombreadores. Root signature, PSO,
+- [ ] P3c -- el BMOX-12 de EPICX-FRAMEWORK, sin tocar. [VISTO EN EL
 - ... y 6 mas
 
 ## [`PLAN_VATIOS.md`](PLAN_VATIOS.md) -- 9 abiertas, 4 hechas

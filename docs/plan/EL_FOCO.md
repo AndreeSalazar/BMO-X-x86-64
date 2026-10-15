@@ -1186,6 +1186,12 @@ pieza entera en la 0b, y su fila de la tabla de estado pasa a `VISTO dd-mm`.
                                        dentro"): PROTON-X lo correria,   Windows sin su nombre
                                        lo que pide DLL a DLL, la lente
                                        y "llama a kernel32.dll!..."
+   LX2    lo que FALTA con el         lanzar un .exe al que la casa le  sin el bloque "DESDE DONDE  (sin probar)
+          binario al lado              falte algo (el censo dice cual):  las pide", o un sitio sin
+          (PLAN_PROTON_X, 4d)          debajo de "no arranca: faltan",   las instrucciones de antes
+                                       por cada una, el sitio, la
+                                       funcion del juego y lo de antes
+                                       en castellano
    IC     la cara ELEGANTE de ECCE     el icono de ECCE en el escritorio sale el cuadro con la E,  (sin probar)
           (32 px, borde suave, de      a 32 con el borde suave (la hoja  o con bordes en escalera,
           su `icono.svg`)              y la pluma de oro), sobre la foto o un halo oscuro alrededor

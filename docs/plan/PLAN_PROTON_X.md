@@ -2135,11 +2135,26 @@ castellano (`castellano::explica`).
       instrucciones con NOMBRE cuando llaman a Windows ("llama a
       kernel32.dll!GetStdHandle"). Falta: verlo en el Ryzen (hoja 6b, fila
       LX1) y, con LX2, decir cuales de esas funciones aun no da PROTON-X.
-- [ ] **LX2 -- el registro de PROTON-X con el binario al lado.** Cuando
+- [x] **LX2 -- el registro de PROTON-X con el binario al lado.** Cuando
       PROTON-X apunta "esta funcion no la tengo" o un lote raro, la linea
       lleva ademas las instrucciones del JUEGO alrededor del `call` que la
       pidio, dichas en castellano: que estaba haciendo justo antes. Es lo
       que el `printf` no puede saber.
+      **15-10, HECHO para "no arranca: faltan..."** (anfitrion; el metal, en
+      la hoja 6b, fila LX2): debajo de la lista, por cada funcion que falta,
+      DESDE DONDE la llama el juego (su sitio y la funcion del juego, de
+      `.pdata`) y las instrucciones de JUSTO ANTES, en castellano y con
+      nombre cuando son otra llamada a Windows
+      (`bmo_radiografia::pe::cuenta_falta`, sobre la imagen ya cargada). En
+      el BMOX-12, si faltara `D3D12CreateDevice`:
+      `mov edx, 0xb000` (el nivel 11_0), `lea r8, [rip+..]` (el IID),
+      `lea r9, [rbp+0x9e0]` (donde deja el aparato) y `> call [rip+..] AQUI
+      llama a D3D12CreateDevice, que la casa NO tiene`. Para leerlo entero,
+      la lente lee ademas DE CORRIDO cada funcion de `.pdata`, y aprendio el
+      SSE2 de enteros completo (`pcmpeqw` la paraba en el BMOX-12).
+      **Falta, LX2b:** lo mismo cuando el juego LLAMA a una TRAMPA en vivo
+      (`trampas.rs`): pide la direccion de vuelta del `call`, y hoy la
+      trampa no la lee.
 - [ ] **LX3 -- lo que el juego USA, antes de correrlo.** La lente recorre
       todo el codigo alcanzable del `.exe` y cuenta que extensiones (AVX2,
       x87...) y que importaciones alcanza de verdad: la seccion 4b ("la
