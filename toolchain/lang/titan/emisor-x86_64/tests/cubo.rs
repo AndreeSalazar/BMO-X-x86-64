@@ -105,3 +105,22 @@ fn the_cube_s_sobre_is_the_same_twice_and_keeps_the_contract_of_cubo_bsf() {
         assert_eq!((t.main(), t.emitter()), (128, &b"titan-prometeo"[..]));
     }
 }
+
+/// ** V4 DE `docs/plan/PLAN_VERRANO.md` (D1 de EL_FOCO, 15-10): el `cubo.bsf`
+/// que VERRANO toma (`gspcubo/sm86.rs`, `include_bytes!`) ES este sobre -- el
+/// de las dos gpu fn de TITAN++, emitidas por PROMETEO desde el Programa de la
+/// casa --, y ya no el del SASS a mano. Para volver a fabricarlo tras cambiar
+/// el cubo, el emisor o el pegamento: `BSF_FIJAR=1 cargo test -p
+/// bmo-titan-x86-64 --test cubo`.
+#[test]
+fn verrano_s_cubo_bsf_is_the_one_titan_makes() {
+    let m = cubo();
+    let ks = bmo_titan_prometeo::kernels(&m, &[&RTX_3060_12G]).unwrap_or_else(|e| panic!("{}", e));
+    let (_, sobre) = bmo_titan_x86_64::sobre(&ks).unwrap_or_else(|e| panic!("{}", e)).expect("el cubo dibuja");
+    let fichero = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../../platform/drivers/gpu/ga10x/sombreadores/cubo.bsf");
+    if std::env::var_os("BSF_FIJAR").is_some() {
+        std::fs::write(&fichero, &sobre).unwrap();
+    }
+    let guardado = std::fs::read(&fichero).expect("sombreadores/cubo.bsf (BSF_FIJAR=1 lo fabrica)");
+    assert_eq!(guardado, sobre, "cubo.bsf no es el que sale del cubo de TITAN++ de hoy");
+}
