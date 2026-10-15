@@ -82,6 +82,20 @@
 
 ## 3. La escalera
 
+- [x] **KA-1 -- VER POR DENTRO** (el propietario, 15-10: *"click derecho y
+      ver todo lo que hay adentro [...] es el lente de mi Kernel"*). HECHO
+      en el anfitrion: `platform/abi/bmo-radiografia` (pura, sin monton)
+      junta las TRES piezas con las que el kernel admite un programa -- la
+      puerta (`bmo-bex-gate`), los papeles (`bmo-carga-juicio`) y la lente
+      (`bmo-lente-x86`) -- sobre el fichero entero, y lee el MANIFIESTO
+      (lo que el compilador declara: modulos, permisos, desde que linea usa
+      cada puerta). En el escritorio: `dentro RUTA` en Ejecutar, y en el
+      explorador (DATOS y EFI) clic derecho sobre un `.bex` o `.ibx` > "ver
+      por dentro". Dice si el kernel lo ADMITIRIA. Es la herramienta con la
+      que se leera cada pieza de KA1..KA7. Pruebas: ECCE por dentro (puerta
+      SI, lente DEMOSTRADO, manifiesto con `screen = true`), uno roto (la
+      puerta dice su NO por nombre) y sin sitio para la lente. Falta: verlo
+      en el Ryzen (hoja 6b de EL_FOCO, fila RX).
 - [ ] **KA0 -- las decisiones de la seccion 5**, contestadas por el propietario.
 - [ ] **KA1 -- la APP CARPETA:** `apps/ecce/` con `nucleo.bex` y piezas
       `.bex`; el lanzador ve la carpeta como UNA app (un icono) y el

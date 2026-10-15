@@ -8,7 +8,7 @@
 
 ```text
    862 casillas ABIERTAS en 79 planes
-   645 hechas
+   646 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -324,7 +324,7 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] H3 -- LA BARRA LATERAL EN VIVO (2026-09-22)
 - ... y 5 mas
 
-## [`PLAN_EL_KERNEL_DE_LA_APP.md`](PLAN_EL_KERNEL_DE_LA_APP.md) -- 8 abiertas, 0 hechas
+## [`PLAN_EL_KERNEL_DE_LA_APP.md`](PLAN_EL_KERNEL_DE_LA_APP.md) -- 8 abiertas, 1 hechas
 
 *PLAN EL KERNEL DE LA APP -- cada app se administra sola; el kernel principal arbitra*
 

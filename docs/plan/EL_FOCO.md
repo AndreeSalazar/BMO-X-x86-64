@@ -1158,6 +1158,12 @@ pieza entera en la 0b, y su fila de la tabla de estado pasa a `VISTO dd-mm`.
           (V4)                         banco`): IGUAL en el 0, el 30 y   que NO al abrir, o DISTINTO
                                        el 60, con el sobre que ya no es  en algun fotograma: se
                                        SASS a mano                       vuelve al de antes con git
+   RX     ver un .bex por dentro       F12 > DATOS > apps, clic derecho  no sale "ver por dentro",  (sin probar)
+          (KA-1 de PLAN_EL_KERNEL_     sobre ecce.bex > "ver por         o la puerta dice NO a un
+          DE_LA_APP)                   dentro" (o `dentro apps/ecce.bex` .bex que corre, o la lente
+                                       en Ejecutar): regiones, anexos,   no DEMOSTRADO
+                                       lente DEMOSTRADO, el manifiesto
+                                       y "el kernel lo ADMITIRIA"
    EL0    lo que TOCA cada programa    abrir ECCE, TINTA y MUNDO,       la tabla no sale, o todo    (sin probar)
           (PLAN_EL_TOQUE.md)           usarlos un poco y CERRARLOS;      a cero, o un fallo al
                                        `save`: capitulo 5, la tabla      cerrar una app (el
