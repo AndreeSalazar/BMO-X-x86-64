@@ -10,6 +10,8 @@
 //!    moverse       flechas, Inicio y Fin; arriba y abajo por la linea que
 //!                  SE VE, partida en el ultimo espacio que cabe
 //!    nada nuevo    Esc sin escribir no toca el disco
+//!    deshacer      Alt+Z por palabras y Alt+Y rehace; MIL ediciones al azar
+//!                  deshechas dan el texto de partida, byte a byte (PL1)
 //!    la ventana    la cabecera con su raya de oro, y la tinta de lo escrito
 //! ```
 
@@ -52,8 +54,15 @@ fn texto(s: &str) -> Vec<u64> {
 /// ECCE lanzada por el escritorio, con `nota` en el disco (o ninguna), la
 /// medida de la ventana (o ninguna), los eventos y Esc.
 fn con(nota: Option<&[u8]>, medida: Option<&str>, eventos: &[u64]) -> Machine {
+    con_tope(nota, medida, eventos, 3_000_000_000)
+}
+
+fn con_tope(nota: Option<&[u8]>, medida: Option<&str>, eventos: &[u64], tope: usize) -> Machine {
     let mut m = cargar_bex(&ecce()).expect("el .bex carga");
     m.padre = 7;
+    // Las teclas llegan en rafagas (hasta 32 por vuelta, como un teclado
+    // rapido): ECCE las lee todas y pinta UNA vez.
+    m.buzon_por_vuelta = 32;
     if let Some(n) = nota {
         m.archivos.insert(NOTAS.into(), n.to_vec());
     }
@@ -64,7 +73,7 @@ fn con(nota: Option<&[u8]>, medida: Option<&str>, eventos: &[u64]) -> Machine {
         m.buzon_pendiente.push_back(e);
     }
     m.buzon_pendiente.push_back(letra(27));
-    let m = run(m, 3_000_000_000);
+    let m = run(m, tope);
     assert!(m.exited, "{}", m.console);
     m
 }
@@ -193,4 +202,104 @@ fn the_window_shows_the_ink_on_the_night() {
     assert!(tinta > 10, "la M tiene {tinta} pixeles de tinta");
     // El cursor detras de la `M`: una barra de oro en x = 36.
     assert_eq!(pixel(36, 60), ORO);
+}
+
+/// La tecla Alt (scancode 56) al bajar y al subir.
+fn alt_baja() -> u64 {
+    tecla(56)
+}
+fn alt_sube() -> u64 {
+    0x100 | 56
+}
+
+/// Alt+Z y Alt+Y, con la letra cocida que tambien llega (y no se escribe).
+fn deshacer() -> Vec<u64> {
+    vec![alt_baja(), tecla(44), letra(b'z'), alt_sube()]
+}
+fn rehacer() -> Vec<u64> {
+    vec![alt_baja(), tecla(21), letra(b'y'), alt_sube()]
+}
+
+/// ** Deshacer va por PALABRAS (lo que se escribe seguido), rehacer las
+/// vuelve, y escribir otra cosa tira lo deshecho.
+#[test]
+fn undo_goes_word_by_word_and_redo_brings_it_back() {
+    let mut ev = texto("hola mundo");
+    ev.extend(deshacer());
+    let m = con(None, None, &ev);
+    assert_eq!(nota(&m).as_deref(), Some("hola"));
+
+    let mut ev = texto("hola mundo");
+    ev.extend(deshacer());
+    ev.extend(deshacer());
+    ev.extend(rehacer());
+    ev.push(letra(b'!'));
+    // Rehacer ya no tiene nada: "!" tiro lo deshecho.
+    ev.extend(rehacer());
+    let m = con(None, None, &ev);
+    assert_eq!(nota(&m).as_deref(), Some("hola!"));
+
+    // Un borrado seguido es UN paso; Supr tambien.
+    let mut ev = texto("abc");
+    ev.extend([letra(RETROCESO), letra(RETROCESO), letra(RETROCESO)]);
+    ev.extend(deshacer());
+    ev.push(letra(b'.'));
+    let m = con(None, None, &ev);
+    assert_eq!(nota(&m).as_deref(), Some("abc."));
+    let ev = [vec![tecla(INICIO), tecla(SUPR), tecla(SUPR)], deshacer(), texto("-")].concat();
+    let m = con(Some(b"xyz"), None, &ev);
+    assert_eq!(nota(&m).as_deref(), Some("-xyz"));
+}
+
+/// Mil ediciones al azar (letras, espacios, Enter, Retroceso, Supr y las
+/// flechas), las mismas siempre: un LCG con su semilla.
+fn al_azar(n: usize) -> Vec<u64> {
+    let mut x: u64 = 0x2545_F491_4F6C_DD1D;
+    let mut ev = Vec::new();
+    for _ in 0..n {
+        x = x.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        let r = (x >> 33) % 20;
+        ev.push(match r {
+            0..=7 => letra(b'a' + ((x >> 40) % 26) as u8),
+            8 => letra(b' '),
+            9 => letra(ENTER),
+            10 | 11 => letra(RETROCESO),
+            12 => tecla(SUPR),
+            13 => tecla(IZQUIERDA),
+            14 => tecla(DERECHA),
+            15 => tecla(ARRIBA),
+            16 => tecla(ABAJO),
+            17 => tecla(INICIO),
+            18 => tecla(FIN),
+            _ => letra(0xF1),
+        });
+    }
+    ev
+}
+
+/// ** LA PRUEBA DE PL1: mil ediciones al azar, y deshacerlas TODAS da el
+/// texto de partida byte a byte; rehacerlas todas, el de despues.
+#[test]
+fn a_thousand_random_edits_undo_to_the_start() {
+    let antes: &[u8] = b"la nota de antes\ncon dos lineas y alguna palabra larga";
+    let azar = al_azar(1000);
+    // La ventana mas chica (240 x 160): cada tecla repinta, y aqui se prueba
+    // el texto, no los pixeles. Las lineas se parten mas, que tambien vale.
+    let chica = Some("240 160\n");
+    let despues = con_tope(Some(antes), chica, &azar, 40_000_000_000);
+    let despues = despues.archivos.get(NOTAS).cloned().expect("guardo");
+    assert_ne!(despues, antes, "las ediciones cambiaron algo");
+
+    let mut ev = azar.clone();
+    for _ in 0..1000 {
+        ev.extend(deshacer());
+    }
+    let m = con_tope(Some(antes), chica, &ev, 80_000_000_000);
+    assert_eq!(m.archivos.get(NOTAS).map(|v| v.as_slice()), Some(antes), "deshacerlo todo vuelve al principio");
+
+    for _ in 0..1000 {
+        ev.extend(rehacer());
+    }
+    let m = con_tope(Some(antes), chica, &ev, 120_000_000_000);
+    assert_eq!(m.archivos.get(NOTAS), Some(&despues), "rehacerlo todo vuelve al final");
 }

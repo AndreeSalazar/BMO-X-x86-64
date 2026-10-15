@@ -10,7 +10,12 @@
 #    flechas          mueven el cursor (arriba y abajo por la linea que SE VE)
 #    Inicio / Fin     al principio / al final de la linea
 #    RePag / AvPag    una pantalla arriba / abajo
+#    Alt+Z / Alt+Y    deshace / rehace (por palabras, sin limite)
 #    Esc              guarda (si hay algo nuevo) y cierra
+#
+# Alt y no Ctrl: Ctrl es del escritorio y a la app no le llegan los
+# modificadores, pero SI la tecla Alt al bajar y al subir (scancode 56):
+# ECCE lleva la cuenta, y con Alt abajo una letra no se escribe.
 #
 # Guarda SOLO: Ctrl es del escritorio (`keys/app.rs`, la regla de las
 # teclas), asi que no hay Ctrl+S. Se guarda al cerrar y un segundo y medio
@@ -144,6 +149,81 @@ fn quita(mut t: [byte], c: int)
         i = i + 1
     pop(mut t)
 
+# -- Deshacer -----------------------------------------------------------------
+#
+# **Cada cambio es un registro de cinco**: su grupo, que fue (1 meter, 2
+# quitar), donde, que byte y donde estaba el cursor ANTES. Deshacer
+# deshace el ultimo GRUPO entero, al reves; rehacer lo vuelve a hacer en su
+# orden. Un grupo es una palabra escrita seguida, o un borrado seguido: lo
+# que un dedo hace sin pararse, como en cualquier editor.
+
+# Lo hace (de la historia `h`, el registro que empieza en `i`).
+fn aplica(mut t: [byte], h: [int], i: int)
+    if h[i + 1] == 1
+        mete(mut t, h[i + 2], h[i + 3])
+    else
+        quita(mut t, h[i + 2])
+
+# Lo deshace.
+fn revierte(mut t: [byte], h: [int], i: int)
+    if h[i + 1] == 1
+        quita(mut t, h[i + 2])
+    else
+        mete(mut t, h[i + 2], h[i + 3])
+
+# Pasa el ultimo grupo de `de` a `a`, deshaciendolo (al reves) o
+# rehaciendolo (en su orden), y da donde queda el cursor; -1 si no habia
+# nada. En `a` el grupo queda en su orden de siempre.
+fn mueve_grupo(mut t: [byte], mut de: [int], mut a: [int], rehacer: bool) -> int
+    let n = len(de)
+    if n == 0
+        return -1
+    let g = de[n - 5]
+    let mut desde = n - 5
+    while desde >= 5 and de[desde - 5] == g
+        desde = desde - 5
+    let mut c = de[desde + 4]
+    if rehacer
+        let mut i = desde
+        while i < n
+            aplica(mut t, de, i)
+            if de[i + 1] == 1
+                c = de[i + 2] + 1
+            else
+                c = de[i + 2]
+            i = i + 5
+    else
+        let mut i = n - 5
+        while i >= desde
+            revierte(mut t, de, i)
+            i = i - 5
+    for i in range(desde, n)
+        push(mut a, de[i])
+    let mut quedan = n
+    while quedan > desde
+        pop(mut de)
+        quedan = quedan - 1
+    return c
+
+# Apunta un cambio ya hecho.
+fn apunta(mut h: [int], grupo: int, que: int, donde: int, b: int, antes: int)
+    push(mut h, grupo)
+    push(mut h, que)
+    push(mut h, donde)
+    push(mut h, b)
+    push(mut h, antes)
+
+# Sigue en el grupo del ultimo cambio? Si es lo mismo (meter o quitar)
+# justo donde acabo el anterior, y no es un espacio o un salto que corta la
+# palabra.
+fn sigue_grupo(h: [int], que: int, donde: int, b: int) -> bool
+    let n = len(h)
+    if n == 0 or h[n - 4] != que
+        return false
+    if que == 1
+        return donde == h[n - 3] + 1 and b != 32 and b != 10
+    return donde == h[n - 3] - 1 or donde == h[n - 3]
+
 fn palabras(t: [byte]) -> int
     let mut n = 0
     let mut dentro = false
@@ -217,6 +297,8 @@ fn pinta_pie(t: [byte], w: int, alto: int, linea: int, estado: int)
     let mut x = pon_numero(margen(), y + 4, palabras(t), tenue())
     x = director.texto(x, y + 4, " palabras   linea ", 1, tenue())
     x = pon_numero(x, y + 4, linea, tenue())
+    if w >= 560
+        x = director.texto(x, y + 4, "   Alt+Z deshace  Alt+Y rehace", 1, tenue())
     if estado == 0
         x = director.texto(w - margen() - 64, y + 4, "guardado", 1, oro())
     else if estado == 1
@@ -254,6 +336,12 @@ fn main()
     let mut ultimo = 0
     let mut antes = true
     let mut pinta = true
+    # Lo hecho y lo deshecho, y el grupo que va (ver `mueve_grupo`).
+    let mut hecho: [int] = []
+    let mut deshecho: [int] = []
+    let mut grupo = 0
+    # La tecla Alt, abajo o no (sus eventos crudos: 1 baja, 2 sube).
+    let mut alt = false
     while true
         for n in range(64)
             let que = director.evento()
@@ -261,26 +349,56 @@ fn main()
                 break
             let k = director.codigo()
             let mut cambio = false
-            if que == 3
+            if que == 1 and k == 56
+                alt = true
+            if que == 2 and k == 56
+                alt = false
+            # Con Alt abajo, Z y Y (sus scancodes, 44 y 21) deshacen y
+            # rehacen, y ninguna letra se escribe.
+            if que == 1 and alt and (k == 44 or k == 21)
+                let mut nc = -1
+                if k == 44
+                    nc = mueve_grupo(mut t, mut hecho, mut deshecho, false)
+                else
+                    nc = mueve_grupo(mut t, mut deshecho, mut hecho, true)
+                if nc >= 0
+                    c = nc
+                    l = lineas(t, cols)
+                    sucio = true
+                    estado = 1
+                    ultimo = director.ms()
+                    pinta = true
+                    grupo = grupo + 1
+            if que == 3 and not alt
                 if k == 27
                     if sucio and not guardar(t)
                         print("ECCE: el disco NO guardo datos/notas.txt")
                     return
                 if k == 8
                     if c > 0
+                        if not sigue_grupo(hecho, 2, c - 1, 0)
+                            grupo = grupo + 1
+                        apunta(mut hecho, grupo, 2, c - 1, t[c - 1], c)
                         quita(mut t, c - 1)
                         c = c - 1
                         cambio = true
                 else if k == 13
+                    grupo = grupo + 1
+                    apunta(mut hecho, grupo, 1, c, 10, c)
                     mete(mut t, c, 10)
                     c = c + 1
                     cambio = true
                 else if k == 9
+                    grupo = grupo + 1
                     for e in range(4)
+                        apunta(mut hecho, grupo, 1, c, 32, c)
                         mete(mut t, c, 32)
                         c = c + 1
                     cambio = true
                 else if k >= 32 and k <= 255 and k != 127
+                    if not sigue_grupo(hecho, 1, c, k)
+                        grupo = grupo + 1
+                    apunta(mut hecho, grupo, 1, c, k, c)
                     mete(mut t, c, k)
                     c = c + 1
                     cambio = true
@@ -321,9 +439,15 @@ fn main()
                     c = en_columna(l, destino, col)
                     pinta = true
                 if k == 109 and c < len(t)
+                    if not sigue_grupo(hecho, 2, c, 0)
+                        grupo = grupo + 1
+                    apunta(mut hecho, grupo, 2, c, t[c], c)
                     quita(mut t, c)
                     cambio = true
             if cambio
+                # Lo deshecho se pierde al cambiar otra cosa (como en todos).
+                while len(deshecho) > 0
+                    pop(mut deshecho)
                 l = lineas(t, cols)
                 sucio = true
                 estado = 1
