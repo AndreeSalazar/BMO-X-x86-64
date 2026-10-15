@@ -13,12 +13,14 @@
 //!    deshacer      Alt+Z por palabras y Alt+Y rehace; MIL ediciones al azar
 //!                  deshechas dan el texto de partida, byte a byte (PL1)
 //!    la ventana    la cabecera con su raya de oro, y la tinta de lo escrito
+//!    la mesa       Alt + rueda aleja: las hojas en chico y los nodos; un
+//!                  clic en un nodo abre su hoja (PL9b)
 //! ```
 
 use std::path::Path;
 
-use bmo_abi::syscalls::surface::{SUP_CABECERA, SUP_EV_CARACTER};
-use bmo_lower::emu::{cargar_bex, run, Machine};
+use bmo_abi::syscalls::surface::{SUP_CABECERA, SUP_EV_CARACTER, SUP_EV_RATON, SUP_EV_RUEDA, SUP_RUEDA_ALT};
+use bmo_lower::emu::{cargar_bex, run, run_acotado, Machine};
 
 const NOTAS: &str = "datos/notas.txt";
 
@@ -328,5 +330,87 @@ fn ecce_lleva_su_cara_de_32_y_sigue_pasando_la_puerta() {
     // Y corre igual: escribe y guarda.
     let m = con_bex_tope(&bex, None, None, &texto("hola"), 3_000_000_000);
     assert_eq!(nota(&m).as_deref(), Some("hola"));
+}
+
+// -- LA MESA (PL9b de PLAN_ECCE, 15-10) --
+
+const ALT: u64 = 56;
+
+fn rueda(muescas: i8, con_alt: bool) -> u64 {
+    SUP_EV_RUEDA | 0x100 | muescas as u8 as u64 | if con_alt { SUP_RUEDA_ALT } else { 0 }
+}
+
+fn clic(x: u64, y: u64) -> u64 {
+    SUP_EV_RATON | 0x100 | 0x200 | 1 | x << 16 | y << 32
+}
+
+/// 120 lineas ("linea 1" .. "linea 120"): tres hojas de 54.
+fn tres_hojas() -> Vec<u8> {
+    let mut v = Vec::new();
+    for i in 1..=120 {
+        v.extend_from_slice(format!("linea {i}\n").as_bytes());
+    }
+    v.pop();
+    v
+}
+
+/// ECCE con `eventos` y SIN el Esc final: se queda abierta, y lo ultimo que
+/// presento es lo que se mira.
+fn abierta(nota: &[u8], eventos: &[u64]) -> Machine {
+    let mut m = cargar_bex(&ecce()).expect("el .bex carga");
+    m.padre = 7;
+    m.buzon_por_vuelta = 32;
+    m.archivos.insert(NOTAS.into(), nota.to_vec());
+    for &e in eventos {
+        m.buzon_pendiente.push_back(e);
+    }
+    // Acotado: ECCE sigue abierta esperando teclas, y eso no es un fallo.
+    let (m, _) = run_acotado(m, 150_000_000);
+    assert!(!m.exited, "ECCE se cerro sola: {}", m.console);
+    m
+}
+
+/// ** Alt + rueda dos veces: la mesa y luego los nodos; un clic en el nodo
+/// de la hoja 2 la ABRE -- lo que se escribe cae al principio de su primera
+/// linea (la 55) --, y la rueda sin Alt, en la hoja, no aleja nada.
+#[test]
+fn alt_wheel_zooms_out_to_nodes_and_a_click_opens_the_page() {
+    // Nodos de 168 x 56, tres por fila desde x = 28, y = 64: el segundo, en
+    // x 240..408.
+    let ev = [tecla(ALT), rueda(-1, true), rueda(-1, true), 0x100 | ALT, clic(324, 92), letra(b'X')];
+    let m = con(Some(&tres_hojas()), None, &ev);
+    let n = nota(&m).expect("guardo");
+    let lineas: Vec<&str> = n.split('\n').collect();
+    assert_eq!(lineas.len(), 120);
+    assert_eq!(lineas[54], "Xlinea 55", "el clic no abrio la hoja 2");
+    assert_eq!(lineas[53], "linea 54");
+}
+
+/// ** La mesa SE VE: el papel de cada hoja, una raya por linea y el marco de
+/// oro de la elegida (la del cursor: la tercera).
+#[test]
+fn the_table_shows_the_pages_from_afar() {
+    let m = abierta(&tres_hojas(), &[tecla(ALT), rueda(-1, true)]);
+    let (w, _, px) = pantalla(&m);
+    assert_eq!(w, 720);
+    // La hoja 1 en x 28, y 64: papel arriba, y la raya de "linea 1" (7
+    // letras de 83 en 80 px: 6 px) en su primera fila.
+    assert_eq!(px(30, 66), 0xFB_FC_F8, "sin papel");
+    assert_eq!(px(37, 72), 0x8A_85_86, "sin la raya de la linea 1");
+    assert_eq!(px(60, 72), 0xFB_FC_F8, "la raya es mas larga que la linea");
+    // La hoja 3, la elegida, en x 276: su marco de oro 3 px por fuera.
+    assert_eq!(px(274, 100), 0xD8_A6_57, "sin el marco de la elegida");
+    assert_ne!(px(26 + 124, 100), 0xD8_A6_57, "la hoja 2 no es la elegida");
+}
+
+/// ** Mas lejos, los NODOS: una tarjeta por hoja y el hilo de oro entre una y
+/// la siguiente.
+#[test]
+fn further_out_the_pages_are_nodes() {
+    let m = abierta(&tres_hojas(), &[tecla(ALT), rueda(-1, true), rueda(-2, true)]);
+    let (_, _, px) = pantalla(&m);
+    assert_eq!(px(28 + 160, 64 + 50), 0x1C_1C_26, "sin la tarjeta de la hoja 1");
+    assert_eq!(px(28 + 168 + 20, 64 + 28), 0x8B_60_25, "sin el hilo de la hoja 1 a la 2");
+    assert_eq!(px(28 + 168 + 20, 64 + 10), 0x18_18_20, "el hilo es una raya, no una banda");
 }
 

@@ -1,0 +1,222 @@
+# LA MESA DE ECCE (PL9b de docs/plan/PLAN_ECCE.md, 15-10): la hoja de
+# cerca, la historia de lejos. El propietario: "la hoja cuando entro es zoom
+# siempre pero si retrocedo [...] las hojas se ven de lejos como nodos".
+#
+#    vista 0   LA HOJA: lo que se escribe (main.titan)
+#    vista 1   LA MESA: cada hoja de 54 lineas, en chico, como un papel con
+#              sus renglones en gris (de lejos no se lee: se ve la forma)
+#    vista 2   LOS NODOS: una tarjeta por hoja -- su numero y su primera
+#              linea --, unidas en orden con un hilo de oro
+#
+# Alt + rueda aleja y acerca (Ctrl es del escritorio: `keys/app.rs`). Aqui
+# esta lo que se PINTA y DONDE cae cada hoja; las teclas, en main.titan.
+# La maqueta: docs/arte/maqueta_ecce.html.
+mod mesa "la mesa de ECCE: las hojas de lejos, y los nodos"
+use director
+
+fn papel() -> int
+    return 16514296
+
+fn raya() -> int
+    return 9078150
+
+fn tarjeta() -> int
+    return 1842214
+
+fn hilo() -> int
+    return 9134117
+
+fn oro() -> int
+    return 14198359
+
+fn tinta() -> int
+    return 15262416
+
+fn tenue() -> int
+    return 7894666
+
+fn noche() -> int
+    return 1579040
+
+fn div(a: int, d: int) -> int
+    return (a - a % d) / d
+
+# Las lineas que SE VEN de una hoja: las de un guion (una pagina, un minuto).
+pub fn por_hoja() -> int
+    return 54
+
+# Cuantas hojas hay, con `cuantas` lineas que se ven (siempre una).
+pub fn hojas(cuantas: int) -> int
+    if cuantas <= 0
+        return 1
+    return div(cuantas - 1, por_hoja()) + 1
+
+# -- La rejilla: el mismo reparto para pintar y para saber donde se pulso --
+
+fn ancho_celda(vista: int) -> int
+    if vista == 1
+        return 96
+    return 168
+
+fn alto_celda(vista: int) -> int
+    if vista == 1
+        return 124
+    return 56
+
+fn hueco_x(vista: int) -> int
+    if vista == 1
+        return 28
+    return 44
+
+fn hueco_y(vista: int) -> int
+    if vista == 1
+        return 36
+    return 40
+
+fn izquierda() -> int
+    return 28
+
+fn arriba(cabeza: int) -> int
+    return cabeza + 24
+
+# Cuantas caben por fila.
+pub fn por_fila(w: int, vista: int) -> int
+    let n = div(w - 2 * izquierda() + hueco_x(vista), ancho_celda(vista) + hueco_x(vista))
+    if n < 1
+        return 1
+    return n
+
+# Cuantas filas caben entre la cabeza y el pie.
+fn filas_que_caben(alto: int, cabeza: int, pie: int, vista: int) -> int
+    let n = div(alto - arriba(cabeza) - pie, alto_celda(vista) + hueco_y(vista))
+    if n < 1
+        return 1
+    return n
+
+# La primera fila que se ve: la de la hoja elegida tiene que verse.
+fn primera_fila(sel: int, w: int, alto: int, cabeza: int, pie: int, vista: int) -> int
+    let fila = div(sel, por_fila(w, vista))
+    let caben = filas_que_caben(alto, cabeza, pie, vista)
+    if fila >= caben
+        return fila - caben + 1
+    return 0
+
+fn x_de(k: int, w: int, vista: int) -> int
+    return izquierda() + (k % por_fila(w, vista)) * (ancho_celda(vista) + hueco_x(vista))
+
+fn y_de(k: int, w: int, primera: int, cabeza: int, vista: int) -> int
+    return arriba(cabeza) + (div(k, por_fila(w, vista)) - primera) * (alto_celda(vista) + hueco_y(vista))
+
+# **La hoja que hay en (px, py)**, o -1.
+pub fn hoja_en(px: int, py: int, n: int, sel: int, w: int, alto: int, cabeza: int, pie: int, vista: int) -> int
+    let primera = primera_fila(sel, w, alto, cabeza, pie, vista)
+    for k in range(n)
+        let x = x_de(k, w, vista)
+        let y = y_de(k, w, primera, cabeza, vista)
+        if px >= x and px < x + ancho_celda(vista) and py >= y and py < y + alto_celda(vista)
+            return k
+    return -1
+
+# Un numero, sin ceros delante.
+fn numero(x: int, y: int, n: int, color: int) -> int
+    let mut px = x
+    let mut potencia = 10000
+    let mut empezo = false
+    while potencia >= 1
+        let resto = n % (potencia * 10)
+        let cifra = (resto - resto % potencia) / potencia
+        if cifra != 0 or empezo or potencia == 1
+            px = director.letra(px, y, 48 + cifra, 1, color)
+            empezo = true
+        if potencia == 1
+            potencia = 0
+        else
+            potencia = potencia / 10
+    return px
+
+# **La mesa y los nodos**: lo que cabe entre la cabeza y el pie.
+pub fn pinta(t: [byte], l: [int], cols: int, sel: int, w: int, alto: int, cabeza: int, pie: int, vista: int)
+    director.rect(0, cabeza, w, alto - cabeza - pie, noche())
+    let cuantas = div(len(l), 2)
+    let n = hojas(cuantas)
+    let primera = primera_fila(sel, w, alto, cabeza, pie, vista)
+    let ultima_y = alto - pie
+    for k in range(n)
+        let x = x_de(k, w, vista)
+        let y = y_de(k, w, primera, cabeza, vista)
+        if y >= arriba(cabeza) - 4 and y + alto_celda(vista) <= ultima_y
+            if vista == 1
+                hoja_chica(t, l, cols, k, x, y, k == sel)
+            else
+                nodo(t, l, k, x, y, k == sel)
+                if k + 1 < n
+                    hilo_al_siguiente(k, w, primera, cabeza, ultima_y, vista)
+
+# Una hoja en chico: el papel, una raya por linea (tan larga como la
+# linea), su numero debajo; la elegida, con marco de oro.
+fn hoja_chica(t: [byte], l: [int], cols: int, k: int, x: int, y: int, elegida: bool)
+    if elegida
+        director.rect(x - 3, y - 3, ancho_celda(1) + 6, alto_celda(1) + 6, oro())
+    director.rect(x, y, ancho_celda(1), alto_celda(1), papel())
+    let cuantas = div(len(l), 2)
+    let ancho_util = ancho_celda(1) - 16
+    for r in range(por_hoja())
+        let m = k * por_hoja() + r
+        if m < cuantas
+            let largo = l[2 * m + 1]
+            if largo > 0
+                let mut ancho = div(largo * ancho_util, cols)
+                if ancho < 2
+                    ancho = 2
+                director.rect(x + 8, y + 8 + r * 2, ancho, 1, raya())
+    let z = numero(x + div(ancho_celda(1), 2) - 4, y + alto_celda(1) + 6, k + 1, tenue())
+
+# Un nodo: la tarjeta, una franja arriba (oro si es la elegida), "pag N" y
+# lo primero que dice la hoja.
+fn nodo(t: [byte], l: [int], k: int, x: int, y: int, elegida: bool)
+    if elegida
+        director.rect(x - 2, y - 2, ancho_celda(2) + 4, alto_celda(2) + 4, oro())
+    director.rect(x, y, ancho_celda(2), alto_celda(2), tarjeta())
+    if elegida
+        director.rect(x, y, ancho_celda(2), 3, oro())
+    else
+        director.rect(x, y, ancho_celda(2), 3, hilo())
+    let mut px = director.texto(x + 10, y + 10, "pag ", 1, tenue())
+    px = numero(px, y + 10, k + 1, tinta())
+    # La primera linea con algo, hasta 18 letras.
+    let cuantas = div(len(l), 2)
+    let mut m = k * por_hoja()
+    let fin = m + por_hoja()
+    while m < cuantas and m < fin and l[2 * m + 1] == 0
+        m = m + 1
+    if m < cuantas and m < fin
+        let s = l[2 * m]
+        let mut n = l[2 * m + 1]
+        if n > 18
+            n = 18
+        let mut lx = x + 10
+        for i in range(n)
+            let b = t[s + i]
+            if b == 32
+                lx = lx + 8
+            else
+                lx = director.letra(lx, y + 32, b, 1, tinta())
+
+# El hilo de oro de una tarjeta a la siguiente: recto en la misma fila; al
+# cambiar de fila, baja, cruza y vuelve a bajar.
+fn hilo_al_siguiente(k: int, w: int, primera: int, cabeza: int, ultima_y: int, vista: int)
+    let x = x_de(k, w, vista)
+    let y = y_de(k, w, primera, cabeza, vista)
+    let medio = y + div(alto_celda(vista), 2)
+    let pf = por_fila(w, vista)
+    if (k + 1) % pf != 0
+        director.rect(x + ancho_celda(vista), medio, hueco_x(vista), 2, hilo())
+    else
+        let bajo = y + alto_celda(vista)
+        let cruce = bajo + div(hueco_y(vista), 2)
+        let cx = x + div(ancho_celda(vista), 2)
+        let nx = izquierda() + div(ancho_celda(vista), 2)
+        if cruce + div(hueco_y(vista), 2) <= ultima_y
+            director.rect(cx, bajo, 2, div(hueco_y(vista), 2), hilo())
+            director.rect(nx, cruce, cx - nx + 2, 2, hilo())
+            director.rect(nx, cruce, 2, div(hueco_y(vista), 2), hilo())

@@ -12,6 +12,11 @@
 #    RePag / AvPag    una pantalla arriba / abajo
 #    Alt+Z / Alt+Y    deshace / rehace (por palabras, sin limite)
 #    Esc              guarda (si hay algo nuevo) y cierra
+#    rueda            mueve el cursor tres lineas
+#    Alt + rueda      ALEJA la hoja: la mesa (las hojas en chico) y los nodos
+#                     (una tarjeta por hoja); acercando, se vuelve a la hoja
+#                     elegida. En la mesa: flechas eligen, Enter o un clic
+#                     abren, Esc vuelve (mesa.titan, PL9b de PLAN_ECCE)
 #
 # Alt y no Ctrl: Ctrl es del escritorio y a la app no le llegan los
 # modificadores, pero SI la tecla Alt al bajar y al subir (scancode 56):
@@ -27,6 +32,7 @@
 mod main "ECCE: el bloc de notas -- escribir, moverse por lo escrito y guardar solo"
 use director
 mod medida
+mod mesa
 
 # -- Los colores: tinta clara sobre noche, y el oro de la pluma ----------
 
@@ -246,11 +252,34 @@ fn guardar(t: [byte]) -> bool
 
 # -- Lo que se ve -----------------------------------------------------------
 
-fn pinta_cabeza(w: int)
+fn pinta_cabeza(w: int, vista: int)
     director.rect(0, 0, w, alto_cabeza(), barra())
     let x = director.texto(margen(), 4, "ECCE", 2, oro())
-    let y = director.texto(x + 16, 20, "notas", 1, tenue())
+    if vista == 0
+        let y = director.texto(x + 16, 20, "notas", 1, tenue())
+    else if vista == 1
+        let y = director.texto(x + 16, 20, "la mesa", 1, tenue())
+    else
+        let y = director.texto(x + 16, 20, "los nodos", 1, tenue())
     director.rect(0, alto_cabeza() - 1, w, 1, oro())
+
+# El pie de la mesa: cuantas hojas, y las manos.
+fn pinta_pie_mesa(w: int, alto: int, hojas: int, sel: int)
+    let y = alto - alto_pie()
+    director.rect(0, y, w, alto_pie(), barra())
+    let mut x = director.texto(margen(), y + 4, "hoja ", 1, tenue())
+    x = pon_numero(x, y + 4, sel + 1, tinta())
+    x = director.texto(x, y + 4, " de ", 1, tenue())
+    x = pon_numero(x, y + 4, hojas, tenue())
+    if w >= 560
+        x = director.texto(x, y + 4, "   Alt+rueda acerca  Enter abre  Esc vuelve", 1, tenue())
+
+# El principio de la hoja `k` en el texto.
+fn principio_de_hoja(l: [int], k: int) -> int
+    let m = k * mesa.por_hoja()
+    if m >= div(len(l), 2)
+        return 0
+    return l[2 * m]
 
 # El texto que cabe, desde la linea `arriba`, y el cursor: una barra de oro.
 fn pinta_texto(t: [byte], l: [int], w: int, alto: int, arriba: int, filas: int, c: int)
@@ -342,6 +371,9 @@ fn main()
     let mut grupo = 0
     # La tecla Alt, abajo o no (sus eventos crudos: 1 baja, 2 sube).
     let mut alt = false
+    # La MESA: 0 la hoja, 1 la mesa, 2 los nodos; y la hoja elegida.
+    let mut vista = 0
+    let mut sel = 0
     while true
         for n in range(64)
             let que = director.evento()
@@ -349,13 +381,75 @@ fn main()
                 break
             let k = director.codigo()
             let mut cambio = false
+            # La vista de ANTES de este evento: un Esc o un Enter que vuelven
+            # de la mesa no cuentan otra vez en la hoja.
+            let en_hoja = vista == 0
             if que == 1 and k == 56
                 alt = true
             if que == 2 and k == 56
                 alt = false
+            # ** LA RUEDA. Con Alt, aleja y acerca la mesa; sola, en la hoja,
+            # mueve el cursor tres lineas.
+            if que == 6
+                let muescas = director.rueda()
+                let n_hojas = mesa.hojas(div(len(l), 2))
+                if alt and muescas < 0 and vista < 2
+                    if vista == 0
+                        sel = div(fila_de(l, c), mesa.por_hoja())
+                    vista = vista + 1
+                    pinta = true
+                else if alt and muescas > 0 and vista > 0
+                    vista = vista - 1
+                    if vista == 0
+                        if sel != div(fila_de(l, c), mesa.por_hoja())
+                            c = principio_de_hoja(l, sel)
+                    pinta = true
+                else if not alt and vista == 0 and muescas != 0
+                    let cuantas = div(len(l), 2)
+                    let kc = fila_de(l, c)
+                    let mut destino = kc - muescas * 3
+                    if destino < 0
+                        destino = 0
+                    if destino > cuantas - 1
+                        destino = cuantas - 1
+                    c = en_columna(l, destino, c - l[2 * kc])
+                    pinta = true
+            # ** EN LA MESA: un clic abre la hoja; las flechas eligen, Enter
+            # abre y Esc vuelve. Nada se escribe.
+            if not en_hoja
+                let n_hojas = mesa.hojas(div(len(l), 2))
+                let pf = mesa.por_fila(w, vista)
+                let mut abre = false
+                if que == 4 and director.botones() % 2 == 1
+                    let h = mesa.hoja_en(director.raton_x(), director.raton_y(), n_hojas, sel, w, alto, alto_cabeza(), alto_pie(), vista)
+                    if h >= 0
+                        sel = h
+                        abre = true
+                if que == 1
+                    if k == 104 and sel > 0
+                        sel = sel - 1
+                        pinta = true
+                    if k == 105 and sel < n_hojas - 1
+                        sel = sel + 1
+                        pinta = true
+                    if k == 102 and sel >= pf
+                        sel = sel - pf
+                        pinta = true
+                    if k == 103 and sel + pf < n_hojas
+                        sel = sel + pf
+                        pinta = true
+                if que == 3 and k == 13
+                    abre = true
+                if que == 3 and k == 27
+                    vista = 0
+                    pinta = true
+                if abre
+                    c = principio_de_hoja(l, sel)
+                    vista = 0
+                    pinta = true
             # Con Alt abajo, Z y Y (sus scancodes, 44 y 21) deshacen y
             # rehacen, y ninguna letra se escribe.
-            if que == 1 and alt and (k == 44 or k == 21)
+            if que == 1 and alt and en_hoja and (k == 44 or k == 21)
                 let mut nc = -1
                 if k == 44
                     nc = mueve_grupo(mut t, mut hecho, mut deshecho, false)
@@ -369,7 +463,7 @@ fn main()
                     ultimo = director.ms()
                     pinta = true
                     grupo = grupo + 1
-            if que == 3 and not alt
+            if que == 3 and not alt and en_hoja
                 if k == 27
                     if sucio and not guardar(t)
                         print("ECCE: el disco NO guardo datos/notas.txt")
@@ -402,7 +496,7 @@ fn main()
                     mete(mut t, c, k)
                     c = c + 1
                     cambio = true
-            if que == 1
+            if que == 1 and en_hoja
                 # Las teclas de moverse: los codigos propios del teclado USB
                 # (`bmo_uhid::SC_UP` y siguientes), no los del numerico.
                 let cuantas = div(len(l), 2)
@@ -473,9 +567,13 @@ fn main()
                 arriba = kc
             if kc >= arriba + filas
                 arriba = kc - filas + 1
-            pinta_cabeza(w)
-            pinta_texto(t, l, w, alto, arriba, filas, c)
-            pinta_pie(t, w, alto, kc + 1, estado)
+            pinta_cabeza(w, vista)
+            if vista == 0
+                pinta_texto(t, l, w, alto, arriba, filas, c)
+                pinta_pie(t, w, alto, kc + 1, estado)
+            else
+                mesa.pinta(t, l, cols, sel, w, alto, alto_cabeza(), alto_pie(), vista)
+                pinta_pie_mesa(w, alto, mesa.hojas(div(len(l), 2)), sel)
             director.presenta()
             pinta = false
         director.espera(16)
