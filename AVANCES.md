@@ -15,6 +15,33 @@ una escuela de esquema; la ponen las piezas que hay dentro de la caja.
 Toolchain propio (C / COBOL / **Ada** / C++ -> BEF -> BEX nativo), y los
 tres primeros **ya han ejecutado en el Ryzen**.
 
+> ## ★ Al 2026-10-15 -- ECCE ESCRIBE GUIONES, Y LA LENTE HABLA CASTELLANO
+>
+> Lo pedido y POR QUE (las palabras del propietario):
+>
+> - **La lente en castellano** (*"que el binario PRECISO en 0 y 1 diga
+>   algo"*): cada instruccion x86-64 con su frase, en la autopsia y en un
+>   `.ibx`. Y PROTON-X la usa: `dentro X.exe` (LX1) y, si un juego no
+>   arranca, desde donde llama a lo que falta (LX2).
+> - **El icono elegante** (*"que el icono en escritorio se vea elegante"*):
+>   TITAN++ lee `icono = "icono.svg"` (o PNG, JPG) y el escritorio lo pinta a
+>   32 px con el borde suave.
+> - **ECCE como Final Draft, con NODOS** (*"elegante fino como FINAL DRAFT
+>   [...] todo control profesional"*): ECCE es una CARPETA (KA1); Fountain
+>   con cada elemento en su columna (PL2); Alt + rueda aleja a la mesa y a
+>   los nodos por acto (PL9b; Alt y no Ctrl porque Ctrl es del escritorio, la
+>   regla de prioridad que el propietario pregunto); Alt+C/X/V y la seleccion.
+> - **PL3, "que BMO-X ejecute"**: Tab y Enter de Final Draft, abrir el
+>   fichero que le pasan (`director.argumento()`, nuevo en TITAN++), el
+>   explorador abre un `.fou` en ECCE, Alt+F guarda como guion, y el raton
+>   pone el cursor y selecciona.
+>
+> Todo probado en el anfitrion (24 pruebas de ECCE en el emulador). **Lo
+> abierto:** verlo en el Ryzen -- la hoja 6b de `docs/plan/EL_FOCO.md` tiene
+> una fila por cosa (RX, B2c, KA1, IC, LX1, LX2, MESA, GUION, COPIA, FD, FOU,
+> RATON) -- y `hilos-casa` sigue en 63 contra 62 (de antes, el propietario
+> lo deja estar).
+
 > ## ★★★★ Al 2026-10-07 -- CYBERPUNK 2077 VIVE 68 s EN EL METAL, Y ABRE EL SONIDO
 >
 > El plan del dia: `docs/plan/PLAN_LOS_DOCE_DIRECTORES.md`. La bitacora de

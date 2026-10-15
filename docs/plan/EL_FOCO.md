@@ -1206,6 +1206,19 @@ pieza entera en la 0b, y su fila de la tabla de estado pasa a `VISTO dd-mm`.
           ECCE                         Alt+X y Alt+Z lo devuelve          (que es del escritorio)
                                                                           cierra sin querer: es lo
                                                                           suyo, ver keys/windows.rs
+   FD     escribir un guion como en    ECCE en guion (con un INT.):      Tab no cambia la linea, o  (sin probar)
+          Final Draft (PL3 de          "ana" + Tab = @ANA (la @ tenue);  Enter tras el personaje
+          PLAN_ECCE)                   Enter baja al dialogo (a 10); otro deja una linea en blanco,
+                                       Enter deja el blanco; Tab en el   o Alt+Z no lo deshace
+                                       blanco del dialogo = "(|)"
+   FOU    abrir un .fou y guardar      Alt+F en ECCE: la cabecera dice   el explorador no abre ECCE, (sin probar)
+          como guion (PL3)             datos/guion.fou; F12 > DATOS >    o abre las notas, o guarda
+                                       ese fichero: abre ECCE con el     en datos/notas.txt
+                                       guion, y lo escrito se guarda ahi
+   RATON  el raton en la hoja (PL3)    un clic en una letra pone el      el cursor cae en otra       (sin probar)
+                                       cursor ahi; arrastrar selecciona; linea (la de arriba o
+                                       Alt+X corta lo arrastrado         abajo), o arrastrar no
+                                                                         selecciona
    IC     la cara ELEGANTE de ECCE     el icono de ECCE en el escritorio sale el cuadro con la E,  (sin probar)
           (32 px, borde suave, de      a 32 con el borde suave (la hoja  o con bordes en escalera,
           su `icono.svg`)              y la pluma de oro), sobre la foto o un halo oscuro alrededor

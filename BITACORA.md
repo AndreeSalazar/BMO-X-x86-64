@@ -4626,3 +4626,12 @@ quedan los dos cinturones.
 **Moraleja**: WC parece "sin cache" y es igual de malo para una caja negra:
 junta escrituras en un bufer que un reinicio tambien borra. Esta en las
 pruebas como un NO.
+
+---
+
+**Lo que espera al Ryzen (15-10), sin episodio todavia.** Esta bitacora es del
+metal y estas cosas aun no lo han tocado: la lente en castellano, ECCE (la
+carpeta, la mesa, el guion de Final Draft, abrir un `.fou`, el raton), el icono
+de 32 y PROTON-X por dentro. Estan probadas en el anfitrion; la hoja 6b de
+`docs/plan/EL_FOCO.md` dice que mirar y que seria un NO. El episodio se
+escribe cuando el Ryzen conteste.

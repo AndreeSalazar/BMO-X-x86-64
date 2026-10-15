@@ -185,7 +185,8 @@ guardadas como ESTRATOS (como la `.obra` de
       - [ ] no pintar los forzadores (".", "@", ">", "!") al imprimir
       - [ ] el JUEZ: los ejemplos de fountain.io, leidos aqui, dan los
         elementos que dice la especificacion
-- [ ] **PL3 -- la ventana en TITAN++:** (la ventana de NOTAS ya esta, 15-10:
+- [x] **PL3 -- la ventana en TITAN++:** (CERRADA en el anfitrion el 15-10;
+      falta verla en el Ryzen: hoja 6b, FD, FOU y RATON) (la ventana de NOTAS ya esta, 15-10:
       ver PL1; falta el modo guion encima) escribir un guion con Tab y Enter,
       cada elemento con su sangria, y guardarlo como `.fountain`.
       - [x] cada elemento con su sangria, en la ventana (15-10): accion y
@@ -193,12 +194,30 @@ guardadas como ESTRATOS (como la `.obra` de
         ancho), parentesis a 16, transicion pegada a la derecha; el pie dice
         la escena, la pagina y el ELEMENTO donde esta el cursor (prueba
         `the_screenplay_elements_sit_in_their_columns`)
-      - [ ] Tab y Enter de Final Draft: Tab cambia el elemento de la linea
-        (escribiendo lo que Fountain pide: mayusculas, "(", ">"), Enter pasa
-        al que toca (tras un personaje, su dialogo)
-      - [ ] guardarlo como `.fountain`, y abrir otros ficheros (hoy, uno
-        solo: `datos/notas.txt`)
-      - [ ] el raton en la hoja: un clic pone el cursor, arrastrar selecciona
+      - [x] Tab y Enter de Final Draft (15-10): Tab cambia lo que es la
+        linea -- accion > personaje > transicion > escena > accion; en el
+        dialogo, dialogo <> parentesis; una linea en blanco pasa a personaje
+        (o a parentesis dentro de un dialogo, con el cursor entre los dos) --
+        reescribiendola en Fountain (`guion.como`: "@", ">", ".", "!",
+        mayusculas, parentesis), y Alt+Z la deja como estaba. Enter tras un
+        personaje o un parentesis baja al dialogo; tras lo demas deja la
+        linea en blanco de Fountain; Mayus+Enter, un salto solo. La ultima
+        linea vacia bajo un personaje ya es su dialogo (el cursor a 10). Las
+        marcas se pintan en tenue (pruebas
+        `tab_and_enter_write_a_screenplay_like_final_draft` y
+        `tab_in_the_dialogue_is_a_parenthetical_and_cycles_the_rest`)
+      - [x] guardarlo como Fountain y abrir otros ficheros (15-10): ECCE abre
+        el fichero que le pasan (`director.argumento()`, nuevo en TITAN++:
+        lo de detras de la ruta al lanzar) y guarda ALLI; el explorador abre
+        un `.fou` (`.fountain` no cabe en 8.3; ESTRATOS lo trae largo) con
+        `apps/ecce/nucleo.bex`. Alt+F guarda como guion en `datos/guion.fou`
+        y sigue en el. La cabecera dice el fichero (prueba
+        `it_opens_the_file_it_is_given_and_alt_f_saves_a_fountain`). Lo que
+        no hay: elegir el NOMBRE al guardar (pide un dialogo de fichero)
+      - [x] el raton en la hoja (15-10): un clic pone el cursor en la letra
+        mas cercana, arrastrar selecciona, Mayus + clic alarga; la cabecera
+        y el pie no mueven nada, y el clic que abre una hoja desde la mesa no
+        cuenta otra vez (prueba `a_click_places_the_cursor_and_a_drag_selects`)
 - [ ] **PL4 -- EL PAGINADO del oficio:** margenes, (MAS) y (CONT.), no
       cortar donde no se corta. **Como se sabe (el juez):** guiones de
       prueba paginados en Final Draft dan las MISMAS paginas y los mismos
@@ -280,6 +299,11 @@ guardadas como ESTRATOS (como la `.obra` de
 - [ ] **PL16 -- el portapapeles de la CASA:** copiar en ECCE y pegar en otra
       app (y en la linea de Ejecutar). Lo guarda el director; las apps lo
       piden por su buzon. Hoy cada app tiene el suyo.
+- [ ] **PL17 -- elegir el FICHERO:** abrir y "guardar como" con un dialogo
+      de ficheros (hoy ECCE abre el que le pasan y Alt+F guarda en
+      `datos/guion.fou`, un nombre fijo). Pide a TITAN++ textos que se
+      construyen letra a letra (un `[byte]` a `text`), o el dialogo del
+      director.
 
 ---
 
