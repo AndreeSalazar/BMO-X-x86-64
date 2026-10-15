@@ -26,6 +26,8 @@
 #![forbid(unsafe_code)]
 
 pub use bmo_bex_gate::{Cual, Falta, Region};
+/// La lente, para quien quiera leer (y decir en castellano) el codigo.
+pub use bmo_lente_x86 as lente;
 pub use bmo_lente_x86::recorre::Recorrido;
 
 use bmo_bex_gate as gate;
@@ -41,6 +43,22 @@ pub struct Anexo {
     pub tipo: u8,
     pub bytes: u64,
 }
+
+/// **Una katana** (la mesa de INTI): una regla, y donde esta en el codigo el
+/// bloque de trampa que la cumple.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct Katana {
+    /// El codigo que devuelve al atrapar: `1001` es `E1001`.
+    pub codigo: u32,
+    /// El bloque de trampa, dentro de la region de codigo.
+    pub offset: u32,
+    pub longitud: u32,
+    /// El bloque cae entero dentro del codigo (lo que se puede comprobar).
+    pub dentro: bool,
+}
+
+/// Cuantas katanas se cuentan con detalle.
+pub const KATANAS_MAX: usize = 16;
 
 /// Un requisito declarado: su clase, su cantidad y si es obligatorio.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -72,6 +90,11 @@ pub struct Radiografia {
     /// -- sus modulos, sus permisos, sus funciones), como `(offset, bytes)`
     /// en el fichero. TITAN++ e INTI no escriben un `.bex` sin el.
     pub manifiesto: Option<(u64, u64)>,
+    /// La MESA DE KATANAS (`.ibx` de INTI): cada regla con su trampa. `None`
+    /// si no la trae; `Some(false)` si la trae y no se entiende.
+    pub katanas_ok: Option<bool>,
+    pub katanas: [Katana; KATANAS_MAX],
+    pub cuantas_katanas: usize,
     /// Lo que la lente leyo. `None` si no hay codigo, o si el mapa no basta.
     pub lente: Option<Recorrido>,
 }
@@ -91,6 +114,9 @@ impl Radiografia {
         declara: 0,
         relocs: 0,
         manifiesto: None,
+        katanas_ok: None,
+        katanas: [Katana { codigo: 0, offset: 0, longitud: 0, dentro: false }; KATANAS_MAX],
+        cuantas_katanas: 0,
         lente: None,
     };
 
@@ -133,6 +159,27 @@ pub fn radiografiar(bytes: &[u8], visto: &mut [u8], pila: &mut [u32]) -> Radiogr
         r.cuantos_anexos += 1;
     }
     r.manifiesto = rev.anexo(gate::ANEXO_MANIFIESTO).map(|a| (a.file_offset, a.file_size));
+    // La mesa de katanas: la forma de `bmo_abi::bef::katanas` (BKAT, cuantas,
+    // version 1; 16 B por katana: codigo, offset, longitud, cero), leida a
+    // mano como lee el lanzador el icono -- sin `alloc`, contra el contrato.
+    if let Some(a) = rev.anexo(gate::ANEXO_KATANAS) {
+        let t = bytes.get(a.file_offset as usize..(a.file_offset + a.file_size) as usize).unwrap_or(&[]);
+        let codigo_len = r.regiones[0].map_or(0, |c| c.file_size);
+        r.katanas_ok = Some(false);
+        if t.len() >= 16 && u32_en(t, 0) == Some(u32::from_le_bytes(*b"BKAT")) {
+            let n = u32_en(t, 4).unwrap_or(0) as usize;
+            if n <= 4096 && t.len() >= 16 + n * 16 {
+                r.katanas_ok = Some(true);
+                r.cuantas_katanas = n;
+                for i in 0..n.min(KATANAS_MAX) {
+                    let e = 16 + i * 16;
+                    let (codigo, offset, longitud) = (u32_en(t, e).unwrap_or(0), u32_en(t, e + 4).unwrap_or(0), u32_en(t, e + 8).unwrap_or(0));
+                    let dentro = offset as u64 + longitud as u64 <= codigo_len;
+                    r.katanas[i] = Katana { codigo, offset, longitud, dentro };
+                }
+            }
+        }
+    }
     // Los papeles: lo que declara (la mascara de instrucciones, como el kernel).
     if let Some(a) = rev.anexo(gate::ANEXO_REQUISITOS) {
         let trozo = bytes.get(a.file_offset as usize..(a.file_offset + a.file_size) as usize).unwrap_or(&[]);
@@ -185,6 +232,23 @@ pub fn radiografiar(bytes: &[u8], visto: &mut [u8], pila: &mut [u32]) -> Radiogr
         pila,
     ));
     r
+}
+
+fn u32_en(b: &[u8], o: usize) -> Option<u32> {
+    Some(u32::from_le_bytes(b.get(o..o + 4)?.try_into().ok()?))
+}
+
+/// **La regla de INTI de un codigo de katana**, en castellano (las de
+/// `toolchain/lang/inti/REGLAS.md`).
+pub fn nombre_regla(codigo: u32) -> &'static str {
+    match codigo {
+        1001 => "desbordar un entero ATRAPA (y el cociente que no cabe)",
+        1002 => "un indice fuera de la lista ATRAPA",
+        1003 => "dividir entre cero ATRAPA",
+        1005 => "un puntero colgante o liberado no se usa",
+        1012 => "convertir un flotante a entero fuera de rango ATRAPA",
+        _ => "una regla que esta version no sabe nombrar",
+    }
 }
 
 /// El nombre de un anexo, para decirlo.

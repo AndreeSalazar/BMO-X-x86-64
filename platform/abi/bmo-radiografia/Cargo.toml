@@ -14,3 +14,5 @@ bmo-lente-x86 = { path = "../../shared/bmo-lente-x86" }
 
 [dev-dependencies]
 bmo-titan-x86-64 = { path = "../../../toolchain/lang/titan/emisor-x86_64" }
+# Para armar a mano un .bex con mesa de katanas (la de INTI).
+bmo-abi = { path = "../bmo-abi" }

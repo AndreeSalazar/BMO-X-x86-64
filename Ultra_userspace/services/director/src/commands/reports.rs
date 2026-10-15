@@ -996,6 +996,11 @@ pub(crate) fn report_autopsy(s: &mut Output) {
     let mut buf = [0u8; 96];
     for f in 0..rows {
         let n = bmo::autopsia_linea(0, f, &mut buf);
+        // Un renglon vacio (la continuacion de `dice` cuando la frase cabe
+        // en uno) no se pinta.
+        if n == 0 {
+            continue;
+        }
         s.text(b"    ");
         // El titulo en rojo y el cuerpo normal: lo que se busca de un vistazo
         // es CUAL fue y cuando, no el `rsp`.

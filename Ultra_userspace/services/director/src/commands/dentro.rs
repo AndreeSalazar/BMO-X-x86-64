@@ -12,7 +12,7 @@
 //! El fichero se lee en UN bloque prestado (como el fondo de pantalla) y el
 //! mapa de la lente en otro; los dos vuelven al acabar.
 
-use bmo_radiografia::{nombre_anexo, nombre_clase, nombres_instrucciones, radiografiar, Cual};
+use bmo_radiografia::{lente, nombre_anexo, nombre_clase, nombre_regla, nombres_instrucciones, radiografiar, Cual};
 use bmo_userland as bmo;
 
 use super::After;
@@ -165,6 +165,65 @@ pub(crate) fn dentro(dsk: &mut Desktop, _p: &bmo::Pantalla, ruta: &[u8]) -> Afte
         }
     }
     s.with_ink(INK_PLAIN);
+    // La mesa de katanas (los `.ibx` de INTI): cada regla y su trampa.
+    match r.katanas_ok {
+        Some(true) => {
+            s.with_ink(INK_ECHO);
+            s.text(b"  -- la mesa de KATANAS (INTI): cada regla que promete y donde esta su trampa --\n");
+            s.with_ink(INK_PLAIN);
+            for k in &r.katanas[..r.cuantas_katanas.min(bmo_radiografia::KATANAS_MAX)] {
+                s.text(b"    E");
+                s.dec(k.codigo as u64);
+                s.text(b"  ");
+                s.text(nombre_regla(k.codigo).as_bytes());
+                s.text(b"  -> trampa en +0x");
+                s.hex(k.offset as u64, 4);
+                if !k.dentro {
+                    s.with_ink(INK_ERR);
+                    s.text(b"  (FUERA del codigo: no se cumple)");
+                    s.with_ink(INK_PLAIN);
+                }
+                s.byte(b'\n');
+            }
+        }
+        Some(false) => {
+            s.with_ink(INK_ERR);
+            s.text(b"  trae mesa de katanas y no se entiende\n");
+            s.with_ink(INK_PLAIN);
+        }
+        None => {}
+    }
+    // ** EN CASTELLANO: las primeras instrucciones desde la entrada, cada
+    // una en tres vistas -- donde, Intel y lo que hace dicho para una persona.
+    if let Some(c) = r.regiones[0] {
+        let ini = c.file_offset as usize;
+        let fin = (ini + c.file_size as usize).min(bytes.len());
+        let code = &bytes[ini..fin];
+        s.with_ink(INK_ECHO);
+        s.text(b"  -- las primeras instrucciones desde la entrada, en castellano --\n");
+        s.with_ink(INK_PLAIN);
+        let mut en = r.entrada as usize;
+        for _ in 0..16 {
+            if en >= code.len() {
+                break;
+            }
+            let Ok(i) = lente::lee(&code[en..]) else {
+                s.text(b"    (la lente no sabe leer lo que sigue)\n");
+                break;
+            };
+            s.text(b"    +");
+            s.hex(en as u64, 4);
+            s.text(b"  ");
+            s.text(i.texto(en as u64).as_str().as_bytes());
+            s.byte(b'\n');
+            s.with_ink(INK_ECHO);
+            s.text(b"           ");
+            s.text(lente::castellano::explica(&i, en as u64).as_str().as_bytes());
+            s.byte(b'\n');
+            s.with_ink(INK_PLAIN);
+            en += i.largo;
+        }
+    }
     // El manifiesto: lo que el compilador declara que es (texto).
     if let Some((o, m)) = r.manifiesto {
         let fin = (o + m) as usize;

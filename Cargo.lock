@@ -810,6 +810,7 @@ dependencies = [
 name = "bmo-radiografia"
 version = "0.1.0"
 dependencies = [
+ "bmo-abi",
  "bmo-bex-gate",
  "bmo-carga-juicio",
  "bmo-lente-x86",
