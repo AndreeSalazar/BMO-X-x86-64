@@ -1106,6 +1106,11 @@ pixel (latencia), no los fps (caudal).
       `Lamina::leer` en el bucle, `IGUAL al juez`; la prueba de dos hilos
       de la lamina con la palabra de vuelta, sin un fotograma roto; y la
       IOMMU dice que la pagina es de solo lectura.
+      **15-10: HECHO EN EL ANFITRION** (C1 de `EL_FOCO.md`, con el detalle):
+      la palabra de VUELTA en el trato, los dos escritores que la respetan,
+      VRN1 con la lamina como descriptor y el kernel que la presta SOLO
+      LECTURA durante un dibujo (sin `reap_dead`: el prestamo dura un
+      dibujo). Falta verlo en el Ryzen (hoja 6b de EL_FOCO, fila C1).
 - [ ] **S2 -- E4: una escritura y el timbre (Ring 0, del propietario).** Es
       la casilla E4 de arriba: las ordenes de cada ranura en RAM y el
       GPFIFO escrito al armar. S la necesita: sin ella, cada fotograma

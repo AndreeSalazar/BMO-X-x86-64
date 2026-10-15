@@ -145,7 +145,7 @@ esta en la HOJA 6b.
    B2     la autopsia dice la instruccion      HECHO       falta (6b: B2)
    B3     el cubo en SU ventana, por la 3060   HECHO       falta (6b: B3)
    B4     el perfil, UNA fuente; LLVM obedece  HECHO       falta (6b: B4)
-   C1     la lamina PRESTADA a la 3060         --          --
+   C1     la lamina PRESTADA a la 3060         HECHO       falta (6b: C1)
    C2..D2                                      --          --
 ```
 
@@ -462,6 +462,33 @@ esta en la HOJA 6b.
 - [ ] **C1 -- S1: la lamina PRESTADA a la 3060** (`PLAN_VERRANO.md`): la
       IOMMU, solo lectura, con la palabra de VUELTA (la ranura en vuelo) en
       el trato de A2.
+      **HECHO EN EL ANFITRION el 15-10**, en tres trozos:
+      - **La palabra de VUELTA** (`bmo-lamina/src/trato.rs`): el lector
+        RESERVA la ranura publicada (`reservar`/`soltar`) y el escritor que
+        la respeta (`empezar_si_libre`) no la pisa: si esta en vuelo, no
+        publica ese fotograma (Dekker: sello impar, valla, mira la VUELTA).
+        La prueba castigada: 20000 fotogramas, la ranura reservada NUNCA
+        cambia; y saboteada (el escritor que no mira) MUERDE.
+      - **Los escritores la respetan:** la `Lamina` de VERRANO
+        (`publica` -> `Ocupada`, `respeta_vuelta`) y el emisor E1 de TITAN++
+        (`mfence` + la VUELTA antes de escribir; prueba
+        `titan_respects_the_slot_in_flight`).
+      - **La 3060 la lee PRESTADA:** VRN1 con el bit 10 del estado lleva 16 B
+        de descriptor en vez de los vertices (`ga10x/trabajos/prestada.rs`).
+        En Ring 0 (`gpu_trabajo/cubo.rs`, `en_frio`) el kernel comprueba que
+        la VA es de un prestamo TOMADO por el escritorio (`fisica_tomada`;
+        si no, `LaminaNoTomada`, 29), la mapea en la IOMMU de la 3060 SOLO
+        LECTURA en la ultima ranura de la ventana de texturas, dibuja,
+        espera la valla y la desmapea -- todo bajo el cerrojo de GR: si la
+        app muere no queda nada mapeado --. Con el anillo, NO
+        (`LaminaNoSePresta`, 30). El escritorio (`gspcubo/laminas.rs`) la
+        usa si la app respeta la VUELTA; si el kernel la rechaza lo dice UNA
+        vez y vuelve a copiar.
+      - **Lo que NO esta:** S1 decia "desmapear en `reap_dead`"; no hace
+        falta: el prestamo dura un dibujo, no la vida de la app.
+  - [x] **en el anfitrion** -- HECHO el 15-10 (lo de arriba; banco 5349 verdes).
+  - [ ] **en el Ryzen** -- el cubo de TITAN++ en su ventana con la lamina PRESTADA (hoja 6b, fila C1). Cuando se vea bien: se anota en la hoja
+        y se tachan esta casilla y la de C1.
 - [ ] **C2 -- S3 + S4: el ritmo por el sello y la app en su nucleo.** El
       92 % de la pared de S0 era esperar: aqui se gana.
 - [ ] **C3 -- Q0b: la 3060 COMPONE las ventanas** (la regla 1b): fuera los
@@ -992,6 +1019,11 @@ pieza entera en la 0b, y su fila de la tabla de estado pasa a `VISTO dd-mm`.
                                        `cpu: es la CPU del perfil` y     el Ryzen, o una DECIDIDA
                                        `extensiones decididas que el     que el silicio no tiene
                                        silicio tiene` = 11
+   C1     la lamina PRESTADA a la      `run titan/cubogira.bex`: en la   `[C1] la 3060 no tomo la    (sin probar)
+          3060, sin copia              consola `[C1] la lamina va        lamina prestada` (y el
+                                       PRESTADA a la 3060: sin copia`,   porque 29/30 en la
+                                       el juez `la 3060 da lo MISMO`,    bitacora), un fallo de la
+                                       y el cubo gira igual que antes    IOMMU, o el juez DISTINTO
 ```
 
 # 6. QUE FALTA COMPROBAR EN EL METAL (10-10)
