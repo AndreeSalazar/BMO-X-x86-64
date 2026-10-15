@@ -267,8 +267,14 @@ pub fn explica(i: &Instr, en: u64) -> Frase {
         }
         "shld" | "shrd" => dos(&mut f, "corre los bits de ", a, " metiendo por el otro lado los de ", b, ""),
         "shufps" | "shufpd" | "pshufd" | "pshuflw" | "pshufhw" | "pshufb" => dos(&mut f, "reordena las partes de ", b, " (segun la mascara) y las deja en ", a, ""),
-        "paddb" | "paddw" | "paddd" | "paddq" => dos(&mut f, "suma por partes (varios enteros a la vez) ", b, " a ", a, ""),
-        "psubb" | "psubw" | "psubd" | "psubq" => dos(&mut f, "resta por partes (varios enteros a la vez) ", b, " de ", a, ""),
+        n if n.starts_with("padd") => dos(&mut f, "suma por partes (varios enteros a la vez) ", b, " a ", a, if n.len() > 6 { " (sin pasarse del tope)" } else { "" }),
+        n if n.starts_with("psub") => dos(&mut f, "resta por partes (varios enteros a la vez) ", b, " de ", a, if n.len() > 6 { " (sin pasarse del tope)" } else { "" }),
+        n if n.starts_with("pmin") => dos(&mut f, "deja en cada parte de ", a, " el menor entre ella y ", b, ""),
+        n if n.starts_with("pmax") => dos(&mut f, "deja en cada parte de ", a, " el mayor entre ella y ", b, ""),
+        n if n.starts_with("pmul") || n == "pmaddwd" => dos(&mut f, "multiplica por partes ", a, " por ", b, ""),
+        n if n.starts_with("pack") => dos(&mut f, "aprieta las partes de ", a, " y ", b, " en partes mas chicas (sin pasarse del tope)"),
+        "pavgb" | "pavgw" => dos(&mut f, "deja en cada parte de ", a, " la media entre ella y ", b, ""),
+        "psadbw" => dos(&mut f, "suma las diferencias, byte a byte, entre ", a, " y ", b, ""),
         "psrlw" | "psrld" | "psrlq" | "psrldq" | "psraw" | "psrad" => {
             dos(&mut f, "corre a la derecha cada parte de ", a, " tantos bits como ", if c.is_empty() { b } else { c }, "")
         }
