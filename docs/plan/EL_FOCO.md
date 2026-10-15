@@ -146,7 +146,9 @@ esta en la HOJA 6b.
    B3     el cubo en SU ventana, por la 3060   HECHO       falta (6b: B3)
    B4     el perfil, UNA fuente; LLVM obedece  HECHO       falta (6b: B4)
    C1     la lamina PRESTADA a la 3060         HECHO       falta (6b: C1)
-   C2..D2                                      --          --
+   C2     S3: el banco duerme en el sello       HECHO       falta (6b: C2)
+          S4: la app en su nucleo              BLOQUEADO   (ver C2)
+   C3..D2                                      --          --
 ```
 
 **Escalon 1 -- solo el anfitrion (facil)**
@@ -491,6 +493,40 @@ esta en la HOJA 6b.
         y se tachan esta casilla y la de C1.
 - [ ] **C2 -- S3 + S4: el ritmo por el sello y la app en su nucleo.** El
       92 % de la pared de S0 era esperar: aqui se gana.
+      **S3 HECHO EN EL ANFITRION el 15-10:**
+      - **El futex COMPARTIDO** (`bmo_futex::llave_compartida`, ops 0x46 y
+        0x47): la llave es la FISICA de la palabra. El de antes llevaba el
+        proceso en la llave, y dos procesos que comparten una lamina la ven
+        en direcciones distintas: no se encontraban nunca.
+      - **La lamina con TIMBRE:** palabra 13 `DUERME` (el escritorio), 14-15
+        el TSC de la publicacion (la app), bit 3 de la 11 `ESTADO_TIMBRE`. La
+        app mira DUERME despues de publicar y solo llama al kernel si alguien
+        duerme: con el escritorio despierto no cuesta ni una llamada. La
+        prueba (un kernel de mentira que mira bajo su cerrojo, como el de
+        verdad): 3000 fotogramas, ningun despertar perdido; sin timbre, el
+        escritorio se queda dormido (muerde).
+      - **TITAN++ lo toca** (E1: `mfence`, DUERME, y el despertar en la
+        palabra de la secuencia); prueba con sabotaje.
+      - **`gpu verrano banco inti` duerme en el sello** si la app lo toca, y
+        dice `C2, el sello: ... de publicado a dibujado X us de media, Y us
+        la peor`. Una app sin timbre (INTI) sigue con el `wait` de 1 ms.
+      - **Lo que NO esta de S3:** "el anillo con 1 o 2 en vuelo" -- se mide
+        primero la latencia en el Ryzen y despues se decide --.
+  - [x] **en el anfitrion (S3)** -- HECHO el 15-10 (lo de arriba; banco 5353 verdes).
+  - [ ] **en el Ryzen (S3)** -- `run titan/cubogira.bex` y `gpu verrano banco inti` (hoja 6b, fila C2). Cuando se vea bien: se anota en la hoja
+        y se tachan esta casilla y la de S3.
+  - [ ] **S4 -- la app en SU nucleo: BLOQUEADO, y por que** (15-10). Hoy el
+        planificador corre Ring 3 SOLO en el BSP (`percpu.rs`: "Ring 3 solo
+        corre en el BSP"; una cola, un `SCHED_LOCK`): los AP solo hacen
+        fork-join (`crew`, `repartir`: Ring 3 sin syscalls y con plazo de
+        5 s). Una app ENTERA en otro nucleo es H1.1 de
+        `PLAN_LAS_TRES_GRANDES.md` (colas por nucleo, un LAPIC por nucleo,
+        el IPI de replanificar), y su propio orden dice que la fila 7 no
+        empieza antes que la 5 (los Sync de PROTON-X: `hilos-casa`, hoy 63
+        contra 62). Y `smp all` reinicia el PC (V9/V10 de
+        `PLAN_LOS_DOCE_DIRECTORES.md`). **Lo que pide del propietario:**
+        decidir si S4 espera a H1.1 o si se hace un paso menor antes (la
+        tanda de la app por `repartir` en los obreros, sin mover la app).
 - [ ] **C3 -- Q0b: la 3060 COMPONE las ventanas** (la regla 1b): fuera los
       27,6 ms de la CPU copiando la pantalla.
 - [ ] **C4 -- LB4 + LB5: los contadores del Zen 3, y INTI exprime con
@@ -1019,6 +1055,12 @@ pieza entera en la 0b, y su fila de la tabla de estado pasa a `VISTO dd-mm`.
                                        `cpu: es la CPU del perfil` y     el Ryzen, o una DECIDIDA
                                        `extensiones decididas que el     que el silicio no tiene
                                        silicio tiene` = 11
+   C2     el banco duerme en el sello  `run titan/cubogira.bex` y        el banco se queda           (sin probar)
+          (S3)                         `gpu verrano banco inti`: la      parado (2 s y `callada`),
+                                       linea `C2, el sello: la app TOCA  o `NO toca el timbre`, o la
+                                       EL TIMBRE, N veces dormido` y     latencia peor que con el
+                                       la latencia publicado-dibujado;   `wait` de 1 ms
+                                       el juez, IGUAL
    C1     la lamina PRESTADA a la      `run titan/cubogira.bex`: en la   `[C1] la 3060 no tomo la    (sin probar)
           3060, sin copia              consola `[C1] la lamina va        lamina prestada` (y el
                                        PRESTADA a la 3060: sin copia`,   porque 29/30 en la

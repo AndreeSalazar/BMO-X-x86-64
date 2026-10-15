@@ -1125,12 +1125,21 @@ pixel (latencia), no los fps (caudal).
       seccion 1 de `PLAN_EL_PIXEL.md`. **Como se sabe:** el banco dice la
       latencia publicado-pagado, y con 1 en vuelo baja sin que caigan los
       fps de la app.
+      **15-10: HECHO EN EL ANFITRION** (C2 de `EL_FOCO.md`): el futex
+      COMPARTIDO (la llave por la fisica), la lamina con TIMBRE (DUERME y
+      la hora de la publicacion), TITAN++ que lo toca, y el banco que duerme
+      en la secuencia y dice la latencia publicado-dibujado. Lo del anillo
+      con 1 o 2 en vuelo, despues de medir en el Ryzen.
 - [ ] **S4 -- la CPU en varios nucleos (Ring 0, del propietario).** Un
       nucleo orquesta (el escritorio y el anillo) y otro calcula (la app:
       la fisica, la animacion, la tanda). Es la seccion 4 y el nivel 7 de la
       escalera de [`PLAN_LAS_TRES_GRANDES.md`](PLAN_LAS_TRES_GRANDES.md).
       **Como se sabe:** `titan/cubogira.bex` en su nucleo y el banco en
       otro, y la columna ESPERA DE LA CPU baja.
+      **15-10: BLOQUEADO** (C2 de `EL_FOCO.md` dice por que): Ring 3 solo
+      corre en el BSP, y una app en otro nucleo es H1.1 de
+      `PLAN_LAS_TRES_GRANDES.md`, que espera a los Sync de PROTON-X y a que
+      `smp all` deje de reiniciar el PC. Lo decide el propietario.
 - [ ] **S5 -- el puente a D3D12 (PROTON-X).** D3D12 ES este modelo: el
       juego calcula en la CPU y deja los datos en un *upload heap* (RAM que
       la GPU lee: la zona de entrega), graba listas de ordenes y las manda
