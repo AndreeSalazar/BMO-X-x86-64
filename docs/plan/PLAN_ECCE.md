@@ -125,7 +125,7 @@ guardadas como ESTRATOS (como la `.obra` de
 ## 4. La escalera (de lo mas chico a lo mas grande)
 
 - [ ] **PL0 -- las decisiones de la seccion 7**, contestadas por el propietario (D1 si: ECCE).
-- [ ] **PL1 -- el motor de texto:** parrafos con elemento, cursor, seleccion,
+- [x] **PL1 -- el motor de texto:** parrafos con elemento, cursor, seleccion,
       deshacer, buscar. Puro, en el anfitrion. **Como se sabe:** mil
       ediciones al azar y su deshacer vuelven al texto de partida, byte a byte.
       **15-10, la primera mitad:** `Ultra_userspace/apps/ecce` (TITAN++),
@@ -135,8 +135,16 @@ guardadas como ESTRATOS (como la `.obra` de
       `datos/notas.txt` (Ctrl es del escritorio: no hay Ctrl+S), al cerrar y
       un segundo y medio despues de la ultima tecla. Las pruebas:
       `emisor-x86_64/tests/ecce.rs`, 8 (romper el corte de lineas las pone
-      rojas). **Falta para tachar PL1:** el DESHACER y su prueba de las mil
-      ediciones; los elementos por parrafo (son de PL3 en adelante).
+      rojas).
+      **15-10, la segunda mitad: el DESHACER.** Alt+Z deshace y Alt+Y rehace,
+      por palabras (lo que se escribe o se borra seguido es un paso), sin
+      limite; escribir otra cosa tira lo deshecho. Alt y no Ctrl: Ctrl es del
+      escritorio, y la app lleva la cuenta de Alt con sus eventos crudos.
+      **La prueba de las mil ediciones** (`a_thousand_random_edits_undo_to_
+      the_start`): letras, Enter, Retroceso, Supr y flechas al azar; deshacerlo
+      todo da el texto de partida byte a byte, rehacerlo todo el de despues.
+      Restaurar un byte equivocado al deshacer la pone roja. PL1 HECHO en el
+      anfitrion (los elementos por parrafo son de PL3 en adelante).
 - [ ] **PL2 -- Fountain, leer y escribir.** **Como se sabe:** los ejemplos
       de la especificacion de Fountain dan los elementos que ella dice, y
       leer-escribir-leer no cambia nada.

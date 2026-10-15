@@ -1,14 +1,14 @@
 <!-- GENERADO por toolchain/tools/planes. No se edita a mano. -->
 
-# LO QUE FALTA -- las casillas abiertas de los 86 planes
+# LO QUE FALTA -- las casillas abiertas de los 87 planes
 
 > Generado por `toolchain/tools/planes`. **El build comprueba que
 > este fichero y los planes dicen lo mismo**, asi que no puede
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   848 casillas ABIERTAS en 77 planes
-   644 hechas
+   853 casillas ABIERTAS en 78 planes
+   645 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -144,15 +144,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] S3 -- EL MEZCLADOR: N fuentes, una salida
 - ... y 14 mas
 
-## [`PLAN_ECCE.md`](PLAN_ECCE.md) -- 16 abiertas, 0 hechas
-
-*PLAN ECCE -- escribir en BMO-X: guiones al nivel de Final Draft, y todo lo demas*
-
-- [ ] PL0 -- las decisiones de la seccion 7, contestadas por el propietario (D1 si: ECCE).
-- [ ] PL1 -- el motor de texto: parrafos con elemento, cursor, seleccion,
-- [ ] PL2 -- Fountain, leer y escribir. Como se sabe: los ejemplos
-- ... y 13 mas
-
 ## [`PLAN_LA_BANDEJA.md`](PLAN_LA_BANDEJA.md) -- 16 abiertas, 4 hechas
 
 *PLAN LA BANDEJA -- F2 donde viven TODOS los archivos, F12 el volumen, F1 todo nodos*
@@ -170,6 +161,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] M1 WAV dias despues del tubo
 - [ ] M2 MP3 (= A5) media tarde de comprobar la coma flotante antes
 - ... y 13 mas
+
+## [`PLAN_ECCE.md`](PLAN_ECCE.md) -- 15 abiertas, 1 hechas
+
+*PLAN ECCE -- escribir en BMO-X: guiones al nivel de Final Draft, y todo lo demas*
+
+- [ ] PL0 -- las decisiones de la seccion 7, contestadas por el propietario (D1 si: ECCE).
+- [ ] PL2 -- Fountain, leer y escribir. Como se sabe: los ejemplos
+- [ ] PL3 -- la ventana en TITAN++: (la ventana de NOTAS ya esta, 15-10:
+- ... y 12 mas
 
 ## [`PLAN_EL_TROQUEL.md`](PLAN_EL_TROQUEL.md) -- 15 abiertas, 14 hechas
 
@@ -439,6 +439,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] Y1.1 subir el bInterval del raton a Ring 0 y a Ring 3. Sin ese
 - [ ] Y1.2 que BUS_PERIOD_MS salga del minimo de los aparatos vivos y no
 - [ ] no promete 0 ms, y llamarlo asi seria vender humo: un pixel viaja por
+- ... y 3 mas
+
+## [`PLAN_EL_TOQUE.md`](PLAN_EL_TOQUE.md) -- 6 abiertas, 0 hechas
+
+*PLAN EL TOQUE -- la RAM se llena al USAR, y se vacia sola lo que dejo de usarse*
+
+- [ ] EL0 -- MEDIR antes de tocar nada. Por app: paginas mapeadas,
+- [ ] EL1 -- los CEROS al tocarlos. La region de ceros de un .bex (el
+- [ ] EL2 -- el CODIGO al tocarlo, leido del .bex (de la cache de
 - ... y 3 mas
 
 ## [`PLAN_INTI_SAMURAI.md`](PLAN_INTI_SAMURAI.md) -- 6 abiertas, 5 hechas

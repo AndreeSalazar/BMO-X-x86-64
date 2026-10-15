@@ -1159,10 +1159,10 @@ pieza entera en la 0b, y su fila de la tabla de estado pasa a `VISTO dd-mm`.
                                        el 60, con el sobre que ya no es  en algun fotograma: se
                                        SASS a mano                       vuelve al de antes con git
    PL1    ECCE, el bloc de notas        su icono (o `run apps/ecce.bex`): no abre, las letras no    (sin probar)
-          (PLAN_ECCE.md)               escribir con tildes y ene, Enter,  salen, o al volver a
-                                       flechas; Esc; abrirlo otra vez:   abrir la nota no esta
-                                       la nota sigue ahi (datos/
-                                       notas.txt)
+          (PLAN_ECCE.md)               escribir con tildes y ene, Enter,  salen, Alt+Z no deshace,
+                                       flechas, Alt+Z y Alt+Y; Esc;      o al volver a abrir la
+                                       abrirlo otra vez: la nota sigue   nota no esta
+                                       ahi (datos/notas.txt)
    Q2     el sonido de TITAN++         `run apps/musica.bex`: dice       no suena (el tubo sin      FUNCIONO 15-10
                                        `voces   `, cada nota y `fin     armar: mirar `audio` en
                                        0`, y SUENA el tema por el        CABINA), o suena a trozos
@@ -1227,6 +1227,17 @@ pieza entera en la 0b, y su fila de la tabla de estado pasa a `VISTO dd-mm`.
                  por arranque, `gpu init` repetido lo dice y no toca nada.
                  La proxima sesion: NO teclear `gpu init` si save mode ya lo
                  hizo (o teclearlo: ahora contesta "ya llego")
+                 Y el "gsp NO desperto" de tantos arranques (el propietario,
+                 15-10: "tengo que repetir muchas veces el reinicio") NO es
+                 la tarjeta caliente: es el 0x15 del booter en arranques
+                 FRIOS, el fallo abierto G0 de PLAN_LA_3060 (sus datos, en
+                 `platform/drivers/gpu/ga10x/EL_0x15.md`: 5 de 7 el 29-09, y
+                 tambien con apagado completo). El `reboot` del escritorio
+                 ya apaga el GSP antes (boot_ul); el de la pantalla de fallo
+                 y el del shell serie, no. Y la fila `al llegar` pintaba
+                 `0x80000000` en el WPR2 de una tarjeta FRIA: era la bandera
+                 de "foto tomada", no el registro (arreglado en
+                 `gspsalud.rs`, 15-10)
    y ademas      tinta, mundo y resol abrieron su ventana (mundo ofrecio su
                  lamina); ni un aviso en el anillo salvo la caida buscada
 ```
