@@ -30,6 +30,10 @@ pub use bmo_bex_gate::{Cual, Falta, Region};
 pub use bmo_lente_x86 as lente;
 pub use bmo_lente_x86::recorre::Recorrido;
 
+/// **Un `.exe` de Windows por dentro** (LX1): lo que PROTON-X tiene que
+/// saber de un juego antes de correrlo.
+pub mod pe;
+
 use bmo_bex_gate as gate;
 use bmo_carga_juicio as juicio;
 

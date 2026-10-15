@@ -16,3 +16,6 @@ bmo-lente-x86 = { path = "../../shared/bmo-lente-x86" }
 bmo-titan-x86-64 = { path = "../../../toolchain/lang/titan/emisor-x86_64" }
 # Para armar a mano un .bex con mesa de katanas (la de INTI).
 bmo-abi = { path = "../bmo-abi" }
+# LX1: el ORACULO del lector de `.exe` -- el cargador de PROTON-X, que si
+# tiene monton. Los dos tienen que leer lo mismo de cada `.exe` de prueba.
+bmo-proton-x = { path = "../../shared/proton-x" }

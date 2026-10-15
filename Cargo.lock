@@ -821,6 +821,7 @@ dependencies = [
  "bmo-bex-gate",
  "bmo-carga-juicio",
  "bmo-lente-x86",
+ "bmo-proton-x",
  "bmo-titan-x86-64",
 ]
 
