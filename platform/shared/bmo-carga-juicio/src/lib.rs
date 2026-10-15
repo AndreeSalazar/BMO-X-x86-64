@@ -41,6 +41,10 @@
 
 #![no_std]
 
+pub mod decidido;
+pub mod instrucciones;
+pub use instrucciones::CLASE_INSTRUCCIONES;
+
 /// Lo que el juez contesta. Cada variante es una frase distinta para el propietario.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Veredicto {
@@ -340,6 +344,7 @@ pub fn clase_conocida(clase: u16) -> bool {
             | CLASE_CPU
             | CLASE_PROCESOS
             | CLASE_MONTON
+            | CLASE_INSTRUCCIONES
     )
 }
 

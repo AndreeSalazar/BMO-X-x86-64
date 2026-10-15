@@ -54,6 +54,8 @@ impl E1<'_> {
                 }
             }
             Class::List(_) | Class::Map(..) | Class::Opt(_) | Class::Any => self.show_collection(p, c)?,
+            // A4b: imprimirla seria copiarla; el frontend ya dijo que no (T0077).
+            Class::Lamina => return Err("una lamina no se imprime (fallo del compilador: el frontend lo dice antes)".into()),
             Class::Table(inner, n) => {
                 console::write_const(&mut self.code, b"[");
                 if *n > 0 {

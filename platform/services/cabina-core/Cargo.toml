@@ -10,3 +10,6 @@ default = []
 std = []
 
 [dependencies]
+# El censo de las laminas (14-10, A3): SHM_MAGIC (CAB2) es una de sus clases.
+# Puro, sin dependencias.
+bmo-lamina = { path = "../../shared/bmo-lamina" }

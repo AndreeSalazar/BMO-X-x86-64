@@ -628,3 +628,18 @@ fn los_ejemplos_del_arbol_dicen_lo_mismo_enlazados() {
         );
     }
 }
+
+/// ** A6: el ejecutable pide lo que pida cualquiera de sus unidades.
+#[test]
+fn las_instrucciones_de_cada_unidad_se_juntan() {
+    use bmo_abi::bef::requisitos::{instrucciones::por_nombre, Tabla, CLASE_INSTRUCCIONES};
+    let ext = |n| por_nombre(n).unwrap().bit;
+    let a = objeto("a.c", "int unos(int v); int main() { return unos(7) + (int)__tzcnt(8); }");
+    let b = objeto("b.c", "int unos(int v) { return (int)__popcnt((unsigned)v); }");
+    let bex = enlazar(&[a, b]).unwrap();
+    let v = bmo_abi::bef2::leer(&bex).unwrap();
+    let t = Tabla::abrir(v.anexo(bmo_abi::bef2::ANEXO_REQUISITOS).unwrap()).unwrap();
+    let l: Vec<_> = t.iter().filter(|r| r.clase == CLASE_INSTRUCCIONES).collect();
+    assert_eq!(l.len(), 1);
+    assert_eq!(l[0].cantidad, ext("POPCNT") | ext("BMI1"));
+}

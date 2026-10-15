@@ -295,6 +295,7 @@ impl Pantalla {
                 return;
             }
             self.por_gpu.set(false);
+            self.caidas_gpu.set(self.caidas_gpu.get() + 1);
         }
         let stride = self.stride as usize;
         for &(x0, y0, x1, y1) in sucias.cajas() {
@@ -415,6 +416,7 @@ impl Pantalla {
         self.pendiente.set(false);
         if crate::iommu_orden_con(crate::IOMMU_OP_GPU_VOLCADOR, VOLCADOR_ESPERAR << 60).is_err() {
             self.por_gpu.set(false);
+            self.caidas_gpu.set(self.caidas_gpu.get() + 1);
         }
     }
 
@@ -440,6 +442,12 @@ impl Pantalla {
     /// El volcado lo hace la 3060 ahora mismo.
     pub fn volcando_por_gpu(&self) -> bool {
         self.por_gpu.get()
+    }
+
+    /// C3: cuantas veces el volcado de la 3060 se quito SOLO (ver
+    /// [`PorDefecto`](crate::PorDefecto)).
+    pub fn caidas_gpu(&self) -> u32 {
+        self.caidas_gpu.get()
     }
 
     /// **Asegura que lo escrito se puede LEER.** Llamar antes de [`Self::read`].

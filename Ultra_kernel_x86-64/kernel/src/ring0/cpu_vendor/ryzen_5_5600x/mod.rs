@@ -33,6 +33,9 @@ pub use bmo_cpu::init_bmo_cpu;
 /// Los contadores de energia de este Zen 3. Son de AMD: por eso viven aqui y
 /// no en `ring0/cpu/`. Ver su cabecera.
 pub mod power;
+/// ** C4 (15-10): los contadores de rendimiento, y la calibracion que dice
+/// si cuentan lo que dice el PPR. Ver su cabecera.
+pub mod contadores;
 
 /// The rest of Ring 0 sees only this -- never this module directly.
 pub static PROFILE: super::profile::CpuProfile = super::profile::CpuProfile {

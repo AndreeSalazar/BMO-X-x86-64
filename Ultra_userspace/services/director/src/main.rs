@@ -885,6 +885,19 @@ pub extern "C" fn _start() -> ! {
                 dsk.tick.repaint_field = true;
             }
             scene::surface::Adopcion::NadieOfrece => {}
+            // ** La puerta unica (14-10): una lamina del censo que no es para
+            // el DIRECTOR, dicha por su nombre.
+            scene::surface::Adopcion::NoEsParaMi { tid, clase, version_mala } => {
+                // 15 + 10 + 19 + 4 + 52: cabe entero, con su salto de linea.
+                let mut l = [0u8; 128];
+                let mut n = pega(b"  [lamina] tid ", &mut l, 0);
+                n = num(tid, &mut l, n);
+                n = pega(b" ofrecio un bloque ", &mut l, n);
+                n = pega(clase.as_bytes(), &mut l, n);
+                n = pega(if version_mala { b": su version no es la del censo, se le devuelve\n" } else { b": no es para el DIRECTOR, se le devuelve\n" }, &mut l, n);
+                dsk.out.grid.text(&l[..n]);
+                dsk.tick.repaint_field = true;
+            }
             // ** Una LAMINA DE VERRANO (26-09): no es una ventana, es de donde
             // VERRANO lee los vertices que cuenta otra app (INTI).
             scene::surface::Adopcion::Lamina { tid, bytes } => {

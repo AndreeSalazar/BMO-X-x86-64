@@ -54,6 +54,16 @@
 
 use crate::{id_valido, Rechazo, ANCHO_MAX, LINEA_MAX};
 
+/// ** La palabra 0 de una lamina en un BLOQUE (14-10, A1 de
+/// `docs/plan/EL_FOCO.md`): las cuatro primeras letras de su cabecera
+/// `LAMINA ...`. Es TEXTO y no lleva otra magia: estas letras son su clase en
+/// el censo de la RAM prestada (`bmo_lamina::censo`, `LAMI`), y lo que el
+/// guardian `laminas` busca para saber que la clase existe.
+pub const MAGIA: u32 = u32::from_le_bytes(*b"LAMI");
+// Atada a su fila (A3): texto, sin version en la palabra 1 ("NA 6..." es ya
+// la cabecera).
+const _: () = assert!(bmo_lamina::censo::misma_version(bmo_lamina::censo::clase(MAGIA).version, bmo_lamina::censo::Version::Ninguna));
+
 /// Una pagina puede ser muy alta: llega entera y se hace scroll en local.
 pub const ALTO_LAMINA_MAX: u32 = 32_768;
 /// Lineas que caben en una lamina. Pasarse es `Charla`.
@@ -405,6 +415,18 @@ mod pruebas {
         assert_eq!(leer_cabecera(b"LAMINA 640 2000 4097"), Err(Rechazo::Numero), "mas lineas que el cupo");
         assert_eq!(leer_cabecera(b"LAMINA 0 2000 5"), Err(Rechazo::Medida));
         assert_eq!(leer_cabecera(b"LAMINA 640 2000 -1"), Err(Rechazo::Numero));
+    }
+
+    /// Lo que pasa la cabecera empieza por la magia de su clase: el que toma
+    /// el bloque la reconoce en la palabra 0, sin leer la linea entera.
+    #[test]
+    fn la_cabecera_buena_empieza_por_la_magia() {
+        let linea = b"LAMINA 640 2000 5\n";
+        assert_eq!(leer_cabecera(linea), Ok(CAB));
+        assert_eq!(u32::from_le_bytes([linea[0], linea[1], linea[2], linea[3]]), MAGIA);
+        // Y la puerta unica la reconoce por sus dos primeras palabras.
+        let p1 = u32::from_le_bytes([linea[4], linea[5], linea[6], linea[7]]);
+        assert_eq!(bmo_lamina::censo::reconocer(MAGIA, p1).map(|c| c.nombre), Ok("LAMI"));
     }
 
     #[test]

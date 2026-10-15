@@ -28,7 +28,7 @@ use crate::header::{self, HeaderError};
 use crate::manifest::{self, ManifestError};
 use crate::text::{default_place, Path};
 use crate::traits::Traits;
-use bmo_titan_contrato::sample::{DIRECTOR_NAME, DIRECTOR_PURPOSE, GPU_NAME, GPU_PURPOSE, ROOT_PURPOSE};
+use bmo_titan_contrato::sample::{DIRECTOR_NAME, DIRECTOR_PURPOSE, GPU_NAME, GPU_PURPOSE, ROOT_PURPOSE, SONIDO_NAME, SONIDO_PURPOSE};
 use bmo_titan_contrato::{Graph, GraphError, Lang, Line, Name, Node, NodeId, NodeKind, Permission, Text, MAX_EDGES, MAX_NODES};
 
 /// What a source answers when asked for a file.
@@ -461,6 +461,9 @@ pub fn read_package_into<S: Source>(src: &mut S, root: &[u8], buf: &mut [u8], ou
         let special = match used.as_bytes() {
             b"gpu" => Some((NodeKind::Gpu, GPU_NAME, GPU_PURPOSE, Permission::Gpu)),
             b"director" => Some((NodeKind::Director, DIRECTOR_NAME, DIRECTOR_PURPOSE, Permission::Screen)),
+            // Q2: el sonido es un nodo de BMO-X como el director (sin un tipo
+            // propio en el dibujo: se pinta como el).
+            b"sonido" => Some((NodeKind::Director, SONIDO_NAME, SONIDO_PURPOSE, Permission::Sound)),
             _ => None,
         };
         let target = match special {

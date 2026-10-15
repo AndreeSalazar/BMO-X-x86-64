@@ -27,7 +27,7 @@
 
 use bmo_prometeo::programa::Op;
 use bmo_prometeo::Programa;
-use bmo_titan_front::gpu::{campos, Forma};
+use bmo_titan_front::gpu::{campos, constantes, Forma};
 use bmo_titan_front::ir::Module;
 
 use crate::escribe::{straight, valor_de, Env, Writer};
@@ -48,6 +48,9 @@ pub struct Dibujo {
     /// campo); y los de cada uno que deja.
     pub entradas: Vec<usize>,
     pub salidas: Vec<usize>,
+    /// ** V3: los componentes de cada FILA de su cbuffer (su segundo valor),
+    /// en orden; vacio si no tiene. En una celda van DETRAS de lo que recibe.
+    pub constantes: Vec<usize>,
 }
 
 impl Dibujo {
@@ -66,7 +69,11 @@ impl Dibujo {
 pub(crate) fn programa(m: &Module, func: usize, forma: Forma) -> Result<(Programa, Vec<(usize, usize)>, Dibujo), Failure> {
     let f = &m.functions[func];
     let mal = |que: &str| Failure::writer(format!("`gpu fn {}` dibuja {}: gpu.rs tenia que haberlo dicho", f.name, que));
-    let [(local, entra)] = &f.params[..] else { return Err(mal("sin su registro")) };
+    let ((local, entra), cb) = match &f.params[..] {
+        [a] => (a, None),
+        [a, (l, k)] => (a, Some((*l, k, constantes(&m.types, k).ok_or_else(|| mal("con un segundo valor que no son sus constantes"))?))),
+        _ => return Err(mal("sin su registro")),
+    };
     let sale = f.ret.as_ref().ok_or_else(|| mal("sin devolver nada"))?;
     let (Some(ce), Some(cs)) = (campos(&m.types, entra), campos(&m.types, sale)) else { return Err(mal("con algo que no es un registro de dibujo")) };
     let no_lee = match forma {
@@ -91,6 +98,21 @@ pub(crate) fn programa(m: &Module, func: usize, forma: Forma) -> Result<(Program
     }
     let mut env = Env::new();
     env.insert(*local, valor_de(m, entra, hojas)?);
+    // -- ** V3: sus constantes: cada campo una FILA del cbuffer, sus cuatro
+    // componentes en cuatro registros seguidos (`Op::Constantes`) --------------------
+    let filas = cb.as_ref().map_or(0, |(_, _, c)| c.len());
+    if let Some((l, k, c)) = &cb {
+        let mut hojas = Vec::new();
+        for (fila, (_, n)) in c.iter().enumerate() {
+            let d = w.reg()?;
+            for _ in 1..4 {
+                w.reg()?;
+            }
+            w.op(Op::Constantes { d, fila: fila as u16, cb: 0 });
+            hojas.extend((0..*n).map(|j| d + j as bmo_prometeo::programa::Reg));
+        }
+        env.insert(*l, valor_de(m, k, hojas)?);
+    }
     let r = straight(&mut w, f, env)?;
     // -- lo que deja: cada elemento con sus cuatro componentes ------------------------
     w.aqui = (f.line, 1);
@@ -109,8 +131,9 @@ pub(crate) fn programa(m: &Module, func: usize, forma: Forma) -> Result<(Program
         }
     }
     let lee = (0..ce.len()).filter(|e| Some(*e) != no_lee).fold(0u32, |m, e| m | 1 << e);
-    let p = Programa { ops: w.ops, iniciales: w.iniciales, entradas: ce.len(), salidas: salidas.len(), lee, filas_cb: 0, ranuras: Default::default(), computo: Default::default() };
-    let dibujo = Dibujo { forma, entra: entra.name(), sale: sale.name(), entradas: ce.iter().map(|(_, k)| *k).collect(), salidas };
+    let p = Programa { ops: w.ops, iniciales: w.iniciales, entradas: ce.len(), salidas: salidas.len(), lee, filas_cb: filas as u16, ranuras: Default::default(), computo: Default::default() };
+    let constantes = cb.map_or(Vec::new(), |(_, _, c)| c.iter().map(|(_, k)| *k).collect());
+    let dibujo = Dibujo { forma, entra: entra.name(), sale: sale.name(), entradas: ce.iter().map(|(_, k)| *k).collect(), salidas, constantes };
     Ok((p, w.donde, dibujo))
 }
 
@@ -123,13 +146,15 @@ pub type Celda = Vec<[u32; 4]>;
 /// los bordes a su propio paso (la de las celdas, con un valor por
 /// componente), en tantas celdas como deje la obra.
 pub fn bateria(d: &Dibujo, obra: u64) -> Vec<Celda> {
-    let hojas: usize = d.entradas.iter().sum();
+    // V3: las filas de su cbuffer tambien recorren los bordes, detras.
+    let anchos: Vec<usize> = d.entradas.iter().chain(&d.constantes).copied().collect();
+    let hojas: usize = anchos.iter().sum();
     let columnas = battery_de(&vec![Kind::F32; hojas], obra);
     let n = columnas.first().map(|c| c.len()).unwrap_or(0);
     (0..n)
         .map(|i| {
             let mut j = 0;
-            d.entradas
+            anchos
                 .iter()
                 .map(|k| {
                     let mut e = [0u32; 4];
@@ -147,7 +172,13 @@ pub fn bateria(d: &Dibujo, obra: u64) -> Vec<Celda> {
 /// **El ORACULO de lo que dibuja**: el codigo de la tarjeta, corrido por SU
 /// simulador, un hilo por celda; lo que deja, por elementos.
 pub fn run(k: &Kernel, d: &Dibujo, celdas: &[Celda]) -> Result<Vec<Celda>, String> {
-    celdas.iter().map(|e| k.tarjeta.simular(&k.oraculo, e, d.salidas.len())).collect()
+    celdas
+        .iter()
+        .map(|e| {
+            let (ent, cb) = e.split_at(d.entradas.len().min(e.len()));
+            k.tarjeta.simular_con(&k.oraculo, ent, cb, d.salidas.len())
+        })
+        .collect()
 }
 
 /// Lo mismo por el INTERPRETE de la casa, sobre el Programa.
@@ -156,9 +187,11 @@ pub fn run_casa(k: &Kernel, d: &Dibujo, celdas: &[Celda]) -> Vec<Celda> {
     celdas
         .iter()
         .map(|e| {
+            let (e, cb) = e.split_at(d.entradas.len().min(e.len()));
             let ent: Vec<[f32; 4]> = e.iter().map(|c| c.map(f32::from_bits)).collect();
+            let cb: Vec<u8> = cb.iter().flatten().flat_map(|w| w.to_le_bytes()).collect();
             let mut s = vec![[0.0f32; 4]; d.salidas.len()];
-            k.programa.correr(&ent, &[], &mut s, &mut regs);
+            k.programa.correr(&ent, &cb, &mut s, &mut regs);
             s.iter().map(|c| c.map(f32::to_bits)).collect()
         })
         .collect()

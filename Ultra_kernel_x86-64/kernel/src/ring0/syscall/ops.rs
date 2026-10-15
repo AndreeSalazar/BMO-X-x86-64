@@ -339,12 +339,21 @@ pub(crate) const TASK_OP_SUB_ESPERAR: u64 = 0x41;
 /// `syscall/op_futex.rs` y `bmo-futex`.
 pub(crate) const TASK_OP_FUTEX_ESPERAR: u64 = 0x42;
 pub(crate) const TASK_OP_FUTEX_DESPERTAR: u64 = 0x43;
+/// C2: el futex COMPARTIDO (la llave por la fisica). Mismo espejo.
+pub(crate) const TASK_OP_FUTEX_ESPERAR_COMPARTIDO: u64 = 0x46;
+pub(crate) const TASK_OP_FUTEX_DESPERTAR_COMPARTIDO: u64 = 0x47;
 /// **LA ALARMA** (07-10, EXPROPIAR). Espejo de `bmo_abi::...::TASK_OP_ALARMA`.
 /// Ver `syscall/op_alarma.rs`, `task/alarma.rs` y `bmo-alarma`.
 pub(crate) const TASK_OP_ALARMA: u64 = 0x44;
 /// **Lo que se vio en pantalla, a la caja negra** (11-10). Espejo de
 /// `bmo_abi::...::TASK_OP_CAIDA_ANOTAR`. Ver `syscall/op_consola.rs`.
 pub(crate) const TASK_OP_CAIDA_ANOTAR: u64 = 0x45;
+/// ** C4 (15-10): contar UN programa con los contadores del Zen 3. Espejo de
+/// `bmo_abi::...::TASK_OP_CONTAR`. Ver `cpu_vendor/ryzen_5_5600x/contadores.rs`.
+pub(crate) const TASK_OP_CONTAR: u64 = 0x48;
+pub(crate) const CONTAR_EMPIEZA: u64 = 1;
+pub(crate) const CONTAR_LEE: u64 = 2;
+pub(crate) const CONTAR_PARA: u64 = 3;
 pub(crate) const IOMMU_OP_ENCENDER: u64 = 0x01;
 pub(crate) const IOMMU_OP_APAGAR: u64 = 0x02;
 /// Cegar la 3060 (M0e): su entrada, bloqueada.

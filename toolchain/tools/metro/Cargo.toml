@@ -19,6 +19,8 @@ bmo-inti-x86-64 = { path = "../../lang/inti/emisor-x86_64" }
 # TITAN++ (04-10): sus programas BIEN, medidos con la misma vara que C e INTI.
 bmo-titan-x86-64 = { path = "../../lang/titan/emisor-x86_64" }
 bmo-mods = { path = "../../forge/bmo-mods" }
+# El oraculo de la LENTE (A5 de EL_FOCO): lo que corre, ella lo lee.
+bmo-lente-x86 = { path = "../../../platform/shared/bmo-lente-x86" }
 
 [[bin]]
 name = "metro"

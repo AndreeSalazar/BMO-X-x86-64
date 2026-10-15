@@ -1,0 +1,39 @@
+# espera: BIEN
+# sale: el cubo de V3, escrito en TITAN++: la matriz en el cbuffer y la 3060 multiplicando
+# V3 de PLAN_VERRANO (D1 de EL_FOCO): la gpu fn de vertice recibe un SEGUNDO valor, sus CONSTANTES -- el cbuffer: cada campo una fila de 16 B, lo mismo para todos los hilos --. La app sube la matriz UNA vez por fotograma y los vertices del cubo SIN transformar; las cuentas, en la tarjeta. `titan sm86` las pega a la tuberia de la RTX 3060 12G
+mod main "el cubo de V3, en TITAN++"
+
+# Cuatro f32: un punto (x, y, z, w), un color (r, g, b, a) o una columna de una matriz.
+type Cuatro
+    x: f32
+    y: f32
+    z: f32
+    w: f32
+
+# Un vertice del cubo: su posicion -- SIN transformar (w = 1) al entrar, en coordenadas de recorte al salir -- y el color de su cara.
+type Vertice
+    posicion: Cuatro
+    color: Cuatro
+
+# Las constantes: la matriz mundo-vista-proyeccion por COLUMNAS, como D3D la sube (`mul(M, v)`): cada columna, una fila del cbuffer.
+type Matriz
+    c0: Cuatro
+    c1: Cuatro
+    c2: Cuatro
+    c3: Cuatro
+
+# La de VERTICE: la matriz por la posicion, componente a componente y en el orden de D3D (columna 0 por x, mas columna 1 por y...); el color, tal cual.
+gpu fn cubo_vertice(v: Vertice, m: Matriz) -> Vertice
+    let p = v.posicion
+    let x = m.c0.x * p.x + m.c1.x * p.y + m.c2.x * p.z + m.c3.x * p.w
+    let y = m.c0.y * p.x + m.c1.y * p.y + m.c2.y * p.z + m.c3.y * p.w
+    let z = m.c0.z * p.x + m.c1.z * p.y + m.c2.z * p.z + m.c3.z * p.w
+    let w = m.c0.w * p.x + m.c1.w * p.y + m.c2.w * p.z + m.c3.w * p.w
+    return Vertice { posicion: Cuatro { x: x, y: y, z: z, w: w }, color: v.color }
+
+# La de PIXEL: el color de su cara.
+gpu fn cubo_pixel(v: Vertice) -> Cuatro
+    return v.color
+
+fn main()
+    print("el cubo de V3, escrito en TITAN++: la matriz en el cbuffer y la 3060 multiplicando")

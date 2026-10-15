@@ -12,3 +12,5 @@ path = "src/lib.rs"
 # Lector de las tablas TOML. Es una herramienta de build-time (host, std).
 toml = "0.8"
 serde = { version = "1", features = ["derive"] }
+# Los nombres de las extensiones de la columna `cpu` (A6 del foco).
+bmo-carga-juicio = { path = "../../../platform/shared/bmo-carga-juicio" }

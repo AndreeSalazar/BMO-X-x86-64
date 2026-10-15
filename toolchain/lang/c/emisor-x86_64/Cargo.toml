@@ -32,6 +32,8 @@ path = "src/main.rs"
 bmo-bex-gate = { path = "../../../../platform/abi/bmo-bex-gate" }
 # Banco de pruebas: ejecuta el codigo emitido (ver forge/bmo-lower).
 bmo-lower = { path = "../../../forge/bmo-lower", features = ["emulator"] }
+# La LENTE (B2): lo que la autopsia del kernel dice de la instruccion que fallo.
+bmo-lente-x86 = { path = "../../../../platform/shared/bmo-lente-x86" }
 # ** EL ORACULO DE <math.h> (2026-09-26): las series de BMO C son las de
 # `bmo_spirv_front::math`, operacion por operacion, con la misma tabla. La
 # prueba `serie_de_math_h` exige los mismos bits. Tambien solo del BANCO.

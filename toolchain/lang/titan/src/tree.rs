@@ -189,6 +189,11 @@ pub enum Ty {
     Map(Box<Ty>, Box<Ty>),
     /// `Opcion[int]`: what `get` and `pop` give -- `Hay(v)` or `NoHay` (13).
     Opt(Box<Ty>),
+    /// `lamina` (A4b of `docs/plan/EL_FOCO.md`, 14-10): RAM asked of the
+    /// kernel through the program's ONE door, with ONE owner. Its cells are
+    /// bytes; it never grows, it is never copied (lent with `mut`, given with
+    /// `take`), and it is let go by itself when its owner dies.
+    Lamina,
 }
 
 impl Ty {
@@ -206,6 +211,7 @@ impl Ty {
             Ty::List(t) => format!("[{}]", t.name()),
             Ty::Map(k, v) => format!("{{{}: {}}}", k.name(), v.name()),
             Ty::Opt(t) => format!("Opcion[{}]", t.name()),
+            Ty::Lamina => "lamina".into(),
         }
     }
 }

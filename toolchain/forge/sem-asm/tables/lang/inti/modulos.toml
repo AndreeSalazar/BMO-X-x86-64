@@ -315,6 +315,17 @@ prestado_soltar      = "0x04"
 #  pasaron, cada palabra va derecha a `op_ruta`. Sin copiar, sin buferes.
 op_argumentos        = "0x33"
 
+#  ** CONTARSE con los contadores del Zen 3 (C4 de EL_FOCO, LB5; 15-10). Sobre
+#  `mi_tarea`: `invoca(mi_tarea, op_contar, contar_empieza, 0, 0)` los pone a
+#  cero y cuenta SOLO a este programa, solo en Ring 3; despues
+#  `invoca_valor(mi_tarea, op_contar, contar_lee, k, 0)` da el contador k --
+#  0 ciclos, 1 instrucciones retiradas, 2 saltos fallados, 3 fallos de la L1D --
+#  y `contar_para` los apaga. La ley 0: correcto, MEDIDO, y solo entonces rapido.
+op_contar            = "0x48"
+contar_empieza       = "0x01"
+contar_lee           = "0x02"
+contar_para          = "0x03"
+
 #  ** EL SONIDO, sin biblioteca (2026-09-13). Lo pide el reproductor.
 #
 #      op_sonido_reclamar   sobre `mi_tarea`: el handle, o 0 si lo tiene otro

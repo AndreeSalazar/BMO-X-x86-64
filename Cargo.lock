@@ -18,6 +18,7 @@ dependencies = [
  "bmo-disposicion",
  "bmo-hash",
  "bmo-hostile",
+ "bmo-lamina",
 ]
 
 [[package]]
@@ -51,6 +52,7 @@ name = "bmo-antena"
 version = "0.1.0"
 dependencies = [
  "bmo-hostile",
+ "bmo-lamina",
 ]
 
 [[package]]
@@ -80,6 +82,7 @@ name = "bmo-bex-link"
 version = "0.1.0"
 dependencies = [
  "bmo-abi",
+ "bmo-lente-x86",
 ]
 
 [[package]]
@@ -119,6 +122,7 @@ dependencies = [
  "bmo-abi",
  "bmo-bex-gate",
  "bmo-c-front",
+ "bmo-lente-x86",
  "bmo-lower",
  "bmo-mods",
  "bmo-sem-asm",
@@ -137,6 +141,9 @@ version = "0.1.0"
 [[package]]
 name = "bmo-channel"
 version = "1.0.0"
+dependencies = [
+ "bmo-lamina",
+]
 
 [[package]]
 name = "bmo-ciudad"
@@ -172,6 +179,10 @@ version = "0.1.0"
 dependencies = [
  "bmo-hostile",
 ]
+
+[[package]]
+name = "bmo-contadores"
+version = "0.1.0"
 
 [[package]]
 name = "bmo-cpp-front"
@@ -479,6 +490,7 @@ dependencies = [
  "bmo-channel",
  "bmo-ciudad",
  "bmo-cola",
+ "bmo-contadores",
  "bmo-cubo",
  "bmo-dibujo",
  "bmo-disco-juicio",
@@ -496,6 +508,7 @@ dependencies = [
  "bmo-imagen-juicio",
  "bmo-input",
  "bmo-iommu-amdvi",
+ "bmo-lente-x86",
  "bmo-mmio-juicio",
  "bmo-net",
  "bmo-ntfs",
@@ -513,6 +526,19 @@ dependencies = [
  "bmo-xhci",
  "boot-context",
  "cabina-core",
+]
+
+[[package]]
+name = "bmo-lamina"
+version = "0.1.0"
+
+[[package]]
+name = "bmo-lente-x86"
+version = "0.1.0"
+dependencies = [
+ "bmo-carga-juicio",
+ "bmo-lower",
+ "bmo-sem-asm",
 ]
 
 [[package]]
@@ -658,6 +684,7 @@ dependencies = [
  "bmo-cpp-x86-64",
  "bmo-enlazar",
  "bmo-inti-x86-64",
+ "bmo-lente-x86",
  "bmo-lower",
  "bmo-mods",
  "bmo-titan-x86-64",
@@ -711,6 +738,9 @@ dependencies = [
 [[package]]
 name = "bmo-pase-gpu"
 version = "0.1.0"
+dependencies = [
+ "bmo-lamina",
+]
 
 [[package]]
 name = "bmo-pila"
@@ -773,6 +803,7 @@ name = "bmo-puerta-red"
 version = "0.1.0"
 dependencies = [
  "bmo-hostile",
+ "bmo-lamina",
 ]
 
 [[package]]
@@ -810,6 +841,7 @@ version = "1.0.0"
 name = "bmo-sem-asm"
 version = "0.1.0"
 dependencies = [
+ "bmo-carga-juicio",
  "serde",
  "toml",
 ]
@@ -950,6 +982,7 @@ name = "bmo-verrano"
 version = "0.1.0"
 dependencies = [
  "bmo-cubo",
+ "bmo-lamina",
 ]
 
 [[package]]
@@ -984,6 +1017,9 @@ version = "2.0.0"
 [[package]]
 name = "cabina-core"
 version = "1.0.0"
+dependencies = [
+ "bmo-lamina",
+]
 
 [[package]]
 name = "equivalent"

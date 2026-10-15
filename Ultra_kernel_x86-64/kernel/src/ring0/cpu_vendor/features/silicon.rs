@@ -133,6 +133,8 @@ pub fn has(f: Feat, s: &Silicon) -> bool {
         Feat::Sse2 => bit(s.leaf1_edx, 26),
 
         // -- CPUID.1.ECX --
+        Feat::Sse3 => bit(s.leaf1_ecx, 0),
+        Feat::Ssse3 => bit(s.leaf1_ecx, 9),
         Feat::Sse41 => bit(s.leaf1_ecx, 19),
         Feat::Sse42 => bit(s.leaf1_ecx, 20),
         Feat::Fma => bit(s.leaf1_ecx, 12),

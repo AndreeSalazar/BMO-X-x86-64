@@ -44,10 +44,15 @@ use std::path::PathBuf;
 
 use bmo_abi::bef2::Escritor;
 
+mod lente;
+
 /// Lo que hace falta de un ELF64. Nada mas que esto.
 struct Elf {
     entry: u64,
     secciones: Vec<SeccionElf>,
+    /// Los simbolos de la `.symtab` (si el ELF la trae): de ellos salen las
+    /// funciones que la lente lee.
+    simbolos: Vec<lente::Simbolo>,
 }
 
 struct SeccionElf {
@@ -56,7 +61,11 @@ struct SeccionElf {
     addr: u64,
     offset: u64,
     size: u64,
+    link: u32,
 }
+
+/// `SHT_SYMTAB`: la tabla de simbolos.
+const SHT_SYMTAB: u32 = 2;
 
 /// `SHT_NOBITS`: ocupa memoria pero no bytes en el archivo. Es `.bss`.
 const SHT_NOBITS: u32 = 8;
@@ -111,9 +120,11 @@ fn leer_elf(b: &[u8]) -> Result<Elf, String> {
             addr: u64le(b, base + 16),
             offset: u64le(b, base + 24),
             size: u64le(b, base + 32),
+            link: u32le(b, base + 40),
         });
     }
-    Ok(Elf { entry, secciones })
+    let simbolos = lente::simbolos(b, &secciones);
+    Ok(Elf { entry, secciones, simbolos })
 }
 
 /// Las cuatro secciones que BMO mapea, EN EL ORDEN en que el kernel las va a
@@ -122,6 +133,19 @@ const ORDEN: [&str; 4] = [".text", ".rodata", ".data", ".bss"];
 
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
+    // `bex-link --censo elf`: que instrucciones del ELF no sabe leer la lente.
+    if args.len() == 2 && args[0] == "--censo" {
+        let bytes = std::fs::read(&args[1]).unwrap_or_else(|e| {
+            eprintln!("bex-link: no puedo leer {}: {e}", args[1]);
+            std::process::exit(1);
+        });
+        let elf = leer_elf(&bytes).unwrap_or_else(|e| {
+            eprintln!("bex-link: {e}");
+            std::process::exit(1);
+        });
+        lente::censo(&bytes, &elf);
+        return;
+    }
     if args.len() != 2 {
         eprintln!("uso: bex-link <entrada.elf> <salida.bex>");
         std::process::exit(2);
@@ -200,6 +224,35 @@ fn main() {
         eprintln!("bex-link: el ELF no tiene `.text` con contenido");
         std::process::exit(1);
     };
+
+    // ** LA OBLIGACION DE LLVM (B4, 14-10). Todo `.text` leido con la lente y
+    // juzgado contra lo que decidio el propietario en `PERFIL/CPU.txt`: lo que
+    // pide a la CPU se DECLARA en el `.bex` (y el kernel lo compara con el
+    // CPUID al admitirlo, A6); lo que el perfil no permite, o lo que la lente
+    // no sabe leer, PARA el build con su sitio. Ver `lente.rs`.
+    if let Some(t) = elf.secciones.iter().find(|s| s.name == ".text") {
+        let code = &bytes[t.offset as usize..(t.offset + t.size) as usize];
+        let barrido = lente::barrer(code, t.addr, &elf.simbolos);
+        let donde = |o: usize| lente::donde(o, t.addr, &elf.simbolos);
+        match lente::juzgar(&barrido, bmo_abi::bef::requisitos::decidido::MANO, donde) {
+            Ok(usa) => {
+                let nombres: Vec<&str> = bmo_abi::bef::requisitos::instrucciones::nombres(usa).collect();
+                println!(
+                    "  lente    {} instrucciones, todo .text leido; pide {}",
+                    barrido.leidas,
+                    if nombres.is_empty() { "solo x86-64 base".to_string() } else { nombres.join(" ") }
+                );
+                b.instrucciones(usa);
+            }
+            Err(motivos) => {
+                eprintln!("bex-link: el codigo NO entra -- lo decide el propietario (PERFIL/CPU.txt), no LLVM:");
+                for m in motivos {
+                    eprintln!("  {m}");
+                }
+                std::process::exit(1);
+            }
+        }
+    }
     if elf.entry < base_text {
         eprintln!(
             "bex-link: el punto de entrada (0x{:X}) cae fuera de `.text` (0x{:X})",

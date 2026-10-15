@@ -135,11 +135,17 @@ pub const OP_SUB_ESPERAR: u32 = 0x41;
 /// `bmo_abi::...::TASK_OP_FUTEX_*`. Ver [`futex`].
 pub const OP_FUTEX_ESPERAR: u32 = 0x42;
 pub const OP_FUTEX_DESPERTAR: u32 = 0x43;
+/// C2: el futex COMPARTIDO (la llave por la fisica: entre dos procesos).
+pub const OP_FUTEX_ESPERAR_COMPARTIDO: u32 = 0x46;
+pub const OP_FUTEX_DESPERTAR_COMPARTIDO: u32 = 0x47;
 /// `bmo_abi::...::TASK_OP_ALARMA`. Ver [`alarma`].
 pub const OP_ALARMA: u32 = 0x44;
 /// `bmo_abi::...::TASK_OP_CAIDA_ANOTAR`: lo que se vio en pantalla, a la caja
 /// negra. Ver [`caida_anotar`].
 pub const OP_CAIDA_ANOTAR: u32 = 0x45;
+/// ** C4: `bmo_abi::...::TASK_OP_CONTAR` -- contarse a si mismo con los
+/// contadores del Zen 3. Ver [`contar_empieza`].
+pub const OP_CONTAR: u32 = 0x48;
 /// El log del kernel, leido desde Ring 3. Ver `klog_lineas`/`klog_texto`.
 pub const OP_KLOG_INFO: u32 = 0x16;
 pub const OP_KLOG_TEXTO: u32 = 0x17;
@@ -746,6 +752,13 @@ pub const INFO_GPU_RC_VA: u64 = 0xD6;
 /// La frase de NVIDIA (`OS_ERROR_LOG`), de 8 en 8 bytes: `INFO_GPU_RC_TEXTO
 /// | trozo << 8`, little-endian; 0 cuando se acaba.
 pub const INFO_GPU_RC_TEXTO: u64 = 0xD7;
+/// ** C4 (15-10): los contadores del Zen 3. `INFO_CPU_CONTADORES`: bit 0 si
+/// se pueden tocar (la CPU del perfil, contadores extendidos), bits 8..16
+/// cuantas filas tiene la calibracion. `INFO_CPU_CONTADOR | k << 8`: la fila
+/// `k`, ya juzgada (`bmo_contadores::desempaquetar`); la primera pregunta
+/// corre la calibracion (~3 ms, UNA vez). Sin contadores, 0.
+pub const INFO_CPU_CONTADORES: u64 = 0xD8;
+pub const INFO_CPU_CONTADOR: u64 = 0xD9;
 /// El formato `i` (`INFO_AUDIO_FORMATO | (i << 8)`): alt, canales, bits,
 /// subframe, `wMaxPacketSize`, cuantas frecuencias, si CABE en 1 ms, si es el
 /// elegido y su sincronia. Ver `uaudio::info_formato` en el kernel.

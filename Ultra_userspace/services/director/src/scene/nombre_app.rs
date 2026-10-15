@@ -72,6 +72,7 @@ const CASA: [(&[u8], &[u8]); 8] = [
     (b"bankcat", b"BANK CAT"),
     (b"proton-x", b"PROTON-X"),
     (b"navegar", b"Navegar"),
+    (b"musica", b"Musica"),
     (b"quake", b"QUAKE"),
 ];
 

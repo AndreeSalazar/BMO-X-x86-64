@@ -32,7 +32,24 @@ pub enum NoFutex {
 
 /// **Esperar** mientras `palabra` valga `visto`, como mucho `ms`.
 pub fn esperar(palabra: &AtomicU32, visto: u32, ms: u32) -> Result<(), NoFutex> {
-    let st = invoke(CURRENT_TASK, OP_FUTEX_ESPERAR, palabra.as_ptr() as u64, visto as u64 | (ms as u64) << 32, 0);
+    esperar_con(OP_FUTEX_ESPERAR, palabra, visto, ms)
+}
+
+/// ** C2: **esperar** en una palabra que OTRO proceso despierta (una
+/// lamina): la llave es su fisica, no su direccion.
+pub fn esperar_compartido(palabra: &AtomicU32, visto: u32, ms: u32) -> Result<(), NoFutex> {
+    esperar_con(OP_FUTEX_ESPERAR_COMPARTIDO, palabra, visto, ms)
+}
+
+/// C2: **despertar** a lo mas `n` de los que esperan en `palabra` desde
+/// cualquier proceso que la tenga mapeada.
+pub fn despertar_compartido(palabra: &AtomicU32, n: u32) -> u32 {
+    let st = invoke(CURRENT_TASK, OP_FUTEX_DESPERTAR_COMPARTIDO, palabra.as_ptr() as u64, n as u64, 0);
+    if st.ok() { st.value as u32 } else { 0 }
+}
+
+fn esperar_con(op: u32, palabra: &AtomicU32, visto: u32, ms: u32) -> Result<(), NoFutex> {
+    let st = invoke(CURRENT_TASK, op, palabra.as_ptr() as u64, visto as u64 | (ms as u64) << 32, 0);
     if st.ok() {
         return Ok(());
     }

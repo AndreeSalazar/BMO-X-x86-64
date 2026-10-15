@@ -10,3 +10,6 @@ path = "src/main.rs"
 
 [dependencies]
 bmo-abi = { path = "../../../platform/abi/bmo-abi" }
+# LA LENTE (B4, 14-10): lee el codigo que escribio LLVM y lo juzga contra lo
+# que el propietario decidio (`PERFIL/CPU.txt`).
+bmo-lente-x86 = { path = "../../../platform/shared/bmo-lente-x86" }

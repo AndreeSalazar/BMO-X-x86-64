@@ -1,0 +1,31 @@
+# espera: BIEN
+# sale: 100 50 3 7
+# sale: 200
+# sale: 497
+# sale: 350
+# la RAM del programa, en LAMINAS: se piden al kernel por la puerta de la
+# RAM, se PRESTAN con `mut` para llenarlas, se ENTREGAN con `take`, y cada
+# una se suelta sola al morir quien la tiene. Sin free, sin copias
+# pedir, prestar con `mut`, entregar con `take` y soltar sola: la RAM en la mano
+mod main "dos laminas: una se llena, la otra se suma"
+
+fn llena(mut l: lamina, v: int)
+    for i in range(len(l))
+        l[i] = byte(v)
+
+fn suma(take l: lamina) -> int
+    let mut s = 0
+    for i in range(len(l))
+        s = s + l[i]
+    return s
+
+fn main()
+    let mut a = lamina(100)
+    let mut b = lamina(50)
+    llena(mut a, 3)
+    llena(mut b, 7)
+    print(len(a), " ", len(b), " ", a[0], " ", b[49])
+    a[5] = byte(200)
+    print(a[5])
+    print(suma(take a))
+    print(suma(take b))

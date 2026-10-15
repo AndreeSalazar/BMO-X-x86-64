@@ -37,12 +37,12 @@ use super::{Place, E1};
 use super::entrada::{HZ, PLAZO, RBX};
 use super::ventana::R12;
 use bmo_abi::syscalls::surface::SUP_TOMADA;
-use bmo_abi::syscalls::surface::{CURRENT_TASK, INFO_TSC_HZ, MEM_OP_BASE, MEM_OP_OFRECER, NR_INVOKE, NR_WAIT, TASK_OP_INFO, TASK_OP_MEMORIA_PEDIR, TASK_OP_MI_PADRE};
+use bmo_abi::syscalls::surface::{CONTAR_EMPIEZA, CONTAR_LEE, CURRENT_TASK, INFO_TSC_HZ, MEM_OP_OFRECER, NR_INVOKE, NR_WAIT, TASK_OP_CONTAR, TASK_OP_FUTEX_DESPERTAR_COMPARTIDO, TASK_OP_INFO, TASK_OP_MI_PADRE};
 use bmo_lower::memoria;
 use bmo_lower::x86::{self, RAX, RCX, RDI, RDX, RSI, R10, R11, R8, R9};
 use bmo_titan_front::calc::Class;
 use bmo_titan_front::ir::{At, Director, Value};
-use bmo_verrano::lamina::{ESTADO_DESCARTE, ESTADO_PROFUNDIDAD, CAMPO_ESTADO};
+use bmo_verrano::lamina::{ESTADO_DESCARTE, ESTADO_PROFUNDIDAD, ESTADO_TIMBRE, ESTADO_VUELTA, CAMPO_DUERME, CAMPO_ESTADO, CAMPO_PUBLICADA, CAMPO_VUELTA};
 use bmo_verrano::lamina::{CABECERA, CAMPO_CAPACIDAD, CAMPO_FOTOGRAMA, CAMPO_MAGIA, CAMPO_SECUENCIA, CAMPO_SELLO, CAMPO_VERSION, CAMPO_VERTICES, MAGIA, VERSION};
 use bmo_verrano::{VERTEX_BYTES, VERTEX_COLOR, VERTEX_POSITION};
 
@@ -101,6 +101,17 @@ impl E1<'_> {
             Director::Ms => self.ms().map(Some),
             // V2 (11-10): como se dibuja la lamina.
             Director::Profundidad => self.profundidad(args).map(|_| None),
+            // ** C4 (LB5): los contadores del Zen 3, para este programa.
+            Director::Contar => self.contar().map(Some),
+            Director::Contado => self.contado(args).map(Some),
+            // ** Q2: el sonido (`sonido.rs`).
+            Director::SonidoToma => self.sonido_toma().map(Some),
+            Director::SonidoBanco => self.sonido_banco(args).map(Some),
+            Director::SonidoToca => self.sonido_toca(args).map(Some),
+            Director::SonidoSuena => self.sonido_suena(args).map(Some),
+            Director::SonidoCalla => self.sonido_calla(args).map(|_| None),
+            Director::SonidoPita => self.sonido_pita(args).map(|_| None),
+            Director::SonidoSuelta => self.sonido_suelta().map(|_| None),
             Director::Toma | Director::Fichero | Director::Medida | Director::Byte | Director::Evento | Director::Codigo | Director::RatonX | Director::RatonY | Director::Botones | Director::SeVe => self.entrada(what, args, at).map(Some),
         }
     }
@@ -117,7 +128,7 @@ impl E1<'_> {
         self.load(d, RAX);
         self.imm(RCX, ESTADO_DESCARTE as i64);
         x86::imul_r64_r64(&mut self.code, RAX, RCX);
-        self.imm(RCX, ESTADO_PROFUNDIDAD as i64);
+        self.imm(RCX, (ESTADO_PROFUNDIDAD | ESTADO_VUELTA | ESTADO_TIMBRE) as i64);
         x86::or_r64_r64(&mut self.code, RAX, RCX);
         self.lea(RDI, R13, byte(CAMPO_ESTADO));
         x86::mov_at_reg_from_r32(&mut self.code, RDI, RAX);
@@ -162,6 +173,44 @@ impl E1<'_> {
         Ok((out, Class::Int))
     }
 
+    /// ** `director.contar()` (C4, LB5): `TASK_OP_CONTAR` con
+    /// `CONTAR_EMPIEZA`. `true` si el kernel dijo que si.
+    fn contar(&mut self) -> Result<(Place, Class), String> {
+        let out = self.temp(8);
+        self.store_imm(out, 0);
+        self.imm(RDI, CURRENT_TASK as i64);
+        self.imm(RSI, TASK_OP_CONTAR as i64);
+        self.imm(RDX, CONTAR_EMPIEZA as i64);
+        x86::zero_r32(&mut self.code, R10);
+        x86::zero_r32(&mut self.code, R8);
+        self.invoke();
+        x86::test_r64_r64(&mut self.code, RAX, RAX);
+        let no = self.jcc(0x85);
+        self.store_imm(out, 1);
+        self.here(no);
+        Ok((out, Class::Bool))
+    }
+
+    /// `director.contado(k)`: `TASK_OP_CONTAR` con `CONTAR_LEE`; si el kernel
+    /// dice que no (nadie cuenta, o `k` fuera), 0.
+    fn contado(&mut self, args: &[Value]) -> Result<(Place, Class), String> {
+        let [k] = args else { return Err("`director.contado` sin su valor (fallo del compilador)".to_string()) };
+        let (k, _) = self.eval(k)?;
+        let out = self.temp(8);
+        self.store_imm(out, 0);
+        self.load(k, R10);
+        self.imm(RDI, CURRENT_TASK as i64);
+        self.imm(RSI, TASK_OP_CONTAR as i64);
+        self.imm(RDX, CONTAR_LEE as i64);
+        x86::zero_r32(&mut self.code, R8);
+        self.invoke();
+        x86::test_r64_r64(&mut self.code, RAX, RAX);
+        let no = self.jcc(0x85);
+        self.store(out, RDX);
+        self.here(no);
+        Ok((out, Class::Int))
+    }
+
     /// `INVOKE(rdi, rsi, rdx, r10, r8)`: el codigo en `rax`, el valor en `rdx`.
     pub(super) fn invoke(&mut self) {
         self.imm(RAX, NR_INVOKE as i64);
@@ -202,15 +251,9 @@ impl E1<'_> {
         self.store(bytes, RAX);
         // El bloque, con su cola: su asa, y donde esta.
         self.lea(RDX, RAX, COLA);
-        self.imm(RDI, CURRENT_TASK as i64);
-        self.imm(RSI, TASK_OP_MEMORIA_PEDIR as i64);
-        self.invoke();
+        self.pide_lamina();
         self.si_no_vale(&mut no);
-        self.store(bloque, RDX);
-        x86::mov_r64_r64(&mut self.code, RDI, RDX);
-        self.imm(RSI, MEM_OP_BASE as i64);
-        self.invoke();
-        self.si_no_vale(&mut no);
+        self.store(bloque, RCX);
         self.store(base, RDX);
         // La cabecera ENTERA antes de ofrecer (si el escritorio la tomara
         // antes, leeria basura): sus 64 bytes a cero, y lo que no es cero.
@@ -226,6 +269,13 @@ impl E1<'_> {
         self.imm(RCX, CABECERA as i64);
         x86::or_r64_r64(&mut self.code, RAX, RCX);
         x86::mov_at_reg_disp32_from_r64(&mut self.code, RDI, byte(CAMPO_CABECERA_Y_CAPACIDAD), RAX);
+        // C1 (15-10): este escritor RESPETA la palabra de vuelta (`publica`,
+        // abajo). Lo dice antes de ofrecer: sin el bit, el escritorio no le
+        // presta la ranura a la 3060 sin copiarla. ** C2: y TOCA EL TIMBRE
+        // (`publica`): con el, el escritorio duerme en el sello.
+        self.imm(RAX, (ESTADO_VUELTA | ESTADO_TIMBRE) as i64);
+        self.lea(RCX, RDI, byte(CAMPO_ESTADO));
+        x86::mov_at_reg_from_r32(&mut self.code, RCX, RAX);
         // La cola: el asa del bloque y lo ofrecido.
         self.load(bytes, RCX);
         x86::add_r64_r64(&mut self.code, RDI, RCX);
@@ -329,6 +379,23 @@ impl E1<'_> {
         x86::mov_r32_at_reg(&mut self.code, R11, RDI);
         x86::inc_r64(&mut self.code, R11);
         x86::mov_at_reg_from_r32(&mut self.code, RDI, R11);
+        // ** C1 (15-10): LA PALABRA DE VUELTA. Si el escritorio tiene esta
+        // ranura EN VUELO (la 3060 la lee sin copia), no se toca: el sello
+        // vuelve a ser el de antes y este fotograma no se publica (gana el
+        // siguiente). La barrera va ENTRE escribir el sello y leer la vuelta:
+        // es la unica reordenacion de x86, y la que dejaria a los dos dentro
+        // (`bmo_lamina::trato::empezar_si_libre`, el mismo trato).
+        x86::mfence(&mut self.code);
+        self.lea(R10, R13, byte(CAMPO_VUELTA));
+        x86::mov_r32_at_reg(&mut self.code, RAX, R10);
+        x86::mov_r64_r64(&mut self.code, R10, R8);
+        x86::inc_r64(&mut self.code, R10);
+        x86::cmp_r64_r64(&mut self.code, RAX, R10);
+        let libre = self.jcc(0x85);
+        x86::dec_r64(&mut self.code, R11);
+        x86::mov_at_reg_from_r32(&mut self.code, RDI, R11);
+        no.push(self.jmp());
+        self.here(libre);
         // Donde empieza la ranura: r9 = lamina + CABECERA + k * capacidad * 32.
         x86::mov_r64_at_reg_disp32(&mut self.code, R9, R13, byte(CAMPO_CAPACIDAD - 1));
         x86::shr_r64_imm8(&mut self.code, R9, 32);
@@ -368,11 +435,33 @@ impl E1<'_> {
         // El sello, a PAR: la ranura esta entera.
         x86::inc_r64(&mut self.code, R11);
         x86::mov_at_reg_from_r32(&mut self.code, RDI, R11);
+        // ** C2 (15-10): CUANDO, para el banco: el TSC, de una vez (8 bytes
+        // alineados), antes que la secuencia.
+        self.code.extend_from_slice(&[0x0F, 0x31]);
+        x86::shl_r64_imm8(&mut self.code, RDX, 32);
+        x86::or_r64_r64(&mut self.code, RAX, RDX);
+        x86::mov_at_reg_disp32_from_r64(&mut self.code, R13, byte(CAMPO_PUBLICADA), RAX);
         // Y LO ULTIMO, la secuencia: la publicacion.
         self.lea(RDI, R13, byte(CAMPO_SECUENCIA));
         x86::mov_r32_at_reg(&mut self.code, RAX, RDI);
         x86::inc_r64(&mut self.code, RAX);
         x86::mov_at_reg_from_r32(&mut self.code, RDI, RAX);
+        // ** C2 -- EL TIMBRE: la valla (la secuencia ya se ve) y DUERME. Si
+        // el escritorio duerme, el futex COMPARTIDO en la secuencia lo
+        // despierta; si no, ni una llamada. El escritorio pone su valla entre
+        // DUERME y su mirada: o se ve aqui su 1, o el ve esta secuencia.
+        x86::mfence(&mut self.code);
+        self.lea(RCX, R13, byte(CAMPO_DUERME));
+        x86::mov_r32_at_reg(&mut self.code, RAX, RCX);
+        x86::test_r64_r64(&mut self.code, RAX, RAX);
+        let nadie = self.jcc(0x84);
+        self.imm(RDI, CURRENT_TASK as i64);
+        self.imm(RSI, TASK_OP_FUTEX_DESPERTAR_COMPARTIDO as i64);
+        self.lea(RDX, R13, byte(CAMPO_SECUENCIA));
+        self.imm(R10, 1);
+        x86::zero_r32(&mut self.code, R8);
+        self.invoke();
+        self.here(nadie);
         self.store_imm(out, 1);
         for j in no {
             self.here(j);

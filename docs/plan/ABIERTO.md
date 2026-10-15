@@ -1,14 +1,14 @@
 <!-- GENERADO por toolchain/tools/planes. No se edita a mano. -->
 
-# LO QUE FALTA -- las casillas abiertas de los 84 planes
+# LO QUE FALTA -- las casillas abiertas de los 85 planes
 
 > Generado por `toolchain/tools/planes`. **El build comprueba que
 > este fichero y los planes dicen lo mismo**, asi que no puede
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   797 casillas ABIERTAS en 75 planes
-   620 hechas
+   832 casillas ABIERTAS en 76 planes
+   638 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -90,6 +90,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] IL2 -- LA REJILLA DE VECINOS: cada particula a su celda, ordenadas por celda (un conteo y un ord
 - ... y 27 mas
 
+## [`EL_FOCO.md`](EL_FOCO.md) -- 29 abiertas, 24 hechas
+
+*EL FOCO -- una cosa a la vez, hasta el final (10-10; el orden nuevo, 14-10)*
+
+- [ ] A4 -- TITAN++ pide RAM SOLO con laminas. director.lamina deja de
+- [ ] en el Ryzen -- un .bex del nivel 15 de TITAN++ corriendo (hoja 6b, fila A4). Cuando se vea bien:
+- [ ] B1 -- LB7 + LB8: verificar una vez y apartarse. Al admitir un
+- ... y 26 mas
+
 ## [`PLAN_LA_3060_AFINADA.md`](PLAN_LA_3060_AFINADA.md) -- 25 abiertas, 18 hechas
 
 *PLAN LA 3060 AFINADA -- aislar mas, medir, y solo entonces optimizar*
@@ -162,6 +171,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] S3 -- EL PRIMER CLIENTE: INTI. Porque puede declarar el alias. Y
 - ... y 12 mas
 
+## [`PLAN_CRAFTPHO.md`](PLAN_CRAFTPHO.md) -- 14 abiertas, 0 hechas
+
+*PLAN CRAFTPHO -- pintar y retocar en BMO-X, con capas, en la 3060*
+
+- [ ] K0 -- la pila de capas, compuesta. Capas de pixeles en mosaicos de
+- [ ] K1 -- los 12 modos separables del W3C (multiplicar, trama,
+- [ ] K2 -- los 4 no separables (tono, saturacion, color, luminosidad).
+- ... y 11 mas
+
 ## [`PLAN_EL_PLAZO.md`](PLAN_EL_PLAZO.md) -- 14 abiertas, 1 hechas
 
 *PLAN EL PLAZO -- V-Sync, VBlank y la deuda de planificacion*
@@ -216,15 +234,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] E2 -- (C,T) DECLARADOS Y EL AFORO. Cada tarea trae su compas; el kernel
 - ... y 9 mas
 
-## [`PLAN_LA_LENTE_BINARIA.md`](PLAN_LA_LENTE_BINARIA.md) -- 12 abiertas, 0 hechas
-
-*PLAN LA LENTE BINARIA -- CABINA y LENTE hablan el binario, y lo dicen en castellano*
-
-- [ ] LB1 -- el MAPA: de la instruccion de la 3060 a la linea del DXIL
-- [ ] LB2 -- el vigia dice DONDE, no solo QUE
-- [ ] LB3 -- la autopsia de Ring 3 lee la instruccion que fallo
-- ... y 9 mas
-
 ## [`PLAN_LA_PUERTA_SE_PARTE.md`](PLAN_LA_PUERTA_SE_PARTE.md) -- 11 abiertas, 8 hechas
 
 *PLAN LA PUERTA SE PARTE -- dividir lo que no se puede abaratar*
@@ -259,6 +268,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] D2a -- un TRINQUETE. static mut declarados en
 - [ ] D2b -- el reparto, por fichero, cuando SMP se retome. No antes: sin
 - [ ] D3a -- el codegen de COBOL. Es el mayor, y es el que va a crecer con
+- ... y 7 mas
+
+## [`PLAN_LA_LENTE_BINARIA.md`](PLAN_LA_LENTE_BINARIA.md) -- 10 abiertas, 2 hechas
+
+*PLAN LA LENTE BINARIA -- CABINA y LENTE hablan el binario, y lo dicen en castellano*
+
+- [ ] LB1 -- el MAPA: de la instruccion de la 3060 a la linea del DXIL
+- [ ] LB2 -- el vigia dice DONDE, no solo QUE
+- [ ] LB3 -- la autopsia de Ring 3 lee la instruccion que fallo
 - ... y 7 mas
 
 ## [`PLAN_MAQUETA.md`](PLAN_MAQUETA.md) -- 10 abiertas, 35 hechas
@@ -386,15 +404,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] 5 los comandos que la ls, cat, escribir. Y los que la
 - [ ] 6 compilar hola.ada el frontend de Ada dentro del mismo
 - ... y 4 mas
-
-## [`EL_FOCO.md`](EL_FOCO.md) -- 6 abiertas, 8 hechas
-
-*EL FOCO -- una cosa a la vez, hasta el final (10-10)*
-
-- [ ] Q0a1 -- el aparato con viewport y fondo LIBRES: la tuberia ya
-- [ ] Q0a2 -- el destino EN RAM para la lamina (como enram de
-- [ ] **Q0a3 -- el DIRECTOR dibuja la lamina DENTRO de la ventana de su
-- ... y 3 mas
 
 ## [`PLAN_EL_ENLAZADOR.md`](PLAN_EL_ENLAZADOR.md) -- 6 abiertas, 10 hechas
 

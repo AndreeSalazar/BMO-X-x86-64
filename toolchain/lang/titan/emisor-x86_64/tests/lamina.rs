@@ -215,3 +215,101 @@ fn the_spinning_cube_published_by_titan_is_the_tanda_of_bmo_cubo() {
 /// cada cuanto mira el escritorio.
 const PASOS_DEL_CUBO: usize = 184_000_000;
 const LEE_CADA: usize = 200_000;
+
+/// ** C1 (15-10): LA PALABRA DE VUELTA, en el codigo que emite TITAN++. El
+/// escritorio de mentira RESERVA la ranura publicada a mitad de programa (la
+/// 3060 la leeria sin copia): el siguiente fotograma va a la otra ranura, y
+/// los que tocarian la reservada NO se escriben -- `director.publica` dice
+/// `false` -- y sus bytes no cambian ni uno.
+#[test]
+fn titan_respects_the_slot_in_flight() {
+    const CINCO: &str = "mod main \"cinco fotogramas\"
+use director
+
+fn main()
+    if not director.lamina(6)
+        print(\"nadie compone\")
+        return
+    let p: [f32; 12] = [0.0, 0.5, 0.0, 1.0, 0.5, -0.5, 0.0, 1.0, -0.5, -0.5, 0.0, 1.0]
+    let c: [f32; 12] = [1.0, 0.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 0.0, 1.0, 1.0]
+    for f in range(5)
+        print(f, \" \", director.publica(f, 3, p, c))
+        director.espera(16)
+";
+    let mut m = cargar_bex(&bex(SCREEN, CINCO)).expect("carga");
+    m.padre = 7;
+    // hasta que publica el fotograma 0
+    let mut hecho;
+    loop {
+        (m, hecho) = run_acotado(m, 20);
+        if m.console.contains("0 true\n") || hecho {
+            break;
+        }
+    }
+    assert!(!hecho && m.console == "0 true\n", "{}", m.console);
+    let &(base, desde, _, _) = m.ofertas.iter().find(|o| es_lamina(&m, o)).expect("la lamina");
+    let base = base + desde;
+    let palabra = |m: &Machine, k: usize| m.read_u64(base + 4 * k as u64) as u32;
+    assert_eq!(palabra(&m, lamina::CAMPO_ESTADO) & lamina::ESTADO_VUELTA, lamina::ESTADO_VUELTA, "TITAN++ dice que respeta la vuelta");
+    let s = palabra(&m, lamina::CAMPO_SECUENCIA);
+    assert_eq!(s, 1);
+    let k = (s % 2) as usize;
+    // El escritorio RESERVA la ranura publicada.
+    m.escribir(base + 4 * lamina::CAMPO_VUELTA as u64, &(k as u32 + 1).to_le_bytes());
+    let desde_ranura = lamina::CABECERA + k * 6 * 32;
+    let foto = |m: &Machine| -> Vec<u8> { (0..6 * 32).map(|i| m.read_u8_pub(base + (desde_ranura + i) as u64)).collect() };
+    let antes = (foto(&m), palabra(&m, lamina::CAMPO_SELLO + k), palabra(&m, lamina::CAMPO_FOTOGRAMA + k));
+    let m = run(m, 2_000_000);
+    assert!(m.exited, "{}", m.console);
+    assert_eq!(m.console, "0 true\n1 true\n2 false\n3 false\n4 false\n", "el 1 va a la otra ranura; los demas tocarian la reservada");
+    assert_eq!((foto(&m), palabra(&m, lamina::CAMPO_SELLO + k), palabra(&m, lamina::CAMPO_FOTOGRAMA + k)), antes, "la ranura en vuelo no se toco");
+    assert_eq!(palabra(&m, lamina::CAMPO_SECUENCIA), 2, "solo se publico el 1");
+}
+
+/// ** C2 (S3 de PLAN_VERRANO, 15-10): EL TIMBRE. TITAN++ dice que lo toca,
+/// apunta CUANDO publico (el TSC, antes de la secuencia), y despues de
+/// publicar mira DUERME: mientras el escritorio no duerme, ni una llamada
+/// mas; cuando duerme, UN despertar por el futex COMPARTIDO en la palabra
+/// de la secuencia -- la misma direccion que el escritorio ve en su lado --.
+#[test]
+fn titan_rings_the_bell_only_when_the_desktop_sleeps() {
+    const CINCO: &str = "mod main \"cinco fotogramas\"
+use director
+
+fn main()
+    if not director.lamina(6)
+        print(\"nadie compone\")
+        return
+    let p: [f32; 12] = [0.0, 0.5, 0.0, 1.0, 0.5, -0.5, 0.0, 1.0, -0.5, -0.5, 0.0, 1.0]
+    let c: [f32; 12] = [1.0, 0.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 0.0, 1.0, 1.0]
+    for f in range(5)
+        print(f, \" \", director.publica(f, 3, p, c))
+        director.espera(16)
+";
+    use bmo_abi::syscalls::surface::TASK_OP_FUTEX_DESPERTAR_COMPARTIDO as DESPERTAR;
+    let mut m = cargar_bex(&bex(SCREEN, CINCO)).expect("carga");
+    m.padre = 7;
+    let mut hecho;
+    loop {
+        (m, hecho) = run_acotado(m, 20);
+        if m.console.contains("1 true\n") || hecho {
+            break;
+        }
+    }
+    assert!(!hecho, "{}", m.console);
+    let &(base, desde, _, _) = m.ofertas.iter().find(|o| es_lamina(&m, o)).expect("la lamina");
+    let base = base + desde;
+    let palabra = |m: &Machine, k: usize| m.read_u64(base + 4 * k as u64) as u32;
+    assert_eq!(palabra(&m, lamina::CAMPO_ESTADO) & lamina::ESTADO_TIMBRE, lamina::ESTADO_TIMBRE, "TITAN++ dice que toca el timbre");
+    assert_ne!(m.read_u64(base + 4 * lamina::CAMPO_PUBLICADA as u64), 0, "y cuando publico");
+    let timbres = |m: &Machine| m.syscalls.iter().filter(|c| c.operation == DESPERTAR).map(|c| c.arg0).collect::<Vec<_>>();
+    assert!(timbres(&m).is_empty(), "nadie dormia: ni una llamada");
+    // El escritorio se duerme.
+    m.escribir(base + 4 * lamina::CAMPO_DUERME as u64, &1u32.to_le_bytes());
+    let m = run(m, 2_000_000);
+    assert!(m.exited, "{}", m.console);
+    assert_eq!(m.console, "0 true\n1 true\n2 true\n3 true\n4 true\n");
+    let t = timbres(&m);
+    assert_eq!(t.len(), 3, "un despertar por cada publicacion con el escritorio dormido (2, 3 y 4)");
+    assert!(t.iter().all(|&a| a == base + 4 * lamina::CAMPO_SECUENCIA as u64), "en la palabra de la secuencia: {:x?}", t);
+}

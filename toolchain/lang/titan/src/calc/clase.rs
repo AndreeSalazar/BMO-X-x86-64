@@ -72,6 +72,17 @@ pub(super) fn classes(f: &Function, m: &Module) -> Result<(), Message> {
                     Op::Drop { .. } => {}
                 }
             }
+            // ** A4b: a lamina is never COPIED (`lamina.rs`).
+            {
+                let names = |l: usize| f.locals[l].name.clone();
+                let ncs = |v: &Value| crate::lamina::no_se_copia(v, &known, &names);
+                match op {
+                    Op::Let { value, .. } | Op::Set { value, .. } | Op::SetAt { value, .. } => ncs(value)?,
+                    Op::Call { args, .. } | Op::Director { args, .. } => args.iter().try_for_each(ncs)?,
+                    Op::Write { parts, .. } => parts.iter().try_for_each(ncs)?,
+                    Op::Drop { .. } => {}
+                }
+            }
             // ** LB6: inside a `gpu fn`, two records are never compared.
             if f.gpu {
                 match op {
@@ -144,6 +155,9 @@ pub(super) fn classes(f: &Function, m: &Module) -> Result<(), Message> {
                             "for x in [1, 2, 3]  o  for i in range(10)",
                         ));
                     }
+                    if crate::lamina::dentro(&c) {
+                        return Err(Message::new(Code::Mode, at.0, at.1, &format!("`{}` lleva laminas dentro", f.locals[*local].name), "una lamina es RAM del kernel con UN propietario: vive en un `let` o en un parametro, no en la celda de otra cosa", "una lamina por nombre: let mut l = lamina(4096)"));
+                    }
                     known[*local] = Some(c);
                 }
                 Op::Set { local, value, at } => {
@@ -203,6 +217,7 @@ pub(super) fn classes(f: &Function, m: &Module) -> Result<(), Message> {
             }
         }
         if let End::Return(Some(v)) = &b.end {
+            crate::lamina::no_se_copia(v, &known, &|l: usize| f.locals[l].name.clone())?;
             let got = class(v, &known, m)?;
             let want = of_ty(f.ret.as_ref().expect("check: a return with a value is in a fn with ->"), types);
             if !fits(&want, &got) {
@@ -237,6 +252,8 @@ pub(super) fn step_class(c: &Class, st: &PathStep, known: &[Option<Class>], m: &
             }
             match c {
                 Class::Table(inner, _) | Class::List(inner) => Ok((**inner).clone()),
+                // A4b: a cell of a lamina is a byte, like a `[byte]`'s.
+                Class::Lamina => Ok(Class::Byte),
                 Class::Map(k, _) => Err(Message::new(
                     Code::Mixed,
                     at.0,
@@ -456,6 +473,40 @@ pub(super) fn director(what: Director, args: &[Value], at: At, known: &[Option<C
         // ** F2 y F3 (EL_FOCO, 10-10): lo que se lee y lo que llega.
         Director::Toma | Director::SeVe => Ok(Some(Class::Bool)),
         Director::Medida | Director::Evento | Director::Codigo | Director::RatonX | Director::RatonY | Director::Botones | Director::Ms => Ok(Some(Class::Int)),
+        // ** C4 (LB5): contarse a si mismo con los contadores del Zen 3.
+        Director::Contar => Ok(Some(Class::Bool)),
+        // ** Q2: el sonido.
+        Director::SonidoToma => Ok(Some(Class::Bool)),
+        Director::SonidoSuena => {
+            int(0, "`sonido.suena` pide el CANAL: de 0 a 15", "while sonido.suena(0)")?;
+            Ok(Some(Class::Bool))
+        }
+        Director::SonidoCalla => {
+            int(0, "`sonido.calla` pide el CANAL: de 0 a 15 (255, todos)", "sonido.calla(0)")?;
+            Ok(None)
+        }
+        Director::SonidoBanco => {
+            if got[0] != Class::Lamina {
+                return Err(wrong(args[0].at(), &Class::Lamina, &got[0], m.defs(), "`sonido.banco` presta una LAMINA con las muestras", "let mut banco = lamina(96000)\nsonido.banco(banco)"));
+            }
+            Ok(Some(Class::Int))
+        }
+        Director::SonidoToca => {
+            for (k, que) in [(0, "el CANAL (0..15)"), (1, "DESDE que byte del banco"), (2, "cuantas MUESTRAS (de 16 bits)"), (3, "a cuantos HERCIOS (las muestras por segundo)")] {
+                int(k, &format!("`sonido.toca` pide {}", que), "sonido.toca(0, 0, n, 22050)")?;
+            }
+            Ok(Some(Class::Bool))
+        }
+        Director::SonidoPita => {
+            int(0, "`sonido.pita` pide los HERCIOS", "sonido.pita(440, 200)")?;
+            int(1, "y despues los MILISEGUNDOS", "sonido.pita(440, 200)")?;
+            Ok(None)
+        }
+        Director::SonidoSuelta => Ok(None),
+        Director::Contado => {
+            int(0, "`director.contado` pide QUE contador: 0 ciclos, 1 instrucciones, 2 saltos fallados, 3 fallos de la L1D", "let n = director.contado(1)")?;
+            Ok(Some(Class::Int))
+        }
         Director::Fichero => {
             if got[0] == Class::Text {
                 Ok(Some(Class::Bool))
@@ -533,7 +584,7 @@ pub(super) fn keeps(c: &Class, k: usize, d: Defs) -> bool {
         Class::Record(t) => d.types[*t].name.clone(),
         Class::Enum(e) => d.enums[*e].name.clone(),
         Class::F32 => "f32".to_string(),
-        Class::Table(..) | Class::Trait(_) | Class::List(_) | Class::Map(..) | Class::Opt(_) | Class::Any => return false,
+        Class::Table(..) | Class::Trait(_) | Class::List(_) | Class::Map(..) | Class::Opt(_) | Class::Lamina | Class::Any => return false,
     };
     d.impls.iter().any(|(t, i)| t == &d.traits[k].name && i == &ty)
 }
@@ -746,12 +797,17 @@ pub fn class(v: &Value, known: &[Option<Class>], m: &Module) -> Result<Class, Me
             Class::Int | Class::Byte => Class::Byte,
             other => return Err(wrong(*at, &Class::Int, &other, types, "`byte` vuelve UN numero entero un byte (de 0 a 255)", "byte(200), o byte(x) con x un int")),
         },
+        // `lamina(n)` (A4b): n bytes, a whole number; gives a lamina.
+        Value::Lamina(inner, at) => match counted(class(inner, known, m)?) {
+            Class::Int => Class::Lamina,
+            other => return Err(wrong(*at, &Class::Int, &other, types, "`lamina` pide UN numero entero: cuantos bytes", "let mut l = lamina(4096)")),
+        },
         Value::Number(inner, e, at) => match class(inner, known, m)? {
             Class::Text => Class::Enum(*e),
             other => return Err(wrong(*at, &Class::Text, &other, types, "`numero` mira si UN TEXTO es un numero entero", "numero(linea), con la linea que trae lee()")),
         },
         Value::Len(inner, at) => match class(inner, known, m)? {
-            Class::Table(..) | Class::List(_) | Class::Map(..) => Class::Int,
+            Class::Table(..) | Class::List(_) | Class::Map(..) | Class::Lamina => Class::Int,
             other => {
                 return Err(Message::new(Code::Mixed, at.0, at.1, &format!("`len` cuenta las celdas de una tabla, una lista o un mapa, y aqui hay {}", other.name(types)), "solo una tabla, una lista o un mapa tienen celdas que contar", "len([1, 2, 3])"))
             }

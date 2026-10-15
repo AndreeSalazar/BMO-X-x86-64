@@ -531,6 +531,8 @@ fn schedule_locked(s: &mut Scheduler, saliente: Saliente) {
     s.tasks[next].state = TaskState::Running;
     s.tasks[next].remaining_ticks = s.tasks[next].quantum;
     s.current = next;
+    // ** C4: los contadores de un programa cuentan SOLO a el (LB5).
+    crate::ring0::plat::contadores::al_cambiar(s.tasks[next].tid);
     percpu::set_trap_rsp(next_rsp);
     // Address space + Ring 3 trap landing pads follow the selected task.
     // Kernel code keeps running through the switch because every user

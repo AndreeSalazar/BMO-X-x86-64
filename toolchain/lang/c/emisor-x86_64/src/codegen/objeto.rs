@@ -85,6 +85,7 @@ impl Codegen {
         if self.quiere_pantalla && !self.sabe_componerse {
             b.quiere_pantalla();
         }
+        b.instrucciones(self.instrucciones);
         let mut regiones: Vec<(Region, u64)> = vec![(Region::Codigo, code.len() as u64)];
         b.codigo(code);
         if !rodata.is_empty() {

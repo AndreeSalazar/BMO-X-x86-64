@@ -2,11 +2,12 @@
 # TRINQUETE: `pasos`, `accesos` y `codigo` solo bajan; `salida` no cambia nunca.
 # Se reescribe con `cargo run --release -p bmo-metro -- --fijar`.
 # programa  pasos  accesos  codigo  salida
-Ultra_userspace/apps/bico/src/main.titan 427 120 31958 e333c242be2a9b49
-Ultra_userspace/apps/navegar/src/main.titan 2594 431 57407 e897113c8df4c7be
-Ultra_userspace/apps/png/src/main.titan 7878402 3992279 18180 326cdc9020a51072
-Ultra_userspace/apps/resolucion/src/main.titan 306 88 32033 085091bc4bc966b3
+Ultra_userspace/apps/bico/src/main.titan 437 124 31811 e333c242be2a9b49
+Ultra_userspace/apps/navegar/src/main.titan 2612 437 56987 e897113c8df4c7be
+Ultra_userspace/apps/png/src/main.titan 7878422 3992285 18171 326cdc9020a51072
+Ultra_userspace/apps/resolucion/src/main.titan 304 88 31843 085091bc4bc966b3
 toolchain/lang/ada/examples/1-basico/cierre.adb 369 69 1560 ed567b986aa22dd2
+toolchain/lang/c/examples/bits_C.c 872 144 559 582273125d487ce0
 toolchain/lang/c/examples/blit_C.c 57720 6438 3035 25042ff916c7a1d5
 toolchain/lang/c/examples/caja_C.c 331 118 5936 c7825b639babd44d
 toolchain/lang/c/examples/cubo_C.c 853 310 16193 b62cc91f2d789574
@@ -14,11 +15,11 @@ toolchain/lang/c/examples/guia_C.c 845 303 11855 63a4af2b37e89e8f
 toolchain/lang/c/examples/hola_C.c 592 58 1347 5636dbeb8a18604e
 toolchain/lang/c/examples/imagen_C.c 849 305 11373 93a255b1b277a3d2
 toolchain/lang/c/examples/leer_C.c 657 160 5534 c29f996c7ed78bd0
-toolchain/lang/c/examples/memoria_C.c 34343 6329 3756 083f502191c643b9
+toolchain/lang/c/examples/memoria_C.c 34497 6361 4171 cfa50a045f7944d3
 toolchain/lang/c/examples/musica_C.c 23406 4611 5300 d496ad39602704b5
 toolchain/lang/c/examples/raycaster_C.c 960 376 14305 90aed363b3605449
 toolchain/lang/c/examples/scroll_C.c 16447 2534 2669 b077773f1a24534f
-toolchain/lang/c/examples/sonda_C.c 11779 964 5521 470d7a0872ab5f2f
+toolchain/lang/c/examples/sonda_C.c 11847 980 5521 772078473e7ac38b
 toolchain/lang/c/examples/sonido_C.c 751 66 3331 85b9ef055c293701
 toolchain/lang/c/examples/vivaldi_C.c 24759 5134 2141 d7e59bfde4882cd0
 toolchain/lang/cobol/examples/1-basico/hola.cob 39 1 286 7e9187edfd16728f
@@ -39,14 +40,14 @@ toolchain/lang/titan/ejemplos/nivel1/centauro.titan 63 0 321 816cd108e0ffdcb2
 toolchain/lang/titan/ejemplos/nivel10/formas.titan 51 0 265 3e932a0c025ec0a6
 toolchain/lang/titan/ejemplos/nivel10/motor/src/main.titan 34 0 180 36be6f246c208e76
 toolchain/lang/titan/ejemplos/nivel11/activa/src/main.titan 66 0 335 ad3c85df63fda75f
-toolchain/lang/titan/ejemplos/nivel11/cubo_gira/src/main.titan 51375 20474 167390 d6019fcf0b121131
+toolchain/lang/titan/ejemplos/nivel11/cubo_gira/src/main.titan 51394 20479 167449 d6019fcf0b121131
 toolchain/lang/titan/ejemplos/nivel11/mezcla/src/main.titan 24 0 139 ac980c01fdd85e0e
-toolchain/lang/titan/ejemplos/nivel11/ventana/src/main.titan 248 67 10699 9832fd69acd966e0
+toolchain/lang/titan/ejemplos/nivel11/ventana/src/main.titan 246 67 10526 9832fd69acd966e0
 toolchain/lang/titan/ejemplos/nivel12/adivina.titan 1010 168 2166 b7cb1a531854d3fd
 toolchain/lang/titan/ejemplos/nivel12/hasta_fin.titan 815 113 1794 dc5cd9badca78e5e
 toolchain/lang/titan/ejemplos/nivel12/la_cuenta.titan 7678 2885 7690 c1e9be94259b4a5c
 toolchain/lang/titan/ejemplos/nivel12/pregunta.titan 124 10 568 7f77ffd465b11ed8
-toolchain/lang/titan/ejemplos/nivel13/agenda.titan 2559 761 6924 92051366aef5cbdd
+toolchain/lang/titan/ejemplos/nivel13/agenda.titan 2569 763 6971 92051366aef5cbdd
 toolchain/lang/titan/ejemplos/nivel13/mundo.titan 36 0 195 0e17b9ee9847b5ea
 toolchain/lang/titan/ejemplos/nivel14/histograma.titan 55 0 278 4bf3fc4c2c909517
 toolchain/lang/titan/ejemplos/nivel14/pixeles.titan 53 0 280 14c446265f433013

@@ -40,6 +40,10 @@
 /// `BGPU`, leido en little-endian. Un buzon revocado lo tiene a cero.
 pub const MAGIA: u32 = u32::from_le_bytes(*b"BGPU");
 pub const VERSION: u32 = 1;
+// Atado a su fila del censo de las laminas (A3, 14-10): la version es la
+// palabra 1 entera. Si una de las dos cambia, no compila.
+const _: () = assert!(bmo_lamina::censo::misma_version(bmo_lamina::censo::clase(MAGIA).version, bmo_lamina::censo::Version::Palabra1(VERSION)));
+const _: () = assert!(campo::MAGIA == 0 && campo::VERSION == 1);
 /// Las cajas de una tanda. Mas que eso, el escritorio manda la pantalla entera.
 pub const MAX_CAJAS: usize = 64;
 
@@ -202,7 +206,9 @@ pub fn revocar(pal: &mut [u32], motivo: u32) {
 /// `None` si no toca todavia (ENVIADO no llego a su ultima tanda) o si las
 /// cajas no caben; `Some(numero)` de la tanda cerrada.
 pub fn escribir(pal: &mut [u32], mi_ultimo: u32, cajas: &[Caja]) -> Option<u32> {
-    if pal.len() < PALABRAS || pal[campo::MAGIA] != MAGIA || pal[campo::ENVIADO] != mi_ultimo {
+    // Abierto y de esta clase, por la puerta unica del censo (A3): un buzon
+    // revocado tiene la magia a cero, y uno con otra version no es este.
+    if pal.len() < PALABRAS || !bmo_lamina::censo::abierta(MAGIA, pal[campo::MAGIA], pal[campo::VERSION]) || pal[campo::ENVIADO] != mi_ultimo {
         return None;
     }
     if cajas.is_empty() || cajas.len() > MAX_CAJAS {
@@ -240,6 +246,20 @@ mod pruebas {
         assert_eq!(MAGIA, 0x5550_4742);
         let b = buzon();
         assert_eq!(b[campo::MEDIDAS], 1920 | 1080 << 16);
+    }
+
+    /// El escritorio no escribe en un buzon que no se reconoce: revocado, o
+    /// con otra version en la palabra 1 (A3, la puerta unica).
+    #[test]
+    fn no_se_escribe_en_un_buzon_que_no_se_reconoce() {
+        let mut b = buzon();
+        b[campo::VERSION] = VERSION + 1;
+        assert_eq!(escribir(&mut b, 0, &[caja(0, 0, 8, 8)]), None, "otra version");
+        let mut b = buzon();
+        revocar(&mut b, 7);
+        assert_eq!(escribir(&mut b, 0, &[caja(0, 0, 8, 8)]), None, "revocado");
+        let mut b = buzon();
+        assert_eq!(escribir(&mut b, 0, &[caja(0, 0, 8, 8)]), Some(1));
     }
 
     #[test]

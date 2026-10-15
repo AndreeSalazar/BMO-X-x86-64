@@ -315,6 +315,12 @@ pub fn enlazar_informado(unidades: &[(String, Vec<u8>)], poda: bool) -> Result<I
     if quiere_pantalla {
         b.quiere_pantalla();
     }
+    // ** Las extensiones de x86-64 que pide cada unidad, JUNTAS (A6 del foco):
+    // el ejecutable pide lo que pida cualquiera de sus partes. Se juntan las de
+    // TODAS, tambien las de una unidad cuyo codigo la poda tiro entero: pedir
+    // de mas solo cuesta no arrancar en una CPU vieja; pedir de menos es un
+    // `#UD` a mitad de camino, que es justo lo que esta linea existe para quitar.
+    b.instrucciones(objs.iter().fold(0, |m, o| m | o.instrucciones));
     b.entrada(entry as u32);
 
     b.codigo(code);

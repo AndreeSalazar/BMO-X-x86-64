@@ -109,9 +109,13 @@ use alloc::vec::Vec;
 // como nacen las divergencias que el contrato lleva meses tolerando.
 //
 // Los `pub use` mantienen todas las rutas de antes: nada de fuera se entera.
+/// El catalogo de extensiones de x86-64 (A6): nombres, bits y CPUID.
+pub use bmo_carga_juicio::instrucciones;
+/// Lo que decidio el propietario en `PERFIL/CPU.txt` (B4): `MANO` y `LLVM`.
+pub use bmo_carga_juicio::decidido;
 pub use bmo_carga_juicio::{
     clase_conocida, Requisito, Tabla, CABECERA_LEN, CLASE_AUDIO, CLASE_CPU, CLASE_ENTRADA,
-    CLASE_MEMORIA, CLASE_MONTON, CLASE_PANTALLA, CLASE_PROCESOS, CLASE_RECURSOS, MOTIVO_MAX,
+    CLASE_INSTRUCCIONES, CLASE_MEMORIA, CLASE_MONTON, CLASE_PANTALLA, CLASE_PROCESOS, CLASE_RECURSOS, MOTIVO_MAX,
     OBLIGATORIO, REQUISITOS_MAGIC, REQUISITO_LEN, UNIDAD_BYTES, UNIDAD_MASCARA, UNIDAD_UNIDADES,
 };
 /// empaqueta; la del que carga es [`Requisito`].

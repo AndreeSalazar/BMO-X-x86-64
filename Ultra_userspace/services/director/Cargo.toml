@@ -23,6 +23,8 @@ bmo-cubo = { path = "../../../platform/shared/bmo-cubo" }
 # VERRANO V0: la API de dibujo (el backend CPU es el juez) y el BSF, de donde
 # salen los programas de la 3060 ya traducidos (`kind` SM86).
 bmo-verrano = { path = "../../../platform/shared/verrano" }
+# El censo de las laminas: la puerta unica de lo que se ofrece (14-10, A3).
+bmo-lamina = { path = "../../../platform/shared/bmo-lamina" }
 bmo-bsf = { path = "../../../toolchain/lang/spirv/bsf" }
 bmo-iommu-amdvi = { path = "../../../platform/drivers/iommu/amdvi" }
 bmo-userland = { path = "../../userland" }
@@ -34,6 +36,8 @@ bmo-bankcat = { path = "../../../platform/shared/bmo-bankcat" }
 # ** Hasta el 2026-09-13 esto era `bmo-input`, un driver de Ring 0 enlazado desde
 # Ring 3 solo por esta politica. L8: lo compartido entre anillos es `puro`.
 bmo-foco = { path = "../../../platform/shared/bmo-foco" }
+# C4: el catalogo de los contadores del Zen 3 y su desempaquetado.
+bmo-contadores = { path = "../../../platform/shared/bmo-contadores" }
 # El RECORTE, que usa la cara generada por MAQUETA para reparar un danio sin
 # repintarlo todo. Es el mismo `Recorte` que usan el rasterizador y el kernel:
 # medio abierto `[x0, x1)`, y una sola implementacion para las tres orillas.

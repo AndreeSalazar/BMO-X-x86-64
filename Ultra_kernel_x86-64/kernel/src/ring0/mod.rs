@@ -111,6 +111,8 @@ pub mod task {
     /// compartido tiene que volverse una estructura-- y un hash no lo puede
     /// demostrar. Ver la cabecera del fichero.
     pub mod admitir;
+    /// **La lente al admitir** (B1): verificar una vez y apartarse.
+    pub mod lente;
     pub mod proc;
     pub mod scheduler;
     /// **LA ALARMA** (EXPROPIAR, 07-10): el tick le quita el turno a un hilo
@@ -135,6 +137,8 @@ pub mod fsys {
 pub mod plat {
     //! [familia] plat  nivel 10 -- la plataforma: tick, interrupciones, SMP, fallos y reinicio
     //! [conecta] cabina, core, cpu, cpu_vendor, dev, mm, obj, reloj, task
+    /// ** C4 (15-10): contar UN programa con los contadores del nucleo (LB5).
+    pub mod contadores;
     pub mod faults;
     /// El censo de nucleos que da el firmware por ACPI. Es la fuente de los
     /// APIC IDs, y sustituye a la suposicion `0..hilos-1`.

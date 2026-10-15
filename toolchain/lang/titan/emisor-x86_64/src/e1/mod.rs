@@ -46,6 +46,10 @@ mod forma;
 mod gpu;
 mod monton;
 mod numero;
+mod ram;
+mod lamina;
+/// Q2 (15-10): el SONIDO de TITAN++ (`use sonido`): las voces del orquestador.
+mod sonido;
 mod entrada;
 mod letra;
 mod valor;
@@ -118,6 +122,11 @@ pub(crate) enum Helper {
     /// un glifo de la letra de BMO-X (con la fuente detras).
     Rect,
     Glifo,
+    /// A4 (EL_FOCO, `ram.rs`): LA PUERTA DE LA RAM, el unico sitio que le
+    /// pide un bloque al kernel.
+    PideLamina,
+    /// A4b (`ram.rs`): la vuelta, `MEM_OP_SOLTAR`.
+    SueltaLamina,
 }
 
 /// Un NO al correr, por escribir: el salto que lleva a el, su linea, y lo
@@ -599,6 +608,12 @@ impl<'m> E1<'m> {
             if f.modes.get(i) == Some(&Mode::Mut) {
                 x86::mov_at_reg_disp32_from_r64(&mut self.code, RBP, self.f.slot[*l], RAX);
                 self.f.indirect[*l] = true;
+            } else if c == Class::Lamina {
+                // A4b: una lamina solo llega ENTREGADA (`take`): su asa se
+                // mueve, no se pide otra (quien la entrego la olvida al volver)
+                let from = self.pointer_from(RAX);
+                let to = self.local(*l);
+                self.copy(to, from, lamina::ASA);
             } else {
                 let from = self.pointer_from(RAX);
                 let to = self.local(*l);
@@ -761,6 +776,15 @@ impl<'m> E1<'m> {
         self.code.extend_from_slice(&[0; 4]);
         for (to, from, size) in back {
             self.copy(to, from, size);
+        }
+        // A4b: la lamina ENTREGADA ya es de la fn: aqui no queda nada que soltar.
+        for a in args {
+            if let Value::Lend(Mode::Take, l, _) = a {
+                if self.f.known[*l] == Some(Class::Lamina) {
+                    let p = self.local(*l);
+                    self.olvida_lamina(p);
+                }
+            }
         }
         if let Some((p, c)) = &out {
             self.own(*p, c);
@@ -1125,7 +1149,7 @@ fn calls_in(v: &Value, out: &mut Vec<usize>) {
             calls_in(a, out);
             calls_in(b, out);
         }
-        Value::Neg(a, _) | Value::Not(a, _) | Value::Repeat(a, _, _) | Value::Field(a, _, _) | Value::Len(a, _) | Value::Round(a, _, _) | Value::Is(a, _, _, _) | Value::Payload(a, _, _, _, _) | Value::Number(a, _, _) | Value::Byte(a, _) => calls_in(a, out),
+        Value::Neg(a, _) | Value::Not(a, _) | Value::Repeat(a, _, _) | Value::Field(a, _, _) | Value::Len(a, _) | Value::Round(a, _, _) | Value::Is(a, _, _, _) | Value::Payload(a, _, _, _, _) | Value::Number(a, _, _) | Value::Byte(a, _) | Value::Lamina(a, _) => calls_in(a, out),
         Value::Table(items, _) | Value::Record(_, items, _) | Value::Variant(_, _, items, _) | Value::Lib(_, items, _) | Value::Director(_, items, _) => items.iter().for_each(|a| calls_in(a, out)),
         Value::Map(items, _) => items.iter().for_each(|(k, v)| {
             calls_in(k, out);

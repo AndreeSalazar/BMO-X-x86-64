@@ -293,6 +293,9 @@ const INFO_GPU_PORQUE: u64 = 0xD4;
 const INFO_GPU_RC: u64 = 0xD5;
 const INFO_GPU_RC_VA: u64 = 0xD6;
 const INFO_GPU_RC_TEXTO: u64 = 0xD7;
+/// C4: los contadores del Zen 3 (ver el ABI).
+const INFO_CPU_CONTADORES: u64 = 0xD8;
+const INFO_CPU_CONTADOR: u64 = 0xD9;
 
 // El metro de la puerta: cuantas y cuantos ciclos dentro de `dispatch`. Se
 // leen como delta. Ver `ring0/syscall/meter.rs`.
@@ -582,6 +585,15 @@ pub fn campo(n: u64) -> Option<u64> {
         // arriba. Una clase que no existe contesta 0, que es lo que significa
         // "no hay tal casilla" -- y no se puede confundir con "cero puertas de
         // esa clase" porque las clases que existen son un contrato.
+        // ** C4: los contadores del Zen 3 y su calibracion (UNA vez).
+        INFO_CPU_CONTADORES => {
+            use crate::ring0::cpu_vendor::ryzen_5_5600x::contadores as k;
+            k::se_pueden() as u64 | (bmo_contadores::CALIBRACION.len() as u64) << 8
+        }
+        c if c & 0xFF == INFO_CPU_CONTADOR => {
+            use crate::ring0::cpu_vendor::ryzen_5_5600x::contadores as k;
+            k::calibracion().and_then(|f| f.get((c >> 8) as usize).copied()).unwrap_or(0)
+        }
         c if c & 0xFF == INFO_SYSCALL_CLASS => {
             crate::ring0::syscall::meter::doors_of_class((c >> 8) as usize)
         }

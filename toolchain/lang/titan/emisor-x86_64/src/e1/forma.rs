@@ -56,6 +56,8 @@ impl<'m> Forms<'m> {
             Class::Enum(e) => 8 + (0..self.m.enums[*e].cases.len()).map(|v| self.case_size(*e, v)).max().unwrap_or(0),
             Class::Trait(k) => 8 + self.trait_types(*k).iter().map(|(_, c)| self.size(c)).max().unwrap_or(0),
             Class::List(_) | Class::Map(..) | Class::Any => 24,
+            // A4b: su asa (`lamina.rs`): la de una lista y la del kernel.
+            Class::Lamina => super::lamina::ASA,
             Class::Opt(inner) => 8 + self.size(inner),
         }
     }
@@ -64,7 +66,8 @@ impl<'m> Forms<'m> {
     /// clonarlo, y al morir se suelta (`monton.rs`).
     pub fn has_heap(&self, c: &Class) -> bool {
         match c {
-            Class::List(_) | Class::Map(..) => true,
+            // A4b: una lamina TIENE propietario, y al morir se suelta.
+            Class::List(_) | Class::Map(..) | Class::Lamina => true,
             Class::Any | Class::Int | Class::Byte | Class::Bool | Class::Dec | Class::Text | Class::F32 => false,
             Class::Table(inner, _) | Class::Opt(inner) => self.has_heap(inner),
             Class::Record(t) => self.m.types[*t].fields.iter().any(|f| self.has_heap(&self.class(&f.ty))),

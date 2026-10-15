@@ -114,6 +114,7 @@ bmo-firmware = { path = "../../platform/shared/bmo-firmware" }
 bmo-orquesta = { path = "../../platform/shared/bmo-orquesta" }
 # El FUTEX (07-10): el juez de esperar en una palabra de Ring 3. Puro.
 bmo-futex = { path = "../../platform/shared/bmo-futex" }
+bmo-contadores = { path = "../../platform/shared/bmo-contadores" }
 bmo-alarma = { path = "../../platform/shared/bmo-alarma" }
 bmo-cache-juicio = { path = "../../platform/shared/bmo-cache-juicio" }
 bmo-mmio-juicio = { path = "../../platform/shared/bmo-mmio-juicio" }
@@ -128,6 +129,8 @@ bmo-imagen-juicio = { path = "../../platform/shared/bmo-imagen-juicio" }
 # El juez del physmap. Ver `ring0/critic/amarilla.rs`: nacio de dos pantallas
 # azules seguidas por el mismo techo escrito a mano en el sitio equivocado.
 bmo-carga-juicio = { path = "../../platform/shared/bmo-carga-juicio" }
+# La lente de x86 (B1): lee el codigo de un `.bex` al admitirlo. Pura.
+bmo-lente-x86 = { path = "../../platform/shared/bmo-lente-x86" }
 bmo-fisica-juicio = { path = "../../platform/shared/bmo-fisica-juicio" }
 # La ciudad del arranque. La DIBUJA la CPU --cero bytes de datos-- y vive
 # fuera de las dos orillas porque es aritmetica pura: asi se puede probar en

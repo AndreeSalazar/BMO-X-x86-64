@@ -8,6 +8,8 @@
 //! esta carpeta no sabe de que color es la ventana.
 
 pub(crate) mod complete;
+/// C4: los contadores del Zen 3, calibrados (`cpu contadores`).
+pub(crate) mod contadores;
 /// Las sugerencias de la caja mientras se teclea, y TAB sobre ordenes (24-09).
 pub(crate) mod sugerencias;
 /// ** LA TERMINAL DEL DISCO: la unica caja de ordenes que ACTUA sobre el
@@ -253,7 +255,8 @@ pub(crate) enum Command<'a> {
     Oido(&'a [u8]),
     /// `3d [apagado|cerca|sala|amplio|orbita [s]]`: el espacio.
     Espacio(&'a [u8]),
-    Cpu,
+    /// `cpu`, y `cpu contadores` (C4): los contadores del Zen 3, calibrados.
+    Cpu(&'a [u8]),
     /// `gpu`, `gpu cegar`, `gpu ver` (M0e).
     Gpu(&'a [u8]),
     /// `iommu`, `iommu encender`, `iommu apagar` (M0c).
@@ -666,7 +669,7 @@ pub(crate) fn parse(line: &[u8]) -> Command<'_> {
         b"fondo" => Command::Fondo(rest),
         b"oido" => Command::Oido(rest),
         b"3d" | b"espacio" => Command::Espacio(rest),
-        b"cpu" | b"procesador" => Command::Cpu,
+        b"cpu" | b"procesador" => Command::Cpu(rest),
         // La grafica, PREGUNTADA: quien es y si su VBLANK se ve sin firmware.
         b"gpu" | b"grafica" => Command::Gpu(rest),
         // La IOMMU, PREGUNTADA: si el firmware la dejo encendida y a quien atiende.

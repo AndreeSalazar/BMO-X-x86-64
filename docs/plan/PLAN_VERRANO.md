@@ -349,6 +349,10 @@ la SPH (128 B) y detras las instrucciones.
 - [ ] **V3 -- las constantes.** La matriz en un buffer y el programa de
       vertice multiplicando (lo que hace D3D): la pregunta del FMA, medida.
       **Como se sabe:** la huella de D3D12 sale con las cuentas en la 3060.
+      **15-10, HECHO EN EL ANFITRION desde la casa** (D1 de `EL_FOCO.md`):
+      el cubo de TITAN++ con la matriz en su cbuffer (`nivel11/cubo3`) da la
+      posicion de la tanda bit a bit en la 3060 simulada y en la CPU. Lo que
+      falta es V3b: que el escritorio lo dibuje por la 3060.
 > **V3b y V4, hechos plan (26-09):** [`PLAN_LA_LENGUA_DE_LA_3060.md`](PLAN_LA_LENGUA_DE_LA_3060.md)
 > -- los datos para estudiar (NAK, CUDA, el metal), donde vive cada pieza y
 > las casillas J0..J2 (el juez) y E1..E5 (el emisor).
@@ -371,7 +375,11 @@ la SPH (128 B) y detras las instrucciones.
       giro, blur, fractal) pasan; cada regla tiene un programa roto a
       proposito que el juez rechaza con SU motivo; y se pasa al de vertice
       de VERRANO V0 -- si dice NO, el motivo es la pista del cuelgue.
-- [ ] **V4 -- el emisor SPIR-V a SM86.** El `kind` SM86 deja de ser "a
+- [ ] **V4 -- el emisor SPIR-V a SM86.** **15-10: HECHO lo que importa, desde
+      la casa** (D1 de `EL_FOCO.md`): `cubo.bsf` ya no es SASS a mano, lo
+      emite PROMETEO desde el cubo de TITAN++; su fuente es el MAPA, no
+      SPIR-V, asi que el criterio de `Bsf::reproduce` (SPIR-V) no aplica.
+      Falta el metal. El `kind` SM86 deja de ser "a
       mano": el SASS sale de `cubo.vert.spv` en el anfitrion, como el x86-64
       de S4, reusando el lector, el juez de SPIR-V y el oraculo de
       `PLAN_EL_SOMBREADOR.md` (neutros) y un emisor propio de SM86 que pone
@@ -1106,6 +1114,11 @@ pixel (latencia), no los fps (caudal).
       `Lamina::leer` en el bucle, `IGUAL al juez`; la prueba de dos hilos
       de la lamina con la palabra de vuelta, sin un fotograma roto; y la
       IOMMU dice que la pagina es de solo lectura.
+      **15-10: HECHO EN EL ANFITRION** (C1 de `EL_FOCO.md`, con el detalle):
+      la palabra de VUELTA en el trato, los dos escritores que la respetan,
+      VRN1 con la lamina como descriptor y el kernel que la presta SOLO
+      LECTURA durante un dibujo (sin `reap_dead`: el prestamo dura un
+      dibujo). Falta verlo en el Ryzen (hoja 6b de EL_FOCO, fila C1).
 - [ ] **S2 -- E4: una escritura y el timbre (Ring 0, del propietario).** Es
       la casilla E4 de arriba: las ordenes de cada ranura en RAM y el
       GPFIFO escrito al armar. S la necesita: sin ella, cada fotograma
@@ -1120,12 +1133,21 @@ pixel (latencia), no los fps (caudal).
       seccion 1 de `PLAN_EL_PIXEL.md`. **Como se sabe:** el banco dice la
       latencia publicado-pagado, y con 1 en vuelo baja sin que caigan los
       fps de la app.
+      **15-10: HECHO EN EL ANFITRION** (C2 de `EL_FOCO.md`): el futex
+      COMPARTIDO (la llave por la fisica), la lamina con TIMBRE (DUERME y
+      la hora de la publicacion), TITAN++ que lo toca, y el banco que duerme
+      en la secuencia y dice la latencia publicado-dibujado. Lo del anillo
+      con 1 o 2 en vuelo, despues de medir en el Ryzen.
 - [ ] **S4 -- la CPU en varios nucleos (Ring 0, del propietario).** Un
       nucleo orquesta (el escritorio y el anillo) y otro calcula (la app:
       la fisica, la animacion, la tanda). Es la seccion 4 y el nivel 7 de la
       escalera de [`PLAN_LAS_TRES_GRANDES.md`](PLAN_LAS_TRES_GRANDES.md).
       **Como se sabe:** `titan/cubogira.bex` en su nucleo y el banco en
       otro, y la columna ESPERA DE LA CPU baja.
+      **15-10: BLOQUEADO** (C2 de `EL_FOCO.md` dice por que): Ring 3 solo
+      corre en el BSP, y una app en otro nucleo es H1.1 de
+      `PLAN_LAS_TRES_GRANDES.md`, que espera a los Sync de PROTON-X y a que
+      `smp all` deje de reiniciar el PC. Lo decide el propietario.
 - [ ] **S5 -- el puente a D3D12 (PROTON-X).** D3D12 ES este modelo: el
       juego calcula en la CPU y deja los datos en un *upload heap* (RAM que
       la GPU lee: la zona de entrega), graba listas de ordenes y las manda

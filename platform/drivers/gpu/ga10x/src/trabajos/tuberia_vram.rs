@@ -253,3 +253,72 @@ fn e1_el_frio_casi_sin_lecturas() {
     assert_eq!(preparar_paso(&mut r, 3, &v, &p, false, &mut ya), Ok(()));
     assert!(r.2 + (vs.len() + ps.len()) / 4 <= primeras, "los programas, no otra vez: {} contra {primeras}", r.2);
 }
+
+
+/// ** C1 (15-10): la LAMINA PRESTADA en el paquete y en `preparar`. El
+/// paquete lleva 16 B de descriptor; el lector lo devuelve en `Dibujo` sin
+/// datos; y lo que no se sostiene -- otra medida, sin direccion, con
+/// indices -- no se lee.
+#[test]
+fn a_lent_lamina_travels_as_a_descriptor() {
+    let mut vs = [0u8; 4 * PALABRAS_VS];
+    let mut ps = [0u8; 4 * PALABRAS_PS];
+    bytes(&vertice(), &mut vs);
+    bytes(&pixel(), &mut ps);
+    let d = Dibujo { vertices: 6, ..Dibujo::default() };
+    let mut caja = [0u8; 4096];
+    let total = escribir_paquete_prestado(&mut caja, 7, &vs, &ps, 0x1_0000_0040, 6, d).expect("se escribe");
+    assert_eq!(total, CABECERA_1 + vs.len() + ps.len() + DESCRIPTOR_PRESTADA);
+    let p = leer(&caja[..total]).expect("y se lee");
+    assert_eq!(p.dibujo.prestada, Some(Prestada { va_app: 0x1_0000_0040, bytes: 6 * BYTES_VERTICE as u64, gpu_va: 0 }));
+    assert!(p.vertices.is_empty(), "ni un vertice viaja en el paquete");
+    assert_eq!(p.n, 6);
+    // Lo que no se sostiene
+    let roto = |f: &dyn Fn(&mut [u8])| {
+        let mut b = caja;
+        f(&mut b[..total]);
+        leer(&b[..total]).is_none()
+    };
+    let datos = CABECERA_1 + vs.len() + ps.len();
+    assert!(roto(&|b| b[datos + 8] = 0x41), "los bytes no son los de 6 vertices");
+    assert!(roto(&|b| b[datos..datos + 8].fill(0)), "sin direccion");
+    assert_eq!(escribir_paquete_prestado(&mut caja, 7, &vs, &ps, 0x1000, 6, Dibujo { indices: Some(0), ..d }), None, "con indices, no");
+    assert_eq!(escribir_paquete_prestado(&mut caja, 7, &vs, &ps, 0, 6, d), None, "sin direccion, no");
+}
+
+/// ** Y `preparar`: la tabla apunta a la VA que dio el kernel y los DATOS de
+/// la VRAM ni se tocan; sin VA, no se prepara a ciegas; en caliente, igual; y
+/// prestada y copiada no comparten caliente (la huella las separa).
+#[test]
+fn preparar_points_the_table_at_the_lent_slot() {
+    let gop = crate::pantalla::Pantalla { vram: 0x100_0000, pitch: 1920, ancho: 1920, alto: 1080, rgb: false };
+    let v = crate::cubo::ventana(&gop).unwrap();
+    let mut vs = [0u8; 4 * PALABRAS_VS];
+    let mut ps = [0u8; 4 * PALABRAS_PS];
+    bytes(&vertice(), &mut vs);
+    bytes(&pixel(), &mut ps);
+    let sin_va = Dibujo { vertices: 6, prestada: Some(Prestada { va_app: 0x1_0000_0040, bytes: 192, gpu_va: 0 }), ..Dibujo::default() };
+    let p = Paquete { ficha: 1, vs: &vs, ps: &ps, vertices: &[], n: 6, limpiar: None, dibujo: sin_va };
+    assert_eq!(preparar_paso(&mut Vram(Default::default(), 0), 3, &v, &p, false, &mut crate::pluma::Escritos::default()), Err(0), "sin la VA del kernel, no");
+    let gpu = 0xA_6000_0040u64;
+    let p = Paquete { dibujo: Dibujo { prestada: Some(Prestada { gpu_va: gpu, ..sin_va.prestada.unwrap() }), ..sin_va }, ..p };
+    let mut r = Vram(Default::default(), 0);
+    assert_eq!(preparar_paso(&mut r, 3, &v, &p, false, &mut crate::pluma::Escritos::default()), Ok(()));
+    let leer32 = |r: &mut Vram, dir: u64| {
+        r.1 = (dir >> 16) as u32;
+        r.0.get(&dir).copied().unwrap_or(0)
+    };
+    assert_eq!((leer32(&mut r, TABLA), leer32(&mut r, TABLA + 4)), (gpu as u32, (gpu >> 32) as u32), "la tabla, a la ranura prestada");
+    assert!(r.0.range(DATOS..DATOS + 0x1000).next().is_none(), "los DATOS de la VRAM, ni tocados");
+    // en caliente, la tabla se reescribe (otra ranura, otro sitio)
+    let otra = 0xA_6000_1000u64;
+    let q = Paquete { dibujo: Dibujo { prestada: Some(Prestada { gpu_va: otra, ..p.dibujo.prestada.unwrap() }), ..p.dibujo }, ..p };
+    assert!(preparar_caliente(&mut r, 3, &v, &q, false));
+    assert_eq!((leer32(&mut r, TABLA), leer32(&mut r, TABLA + 4)), (otra as u32, (otra >> 32) as u32));
+    assert!(r.0.range(DATOS..DATOS + 0x1000).next().is_none());
+    // la huella separa prestada de copiada
+    let x: std::vec::Vec<u8> = (0..6 * BYTES_VERTICE).map(|k| k as u8).collect();
+    let copiada = Paquete { vertices: &x, dibujo: Dibujo { prestada: None, ..p.dibujo }, ..p };
+    assert_ne!(huella_fija(&v, &p, false), huella_fija(&v, &copiada, false));
+    assert_eq!(huella_fija(&v, &p, false), huella_fija(&v, &q, false), "donde esta la ranura no es lo fijo");
+}

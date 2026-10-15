@@ -1,0 +1,14 @@
+# espera: BIEN
+# sale: 20 laminas de 4096 bytes, una por vuelta: 190
+# cada vuelta pide su lamina y, al cerrarse la vuelta, se suelta sola. El
+# kernel deja tener OCHO a la vez: si no se soltaran, la novena diria NO
+# veinte laminas en un bucle con un tope de ocho: cada vuelta suelta la suya
+mod main "pedir y soltar en un bucle"
+
+fn main()
+    let mut n = 0
+    for i in range(20)
+        let mut x = lamina(4096)
+        x[4095] = byte(i)
+        n = n + x[4095]
+    print("20 laminas de 4096 bytes, una por vuelta: ", n)

@@ -262,4 +262,14 @@ pub trait Tarjeta: Sync {
     /// la casa (L-f). `entradas[e]` son los cuatro componentes (sus bits) de
     /// la entrada `e` del Programa; devuelve sus `salidas` primeras salidas.
     fn simular(&self, c: &Codigo, entradas: &[[u32; 4]], salidas: usize) -> Result<Vec<[u32; 4]>, String>;
+
+    /// ** V3 (15-10): **SIMULA con su cbuffer** -- `constantes[f]` son los
+    /// cuatro componentes (sus bits) de la fila `f` --. Una tarjeta que no lo
+    /// sabe lo DICE (L-d): nunca corre como si el cbuffer fuera cero.
+    fn simular_con(&self, c: &Codigo, entradas: &[[u32; 4]], constantes: &[[u32; 4]], salidas: usize) -> Result<Vec<[u32; 4]>, String> {
+        if constantes.is_empty() {
+            return self.simular(c, entradas, salidas);
+        }
+        Err(alloc::format!("{} no sabe simular con constantes", self.ficha().nombre))
+    }
 }

@@ -126,6 +126,14 @@ pub fn cmp_r64_imm8(out: &mut Vec<u8>, reg: u8, imm: i8) {
 }
 
 /// `dec <r64>`.
+/// `mfence`: la barrera completa -- ninguna escritura de antes se queda
+/// detras de una lectura de despues. En x86 (TSO) es la UNICA reordenacion que
+/// existe, y la que importa para la palabra de VUELTA de la lamina (C1): el
+/// escritor escribe su sello y LUEGO lee la vuelta.
+pub fn mfence(out: &mut Vec<u8>) {
+    out.extend_from_slice(&[0x0F, 0xAE, 0xF0]);
+}
+
 pub fn dec_r64(out: &mut Vec<u8>, reg: u8) {
     out.push(rex_w(0, reg));
     out.push(0xFF);

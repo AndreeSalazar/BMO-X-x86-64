@@ -20,7 +20,7 @@ use crate::tree::{Arm, Expr, Mode, Program, Stmt, Ty};
 /// What the library gives: `print` (level 0), `len` (6), and `lee` -- the
 /// line typed on the program's own console (E1, `docs/plan/PLAN_LA_ENTRADA.md`)
 /// -- and the lists and maps of level 13 (`docs/plan/PLAN_LISTAS_Y_MAPAS.md`).
-const LIBRARY: [&str; 11] = ["print", "len", "lee", "numero", "byte", "push", "pop", "put", "get", "has", "remove"];
+const LIBRARY: [&str; 12] = ["print", "len", "lee", "numero", "byte", "lamina", "push", "pop", "put", "get", "has", "remove"];
 
 /// The library's fn of lists and maps (level 13): how many values each takes,
 /// whether it CHANGES its first one (then it goes lent: `push(mut l, x)`), and
@@ -265,6 +265,7 @@ fn params(p: &Program, f: &crate::tree::Function) -> Result<(), Message> {
     if let Some(t) = &f.ret {
         known_ty(p, t, f.line, f.col)?;
     }
+    crate::lamina::firma(f.ret.as_ref(), &f.params, f.line, f.col)?;
     for (i, a) in f.params.iter().enumerate() {
         known_ty(p, &a.ty, a.line, a.col)?;
         not_a_case(p, &a.name, a.line, a.col)?;
@@ -459,7 +460,7 @@ fn lends_only_in_calls(p: &Program, e: &Expr) -> Result<(), Message> {
 /// enum it is, with no `Forma::` in front; the values each case carries of a
 /// type that exists; and none that contains itself (a value, not a pointer).
 fn enums(p: &Program) -> Result<(), Message> {
-    let builtin = ["int", "byte", "text", "bool", "dec"];
+    let builtin = ["int", "byte", "lamina", "text", "bool", "dec"];
     for (i, e) in p.enums.iter().enumerate() {
         let clash = p.enums[..i].iter().any(|o| o.name == e.name) || p.types.iter().any(|t| t.name == e.name) || p.functions.iter().any(|f| f.name == e.name) || builtin.contains(&e.name.as_str());
         if clash {
@@ -480,6 +481,7 @@ fn enums(p: &Program) -> Result<(), Message> {
             }
             for f in &c.fields {
                 known_ty(p, f, c.line, c.col)?;
+                crate::lamina::no_en_un_tipo(f, c.line, c.col)?;
             }
         }
     }
@@ -699,7 +701,7 @@ fn known_ty(p: &Program, t: &Ty, line: usize, col: usize) -> Result<(), Message>
 /// holds itself would never end: TITAN++ keeps values, not pointers).
 fn types(p: &Program) -> Result<(), Message> {
     for (i, t) in p.types.iter().enumerate() {
-        if p.types[..i].iter().any(|u| u.name == t.name) || p.functions.iter().any(|f| f.name == t.name) || ["int", "byte", "text", "bool", "dec"].contains(&t.name.as_str()) {
+        if p.types[..i].iter().any(|u| u.name == t.name) || p.functions.iter().any(|f| f.name == t.name) || ["int", "byte", "lamina", "text", "bool", "dec"].contains(&t.name.as_str()) {
             return Err(Message::new(Code::Taken, t.line, t.col, &format!("`{}` ya es el nombre de otra cosa", t.name), "un nombre dice UNA cosa", "llama al tipo de otra forma"));
         }
         for (k, f) in t.fields.iter().enumerate() {
@@ -707,6 +709,7 @@ fn types(p: &Program) -> Result<(), Message> {
                 return Err(Message::new(Code::Field, f.line, f.col, &format!("`type {}` tiene dos campos `{}`", t.name, f.name), "un campo, un nombre", "llama a uno de otra forma"));
             }
             known_ty(p, &f.ty, f.line, f.col)?;
+            crate::lamina::no_en_un_tipo(&f.ty, f.line, f.col)?;
         }
     }
     // A type that contains itself, directly or through others.
@@ -757,6 +760,15 @@ fn target(p: &Program, callee: &str, n: usize, line: usize, col: usize, as_value
             Director::SeVe => "if director.se_ve()",
             Director::Ms => "let t0 = director.ms()",
             Director::Profundidad => "director.profundidad(true)",
+            Director::Contar => "if director.contar()",
+            Director::Contado => "let n = director.contado(1)",
+            Director::SonidoToma => "if not sonido.toma()",
+            Director::SonidoBanco => "let bytes = sonido.banco(banco)",
+            Director::SonidoToca => "if sonido.toca(0, 0, n, 22050)",
+            Director::SonidoSuena => "while sonido.suena(0)",
+            Director::SonidoCalla => "sonido.calla(0)",
+            Director::SonidoPita => "sonido.pita(440, 200)",
+            Director::SonidoSuelta => "sonido.suelta()",
             Director::Letra => "x = director.letra(x, y, 65, 1, 16777215)",
             Director::Texto => "x = director.texto(8, 8, \"hola\", 1, 16777215)",
         };
@@ -881,6 +893,16 @@ fn target(p: &Program, callee: &str, n: usize, line: usize, col: usize, as_value
             }
             if !as_value {
                 return Err(Message::new(Code::Result, line, col, "`byte(...)` da un byte, y aqui nadie lo guarda", "el byte se perderia nada mas hacerse", "guardalo: let b = byte(200)"));
+            }
+            return Ok(());
+        }
+        if callee == "lamina" {
+            // `lamina(n)` (A4b): n bytes of RAM, by the program's one door.
+            if n != 1 {
+                return Err(Message::new(Code::Args, line, col, &format!("`lamina` pide 1 valor, y aqui se le dan {}", n), "`lamina` pide al kernel UN numero de bytes", "let mut l = lamina(4096)"));
+            }
+            if !as_value {
+                return Err(Message::new(Code::Result, line, col, "`lamina(...)` da una lamina, y aqui nadie la guarda", "pedir RAM que nadie tiene en la mano es pedirla para nada", "guardala: let mut l = lamina(4096)"));
             }
             return Ok(());
         }

@@ -215,6 +215,11 @@ fn verrano(va: u64, ligero: bool, anillo: bool, coopera: bool) -> Result<u64, u3
         }
     }
     let e = BLUR_ENTRADA.load(Ordering::Acquire);
+    // C1: el anillo copia sus vertices a SU pagina: una lamina prestada no
+    // va por ahi.
+    if anillo && paquete.dibujo.prestada.is_some() {
+        return Err(no(Porque::LaminaNoSePresta, 1, va));
+    }
     if anillo {
         // El anillo toma el cerrojo SIN vaciarse a si mismo: es el unico que
         // puede seguir con fotogramas suyos en vuelo.
@@ -604,6 +609,43 @@ pub(super) fn destino_mapeado(bar0: u64) -> Result<(), u32> {
     Ok(())
 }
 
+/// La ranura de la ventana de texturas que toma una lamina prestada (C1): la
+/// ULTIMA. Un dibujo de VERRANO no lleva texturas, y las de una receta se
+/// prestan y devuelven con el mismo cerrojo del GR: nunca a la vez.
+const LAMINA_RANURA: u64 = bmo_gpu_ga10x::texturas::MAX_TEXTURAS as u64 - 1;
+
+/// **C1: prestar la ranura de una lamina a la 3060**, SOLO LECTURA: un
+/// prestamo TOMADO por quien dibuja (`loan::fisica_tomada`: la oferta es
+/// suya, cubre el rango y sus marcos van seguidos), dentro del physmap y de
+/// la ranura. Da la VA donde la ve la 3060 y las paginas prestadas.
+fn prestar_lamina(bar0: u64, pid: u32, x: bmo_gpu_ga10x::tuberia::Prestada) -> Result<(u64, u64), u32> {
+    use bmo_gpu_ga10x::texturas as tx;
+    texturas_mapeadas(bar0)?;
+    let Some((fisica, dentro)) = (x.bytes > 0 && x.bytes < tx::RANURA)
+        .then(|| crate::ring0::obj::loan::fisica_tomada(pid, x.va_app, x.bytes))
+        .flatten()
+        .filter(|&(f, d)| f.checked_add(d + x.bytes).is_some_and(|fin| fin <= crate::ring0::mm::PHYSMAP_SIZE))
+    else {
+        crate::ring0::cabina::warn("gpu", "C1: la lamina prestada no es un prestamo TOMADO por quien dibuja, o sus marcos no van seguidos", x.va_app);
+        return Err(no(Porque::LaminaNoTomada, 0, x.va_app));
+    };
+    let paginas = (dentro + x.bytes).div_ceil(crate::ring0::mm::PAGE);
+    let iova = tx::IOVA + LAMINA_RANURA * tx::RANURA;
+    if let Err(m) = crate::ring0::plat::iommu::prestar_gpu(iova, fisica, paginas, false) {
+        crate::ring0::cabina::warn("gpu", "C1: la lamina no se pudo prestar a la 3060; motivo de la IOMMU", m as u64);
+        return Err(no(Porque::LaminaNoSePresta, 0, m as u64));
+    }
+    Ok((tx::VA + LAMINA_RANURA * tx::RANURA + dentro, paginas))
+}
+
+/// Devolver la lamina que [`prestar_lamina`] presto (0 = no habia).
+fn devolver_lamina(paginas: u64) {
+    use bmo_gpu_ga10x::texturas as tx;
+    if paginas != 0 && crate::ring0::plat::iommu::devolver_gpu(tx::IOVA + LAMINA_RANURA * tx::RANURA, paginas).is_err() {
+        crate::ring0::cabina::warn("gpu", "C1: la lamina NO se pudo devolver (la invalidacion no contesto); paginas", paginas);
+    }
+}
+
 /// Devolver lo que [`prestar_texturas`] presto, ranura a ranura.
 fn devolver_texturas(prestadas: &Prestadas) {
     use bmo_gpu_ga10x::texturas as tx;
@@ -700,6 +742,26 @@ fn en_frio(bar0: u64, pid: u32, e: u32, p: &bmo_gpu_ga10x::pantalla::Pantalla, v
             }
         }
     }
+    // ** C1 (S1 de PLAN_VERRANO, 15-10): LA LAMINA PRESTADA. La ranura que el
+    // escritorio RESERVO (la palabra de vuelta: la app no la toca) se presta
+    // a la 3060 SOLO LECTURA mientras dibuja, como el destino, y se devuelve
+    // con el: ni un vertice se copia. Con el cerrojo del GR ya tomado: nadie
+    // mas usa su ranura de la ventana de texturas mientras tanto.
+    let mut paquete = paquete;
+    let mut lamina = 0u64;
+    if let Some(x) = paquete.dibujo.prestada {
+        match prestar_lamina(bar0, pid, x) {
+            Ok((gpu_va, paginas)) => {
+                lamina = paginas;
+                paquete.dibujo.prestada = Some(bmo_gpu_ga10x::tuberia::Prestada { gpu_va, ..x });
+            }
+            Err(m) => {
+                devolver_destinos(&prestado);
+                BLUR_EN_MARCHA.store(false, Ordering::Release);
+                return Err(m);
+            }
+        }
+    }
     let n = (paquete.n / 3) as u32;
     // En caliente, o no: lo fijo es lo mismo, nadie lanzo nada por el GR
     // desde nuestro ultimo dibujo (la entrada sigue donde la dejamos) y fue
@@ -768,6 +830,7 @@ fn en_frio(bar0: u64, pid: u32, e: u32, p: &bmo_gpu_ga10x::pantalla::Pantalla, v
         .map(|x| super::libreta::tras_el_dibujo(bar0, libreta, x));
     BLUR_EN_MARCHA.store(false, Ordering::Release);
     devolver_destinos(&prestado);
+    devolver_lamina(lamina);
     let r = r.map(|x| cu::con_preparar(x, caliente, preparar_ciclos * 1_000_000 / tsc));
     if let Ok(x) = r {
         if cu::sano(x) {

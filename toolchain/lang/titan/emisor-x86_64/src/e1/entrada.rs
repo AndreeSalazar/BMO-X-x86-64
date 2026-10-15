@@ -30,8 +30,7 @@
 use super::ventana::{BUZON, R12};
 use super::{Place, E1};
 use bmo_abi::syscalls::surface::{
-    ARCH_OP_CERRAR, ARCH_OP_LEER_EN, ARCH_OP_MEDIDA, CURRENT_TASK, MEM_OP_BASE, NR_WAIT, PRESTADO_OP_BASE, PRESTADO_OP_BYTES, SUP_BUZON_CABECERA, SUP_BUZON_RANURA, SUP_EV_CARACTER, SUP_EV_CONFIGURE, SUP_EV_RATON, SUP_VISTA_SE_VE,
-    TASK_OP_ARCHIVO_ABRIR, TASK_OP_MEMORIA_PEDIR, TASK_OP_RUTA, TASK_OP_TOMAR,
+    ARCH_OP_CERRAR, ARCH_OP_LEER_EN, ARCH_OP_MEDIDA, CURRENT_TASK, NR_WAIT, PRESTADO_OP_BASE, PRESTADO_OP_BYTES, SUP_BUZON_CABECERA, SUP_BUZON_RANURA, SUP_EV_CARACTER, SUP_EV_CONFIGURE, SUP_EV_RATON, SUP_VISTA_SE_VE, TASK_OP_ARCHIVO_ABRIR, TASK_OP_RUTA, TASK_OP_TOMAR,
 };
 use bmo_lower::x86::{self, RAX, RCX, RDI, RDX, RSI, R10, R8};
 use bmo_titan_front::calc::Class;
@@ -44,11 +43,15 @@ const TENIDO_BASE: i32 = 0;
 const TENIDO_BYTES: i32 = 8;
 /// Lo que mide el bloque: lo tenido (16), el fichero que se ESCRIBE
 /// (`disco.rs`: su asa, los bytes de la palabra que espera, cuantos, y si
-/// algo no entro) y el RITMO de `director.espera` (el plazo del fotograma
-/// siguiente, en ciclos del TSC, y los ciclos por segundo).
-const TENIDO_MIDE: i32 = 64;
+/// algo no entro), el RITMO de `director.espera` (el plazo del fotograma
+/// siguiente, en ciclos del TSC, y los ciclos por segundo) y, desde Q2
+/// (15-10), el SONIDO (`sonido.rs`: su asa, y si el tubo lo armo este
+/// programa).
+const TENIDO_MIDE: i32 = 80;
 pub(super) const PLAZO: i32 = 48;
 pub(super) const HZ: i32 = 56;
+pub(super) const SONIDO: i32 = 64;
+pub(super) const ARMADO: i32 = 72;
 /// En la cola privada de la ventana: el ultimo evento.
 pub const COLA_EVENTO: i32 = 32;
 /// Lo mas que se lee de un fichero: 256 KiB, lo de NAVEGAR.
@@ -128,14 +131,8 @@ impl E1<'_> {
     pub(super) fn con_tenido(&mut self, no: &mut Vec<usize>) {
         x86::test_r64_r64(&mut self.code, RBX, RBX);
         let ya = self.jcc(0x85);
-        self.imm(RDI, CURRENT_TASK as i64);
-        self.imm(RSI, TASK_OP_MEMORIA_PEDIR as i64);
         self.imm(RDX, TENIDO_MIDE as i64);
-        self.invoke();
-        self.si_no_vale(no);
-        x86::mov_r64_r64(&mut self.code, RDI, RDX);
-        self.imm(RSI, MEM_OP_BASE as i64);
-        self.invoke();
+        self.pide_lamina();
         self.si_no_vale(no);
         x86::zero_r32(&mut self.code, RAX);
         for campo in (0..TENIDO_MIDE).step_by(8) {
@@ -284,14 +281,10 @@ impl E1<'_> {
         cerrar.push(self.jcc(0x87));
         self.store(medida, RDX);
         // Su bloque.
-        self.imm(RDI, CURRENT_TASK as i64);
-        self.imm(RSI, TASK_OP_MEMORIA_PEDIR as i64);
         self.load(medida, RDX);
-        self.invoke();
+        self.pide_lamina();
         self.si_no_vale(&mut cerrar);
-        self.store(bloque, RDX);
-        self.invoke_solo(Some(bloque), 0, MEM_OP_BASE);
-        self.si_no_vale(&mut cerrar);
+        self.store(bloque, RCX);
         self.store(base, RDX);
         // Leer hasta el final: (bloque, desde, cuantos) -> leidos.
         self.store_imm(hechos, 0);

@@ -55,11 +55,14 @@
 /platform/shared/bmo-raiz-juicio/            @AndreeSalazar
 /platform/shared/bmo-orquesta/               @AndreeSalazar
 /platform/shared/bmo-futex/                  @AndreeSalazar
+/platform/shared/bmo-contadores/             @AndreeSalazar
 /platform/shared/bmo-alarma/                 @AndreeSalazar
 /platform/shared/bmo-cache-juicio/           @AndreeSalazar
 /platform/shared/bmo-prestamo-juicio/        @AndreeSalazar
 /platform/shared/bmo-imagen-juicio/          @AndreeSalazar
 /platform/shared/bmo-cubo/                   @AndreeSalazar
+/platform/shared/bmo-lamina/                 @AndreeSalazar
+/platform/shared/bmo-lente-x86/              @AndreeSalazar
 /platform/shared/verrano/                    @AndreeSalazar
 /platform/shared/bmo-pase-gpu/               @AndreeSalazar
 /platform/shared/bmo-puerta-red/             @AndreeSalazar

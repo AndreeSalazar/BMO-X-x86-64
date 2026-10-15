@@ -9,7 +9,7 @@ use crate::maestros::Master;
 use bmo_titan_contrato::{Permission, Permissions};
 
 /// El nombre de cada familia: el titulo de su nivel en GRAMATICA.md.
-pub static FAMILIES: [&str; 15] = [
+pub static FAMILIES: [&str; 16] = [
     "un programa que saluda",
     "calcular",
     "contar",
@@ -25,10 +25,11 @@ pub static FAMILIES: [&str; 15] = [
     "lo que viene de fuera",
     "lo que crece",
     "el byte",
+    "la lamina",
 ];
 
 /// Cuantos hay: la TAB mide sus tablas con esto.
-pub const COUNT: usize = 44;
+pub const COUNT: usize = 47;
 
 /// `static`, no `const`: UNA copia en `.rodata`, que Ring 3 lee por indice
 /// sin traerla a una pila de 64 KiB.
@@ -386,6 +387,17 @@ pub static MASTERS: [Master; COUNT] = [
         source: "# sale: el cubo de V0, escrito en TITAN++: cubo_vertice y cubo_pixel\n# dos gpu fn que DIBUJAN (LB6), dichas por su firma: la de vertice recibe un registro y deja otro con su `posicion`; la de pixel recibe ese y deja su color. No se llaman: las pone a dibujar VERRANO (LB7). `titan sm86` las pega a la tuberia de la RTX 3060 12G y las mete en su sobre, cubo.bsf\nmod main \"el cubo de V0, en TITAN++\"\n\n# Cuatro f32: un punto en coordenadas de recorte (x, y, z, w), o un color (r, g, b, a).\ntype Cuatro\n    x: f32\n    y: f32\n    z: f32\n    w: f32\n\n# Un vertice del cubo como lo escribe la app (`Vertex` de VERRANO, 32 bytes): su posicion, ya en coordenadas de recorte, y el color de su cara.\ntype Vertice\n    posicion: Cuatro\n    color: Cuatro\n\n# La de VERTICE: deja lo que le dan -- la posicion, a la tarjeta; el color, a la de pixel.\ngpu fn cubo_vertice(v: Vertice) -> Vertice\n    return v\n\n# La de PIXEL: el color de su cara. Los tres vertices de una cara dan el mismo, y la tarjeta lo interpola exacto.\ngpu fn cubo_pixel(v: Vertice) -> Cuatro\n    return v.color\n\nfn main()\n    print(\"el cubo de V0, escrito en TITAN++: cubo_vertice y cubo_pixel\")\n",
     },
     Master {
+        name: "cubo3",
+        level: 11,
+        why: "V3 de PLAN_VERRANO (D1 de EL_FOCO): la gpu fn de vertice recibe un SEGUNDO valor, sus CONSTANTES -- el cbuffer: cada campo una fila de 16 B, lo mismo para todos los hilos --. La app sube la matriz UNA vez por fotograma y los vertices del cubo SIN transformar; las cuentas, en la tarjeta. `titan sm86` las pega a la tuberia de la RTX 3060 12G",
+        says: "el cubo de V3, en TITAN++",
+        words: &["fn", "let", "return", "type", "gpu", "f32"],
+        asks: Permissions::NONE.with(Permission::Gpu),
+        typed: &[],
+        out: &["el cubo de V3, escrito en TITAN++: la matriz en el cbuffer y la 3060 multiplicando"],
+        source: "# sale: el cubo de V3, escrito en TITAN++: la matriz en el cbuffer y la 3060 multiplicando\n# V3 de PLAN_VERRANO (D1 de EL_FOCO): la gpu fn de vertice recibe un SEGUNDO valor, sus CONSTANTES -- el cbuffer: cada campo una fila de 16 B, lo mismo para todos los hilos --. La app sube la matriz UNA vez por fotograma y los vertices del cubo SIN transformar; las cuentas, en la tarjeta. `titan sm86` las pega a la tuberia de la RTX 3060 12G\nmod main \"el cubo de V3, en TITAN++\"\n\n# Cuatro f32: un punto (x, y, z, w), un color (r, g, b, a) o una columna de una matriz.\ntype Cuatro\n    x: f32\n    y: f32\n    z: f32\n    w: f32\n\n# Un vertice del cubo: su posicion -- SIN transformar (w = 1) al entrar, en coordenadas de recorte al salir -- y el color de su cara.\ntype Vertice\n    posicion: Cuatro\n    color: Cuatro\n\n# Las constantes: la matriz mundo-vista-proyeccion por COLUMNAS, como D3D la sube (`mul(M, v)`): cada columna, una fila del cbuffer.\ntype Matriz\n    c0: Cuatro\n    c1: Cuatro\n    c2: Cuatro\n    c3: Cuatro\n\n# La de VERTICE: la matriz por la posicion, componente a componente y en el orden de D3D (columna 0 por x, mas columna 1 por y...); el color, tal cual.\ngpu fn cubo_vertice(v: Vertice, m: Matriz) -> Vertice\n    let p = v.posicion\n    let x = m.c0.x * p.x + m.c1.x * p.y + m.c2.x * p.z + m.c3.x * p.w\n    let y = m.c0.y * p.x + m.c1.y * p.y + m.c2.y * p.z + m.c3.y * p.w\n    let z = m.c0.z * p.x + m.c1.z * p.y + m.c2.z * p.z + m.c3.z * p.w\n    let w = m.c0.w * p.x + m.c1.w * p.y + m.c2.w * p.z + m.c3.w * p.w\n    return Vertice { posicion: Cuatro { x: x, y: y, z: z, w: w }, color: v.color }\n\n# La de PIXEL: el color de su cara.\ngpu fn cubo_pixel(v: Vertice) -> Cuatro\n    return v.color\n\nfn main()\n    print(\"el cubo de V3, escrito en TITAN++: la matriz en el cbuffer y la 3060 multiplicando\")\n",
+    },
+    Master {
         name: "dos_cubos",
         level: 11,
         why: "lamina y la dibuja con el juez de la CPU.",
@@ -516,5 +528,27 @@ pub static MASTERS: [Master; COUNT] = [
         typed: &[],
         out: &["  . ::==", " .. :==#", "..: ==##", ".:: =###", "32 pixeles, 32 bytes; tinta: 3550"],
         source: "# sale:   . ::==\n# sale:  .. :==#\n# sale: ..: ==##\n# sale: .:: =###\n# sale: 32 pixeles, 32 bytes; tinta: 3550\n# una imagen de grises en una lista de BYTES: un pixel, UN byte -- como\n# guarda su pagina un programa de dibujo. `byte(x)` dice que cabe (de 0 a\n# 255) y si no, NO; leido, un byte cuenta como el int que es\nmod main \"un degradado de grises en una [byte]\"\n\nfn gris(x: int, y: int) -> byte\n    return byte((x + y) * 25)\n\nfn letra(v: int) -> text\n    if v < 50\n        return \" \"\n    if v < 100\n        return \".\"\n    if v < 150\n        return \":\"\n    if v < 200\n        return \"=\"\n    return \"#\"\n\nfn main()\n    let ancho = 8\n    let alto = 4\n    let mut px: [byte] = []\n    for y in range(alto)\n        for x in range(ancho)\n            push(mut px, gris(x, y))\n    # la goma: una franja vuelve a blanco (0)\n    for y in range(alto)\n        px[y * ancho + 3] = byte(0)\n    let mut suma = 0\n    for y in range(alto)\n        let mut fila = \"\"\n        for x in range(ancho)\n            let v = px[y * ancho + x]\n            suma = suma + v\n            fila = fila + letra(v)\n        print(fila)\n    print(len(px), \" pixeles, \", len(px), \" bytes; tinta: \", suma)\n",
+    },
+    Master {
+        name: "dos_laminas",
+        level: 15,
+        why: "pedir, prestar con `mut`, entregar con `take` y soltar sola: la RAM en la mano",
+        says: "dos laminas: una se llena, la otra se suma",
+        words: &["fn", "let", "mut", "for", "return", "take"],
+        asks: Permissions::NONE,
+        typed: &[],
+        out: &["100 50 3 7", "200", "497", "350"],
+        source: "# sale: 100 50 3 7\n# sale: 200\n# sale: 497\n# sale: 350\n# la RAM del programa, en LAMINAS: se piden al kernel por la puerta de la\n# RAM, se PRESTAN con `mut` para llenarlas, se ENTREGAN con `take`, y cada\n# una se suelta sola al morir quien la tiene. Sin free, sin copias\n# pedir, prestar con `mut`, entregar con `take` y soltar sola: la RAM en la mano\nmod main \"dos laminas: una se llena, la otra se suma\"\n\nfn llena(mut l: lamina, v: int)\n    for i in range(len(l))\n        l[i] = byte(v)\n\nfn suma(take l: lamina) -> int\n    let mut s = 0\n    for i in range(len(l))\n        s = s + l[i]\n    return s\n\nfn main()\n    let mut a = lamina(100)\n    let mut b = lamina(50)\n    llena(mut a, 3)\n    llena(mut b, 7)\n    print(len(a), \" \", len(b), \" \", a[0], \" \", b[49])\n    a[5] = byte(200)\n    print(a[5])\n    print(suma(take a))\n    print(suma(take b))\n",
+    },
+    Master {
+        name: "pide_y_suelta",
+        level: 15,
+        why: "veinte laminas en un bucle con un tope de ocho: cada vuelta suelta la suya",
+        says: "pedir y soltar en un bucle",
+        words: &["fn", "let", "mut", "for"],
+        asks: Permissions::NONE,
+        typed: &[],
+        out: &["20 laminas de 4096 bytes, una por vuelta: 190"],
+        source: "# sale: 20 laminas de 4096 bytes, una por vuelta: 190\n# cada vuelta pide su lamina y, al cerrarse la vuelta, se suelta sola. El\n# kernel deja tener OCHO a la vez: si no se soltaran, la novena diria NO\n# veinte laminas en un bucle con un tope de ocho: cada vuelta suelta la suya\nmod main \"pedir y soltar en un bucle\"\n\nfn main()\n    let mut n = 0\n    for i in range(20)\n        let mut x = lamina(4096)\n        x[4095] = byte(i)\n        n = n + x[4095]\n    print(\"20 laminas de 4096 bytes, una por vuelta: \", n)\n",
     },
 ];

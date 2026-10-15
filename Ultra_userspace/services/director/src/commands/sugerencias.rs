@@ -111,6 +111,7 @@ const LISTA: &[(&[u8], &[u8])] = &[
     (b"info", b"RAM, CPU, tareas y disco"),
     (b"consumo", b"nucleos, MHz, vatios y RAM en tabla"),
     (b"cpu", b"el procesador y su reloj"),
+    (b"cpu contadores", b"C4: los contadores del Zen 3, calibrados: si cuentan lo que dice el PPR"),
     (b"mem", b"la memoria"),
     (b"ram prueba", b"BMO-X prueba su propia RAM libre: escribe, vacia la cache y relee"),
     (b"apps", b"que programa tiene RAM pedida"),

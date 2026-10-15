@@ -213,6 +213,11 @@ pub enum Value {
     /// `byte(x)` (TA1, `docs/plan/PLAN_LA_TINTA.md`): the int as a byte, 0 to
     /// 255 -- or a NO (T0060) when it does not fit. Never a silent cut.
     Byte(Box<Value>, At),
+    /// `lamina(n)` (A4b of `docs/plan/EL_FOCO.md`, 14-10): `n` bytes of RAM
+    /// asked of the kernel through the program's one door (`e1/ram.rs`). Only
+    /// the kernel knows if it gives them, so a module with one RUNS: it is
+    /// emitted, never computed when compiling (`from_outside`).
+    Lamina(Box<Value>, At),
     /// `lee()`: the line typed on the program's own console, as a text (E1,
     /// `docs/plan/PLAN_LA_ENTRADA.md`). Known only WHEN IT RUNS: a module
     /// that reads is not run when compiling (`calc.rs`), it is emitted.
@@ -354,10 +359,44 @@ pub enum Director {
     /// 11-10): la lamina se dibuja con z-buffer, y con `true` sin las caras
     /// de detras. Sin valor de vuelta: lo dice la cabecera de la lamina.
     Profundidad,
+    /// ** `director.contar()` (C4 de `docs/plan/EL_FOCO.md`, LB5): empieza a
+    /// contar ESTE programa con los contadores del Zen 3 -- los cuatro a cero,
+    /// solo el, solo en Ring 3 --. `true` si se puede (la CPU del perfil).
+    Contar,
+    /// `director.contado(k)`: lo contado desde `director.contar()` -- 0 ciclos,
+    /// 1 instrucciones retiradas, 2 saltos fallados, 3 fallos de la L1D --.
+    /// Para MEDIR un trozo y decidir con el numero (la ley 0 de la optimizacion).
+    Contado,
+    /// ** Q2 (15-10, el propietario: *"titan que aprenda del audio y no
+    /// inti"*): EL SONIDO, con `use sonido` (y `sound` en el Titan.toml). Son
+    /// las VOCES del orquestador (`AUDIO_OP_VOZ`): la app presta una lamina
+    /// con sus muestras -- 16 bits con signo, mono -- y DECLARA que suena; el
+    /// kernel las mezcla cada milisegundo, y una app que se atasca no corta.
+    ///
+    /// `sonido.toma()`: reclamar el sonido y armar el tubo del audifono (si
+    /// no lo estaba). `true` si es nuestro.
+    SonidoToma,
+    /// `sonido.banco(l)`: prestar la lamina `l` como banco de muestras; sus
+    /// bytes, o 0 si el kernel dijo que no.
+    SonidoBanco,
+    /// `sonido.toca(canal, desde, muestras, hz)`: tocar `muestras` muestras
+    /// desde el byte `desde` del banco, a `hz`, en el canal (0..15), por los
+    /// dos lados. `true` si quedo pedido.
+    SonidoToca,
+    /// `sonido.suena(canal)`: si ese canal suena (o esta pedido).
+    SonidoSuena,
+    /// `sonido.calla(canal)`: callarlo (255: todos).
+    SonidoCalla,
+    /// `sonido.pita(hz, ms)`: el altavoz del PC (esta placa no lo tiene: no
+    /// suena, pero la puerta existe).
+    SonidoPita,
+    /// `sonido.suelta()`: callar todo, desarmar el tubo si lo armo este
+    /// programa, y soltar el sonido.
+    SonidoSuelta,
 }
 
 impl Director {
-    pub const ALL: [Director; 26] = [
+    pub const ALL: [Director; 35] = [
         Director::Lamina,
         Director::Publica,
         Director::Espera,
@@ -384,6 +423,15 @@ impl Director {
         Director::Texto,
         Director::Ms,
         Director::Profundidad,
+        Director::Contar,
+        Director::Contado,
+        Director::SonidoToma,
+        Director::SonidoBanco,
+        Director::SonidoToca,
+        Director::SonidoSuena,
+        Director::SonidoCalla,
+        Director::SonidoPita,
+        Director::SonidoSuelta,
     ];
 
     /// Its whole name, as a program writes it.
@@ -415,6 +463,15 @@ impl Director {
             Director::Texto => "director.texto",
             Director::Ms => "director.ms",
             Director::Profundidad => "director.profundidad",
+            Director::Contar => "director.contar",
+            Director::Contado => "director.contado",
+            Director::SonidoToma => "sonido.toma",
+            Director::SonidoBanco => "sonido.banco",
+            Director::SonidoToca => "sonido.toca",
+            Director::SonidoSuena => "sonido.suena",
+            Director::SonidoCalla => "sonido.calla",
+            Director::SonidoPita => "sonido.pita",
+            Director::SonidoSuelta => "sonido.suelta",
         }
     }
 
@@ -426,18 +483,18 @@ impl Director {
     /// How many values it takes.
     pub fn takes(self) -> usize {
         match self {
-            Director::Presenta | Director::Toma | Director::Cierra | Director::Medida | Director::Evento | Director::Codigo | Director::RatonX | Director::RatonY | Director::Botones | Director::SeVe | Director::Ms => 0,
-            Director::Lamina | Director::Espera | Director::Fichero | Director::Crea | Director::Escribe | Director::Byte | Director::Profundidad => 1,
-            Director::Ventana | Director::Fila | Director::Guarda => 2,
+            Director::Presenta | Director::Toma | Director::Cierra | Director::Medida | Director::Evento | Director::Codigo | Director::RatonX | Director::RatonY | Director::Botones | Director::SeVe | Director::Ms | Director::Contar | Director::SonidoToma | Director::SonidoSuelta => 0,
+            Director::Lamina | Director::Espera | Director::Fichero | Director::Crea | Director::Escribe | Director::Byte | Director::Profundidad | Director::Contado | Director::SonidoBanco | Director::SonidoSuena | Director::SonidoCalla => 1,
+            Director::Ventana | Director::Fila | Director::Guarda | Director::SonidoPita => 2,
             Director::Pixel => 3,
-            Director::Publica => 4,
+            Director::Publica | Director::SonidoToca => 4,
             Director::Rect | Director::Letra | Director::Texto => 5,
         }
     }
 
     /// Whether it gives a value back: a yes/no, or an int.
     pub fn gives(self) -> bool {
-        !matches!(self, Director::Espera | Director::Pixel | Director::Rect | Director::Fila | Director::Presenta | Director::Escribe | Director::Profundidad)
+        !matches!(self, Director::Espera | Director::Pixel | Director::Rect | Director::Fila | Director::Presenta | Director::Escribe | Director::Profundidad | Director::SonidoCalla | Director::SonidoPita | Director::SonidoSuelta)
     }
 }
 
@@ -482,6 +539,7 @@ impl Value {
             | Value::Payload(_, _, _, _, a)
             | Value::Number(_, _, a)
             | Value::Byte(_, a)
+            | Value::Lamina(_, a)
             | Value::Lib(_, _, a)
             | Value::Map(_, a)
             | Value::Director(_, _, a)
@@ -499,7 +557,7 @@ impl Value {
                     i.reads(out);
                 }
             }
-            Value::Repeat(v, _, _) | Value::Field(v, _, _) | Value::Len(v, _) | Value::Round(v, _, _) | Value::Is(v, _, _, _) | Value::Payload(v, _, _, _, _) | Value::Number(v, _, _) | Value::Byte(v, _) => v.reads(out),
+            Value::Repeat(v, _, _) | Value::Field(v, _, _) | Value::Len(v, _) | Value::Round(v, _, _) | Value::Is(v, _, _, _) | Value::Payload(v, _, _, _, _) | Value::Number(v, _, _) | Value::Byte(v, _) | Value::Lamina(v, _) => v.reads(out),
             Value::Lend(_, l, a) => out.push((*l, *a)),
             Value::Index(b, i, _) => {
                 b.reads(out);
@@ -542,7 +600,8 @@ impl Value {
     pub fn from_outside(&self) -> bool {
         match self {
             // What the director answers is known only when it runs (LB7b).
-            Value::Read(_) | Value::Director(..) => true,
+            // And a lamina (A4b): only the kernel knows if it gives the RAM.
+            Value::Read(_) | Value::Director(..) | Value::Lamina(..) => true,
             Value::Int(..) | Value::Text(..) | Value::Bool(..) | Value::Dec(..) | Value::F32(..) | Value::Local(..) | Value::Lend(..) => false,
             Value::Bin(_, a, b, _) | Value::Index(a, b, _) => a.from_outside() || b.from_outside(),
             Value::Neg(a, _) | Value::Not(a, _) | Value::Repeat(a, _, _) | Value::Field(a, _, _) | Value::Len(a, _) | Value::Round(a, _, _) | Value::Is(a, _, _, _) | Value::Payload(a, _, _, _, _) | Value::Number(a, _, _) | Value::Byte(a, _) => a.from_outside(),
@@ -653,6 +712,7 @@ fn value(e: &Expr, locals: &mut Vec<Local>, p: &Program) -> Value {
         }
         Expr::Call { callee, args, line, col } if callee == "len" => Value::Len(Box::new(value(&args[0], locals)), (*line, *col)),
         Expr::Call { callee, args, line, col } if callee == "byte" => Value::Byte(Box::new(value(&args[0], locals)), (*line, *col)),
+        Expr::Call { callee, args, line, col } if callee == "lamina" => Value::Lamina(Box::new(value(&args[0], locals)), (*line, *col)),
         // `get(m, k)` / `has(m, k)` (level 13): they read, and change nothing.
         Expr::Call { callee, args, line, col } if (callee == "get" || callee == "has") && !p.functions.iter().any(|f| &f.name == callee) => {
             let lib = if callee == "get" { Lib::Get } else { Lib::Has };

@@ -173,6 +173,30 @@ pub static mut RECHAZO_LIBRE: u64 = 0;
 /// bytes de `.bss`.
 pub static mut RECHAZO_MOTIVO: [u8; 160] = [0; 160];
 pub static mut RECHAZO_MOTIVO_N: usize = 0;
+/// Las extensiones de x86-64 que pedia el ultimo rechazado y esta CPU no
+/// tiene (A6). 0 si el rechazo fue por otra cosa; el motivo, con sus nombres.
+pub static mut RECHAZO_FALTAN: u64 = 0;
+
+/// **Las extensiones de x86-64 que tiene ESTA CPU**, como las nombra un `.bex`
+/// (`bmo_carga_juicio::instrucciones`, A6). Se pregunta una vez y se guarda:
+/// el CPUID no cambia con la maquina en marcha, y el bit 63 --que el catalogo
+/// no usa-- marca "ya preguntado". El CPUID va aqui y no por `ring0/cpu`, que
+/// ya mira a `task`: dos familias que se importan en los dos sentidos (L8).
+fn instrucciones_de_esta_cpu() -> u64 {
+    use core::sync::atomic::{AtomicU64, Ordering};
+    static HAY: AtomicU64 = AtomicU64::new(0);
+    const SABIDO: u64 = 1 << 63;
+    let v = HAY.load(Ordering::Relaxed);
+    if v & SABIDO != 0 {
+        return v & !SABIDO;
+    }
+    let hay = bmo_carga_juicio::instrucciones::de_cpuid(|hoja, sub| {
+        let r = unsafe { core::arch::x86_64::__cpuid_count(hoja, sub) };
+        [r.eax, r.ebx, r.ecx, r.edx]
+    });
+    HAY.store(hay | SABIDO, Ordering::Relaxed);
+    hay
+}
 
 pub(crate) fn admit_payload_desde(
     prologo: &[u8],
@@ -421,6 +445,9 @@ pub(crate) fn admit_payload_desde(
     // direcciones. Decir que no despues de eso obliga a DESMONTARLO -- que es
     // justo la ruta que lleva dos dias dando pantallas azules. **El no barato
     // es el que se da antes de la primera reserva.**
+    // Lo que el `.bex` declara usar de la CPU (A6): lo juzgan el CPUID aqui y
+    // la lente (B1) cuando el codigo ya este en sus paginas.
+    let mut declara_instrucciones = 0u64;
     if plan.requisitos.bytes > 0 {
         let n = (plan.requisitos.bytes as usize).min(REQUISITOS_MAX);
         let buf = unsafe { &mut *core::ptr::addr_of_mut!(REQUISITOS_BUF) };
@@ -465,6 +492,44 @@ pub(crate) fn admit_payload_desde(
                 leidos as u64);
         }
         if let Some(tabla) = tabla {
+            // *** LAS INSTRUCCIONES QUE USA, CONTRA LAS QUE HAY (A6, 14-10).
+            //
+            // Antes, un `.bex` con `popcnt` en una CPU sin el arrancaba, corria,
+            // y moria de `#UD` donde cayera la primera. Lo declara quien emitio
+            // los bytes (`intrinsics.toml`, columna `cpu`) y aqui se dice NO
+            // antes de la primera reserva, con el nombre de lo que falta.
+            let mut usa = 0u64;
+            // (y la lente, mas abajo, juzga el codigo contra esto mismo)
+            for r in tabla.iter() {
+                if r.es_obligatorio() && r.clase == bmo_carga_juicio::CLASE_INSTRUCCIONES {
+                    usa |= r.cantidad;
+                }
+            }
+            let faltan = bmo_carga_juicio::instrucciones::faltan(usa, instrucciones_de_esta_cpu());
+            unsafe { RECHAZO_FALTAN = faltan };
+            declara_instrucciones = usa;
+            if faltan != 0 {
+                crate::ring0::cabina::fault(
+                    "carga", "RECHAZADO: usa instrucciones que esta CPU no tiene", faltan);
+                unsafe {
+                    RECHAZO_PIDE = 0;
+                    let m = &mut *core::ptr::addr_of_mut!(RECHAZO_MOTIVO);
+                    let mut n = 0;
+                    for (i, nombre) in bmo_carga_juicio::instrucciones::nombres(faltan).enumerate() {
+                        crate::ring0::cabina::warn("carga", nombre, faltan);
+                        for &b in (if i == 0 { "falta en esta CPU:" } else { "" }).as_bytes()
+                            .iter().chain(b" ").chain(nombre.as_bytes())
+                        {
+                            if n < m.len() {
+                                m[n] = b;
+                                n += 1;
+                            }
+                        }
+                    }
+                    RECHAZO_MOTIVO_N = n;
+                }
+                return None;
+            }
             // Solo lo OBLIGATORIO y solo lo que se mide en BYTES. Un requisito
             // opcional no es una condicion de arranque, y una mascara de CPU no
             // se suma a una cantidad de memoria.
@@ -523,6 +588,10 @@ pub(crate) fn admit_payload_desde(
     // autopsia la necesita para distinguir un retorno de un puntero a datos.
     let mut code_va: u64 = 0;
     let mut code_len: u64 = 0;
+    // Para la lente (B1): los bytes de codigo que trae el fichero, y el hash
+    // de la region de codigo si cuadro -- con el se recuerda lo demostrado.
+    let mut code_file: u64 = 0;
+    let mut code_clave: Option<[u8; 32]> = None;
     let total_relocs = bex::cuantas_relocs(plan.relocs.bytes);
 
     // ** Y LA TABLA DE RELOCATIONS TAMBIEN SE CIERRA, antes de aplicar ni una.
@@ -882,7 +951,12 @@ pub(crate) fn admit_payload_desde(
         // cuadra" cuando ya hay tres secciones mapeadas y ninguna pista de por
         // donde empezar a mirar.
         match cierre.cerrar() {
-            Ok(landing::Cierre::Cuadra) => cuadran += 1,
+            Ok(landing::Cierre::Cuadra) => {
+                cuadran += 1;
+                if s.cual == bex::Cual::Codigo {
+                    code_clave = firmas.as_ref().and_then(|f| f.digest_de(s.que()));
+                }
+            }
             // Los ceros no ocupan fichero: no hay bytes que hashear ni hash
             // que echar en falta. Contarlos como "sin hash" ponia un 1 en
             // rojo en la ficha de TODOS los programas (visto en el Ryzen el
@@ -913,6 +987,7 @@ pub(crate) fn admit_payload_desde(
             entry_va = va_start + plan.entrada;
             code_va = va_start;
             code_len = s.mem_size;
+            code_file = s.file_size;
         }
         code_bytes = code_bytes.saturating_add(s.mem_size as u32);
     }
@@ -931,6 +1006,70 @@ pub(crate) fn admit_payload_desde(
     // Es el modelo quirofano en chico -- entro lo que hacia falta para la
     // operacion, y sale cuando termina. En DOOM son ocho marcos; en un `.bex`
     // sin punteros que rellenar, ninguno.
+    // ===================================================================
+    //  *** LA LENTE: VERIFICAR UNA VEZ, Y APARTARSE (B1, 14-10)
+    // ===================================================================
+    //
+    // Aqui y no antes porque es el primer sitio donde el codigo esta entero,
+    // con su hash comprobado y en las paginas que va a correr -- y donde la
+    // tabla de relocaciones todavia esta en la mano: cada una que apunta al
+    // codigo es una direccion de funcion que el programa guarda, y la lente
+    // empieza a leer tambien desde ahi. Ver `task/lente.rs`.
+    //
+    // [!] Un NO aqui deja lo ya reservado como lo deja un hash que no cuadra
+    // veinte lineas mas arriba: es la fuga del camino de error ya apuntada.
+    if code_file > 0 {
+        let semillas = (0..total_relocs)
+            .filter_map(|r| bex::leer_reloc(relocs, 0, plan.relocs.bytes, r))
+            .filter(|r| r.destino_sec == 0 && r.destino_off >= 0)
+            .map(|r| r.destino_off as u64);
+        match super::lente::juzgar(aspace, code_va, code_file as usize, plan.entrada, declara_instrucciones, code_clave, semillas) {
+            super::lente::Juicio::Recordado { demostrado } => {
+                crate::ring0::cabina::info("lente", "ya leido: este codigo no se vuelve a leer", demostrado as u64);
+            }
+            super::lente::Juicio::Leido(r) => {
+                if let Some((en, ext)) = r.no_declarada {
+                    // ** USA LO QUE NO DECLARA: la cabecera miente, y eso SI es
+                    // un NO -- en una CPU sin esa extension seria un `#UD`.
+                    crate::ring0::cabina::fault("lente", "RECHAZADO: usa una extension que el .bex NO declara", en as u64);
+                    crate::ring0::cabina::warn("lente", ext, en as u64);
+                    unsafe {
+                        RECHAZO_PIDE = 0;
+                        RECHAZO_FALTAN = bmo_carga_juicio::instrucciones::por_nombre(ext).map_or(u64::MAX, |e| e.bit);
+                        let m = &mut *core::ptr::addr_of_mut!(RECHAZO_MOTIVO);
+                        let mut n = 0;
+                        for &b in b"la lente: usa ".iter().chain(ext.as_bytes()).chain(b" y el .bex no lo declara") {
+                            if n < m.len() {
+                                m[n] = b;
+                                n += 1;
+                            }
+                        }
+                        RECHAZO_MOTIVO_N = n;
+                    }
+                    return None;
+                }
+                if r.demostrado() {
+                    crate::ring0::cabina::info("lente", "DEMOSTRADO: instrucciones leidas desde la entrada", r.leidas as u64);
+                } else {
+                    // Entra, y se dice donde no pudo: un limite de la lente no
+                    // es una falta del programa.
+                    if let Some((en, _)) = r.no_sabe {
+                        crate::ring0::cabina::warn("lente", "NO DEMOSTRADO: una instruccion que no sabe leer", en as u64);
+                    }
+                    if let Some((en, _)) = r.fuera {
+                        crate::ring0::cabina::warn("lente", "NO DEMOSTRADO: un salto sale del codigo", en as u64);
+                    }
+                    if r.desborda {
+                        crate::ring0::cabina::warn("lente", "NO DEMOSTRADO: el codigo no cabe en el recorrido", code_file);
+                    }
+                }
+                crate::ring0::cabina::info("lente", "bytes de codigo alcanzados", r.bytes as u64);
+                if r.degradan > 0 {
+                    crate::ring0::cabina::info("lente", "tzcnt/lzcnt sin declarar: sin la extension corren como bsf/bsr", r.degradan as u64);
+                }
+            }
+        }
+    }
     if let Some((base, paginas)) = relocs_marcos {
         for p in 0..paginas {
             phys::free_frame(base + p * mm::PAGE);

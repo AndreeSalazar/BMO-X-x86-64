@@ -105,3 +105,90 @@ fn the_cube_s_sobre_is_the_same_twice_and_keeps_the_contract_of_cubo_bsf() {
         assert_eq!((t.main(), t.emitter()), (128, &b"titan-prometeo"[..]));
     }
 }
+
+/// ** V4 DE `docs/plan/PLAN_VERRANO.md` (D1 de EL_FOCO, 15-10): el `cubo.bsf`
+/// que VERRANO toma (`gspcubo/sm86.rs`, `include_bytes!`) ES este sobre -- el
+/// de las dos gpu fn de TITAN++, emitidas por PROMETEO desde el Programa de la
+/// casa --, y ya no el del SASS a mano. Para volver a fabricarlo tras cambiar
+/// el cubo, el emisor o el pegamento: `BSF_FIJAR=1 cargo test -p
+/// bmo-titan-x86-64 --test cubo`.
+#[test]
+fn verrano_s_cubo_bsf_is_the_one_titan_makes() {
+    let m = cubo();
+    let ks = bmo_titan_prometeo::kernels(&m, &[&RTX_3060_12G]).unwrap_or_else(|e| panic!("{}", e));
+    let (_, sobre) = bmo_titan_x86_64::sobre(&ks).unwrap_or_else(|e| panic!("{}", e)).expect("el cubo dibuja");
+    let fichero = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../../platform/drivers/gpu/ga10x/sombreadores/cubo.bsf");
+    if std::env::var_os("BSF_FIJAR").is_some() {
+        std::fs::write(&fichero, &sobre).unwrap();
+    }
+    let guardado = std::fs::read(&fichero).expect("sombreadores/cubo.bsf (BSF_FIJAR=1 lo fabrica)");
+    assert_eq!(guardado, sobre, "cubo.bsf no es el que sale del cubo de TITAN++ de hoy");
+}
+
+/// El cubo de V3 (`ejemplos/nivel11/cubo3`): la de vertice recibe sus
+/// CONSTANTES -- la matriz por columnas -- en su segundo valor.
+fn cubo3() -> bmo_titan_front::ir::Module {
+    let pkg = Path::new(env!("CARGO_MANIFEST_DIR")).join("..").join("ejemplos").join("nivel11").join("cubo3");
+    let src = std::fs::read_to_string(pkg.join("src").join("main.titan")).expect("el ejemplo del banco");
+    bmo_titan_front::lower_package("src/main.titan", &src, &mut |p| std::fs::read_to_string(pkg.join(p)).ok()).unwrap_or_else(|e| panic!("{:?}", e))
+}
+
+/// ** V3 DE `docs/plan/PLAN_VERRANO.md` (D1 de EL_FOCO, 15-10): LA MATRIZ EN
+/// EL CBUFFER Y LA TARJETA MULTIPLICANDO. Los vertices del cubo SIN
+/// transformar y la `wvp` de `bmo_cubo` como constantes dan, en cada tarjeta,
+/// en la casa y en el calculo, la posicion de recorte de la tanda BIT A BIT
+/// -- la misma que da la huella de D3D12 --: las cuentas ya no las hace la
+/// CPU de la app.
+#[test]
+fn the_v3_cube_multiplies_on_the_card_and_gives_the_bits_of_the_tanda() {
+    let m = cubo3();
+    let ks = bmo_titan_prometeo::kernels(&m, &bmo_titan_x86_64::TARJETAS).unwrap_or_else(|e| panic!("{}", e));
+    let fv = m.functions.iter().position(|f| f.name == "cubo_vertice").unwrap();
+    let (vs, is) = (bmo_cubo::vertices(), bmo_cubo::indices());
+    for t in bmo_titan_x86_64::TARJETAS {
+        let kv = ks.iter().find(|k| k.name == "cubo_vertice" && k.tarjeta.ficha() == t.ficha()).unwrap();
+        let dv = kv.dibujo.clone().unwrap();
+        assert_eq!((dv.entradas.clone(), dv.constantes.clone()), (vec![4, 4], vec![4, 4, 4, 4]), "dos elementos y cuatro filas de cbuffer");
+        assert_eq!(kv.programa.filas_cb, 4);
+        let mut vistos = 0;
+        for f in FOTOGRAMAS {
+            let tanda = tanda::de_fotograma(f, 1280, 720).expect("la tanda");
+            let c = bmo_cubo::constantes(bmo_cubo::angulo_de_fotograma(f), 1280.0 / 720.0);
+            let columnas: Vec<[u32; 4]> = (0..4).map(|k| [c.wvp[4 * k], c.wvp[4 * k + 1], c.wvp[4 * k + 2], c.wvp[4 * k + 3]].map(f32::to_bits)).collect();
+            let mut celdas = Vec::new();
+            for (i, tri) in tanda.tris().iter().enumerate() {
+                for j in 0..3 {
+                    let v = vs[is[3 * tanda.caras[i] + j] as usize];
+                    let mut celda = vec![[v.pos[0], v.pos[1], v.pos[2], 1.0].map(f32::to_bits), tri.color.map(f32::to_bits)];
+                    celda.extend_from_slice(&columnas);
+                    celdas.push(celda);
+                }
+            }
+            let sale = dibuja::run(kv, &dv, &celdas).unwrap_or_else(|e| panic!("{}", e));
+            assert_eq!(sale, dibuja::run_casa(kv, &dv, &celdas), "{}, fotograma {}: la casa", t.ficha().nombre, f);
+            assert_eq!(sale, bmo_titan_front::calc::run_gpu_dibujo(&m, fv, &celdas).unwrap(), "{}, fotograma {}: el calculo", t.ficha().nombre, f);
+            for (i, tri) in tanda.tris().iter().enumerate() {
+                for j in 0..3 {
+                    assert_eq!(sale[3 * i + j][0], tri.clip[j].map(f32::to_bits), "{}, fotograma {}, triangulo {}, vertice {}: la posicion de recorte", t.ficha().nombre, f, i, j);
+                    assert_eq!(sale[3 * i + j][1], tri.color.map(f32::to_bits), "y el color, tal cual");
+                }
+            }
+            vistos += celdas.len();
+        }
+        assert_eq!(vistos, 54, "{}: los vertices de cuatro fotogramas", t.ficha().nombre);
+    }
+}
+
+/// Su sobre dice el cbuffer: el bufer de la de vertice se lee desde el byte
+/// `16 * 4` (las cuatro filas van DELANTE de los vertices en los DATOS).
+#[test]
+fn the_v3_cube_s_sobre_says_its_cbuffer() {
+    let m = cubo3();
+    let ks = bmo_titan_prometeo::kernels(&m, &[&RTX_3060_12G]).unwrap_or_else(|e| panic!("{}", e));
+    let (pegadas, a) = bmo_titan_x86_64::sobre(&ks).unwrap_or_else(|e| panic!("{}", e)).expect("el cubo dibuja");
+    assert!(pegadas.iter().all(|g| g.veredicto.contains("PERFECTO Y PRECISO")));
+    let s = Bsf::parse(&a).expect("el sobre se lee");
+    s.verify_all().unwrap();
+    let b0 = s.find(b"cubo_vertice").unwrap().binding(0);
+    assert_eq!((b0.base_bytes, b0.stride), (64, 32));
+}

@@ -80,3 +80,26 @@ fn intrinsic_arg_arity_wrong_fails() {
     assert!(err.message.contains("espera 2"), "mensaje: {}", err.message);
 }
 
+
+/// ** A6: lo que pide cada fila (`cpu`) llega al `.bex` como requisito
+/// obligatorio; y un programa sin nada de eso no lleva la linea.
+#[test]
+fn intrinsic_cpu_extensions_reach_the_bex() {
+    use bmo_abi::bef::requisitos::{Tabla, CLASE_INSTRUCCIONES};
+    use bmo_abi::bef::requisitos::instrucciones::por_nombre;
+    fn pide(bex: &[u8]) -> Option<u64> {
+        let v = bmo_abi::bef2::leer(bex).unwrap();
+        let t = Tabla::abrir(v.anexo(bmo_abi::bef2::ANEXO_REQUISITOS).unwrap()).unwrap();
+        let l: Vec<_> = t.iter().filter(|r| r.clase == CLASE_INSTRUCCIONES).collect();
+        assert!(l.len() <= 1);
+        l.first().map(|r| { assert!(r.es_obligatorio()); r.cantidad })
+    }
+    let ext = |n| por_nombre(n).unwrap().bit;
+    let bex = compile_source_to_bef(
+        "int main() { unsigned a = __popcnt(7); unsigned b = __tzcnt(8); return (int)(a + b); }").unwrap();
+    assert_eq!(pide(&bex), Some(ext("POPCNT") | ext("BMI1")));
+    let bo = compile_source_to_object("int f() { return (int)__lzcnt(1); }").unwrap();
+    assert_eq!(bmo_abi::bef2::objeto::read(&bo).unwrap().instrucciones, ext("LZCNT"));
+    let base = compile_source_to_bef("int main() { __pause(); return (int)__bsf(4); }").unwrap();
+    assert_eq!(pide(&base), None, "bsf y pause son x86-64 base");
+}

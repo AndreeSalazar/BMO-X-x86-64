@@ -1,0 +1,21 @@
+[package]
+name = "bmo-lente-x86"
+version = "0.1.0"
+edition = "2021"
+description = "LA LENTE de x86-64: lee el binario que emiten los compiladores de BMO-X -- prefijos, REX, VEX, opcode, ModRM, SIB -- y lo dice; lo que no esta en su tabla lo dice con sus bytes, sin adivinar. Pura."
+license = "Apache-2.0"
+
+# Sin dependencias, a proposito: la usara el kernel (la autopsia de Ring 3, y
+# verificar un `.bex` al admitirlo: B1 y B2 de docs/plan/EL_FOCO.md), y el
+# kernel no enlaza nada que no sea puro.
+[dependencies]
+
+# Solo para la ida y vuelta: el codificador que usan los emisores de verdad.
+[dev-dependencies]
+bmo-lower = { path = "../../../toolchain/forge/bmo-lower" }
+# Y para juzgar la columna `cpu` de `intrinsics.toml` con los bytes (A6).
+bmo-sem-asm = { path = "../../../toolchain/forge/sem-asm" }
+bmo-carga-juicio = { path = "../bmo-carga-juicio" }
+
+[lib]
+name = "bmo_lente_x86"

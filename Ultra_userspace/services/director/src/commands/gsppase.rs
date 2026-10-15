@@ -93,8 +93,8 @@ fn probar(s: &mut Output, p: &bmo::Pantalla, lienzo: u64) -> bool {
     let mut bien = va == orden::BUZON_VA;
     linea(s, bien, b"ABRIR: el lienzo prestado para quedarse, el buzon en su VA");
     let medidas = palabra(va, buzon::campo::MEDIDAS);
-    let forma = palabra(va, buzon::campo::MAGIA) == buzon::MAGIA
-        && palabra(va, buzon::campo::VERSION) == buzon::VERSION
+    // La magia y la version, por la puerta unica del censo (A3, 14-10).
+    let forma = bmo_lamina::censo::abierta(buzon::MAGIA, palabra(va, buzon::campo::MAGIA), palabra(va, buzon::campo::VERSION))
         && palabra(va, buzon::campo::ESTADO) == 0
         && medidas == (p.ancho | p.alto << 16);
     linea(s, forma, b"el buzon: MAGIA BGPU, su version, abierto y la medida de la pantalla");

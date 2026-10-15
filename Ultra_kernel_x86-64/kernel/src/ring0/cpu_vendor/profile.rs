@@ -290,6 +290,71 @@ pub fn carear_topologia() {
     DUDA.store(duda, Ordering::Release);
 }
 
+/// **LB12 / B4 (14-10): EL PERFIL SE COMPRUEBA AL ARRANCAR** -- las
+/// extensiones, como `carear_topologia` hace con los nucleos.
+///
+/// ```text
+///    el silicio   CPUID: que extensiones tiene, y que familia/modelo es
+///    el perfil    PERFIL/CPU.txt: de que chip es esto, y que DECIDIO el
+///                 propietario que se puede usar (`mano`, en
+///                 `bmo_carga_juicio::decidido`)
+/// ```
+///
+/// Si la CPU no es la del perfil, se dice FUERTE y queda lo GENERICO de
+/// x86-64: el kernel no usa nada del perfil a ciegas, y un `.bex` que pida
+/// una extension que esta CPU no tenga no entra (A6, con su nombre) -- nunca
+/// un `#UD` a mitad de camino. Y cada extension decidida que el silicio no
+/// tiene se grita con su nombre: el perfil decidio algo que esta maquina no
+/// puede dar.
+pub fn carear_extensiones() {
+    use crate::ring0::cabina;
+    use bmo_carga_juicio::{decidido, instrucciones};
+
+    let p = active();
+    let quiere = familia_modelo(p.family_model);
+    let es = matches!(((p.identidad)(), quiere), (Some(hay), Some(q)) if hay == q);
+    ES_LA_DEL_PERFIL.store(es, Ordering::Release);
+    if es {
+        cabina::info("cpu", "es la CPU del perfil: lo decidido en PERFIL/CPU.txt vale aqui", 0);
+    } else {
+        let hay = (p.identidad)().map_or(0, |(f, m)| (f as u64) << 8 | m as u64);
+        cabina::fault("cpu", "esta CPU NO es la del perfil: lo generico de x86-64 (y A6 para lo que pida un .bex)", hay);
+    }
+
+    let hay = instrucciones::de_cpuid(|hoja, sub| {
+        // SAFETY: CPUID no tiene efectos, y toda CPU de 64 bits lo tiene.
+        let r = unsafe { core::arch::x86_64::__cpuid_count(hoja, sub) };
+        [r.eax, r.ebx, r.ecx, r.edx]
+    });
+    let faltan = decidido::MANO & !hay;
+    FALTAN_DECIDIDAS.store(faltan, Ordering::Release);
+    for n in instrucciones::nombres(faltan) {
+        cabina::fault("cpu", "DECIDIDA en el perfil y el silicio NO la tiene", faltan);
+        cabina::warn("cpu", n, faltan);
+    }
+    // La foto, siempre: cuantas de las decididas tiene esta maquina.
+    cabina::count("cpu", "extensiones decididas que el silicio tiene", (decidido::MANO & hay).count_ones() as u64);
+}
+
+/// `"19h/21h"` -> `(0x19, 0x21)`.
+fn familia_modelo(s: &str) -> Option<(u8, u8)> {
+    let (f, m) = s.split_once('/')?;
+    let n = |t: &str| u8::from_str_radix(t.trim().trim_end_matches('h'), 16).ok();
+    Some((n(f)?, n(m)?))
+}
+
+/// Si la CPU es la del perfil (LB12). Arranca en `false`: hasta que se
+/// carea, no se sabe -- y "no se sabe" no es "si".
+static ES_LA_DEL_PERFIL: core::sync::atomic::AtomicBool = core::sync::atomic::AtomicBool::new(false);
+/// Las extensiones decididas que el silicio no tiene (mascara de
+/// `bmo_carga_juicio::instrucciones`).
+static FALTAN_DECIDIDAS: core::sync::atomic::AtomicU64 = core::sync::atomic::AtomicU64::new(0);
+
+/// Lo que dijo `carear_extensiones`: `(es la del perfil, decididas que faltan)`.
+pub fn extensiones() -> (bool, u64) {
+    (ES_LA_DEL_PERFIL.load(Ordering::Acquire), FALTAN_DECIDIDAS.load(Ordering::Acquire))
+}
+
 /// Los cuatro bits de [`duda`], y el mismo orden que declara el ABI.
 pub const DUDA_CPUID: u32 = 1 << 0;
 pub const DUDA_SIN_MEDIR: u32 = 1 << 1;

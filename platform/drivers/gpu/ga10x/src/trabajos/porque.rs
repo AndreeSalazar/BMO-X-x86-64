@@ -79,11 +79,17 @@ pub enum Porque {
     ComputoPreparar = 27,
     /// El despacho no volvio pagado en su plazo (lo corto el vigilante).
     ComputoSinPagar = 28,
+    /// ** C1 (15-10): la LAMINA PRESTADA no es un prestamo TOMADO por quien
+    /// dibuja, sus marcos no van seguidos, o se sale (detalle: su VA).
+    LaminaNoTomada = 29,
+    /// La lamina no se pudo prestar a la 3060 (la IOMMU; detalle: su motivo),
+    /// o se pidio por el anillo, que copia sus vertices.
+    LaminaNoSePresta = 30,
 }
 
 impl Porque {
     /// Todos, para leer un numero y para las pruebas.
-    pub const TODOS: [Porque; 28] = [
+    pub const TODOS: [Porque; 30] = [
         Porque::RecetaNoEsSuya,
         Porque::RecetaCabecera,
         Porque::RecetaEnteraNoEsSuya,
@@ -112,6 +118,8 @@ impl Porque {
         Porque::BuferNoSePresta,
         Porque::ComputoPreparar,
         Porque::ComputoSinPagar,
+        Porque::LaminaNoTomada,
+        Porque::LaminaNoSePresta,
     ];
 
     /// El porque de un numero (`None` = un numero que este no conoce).
@@ -150,6 +158,8 @@ impl Porque {
             Porque::BuferNoSePresta => "un bufer del computo no se pudo prestar a la 3060 (o pasa de los 16 MiB de su ranura)",
             Porque::ComputoPreparar => "el despacho no quedo preparado en el tramo (el pegado, el QMD o las ordenes)",
             Porque::ComputoSinPagar => "el despacho no volvio pagado en su plazo (lo corto el vigilante)",
+            Porque::LaminaNoTomada => "la lamina prestada no es un prestamo tomado por quien dibuja, o sus marcos no van seguidos",
+            Porque::LaminaNoSePresta => "la lamina no se pudo prestar a la 3060 (la IOMMU), o se pidio por el anillo",
         }
     }
 

@@ -83,6 +83,19 @@ direccion mala, y de que programa y que funcion era.
 - banco: cada codificacion del subconjunto, ida (el emisor) y vuelta (la
   lente) dan lo mismo
 
+**La mitad de LEER, HECHA el 14-10** (A5 de `EL_FOCO.md`):
+`platform/shared/bmo-lente-x86` lee prefijos, REX, VEX, opcode, ModRM, SIB,
+desplazamiento e inmediato, y dice que viene despues; lo que no esta en su
+tabla, fuera de la tabla. La juzga el `metro` con los 63 programas del banco
+corriendo (las 35.208 instrucciones distintas que corrieron). **Queda la
+otra mitad:** la autopsia de Ring 3 que la usa en RIP (B2 del foco).
+
+**La otra mitad, ESCRITA el 14-10 (B2 de `EL_FOCO.md`):** el renglon `instr`
+de la autopsia -- la instruccion en el `rip` (o el `call` de antes del
+retorno si el `rip` no se lee) y el registro de su direccion con su valor. Se
+prueba en el anfitrion con la trampa del emulador sobre codigo de BMO C. Se
+cierra cuando el Ryzen lo escriba en un informe de verdad.
+
 ### [ ] LB4 -- los contadores del Zen 3, explicados
 
 El informe dice hoy `sin MPERF/APERF`. El Zen 3 tiene contadores de
@@ -95,6 +108,10 @@ y la LENTE los dice en castellano: "este bucle falla la L1 una de cada 3".
 - solo lectura y solo en el kernel: un contador mal puesto no rompe nada,
   pero un numero mal leido burla
 
+**15-10: HECHO EN EL ANFITRION** (C4 de `EL_FOCO.md`, con el detalle): el
+catalogo con fuente y confianza (`bmo-contadores`), la calibracion en el
+kernel y `cpu contadores`. Falta que el Ryzen diga que fila CUENTA.
+
 ### [ ] LB5 -- INTI exprime con evidencia
 
 Con LB4, la fila "lo que hay y no se coge" (AVX2, FMA, BMI1...) deja de ser
@@ -103,7 +120,21 @@ tiempo y que extension lo cambiaria. La ley 0 de
 `../maestro/OPTIMIZACION_MAESTRO.md`: correcto, medido, y solo entonces
 rapido, y solo donde el numero diga.
 
-### [ ] LB6 -- la cabecera del `.bex` dice EXACTAMENTE que instrucciones usa
+**15-10, la puerta HECHA EN EL ANFITRION** (C4 de `EL_FOCO.md`): INTI y
+TITAN++ se cuentan a si mismos (`op_contar`, `director.contar`/`contado`).
+Lo que falta es usar los numeros: un banco que diga, por programa, donde se
+pierde el tiempo y que extension lo cambiaria.
+
+### [x] LB6 -- la cabecera del `.bex` dice EXACTAMENTE que instrucciones usa
+
+**HECHO el 14-10 (A6 de `EL_FOCO.md`, con lo que cambio y por que):** no en la
+cabecera sino en el anexo de REQUISITOS (`CLASE_INSTRUCCIONES`, una mascara de
+`bmo_carga_juicio::instrucciones`); la escribe la columna `cpu` de
+`intrinsics.toml` a traves de los emisores de C e INTI; `bmo-enlazar` hace la
+union; y la juzga `admitir` contra el CPUID, con el nombre de lo que falta. La
+lente (`Fila::pide`) comprueba que la columna dice la verdad, y el `metro`, que
+lo que corre esta declarado -- que es la mitad de LB7 sobre lo que CORRE; lo
+que no corre lo leera B1.
 
 Hoy BEF2 declara `xcr0` (los estados XSAVE que el programa usa) y la puerta
 (`bmo-bex-gate`) rechaza lo que el kernel no preserva. El paso siguiente: un
@@ -119,7 +150,14 @@ emite el codigo:
                     se admite, con su nombre (como `xcr0` hoy)
 ```
 
-### [ ] LB7 -- la lente comprueba que la cabecera no miente (el juez de x86)
+### [x] LB7 -- la lente comprueba que la cabecera no miente (el juez de x86)
+
+**HECHO el 14-10 (B1 de `EL_FOCO.md`), con un cambio dicho:** una instruccion
+de una extension NO declarada es un NO; una que la lente no sabe leer NO es un
+NO sino "no demostrado", y el `.bex` entra -- un limite de la tabla no es una
+falta del programa, y DOOM no puede dejar de arrancar por una fila que falte.
+El recorrido sale de la entrada y de las relocaciones hacia el codigo
+(`bmo_lente_x86::recorre`), no de los `lea`: TITAN++ guarda datos en el codigo.
 
 Como el juez de la 3060: al admitir un `.bex`, la lente DECODIFICA su region
 de CODIGO con las tablas del APM (LB3) y comprueba que cada instruccion es de
@@ -148,6 +186,11 @@ Google (un subconjunto de x86 validado, y luego directo), y el juez de la
 3060 (R0..R7 una vez, y la receta en caliente).
 
 ### [ ] LB8 -- lo DEMOSTRADO al admitir se apunta, y se paga una vez
+
+**ESCRITO el 14-10, sin ver en el metal:** `task/lente.rs` recuerda el
+veredicto por el hash de la region de codigo, la entrada y lo declarado (32
+`.bex`), y dice `lente: ya leido` al ahorrarse la lectura. Se cierra cuando el
+Ryzen lo diga en el segundo `run` del mismo `.bex`.
 
 Lo que LB7 demuestra de un `.bex` (que extensiones usa, que su codigo no
 salta fuera de su region, que no toca lo que no declara) se apunta con su
@@ -185,6 +228,13 @@ ya la lee una maquina, y `perfil-campos` la compara con el codigo) y
 
 ### [ ] LB10 -- una sola fuente para el build, el kernel y la lente
 
+**La mitad de QUE SE PUEDE, HECHA el 14/15-10 (B4 de `EL_FOCO.md`):**
+`PERFIL/CPU.txt` es la fuente -- con las columnas `mano` y `llvm` que decide
+el propietario --, `perfil-campos` genera `bmo-carga-juicio/src/decidido.rs`,
+y lo leen `sem-asm`, `bex-link` (la lente sobre todo `.text`), el guardian
+`llvm-obedece` y el kernel al arrancar. **Falta la mitad de CUAL CONVIENE**
+(las latencias del Zen 3 para que el emisor elija).
+
 El perfil, como datos que leen TRES: INTI y TITAN++ al emitir (que
 instruccion usar y cual cuesta menos en el Zen 3), la puerta al admitir (LB6:
 que extensiones hay) y la lente (LB3/LB4: como se lee y que cuenta cada
@@ -207,6 +257,12 @@ lo lee la siguiente vez. Un numero medido que contradiga al declarado se
 dice, no se esconde.
 
 ### [ ] LB12 -- el perfil se COMPRUEBA al arrancar
+
+**ESCRITO el 15-10, sin ver en el metal:** `profile::carear_extensiones()`,
+llamado en el arranque al lado de `carear_topologia`: familia/modelo contra
+el perfil (si no es, lo dice y queda lo generico de x86-64; un `.bex` que pida
+lo que no hay lo para A6), y cada extension decidida contra el CPUID. Se
+cierra cuando el Ryzen lo diga en su bitacora.
 
 Un perfil es una suposicion: si la CPU que hay debajo no es la del perfil (otra
 placa, otro Ryzen), el kernel lo dice y usa lo GENERICO de x86-64. Nunca

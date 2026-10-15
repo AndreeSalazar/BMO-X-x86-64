@@ -1,0 +1,10 @@
+# espera: T0077
+# una lamina es RAM del kernel con UN propietario: `let b = a` haria dos
+# nombres del mismo bloque, y uno de los dos lo soltaria debajo del otro.
+# Se presta (`mut`) o se entrega (`take`); copiarla, NO
+mod main "una lamina que se iba a copiar"
+
+fn main()
+    let a = lamina(10)
+    let b = a
+    print(len(b))

@@ -63,6 +63,8 @@ use crate::raster::{programa, ESCALONES, N_ESCALONES, SPH, SUSTITUTO};
 use crate::sombreador::{EMPUJE, SEMAFOROS};
 use crate::Registros;
 
+pub use super::prestada::{escribir_paquete_prestado, Prestada, DESCRIPTOR_PRESTADA, ESTADO_PRESTADA};
+
 /// La tabla de buffers (`SM86_V1`): la ranura 0, la de los vertices.
 pub const TABLA: u64 = SEMAFOROS + 0x600;
 /// Los DATOS (P3b4b, 28-09): 64 KiB de VRAM propios (`vram::DATOS`), que
@@ -400,6 +402,8 @@ pub struct Dibujo {
     /// RAM de la app (`cabe`). Cada uno va a su ranura (`destino::va_de`).
     pub mas: [(u64, crate::destino::Destino); crate::destino::OBJETIVOS - 1],
     pub n_mas: u8,
+    /// C1: los vertices son una lamina PRESTADA, no bytes del paquete.
+    pub prestada: Option<Prestada>,
 }
 
 impl Dibujo {
@@ -546,7 +550,21 @@ fn dibujo_de(cabecera: &[u8], n: usize, datos: usize) -> Option<Dibujo> {
     if cabecera_de(cabecera)? == CABECERA {
         return Some(Dibujo::default());
     }
-    let mut d = dibujo_de_campos(cabecera, n, datos)?;
+    // C1: el bit de la lamina prestada es solo de VRN1 (la receta VRN2 lo
+    // sigue rechazando en `dibujo_de_campos`): se aparta y se juzga aqui.
+    let prestada = u32le(cabecera, 36) & ESTADO_PRESTADA != 0;
+    let mut sin = [0u8; CABECERA_1];
+    sin.copy_from_slice(&cabecera[..CABECERA_1]);
+    sin[36..40].copy_from_slice(&(u32le(cabecera, 36) & !ESTADO_PRESTADA).to_le_bytes());
+    let mut d = dibujo_de_campos(&sin, n, datos)?;
+    if prestada {
+        // Un descriptor de 16 B, vertices de V0 seguidos (sin indices): la
+        // ranura de la lamina, tal cual la escribio la app.
+        if datos != DESCRIPTOR_PRESTADA || d.indices.is_some() || d.vertices as usize != n {
+            return None;
+        }
+        d.prestada = Some(Prestada::default());
+    }
     // Q0a2: la limpieza del destino, por la 3060 (y sin destino, no hay que).
     if color_1(cabecera) {
         d.destino?;
@@ -599,7 +617,7 @@ pub(crate) fn dibujo_de_campos(cabecera: &[u8], n: usize, datos: usize) -> Optio
     };
     let z = z_de(estado).ok()?;
     let redondeo = crate::pegamento::Redondeo::de_numero(bandera >> 8 & 0xFF)?;
-    let d = Dibujo { indices, vertices, descarte, antihorario: estado & 4 != 0, destino, z, color: None, texturas: 0, cadena: false, escalera: false, pantalla: false, banco: 0, redondeo, mezcla: crate::mezcla::Mezcla::NINGUNA, registros: 0, mas: Default::default(), n_mas: 0 };
+    let d = Dibujo { indices, vertices, descarte, antihorario: estado & 4 != 0, destino, z, color: None, texturas: 0, cadena: false, escalera: false, pantalla: false, banco: 0, redondeo, mezcla: crate::mezcla::Mezcla::NINGUNA, registros: 0, mas: Default::default(), n_mas: 0, prestada: None };
     cabe(&d).then_some(d)
 }
 
@@ -697,6 +715,13 @@ pub fn leer(b: &[u8]) -> Option<Paquete<'_>> {
             return None;
         }
     }
+    let mut dibujo = dibujo;
+    let mut vertices = vertices;
+    if dibujo.prestada.is_some() {
+        // Los DATOS del paquete se quedan vacios: nadie los copia.
+        dibujo.prestada = Some(super::prestada::leer_descriptor(vertices, n)?);
+        vertices = &[];
+    }
     let p = Paquete { ficha: u32le(b, 4), vs: &b[c..c + vs], ps: &b[c + vs..c + vs + ps], vertices, n, limpiar, dibujo };
     (programa_valido(p.vs, crate::raster::VERTICE) && programa_valido(p.ps, crate::raster::PIXEL)).then_some(p)
 }
@@ -792,7 +817,7 @@ where
 /// La cabecera VRN1 y los dos programas, con los `datos` bytes ya en su
 /// sitio (detras); `None` si el paquete que queda no se sostiene.
 #[allow(clippy::too_many_arguments)]
-fn cerrar_paquete_1(out: &mut [u8], ficha: u32, vs: &[u8], ps: &[u8], n: usize, datos: usize, dibujo: Dibujo) -> Option<usize> {
+pub(super) fn cerrar_paquete_1(out: &mut [u8], ficha: u32, vs: &[u8], ps: &[u8], n: usize, datos: usize, dibujo: Dibujo) -> Option<usize> {
     let d = CABECERA_1 + vs.len() + ps.len();
     let total = d + datos;
     out[..CABECERA_1].fill(0);
@@ -801,7 +826,8 @@ fn cerrar_paquete_1(out: &mut [u8], ficha: u32, vs: &[u8], ps: &[u8], n: usize, 
         Descarte::Traseras => 1,
         Descarte::Delanteras => 2,
     } | (dibujo.antihorario as u32) << 2
-        | estado_z(dibujo.z);
+        | estado_z(dibujo.z)
+        | if dibujo.prestada.is_some() { ESTADO_PRESTADA } else { 0 };
     // VRN1 limpia la Z a 1.0 y no lleva otro valor. El COLOR, desde Q0a2
     // (10-10), si: el del destino, por la 3060 -- y la CPU deja de llenar el
     // bloque a mano en cada fotograma --.
@@ -964,7 +990,13 @@ pub fn preparar_paso<R: Registros>(r: &mut R, e: u32, v: &Ventana, p: &Paquete, 
     }
     let o = ordenes_dibujo(v, n / 3, ligero, p.dibujo);
     let en = entrada(sombreador_va(EMPUJE), o.n as u32);
-    let va = crate::vram::DATOS_VA;
+    // C1: con la lamina prestada, la tabla apunta a ella (la VA que le dio el
+    // kernel) y no se copia ni un vertice; sin VA, no se dibuja a ciegas.
+    let va = match p.dibujo.prestada {
+        Some(x) if x.gpu_va != 0 => x.gpu_va,
+        Some(_) => return Err(0),
+        None => crate::vram::DATOS_VA,
+    };
     // En orden, y el primero que falla corta (como el `&&` de antes): la
     // entrada del GPFIFO, la ultima, nunca apunta a algo a medias.
     let mut paso = 0u8;
@@ -980,7 +1012,9 @@ pub fn preparar_paso<R: Registros>(r: &mut R, e: u32, v: &Ventana, p: &Paquete, 
     hecho(crate::pluma::programa_si_falta(&mut w, PS, p.ps, &mut ya.ps))?;
     hecho(w.tramo(TABLA, &[va as u32, (va >> 32) as u32]))?;
     hecho(w.tramo(crate::libreta::LIBRETA, &[0]))?;
-    hecho(w.tramo_bytes(DATOS, p.vertices))?;
+    // Prestada: no hay datos que subir, pero el paso CUENTA igual -- su
+    // numero nombra al que falla en el informe (`porque::PASOS`) y no se mueve.
+    hecho(p.dibujo.prestada.is_some() || w.tramo_bytes(DATOS, p.vertices))?;
     hecho(w.tramo(EMPUJE, &o.o[..o.n]))?;
     hecho(w.tramo(GR.gpfifo + 8 * e as u64, &[en as u32, (en >> 32) as u32]))?;
     Ok(())
@@ -1038,7 +1072,9 @@ pub fn huella_fija(v: &Ventana, p: &Paquete, ligero: bool) -> u64 {
     let z = estado_z(d.z) as u64 | (d.z.and_then(|z| z.limpiar).unwrap_or(0) as u64) << 32;
     let color = d.color.map_or(0, |c| 1 << 32 | c as u64) | (d.texturas as u64) << 40;
     let dst = d.destino.map_or(Default::default(), |(_, dst)| dst);
-    let hay_destino = d.destino.is_some() as u64 | (d.cadena as u64) << 1 | (d.pantalla as u64) << 2;
+    // C1: prestada o copiada no comparten caliente -- la tabla apunta a otro
+    // sitio --: cambiar de una a otra va en frio.
+    let hay_destino = d.destino.is_some() as u64 | (d.cadena as u64) << 1 | (d.pantalla as u64) << 2 | (d.prestada.is_some() as u64) << 3;
     // LI2d: los render targets 1.. (su forma y donde empiezan en su pagina).
     for &(va, x) in d.mas() {
         for y in [va % 4096, x.fila as u64 | (x.ancho as u64) << 32, x.alto as u64 | (x.rgb as u64) << 32 | (x.flotante.numero() as u64) << 33] {
@@ -1073,7 +1109,13 @@ pub fn preparar_caliente<R: Registros>(r: &mut R, e: u32, v: &Ventana, p: &Paque
     if !ligero {
         w.palabras(ESCALONES, &[0; N_ESCALONES as usize]);
     }
-    w.bytes(DATOS, p.vertices);
+    match p.dibujo.prestada {
+        // C1: la tabla, a la ranura prestada (cambia de un fotograma a otro:
+        // la otra ranura, otro sitio en su pagina); los datos, ni tocarlos.
+        Some(x) if x.gpu_va != 0 => w.palabras(TABLA, &[x.gpu_va as u32, (x.gpu_va >> 32) as u32]),
+        Some(_) => return false,
+        None => w.bytes(DATOS, p.vertices),
+    }
     w.palabras(EMPUJE, &o.o[..o.n]);
     w.palabras(GR.gpfifo + 8 * e as u64, &[en as u32, (en >> 32) as u32]);
     true
@@ -1187,7 +1229,7 @@ mod pruebas {
         for (k, i) in [0u32, 1, 2, 0, 2, 3].iter().enumerate() {
             datos[64 + 4 * k..68 + 4 * k].copy_from_slice(&i.to_le_bytes());
         }
-        let d = Dibujo { indices: Some(64), vertices: 4, descarte: Descarte::Traseras, antihorario: false, destino: None, z: None, color: None, texturas: 0, cadena: false, escalera: false, pantalla: false, banco: 0, redondeo: crate::pegamento::Redondeo::NADA, mezcla: crate::mezcla::Mezcla::NINGUNA, registros: 0, mas: Default::default(), n_mas: 0 };
+        let d = Dibujo { prestada: None, indices: Some(64), vertices: 4, descarte: Descarte::Traseras, antihorario: false, destino: None, z: None, color: None, texturas: 0, cadena: false, escalera: false, pantalla: false, banco: 0, redondeo: crate::pegamento::Redondeo::NADA, mezcla: crate::mezcla::Mezcla::NINGUNA, registros: 0, mas: Default::default(), n_mas: 0 };
         let mut caja = std::vec![0u8; MAX_PAQUETE];
         let n = escribir_paquete_dibujo(&mut caja, 7, &vs, &ps, 6, &datos, d).unwrap();
         assert_eq!(medida(&caja[..CABECERA_MAX]), Some(n));
@@ -1329,7 +1371,7 @@ mod pruebas {
         let (vs, ps) = (programa_de(&vertice()), programa_de(&pixel()));
         let datos = std::vec![0u8; 96];
         let dst = Destino { fila: 1280 * 4, ancho: 1280, alto: 720, flotante: crate::destino::Flotante::No, rgb: false };
-        let d = Dibujo { indices: None, vertices: 3, descarte: Descarte::Ninguna, antihorario: false, destino: Some((0x1234_5000, dst)), z: None, color: None, texturas: 0, cadena: false, escalera: false, pantalla: false, banco: 0, redondeo: crate::pegamento::Redondeo::NADA, mezcla: crate::mezcla::Mezcla::NINGUNA, registros: 0, mas: Default::default(), n_mas: 0 };
+        let d = Dibujo { indices: None, vertices: 3, descarte: Descarte::Ninguna, antihorario: false, destino: Some((0x1234_5000, dst)), z: None, color: None, texturas: 0, cadena: false, escalera: false, pantalla: false, banco: 0, redondeo: crate::pegamento::Redondeo::NADA, mezcla: crate::mezcla::Mezcla::NINGUNA, registros: 0, mas: Default::default(), n_mas: 0, prestada: None };
         let mut caja = std::vec![0u8; MAX_PAQUETE];
         let n = escribir_paquete_dibujo(&mut caja, 7, &vs, &ps, 3, &datos, d).unwrap();
         assert_eq!(leer(&caja[..n]).unwrap().dibujo, d);

@@ -6,7 +6,7 @@
  * escriben, abren un archivo y lo leen. Esta sonda hace lo contrario -- le pasa
  * al kernel **lo que un programa honesto nunca le pasaria**: punteros que no son
  * suyos, longitudes gigantes, handles inventados, indices fuera de rango, la
- * quinta peticion de memoria cuando el tope son cuatro.
+ * novena peticion de memoria cuando el tope son ocho.
  *
  * La pregunta que contesta no es "funciona el sistema" sino **"que hace el
  * sistema cuando alguien lo empuja"**. Y la respuesta correcta a cada empujon es
@@ -144,7 +144,7 @@ int main() {
                bmo_codigo(BMO_TAREA_ACTUAL, BMO_OP_EJECUTAR, 0, 0, 0));
 
     /* == 4. EL TOPE DE MEMORIA, FORZADO ==
-     * El tope son cuatro peticiones por proceso. Ya se gasto una (el bloque
+     * El tope son ocho peticiones por proceso. Ya se gasto una (el bloque
      * propio de arriba). Se piden muchas mas: las que pasen del tope tienen que
      * devolver 0, NUNCA memoria de nadie. Aqui se mira que el kernel diga que
      * no; que no reviente al insistir es la otra mitad. */

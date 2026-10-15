@@ -367,7 +367,9 @@ pub const BATERIA_OBRA: u64 = 1 << 20;
 pub fn battery_de(params: &[Kind], obra: u64) -> Vec<Vec<u32>> {
     let column = |k: Kind| -> Vec<u32> { if k == Kind::F32 { BORDES.iter().map(|x| x.to_bits()).collect() } else { vec![0, 1] } };
     let columns: Vec<Vec<u32>> = params.iter().map(|k| column(*k)).collect();
-    let total: usize = columns.iter().map(|c| c.len()).product();
+    // Saturado (V3, 15-10): con 24 columnas -- un vertice y su cbuffer -- el
+    // producto de 18 por columna no cabe en un `usize`, y se pasa del tope.
+    let total: usize = columns.iter().try_fold(1usize, |a, c| a.checked_mul(c.len())).unwrap_or(usize::MAX);
     let tope = (BATERIA_OBRA / obra.max(1)).clamp(BORDES.len() as u64, 4096) as usize;
     let mut cells: Vec<Vec<u32>> = vec![Vec::new(); params.len()];
     if total <= tope {

@@ -9,6 +9,9 @@ version = "1.0.0"
 [[package]]
 name = "bmo-antena"
 version = "0.1.0"
+dependencies = [
+ "bmo-lamina",
+]
 
 [[package]]
 name = "bmo-app-bankcat"
@@ -109,6 +112,10 @@ name = "bmo-config"
 version = "0.1.0"
 
 [[package]]
+name = "bmo-contadores"
+version = "0.1.0"
+
+[[package]]
 name = "bmo-cripto"
 version = "0.1.0"
 
@@ -160,6 +167,10 @@ name = "bmo-juicio"
 version = "0.1.0"
 
 [[package]]
+name = "bmo-lamina"
+version = "0.1.0"
+
+[[package]]
 name = "bmo-letra"
 version = "0.1.0"
 
@@ -207,6 +218,9 @@ version = "0.1.0"
 [[package]]
 name = "bmo-pase-gpu"
 version = "0.1.0"
+dependencies = [
+ "bmo-lamina",
+]
 
 [[package]]
 name = "bmo-pila"
@@ -256,6 +270,9 @@ dependencies = [
 [[package]]
 name = "bmo-puerta-red"
 version = "0.1.0"
+dependencies = [
+ "bmo-lamina",
+]
 
 [[package]]
 name = "bmo-registro"
@@ -277,6 +294,7 @@ dependencies = [
  "bmo-bankcat",
  "bmo-bsf",
  "bmo-config",
+ "bmo-contadores",
  "bmo-cubo",
  "bmo-dibujo",
  "bmo-foco",
@@ -287,6 +305,7 @@ dependencies = [
  "bmo-imagen",
  "bmo-iommu-amdvi",
  "bmo-juicio",
+ "bmo-lamina",
  "bmo-pase-gpu",
  "bmo-pila",
  "bmo-registro",
@@ -347,6 +366,9 @@ dependencies = [
 [[package]]
 name = "bmo-verrano"
 version = "0.1.0"
+dependencies = [
+ "bmo-lamina",
+]
 
 [[package]]
 name = "bmo-verrano-trama"

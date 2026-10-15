@@ -111,6 +111,8 @@
 //! o en el flujo, aqui; lo que depende del silicio o del kernel, alli, y con su
 //! numero escrito antes de arrancar.**
 
+#[cfg(test)]
+mod espejo;
 mod director;
 mod grupo_f7;
 mod sistema;
@@ -123,6 +125,7 @@ mod sse;
 mod cargar;
 mod paginas;
 pub use cargar::cargar_bex;
+pub use paginas::FalloEmu;
 /// A donde se va cada instruccion: el desglose que el metro pinta.
 pub mod clases;
 
@@ -160,9 +163,15 @@ const MXCSR_CONTROL: u32 = 0xFFC0;
 pub const MEMORIA_VA_BASE: u64 = 0xE000_0000;
 
 /// Cuanto puede pedir un proceso de una vez, y cuantas veces.
-/// Espejo de `ring0::obj::memoria::{MAX_BYTES, MAX_PETICIONES}`.
+/// Espejo de `ring0::obj::memory::{MAX_BYTES, MAX_PETICIONES}`.
+///
+/// [!] Del 14-10: este espejo decia CUATRO y el kernel da OCHO desde
+/// `MEM_OP_SOLTAR`. Lo encontro la puerta de la RAM de TITAN++ (A4 de
+/// `docs/plan/EL_FOCO.md`): un programa con ventana, lista, fichero y lamina
+/// pide cinco, y aqui la lamina decia que no y en el metal que si. El juez de
+/// que no se vuelvan a separar: `emu/espejo.rs`.
 pub const MEMORIA_MAX_BYTES: u64 = 64 * 1024 * 1024;
-pub const MEMORIA_MAX_PETICIONES: usize = 4;
+pub const MEMORIA_MAX_PETICIONES: usize = 8;
 
 /// Pagina de 4 KiB: el bloque se redondea hacia ARRIBA, igual que el kernel.
 const MEMORIA_PAGE: u64 = 4096;
@@ -228,6 +237,11 @@ pub struct ObservedSyscall {
     pub arg1: u64,
     /// Y el quinto, en `r8`.
     pub arg2: u64,
+    /// **DE DONDE salio** (14-10, A4 de `docs/plan/EL_FOCO.md`): el `rip`
+    /// justo DESPUES del `syscall`, uno por cada sitio del codigo que llama
+    /// al kernel. Con el, "todo lo que pide RAM pasa por una puerta" es una
+    /// fila del banco y no una lectura del desensamblado.
+    pub rip: u64,
 }
 
 /// Un archivo abierto dentro del emulador.
@@ -298,6 +312,14 @@ pub struct Machine {
     /// la CPU mira con esto que un cuerpo no escriba fuera de sus registros, su
     /// salida y su pila -- tambien cuando escribe lo que ya habia.
     pub escritas: Option<Vec<u64>>,
+    /// **La TRAMPA** (B2, 14-10): un rango de direcciones que, si el programa
+    /// lo toca, PARA la maquina como un `#PF` del Ryzen, y [`Machine::fallo`]
+    /// dice donde. Ver `paginas.rs`.
+    pub trampa: Option<(u64, u64)>,
+    toco: std::cell::Cell<Option<u64>>,
+    /// Lo que dejo la trampa al saltar: la instruccion, la direccion y los
+    /// registros de ANTES de ejecutarla (un `#PF` no deja nada a medias).
+    pub fallo: Option<paginas::FalloEmu>,
     /// **El MXCSR** (LB4 de `docs/plan/PLAN_LAS_LIBRERIAS.md`, 08-10): el
     /// control de SSE, que `ldmxcsr` pone y `stmxcsr` lee.
     ///
@@ -325,6 +347,9 @@ pub struct Machine {
     /// ** Cuantas instrucciones ejecuto `run` (2026-09-18). Es el metro del
     /// emisor: determinista, y sale igual en cualquier maquina que compile.
     pub pasos: u64,
+    /// ** C4: desde que paso cuenta `TASK_OP_CONTAR` (el modelo del contador
+    /// de instrucciones retiradas: cada paso, una).
+    pub contar_desde: Option<u64>,
     /// ** EL RELOJ (10-10, el cuello de botella de EL_FOCO): el emulador
     /// cuenta a 1 GHz -- cada instruccion, un nanosegundo -- y un WAIT sin
     /// asa ADELANTA el reloj lo que pidio dormir. `rdtsc` da
@@ -424,6 +449,9 @@ pub struct Machine {
     mem_cursor: u64,
     mem_peticiones: usize,
     mem_entregados: u64,
+    /// Bloques devueltos con `MEM_OP_SOLTAR` (14-10, A4b de EL_FOCO): para
+    /// que una prueba vea que una lamina de TITAN++ se suelta de verdad.
+    mem_soltados: u64,
     /// Base de cada handle concedido, en orden de concesion.
     mem_bloques: Vec<u64>,
     /// ** UN DIRECTOR DE MENTIRA (2026-09-16). Quien nos "lanzo", lo que
@@ -486,6 +514,8 @@ pub struct Machine {
     audio_volumenes: Vec<u64>,
     /// Todo lo que sono, en orden: `(hz, ms)`.
     audio_partitura: Vec<(u64, u64)>,
+    /// ** Q2: las voces del orquestador, modeladas (`sistema::VocesEmu`).
+    pub voces: sistema::VocesEmu,
     tubo: sistema::TuboEmu,
     data_len: u64,
     zf: bool,
@@ -528,6 +558,9 @@ impl Machine {
             xmm_alto: [0; 16],
             ymm: [[0; 4]; 16],
             escritas: None,
+            trampa: None,
+            toco: std::cell::Cell::new(None),
+            fallo: None,
             mxcsr: MXCSR_REINICIO,
             code,
             rip: 0,
@@ -535,6 +568,7 @@ impl Machine {
             syscalls: Vec::new(),
             exited: false,
             pasos: 0,
+            contar_desde: None,
             dormido_ns: 0,
             censo: clases::Censo::default(),
             archivos: HashMap::new(),
@@ -557,6 +591,7 @@ impl Machine {
             mem_cursor: MEMORIA_VA_BASE,
             mem_peticiones: 0,
             mem_entregados: 0,
+            mem_soltados: 0,
             mem_bloques: Vec::new(),
             padre: 0,
             ofertas: Vec::new(),
@@ -570,6 +605,7 @@ impl Machine {
             audio_volumen: 50,
             audio_volumenes: Vec::new(),
             audio_partitura: Vec::new(),
+            voces: Default::default(),
             tubo: sistema::TuboEmu::default(),
             data_len: 0,
             zf: false,
@@ -619,6 +655,7 @@ impl Machine {
     /// `%s` leeria ceros si el emulador no modelara eso. Fuera de la imagen
     /// devuelve cero, que es lo que hace el kernel con una pagina nueva.
     fn read_u8_mem(&self, addr: u64) -> u8 {
+        self.mira_trampa(addr);
         if let Some(b) = self.mem.get(&addr) {
             return *b;
         }
@@ -1802,7 +1839,12 @@ pub fn run_con(mut m: Machine, max_steps: usize, mut sonda: impl FnMut(usize)) -
         sonda(m.rip);
         let clase = clases::clasificar(&m.code[m.rip..]);
         m.censo.apuntar(clase);
+        let antes = m.trampa.map(|_| (m.rip, m.regs));
         m.step();
+        if let (Some((rip, regs)), Some(addr)) = (antes, m.toco.take()) {
+            m.fallo = Some(paginas::FalloEmu { rip, addr, regs });
+            break;
+        }
         steps += 1;
         m.pasos += 1;
         assert!(

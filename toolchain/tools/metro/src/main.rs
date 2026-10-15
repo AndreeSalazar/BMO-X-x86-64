@@ -41,6 +41,14 @@
 //! `pulso.inti` --667.750 instrucciones-- es trabajo de verdad. `cpu.inti` se
 //! queda fuera por `cpuid`, como `ciclos_C.c` por `rdtsc`.
 //!
+//! ** Y LA LENTE (14-10, A5 de `docs/plan/EL_FOCO.md`): este mismo banco es el
+//! ORACULO de `bmo-lente-x86`. Cada programa corre con una sonda que apunta
+//! cada paso (de donde a donde); al acabar, la lente lee cada instruccion que
+//! corrio y lo que vino detras tiene que ser uno de sus sucesores -- la de
+//! justo detras (juzga el LARGO) o el destino de su salto (juzga el
+//! DESPLAZAMIENTO) --. Una que no sepa leer, o que lea mal, para el build:
+//! lo que el emisor escribe y corre, la lente lo lee, en los seis lenguajes.
+//!
 //! [!] Lo que NO mide, dicho: los ciclos del Ryzen -- las instrucciones no son
 //! ciclos; eso lo miden `c/coste.bex` y `c/ciclos.bex` en el metal.
 
@@ -76,6 +84,8 @@ const BANCO: &[(&str, &str)] = &[
     ("c", "toolchain/lang/c/examples/imagen_C.c"),
     ("c", "toolchain/lang/c/examples/raycaster_C.c"),
     ("c", "toolchain/lang/c/examples/sonda_C.c"),
+    // A6 (14-10): pide POPCNT y BMI1, y su oraculo lo juzga.
+    ("c", "toolchain/lang/c/examples/bits_C.c"),
     ("cpp", "toolchain/lang/cpp/examples/1-clases/cuentas.cpp"),
     ("cobol", "toolchain/lang/cobol/examples/1-basico/hola.cob"),
     ("cobol", "toolchain/lang/cobol/examples/2-decimal/banco.cob"),
@@ -164,6 +174,122 @@ struct Medida {
     salida: String,
     /// A donde se fueron los `pasos`. No va a la linea base: es diagnostico.
     censo: Censo,
+    /// Lo que dijo la lente (A5): cuantas instrucciones distintas leyo, o lo
+    /// que no supo leer o leyo mal. No va a la linea base: es un juez.
+    lente: Result<usize, Vec<String>>,
+}
+
+/// ** EL ORACULO DE LA LENTE: cada paso que dio el programa, `(de, a)`, es un
+/// sucesor que la lente dice de la instruccion en `de`.
+fn juzgar_lente(codigo: &[u8], pasos: &std::collections::HashSet<(usize, usize)>, declara: u64) -> Result<usize, Vec<String>> {
+    use bmo_lente_x86::{lee, Sigue};
+    let mut leidas = std::collections::HashMap::new();
+    let mut quejas = Vec::new();
+    let bytes = |a: usize| codigo[a..(a + 12).min(codigo.len())].iter().map(|b| format!("{b:02x}")).collect::<Vec<_>>().join(" ");
+    let mut orden: Vec<&(usize, usize)> = pasos.iter().collect();
+    orden.sort();
+    for &&(de, a) in &orden {
+        let i = match leidas.entry(de).or_insert_with(|| lee(&codigo[de..])) {
+            Ok(i) => *i,
+            Err(e) => {
+                if quejas.len() < 20 {
+                    quejas.push(format!("lente: en 0x{de:x} no sabe leer ({e:?}): {}", bytes(de)));
+                }
+                continue;
+            }
+        };
+        let (de64, a64) = (de as u64, a as u64);
+        // ** A6: lo que corrio pide a la CPU, y el `.bex` lo tiene que DECLARAR.
+        // Un `popcnt` sin su linea es un `#UD` en una CPU sin el.
+        if !i.fila.pide.is_empty() {
+            let bit = bmo_abi::bef::requisitos::instrucciones::por_nombre(i.fila.pide).map_or(u64::MAX, |e| e.bit);
+            if declara & bit != bit && quejas.len() < 20 {
+                quejas.push(format!("lente: en 0x{de:x} corre `{}`, que pide {}, y el .bex no lo declara: {}", i.texto(de64).as_str(), i.fila.pide, bytes(de)));
+            }
+        }
+        let vale = match i.sigue(de64) {
+            Sigue::Siguiente(n) => a64 == n,
+            Sigue::Condicional { cae, salta } => a64 == cae || a64 == salta,
+            Sigue::Salta(t) => a64 == t,
+            Sigue::Llama { destino, .. } => a64 == destino,
+            Sigue::Vuelve | Sigue::Indirecto => true,
+            Sigue::Para => false,
+        };
+        if !vale && quejas.len() < 20 {
+            quejas.push(format!("lente: en 0x{de:x} lee `{}` ({} B) y el programa siguio en 0x{a:x}: {}", i.texto(de64).as_str(), i.largo, bytes(de)));
+        }
+    }
+    if quejas.is_empty() { Ok(leidas.len()) } else { Err(quejas) }
+}
+
+/// Las extensiones de x86-64 que el `.bex` declara usar (A6).
+fn declara(bex: &[u8]) -> u64 {
+    use bmo_abi::bef::requisitos::{Tabla, CLASE_INSTRUCCIONES};
+    let Ok(v) = bmo_abi::bef2::leer(bex) else { return 0 };
+    let Some(t) = v.anexo(bmo_abi::bef2::ANEXO_REQUISITOS).and_then(Tabla::abrir) else { return 0 };
+    t.iter().filter(|r| r.clase == CLASE_INSTRUCCIONES && r.es_obligatorio()).fold(0, |m, r| m | r.cantidad)
+}
+
+/// **El recorrido de B1** (`bmo_lente_x86::recorre`) sobre el codigo de un
+/// `.bex`, con lo que declara: el veredicto, el largo del codigo y el mapa de lo
+/// leido.
+fn recorrer(bex: &[u8]) -> (bmo_lente_x86::recorre::Recorrido, usize, Vec<u8>) {
+    let Ok(v) = bmo_abi::bef2::leer(bex) else {
+        return (bmo_lente_x86::recorre::Recorrido { desborda: true, ..Default::default() }, 0, Vec::new());
+    };
+    let c = v.region(bmo_abi::bef2::Region::Codigo);
+    let d = declara(bex);
+    let mut visto = vec![0u8; c.len().div_ceil(8)];
+    let mut pila = vec![0u32; 1 << 16];
+    let r = bmo_lente_x86::recorre::recorre(
+        c.len(),
+        v.entrada as usize,
+        v.relocs().filter(|r| r.destino == bmo_abi::bef2::Region::Codigo).map(|r| r.addend),
+        |en, b| {
+            let n = (c.len() - en).min(b.len());
+            b[..n].copy_from_slice(&c[en..en + n]);
+            n
+        },
+        |n| bmo_abi::bef::requisitos::instrucciones::por_nombre(n).is_some_and(|e| d & e.bit != 0),
+        &mut visto,
+        &mut pila,
+    );
+    (r, c.len(), visto)
+}
+
+/// Lo que le falta a un recorrido para quedar demostrado, dicho: con los
+/// bytes de cada sitio (y lo que la lente lee en ellos, si lee algo).
+fn que_falta(r: &bmo_lente_x86::recorre::Recorrido, c: &[u8]) -> String {
+    let sitio = |en: usize| {
+        let b: Vec<String> = c[en..(en + 10).min(c.len())].iter().map(|b| format!("{b:02x}")).collect();
+        match bmo_lente_x86::lee(&c[en..(en + 15).min(c.len())]) {
+            Ok(i) => format!("`{}` [{}]", i.texto(en as u64).as_str(), b.join(" ")),
+            Err(_) => format!("[{}]", b.join(" ")),
+        }
+    };
+    let mut q = Vec::new();
+    if let Some((en, e)) = r.no_declarada { q.push(format!("en 0x{en:x} una instruccion de {e}, que el .bex NO declara: {}", sitio(en))); }
+    if let Some((en, e)) = r.no_sabe { q.push(format!("en 0x{en:x} no sabe leer ({e:?}): {}", sitio(en))); }
+    if let Some((de, a)) = r.fuera { q.push(format!("en 0x{de:x} un salto sale del codigo, a 0x{a:x}")); }
+    if r.desborda { q.push("el recorrido desbordo".into()); }
+    q.join("; ")
+}
+
+/// `--recorre <fichero.bex>`: el veredicto de B1 para cualquier `.bex`.
+fn recorre_fichero(ruta: &str) {
+    let bex = match std::fs::read(ruta) {
+        Ok(b) => b,
+        Err(e) => { eprintln!("recorre: no se lee {ruta}: {e}"); std::process::exit(2) }
+    };
+    let (r, largo, _) = recorrer(&bex);
+    println!("{ruta}: {} instrucciones, {} de {} B de codigo alcanzados desde la entrada, {} saltos indirectos; {} piden algo NO declarado, {} se degradan sin ello (tzcnt/lzcnt)", r.leidas, r.bytes, largo, r.indirectos, r.no_declaradas, r.degradan);
+    if r.demostrado() {
+        println!("DEMOSTRADO: todo lo alcanzable se lee, es de lo declarado y no sale del codigo");
+    } else {
+        let c = bmo_abi::bef2::leer(&bex).map(|v| v.region(bmo_abi::bef2::Region::Codigo).to_vec()).unwrap_or_default();
+        println!("NO DEMOSTRADO: {}", que_falta(&r, &c));
+        std::process::exit(1);
+    }
 }
 
 fn raiz() -> PathBuf {
@@ -234,12 +360,47 @@ fn medir(lenguaje: &str, rel: &str) -> Result<Medida, String> {
     // ejemplo dice que se teclea (`# entra:`), igual que en su banco.
     let entra: String = fuente.lines().filter_map(|l| l.strip_prefix("# entra: ")).map(|l| format!("{l}\n")).collect();
     maquina.poner_entrada(&entra);
-    let m = std::panic::catch_unwind(move || bmo_lower::emu::run(maquina, LIMITE))
-        .map_err(|_| format!("no termina en {LIMITE} instrucciones o el emulador no sabe una"))?;
+    let codigo = maquina.code.clone();
+    let (m, pasos) = std::panic::catch_unwind(move || {
+        // la sonda de la lente: cada paso, de donde a donde
+        let mut pasos = std::collections::HashSet::new();
+        let mut antes: Option<usize> = None;
+        let m = bmo_lower::emu::run_con(maquina, LIMITE, |rip| {
+            if let Some(a) = antes {
+                pasos.insert((a, rip));
+            }
+            antes = Some(rip);
+        });
+        (m, pasos)
+    })
+    .map_err(|_| format!("no termina en {LIMITE} instrucciones o el emulador no sabe una"))?;
     if !m.exited {
         return Err("no termino por EXIT".into());
     }
-    Ok(Medida { pasos: m.pasos, accesos: m.censo.accesos(), codigo: bytes_de_codigo(&bex), salida: huella(&m.console), censo: m.censo })
+    let lente = juzgar_lente(&codigo, &pasos, declara(&bex));
+    // ** B1: el recorrido desde la ENTRADA, el que hara el kernel al admitir.
+    // Cada programa del banco tiene que quedar DEMOSTRADO, y todo lo que corrio
+    // tiene que haberlo leido -- salvo lo que solo se alcanza por un salto
+    // indirecto, que el recorrido cuenta y no puede seguir.
+    let lente = {
+        let (r, largo, visto) = recorrer(&bex);
+        let mut quejas = Vec::new();
+        if !r.demostrado() {
+            let c = bmo_abi::bef2::leer(&bex).map(|v| v.region(bmo_abi::bef2::Region::Codigo).to_vec()).unwrap_or_default();
+            quejas.push(format!("recorrido: no demostrado ({}/{} B): {}", r.bytes, largo, que_falta(&r, &c)));
+        }
+        let sin: Vec<usize> = pasos.iter().map(|p| p.0).filter(|&o| visto.get(o / 8).is_none_or(|b| b >> (o % 8) & 1 == 0)).collect();
+        if !sin.is_empty() && r.indirectos == 0 {
+            quejas.push(format!("recorrido: {} instrucciones corrieron y no las alcanzo (la primera en 0x{:x}), sin un salto indirecto que lo explique", sin.len(), sin.iter().min().unwrap()));
+        }
+        // Los dos jueces hablan: el de lo que corrio y el del recorrido.
+        match lente {
+            Ok(n) if quejas.is_empty() => Ok(n),
+            Ok(_) => Err(quejas),
+            Err(mut q) => { q.extend(quejas); Err(q) }
+        }
+    };
+    Ok(Medida { pasos: m.pasos, accesos: m.censo.accesos(), codigo: bytes_de_codigo(&bex), salida: huella(&m.console), censo: m.censo, lente })
 }
 
 fn linea_base() -> PathBuf {
@@ -255,7 +416,7 @@ fn leer_base() -> Result<BTreeMap<String, Medida>, String> {
         let c: Vec<&str> = l.split_whitespace().collect();
         if c.len() != 5 { return Err(format!("linea base mal formada (programa pasos accesos codigo salida): `{l}`")); }
         let n = |s: &str| s.parse::<u64>().map_err(|_| format!("numero mal formado: `{s}`"));
-        out.insert(c[0].to_string(), Medida { pasos: n(c[1])?, accesos: n(c[2])?, codigo: n(c[3])?, salida: c[4].to_string(), censo: Censo::default() });
+        out.insert(c[0].to_string(), Medida { pasos: n(c[1])?, accesos: n(c[2])?, codigo: n(c[3])?, salida: c[4].to_string(), censo: Censo::default(), lente: Ok(0) });
     }
     Ok(out)
 }
@@ -371,6 +532,10 @@ fn caliente(rel: &str, salida: Option<&str>) {
 
 fn main() {
     let modo = std::env::args().nth(1).unwrap_or_default();
+    if modo == "--recorre" {
+        recorre_fichero(&std::env::args().nth(2).unwrap_or_default());
+        return;
+    }
     if modo == "--caliente" {
         let rel = std::env::args().nth(2).unwrap_or_default();
         let salida = std::env::args().nth(3);
@@ -415,6 +580,20 @@ fn main() {
         println!("metro: {} programa(s) del banco no se pudieron medir", rotos.len());
         exit(1);
     }
+    // ** El oraculo de la lente (A5): lo que corrio, leido.
+    let mut leidas = 0;
+    let mut mal = Vec::new();
+    for (p, m) in &medidas {
+        match &m.lente {
+            Ok(n) => leidas += n,
+            Err(q) => mal.extend(q.iter().map(|x| format!("{p}: {x}"))),
+        }
+    }
+    if !mal.is_empty() {
+        for q in &mal { println!("  [X] {q}"); }
+        println!("metro: la lente y lo que corrio no casan ({} queja(s)): o falta una fila en `platform/shared/bmo-lente-x86/src/tabla.rs`, o el emisor no declara lo que pide a la CPU", mal.len());
+        exit(1);
+    }
     let (pasos, accesos, codigo): (u64, u64, u64) =
         medidas.values().fold((0, 0, 0), |a, m| (a.0 + m.pasos, a.1 + m.accesos, a.2 + m.codigo));
 
@@ -444,7 +623,7 @@ fn main() {
                 exit(1);
             }
             let aviso = if bajaron > 0 { format!("; {bajaron} bajaron: fija con --fijar") } else { String::new() };
-            println!("clean: metro del emisor -- {} programas (C, C++, COBOL, Ada, INTI, TITAN++), {pasos} instrucciones, {accesos} accesos a memoria, {codigo} B de codigo, ninguna salida cambio{aviso}", medidas.len());
+            println!("clean: metro del emisor -- {} programas (C, C++, COBOL, Ada, INTI, TITAN++), {pasos} instrucciones, {accesos} accesos a memoria, {codigo} B de codigo, ninguna salida cambio{aviso}; la lente lee las {leidas} instrucciones distintas que corrieron, y el recorrido desde la entrada (B1) los demuestra a todos", medidas.len());
         }
         _ => {
             println!("{:<58} {:>12} {:>9} {:>9}  salida", "programa", "pasos", "accesos", "codigo");
@@ -461,7 +640,7 @@ mod pruebas {
     use super::*;
 
     fn m(pasos: u64, codigo: u64, salida: &str) -> Medida {
-        Medida { pasos, accesos: pasos / 2, codigo, salida: salida.into(), censo: Censo::default() }
+        Medida { pasos, accesos: pasos / 2, codigo, salida: salida.into(), censo: Censo::default(), lente: Ok(0) }
     }
     fn con_accesos(mut x: Medida, accesos: u64) -> Medida {
         x.accesos = accesos;

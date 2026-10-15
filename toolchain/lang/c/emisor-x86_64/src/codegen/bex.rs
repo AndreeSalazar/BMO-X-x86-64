@@ -398,6 +398,7 @@ impl Codegen {
         if self.quiere_pantalla && !self.sabe_componerse {
             b.quiere_pantalla();
         }
+        b.instrucciones(self.instrucciones);
 
         b.entrada(self.entry_offset as u32);
         b.construir().unwrap_or_default()

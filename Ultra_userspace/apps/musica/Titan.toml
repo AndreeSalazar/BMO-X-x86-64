@@ -1,0 +1,6 @@
+[package]
+name = "musica"
+
+[permissions]
+screen = true
+sound = true

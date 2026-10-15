@@ -41,6 +41,17 @@ pub(crate) struct TuboEmu {
     escrito: u64,
 }
 
+/// ** Q2 (15-10): LAS VOCES DEL ORQUESTADOR, modeladas: cada `AUDIO_OP_VOZ`
+/// que cruzo `(suborden, arg1, arg2)`, el banco prestado `(base, bytes)` y lo
+/// que se pidio TOCAR -- canal, hercios y las muestras que habia en el banco
+/// en ese momento --.
+#[derive(Default)]
+pub struct VocesEmu {
+    pub llamadas: Vec<(u64, u64, u64)>,
+    banco: Option<(u64, u64)>,
+    pub tocados: Vec<(u8, u32, Vec<i16>)>,
+}
+
 impl Machine {
     /// Enchufa un audifono: el tubo contesta esta frecuencia y estos bytes por
     /// trama de 1 ms.
@@ -210,12 +221,51 @@ impl Machine {
 
     /// Despacho de la capability de sonido. Copia la semantica de
     /// `ring0/obj/audio.rs` -- sobre todo la que se nota: **el tope recorta**.
-    fn audio_op(&mut self, op: u64, a0: u64, a1: u64) -> u64 {
+    fn audio_op(&mut self, op: u64, a0: u64, a1: u64, a2: u64) -> u64 {
         use bmo_abi::syscalls::surface::{
             DEVICE_SPEAKER, AUDIO_OP_DEVICES, AUDIO_OP_SILENCE, AUDIO_OP_BEEP, AUDIO_OP_TUBO,
-            AUDIO_OP_VOLUME,
+            AUDIO_OP_VOLUME, AUDIO_OP_VOZ,
         };
         match op {
+            // ** LAS VOCES DEL ORQUESTADOR (Q2, 15-10), modeladas: el banco es
+            // un bloque que el programa pidio (sus bytes, o 0 si no lo es);
+            // TOCAR se juzga contra el banco y GUARDA las muestras que habia en
+            // ese momento -- el programa puede reescribir el banco despues, y
+            // la prueba quiere oir lo que se pidio --. Aqui no pasa el tiempo:
+            // una voz acaba en el acto (SUENA dice 0).
+            AUDIO_OP_VOZ => {
+                self.voces.llamadas.push((a0, a1, a2));
+                match a0 {
+                    1 => {
+                        let bytes = self.bytes_de_bloque(a1);
+                        self.voces.banco = (bytes > 0).then_some((a1, bytes));
+                        bytes
+                    }
+                    2 => {
+                        let Some((base, bytes)) = self.voces.banco else { return 0 };
+                        let (inicio, muestras) = (a1 & 0xFFFF_FFFF, a1 >> 32);
+                        let (canal, formato, hz) = (a2 & 0xFF, a2 >> 8 & 3, a2 >> 36 & 0xF_FFFF);
+                        let ancho = if formato == 1 { 2 } else { 1 };
+                        if canal >= 16 || hz == 0 || muestras == 0 || inicio + muestras * ancho > bytes {
+                            return 0;
+                        }
+                        let m: Vec<i16> = (0..muestras)
+                            .map(|k| {
+                                let a = base + inicio + k * ancho;
+                                if ancho == 2 {
+                                    i16::from_le_bytes([self.read_u8_pub(a), self.read_u8_pub(a + 1)])
+                                } else {
+                                    ((self.read_u8_pub(a) as i16) - 128) << 8
+                                }
+                            })
+                            .collect();
+                        self.voces.tocados.push((canal as u8, hz as u32, m));
+                        1
+                    }
+                    3 | 4 | 6 => 1,
+                    _ => 0,
+                }
+            }
             // Las mismas preguntas que `ring0/obj/audio.rs`, por el primer
             // argumento. Sin tubo, todas contestan 0 -- tambien "ofrecer".
             AUDIO_OP_TUBO if self.tubo.hz == 0 => 0,
@@ -509,7 +559,7 @@ impl Machine {
     ///
     /// Los dos rechazos que un programa puede provocar SOLO son los mismos que
     /// los del kernel y **con sus mismos codigos**: pedir cero o pasarse del
-    /// tope (`0xE001`), y pedir una quinta vez (`0xE003`).
+    /// tope (`0xE001`), y pedir una novena vez (`0xE003`).
     ///
     /// Los otros dos no se modelan, y por el mismo motivo los dos: **aqui solo
     /// corre un proceso y la memoria es infinita**. `ERROR_NO_RAM` necesitaria
@@ -517,6 +567,13 @@ impl Machine {
     /// la vez. Fingirlos seria inventarse fallos que este emulador no puede
     /// reproducir de forma repetible -- y son exactamente el tipo de cosa que el
     /// eje 2 de la seccion FIDELIDAD dice que hay que probar en el Ryzen.
+    /// Los bytes del bloque que empieza en `base` (pedido con
+    /// `TASK_OP_MEMORIA_PEDIR`), o 0 si no empieza ninguno ahi.
+    fn bytes_de_bloque(&self, base: u64) -> u64 {
+        let Some(i) = self.mem_bloques.iter().position(|&b| b == base) else { return 0 };
+        self.mem_bloques.get(i + 1).copied().unwrap_or(self.mem_cursor) - base
+    }
+
     fn memoria_pedir(&mut self, bytes: u64) -> Result<u64, u64> {
         const ERROR_TOO_BIG: u64 = 0xE001;
         const ERROR_TOO_MANY: u64 = 0xE003;
@@ -559,6 +616,11 @@ impl Machine {
         self.mem_entregados
     }
 
+    /// Cuantos bloques se devolvieron con `MEM_OP_SOLTAR`.
+    pub fn memoria_soltada(&self) -> u64 {
+        self.mem_soltados
+    }
+
     /// La puerta del kernel, modelada.
     pub(super) fn do_syscall(&mut self) {
         use bmo_abi::syscalls::surface::{
@@ -577,6 +639,7 @@ impl Machine {
             // Los dos que ya se leian mas abajo y no se guardaban.
             arg1: self.regs[R10],
             arg2: self.regs[crate::x86::R8 as usize],
+            rip: self.rip as u64,
         };
         self.syscalls.push(call);
 
@@ -763,6 +826,36 @@ impl Machine {
                     }
                     return;
                 }
+                // ** C4: los contadores, MODELADOS: el de instrucciones
+                // retiradas es el metro (`pasos`); los demas, 0 -- el
+                // emulador no tiene cache ni predictor, y lo dice asi --.
+                op if op == bmo_abi::syscalls::surface::TASK_OP_CONTAR => {
+                    use bmo_abi::syscalls::surface::{CONTAR_EMPIEZA, CONTAR_LEE, CONTAR_PARA};
+                    let v = match call.arg0 {
+                        CONTAR_EMPIEZA => {
+                            self.contar_desde = Some(self.pasos);
+                            1
+                        }
+                        CONTAR_LEE => match (self.contar_desde, call.arg1) {
+                            (Some(d), 1) => self.pasos - d,
+                            (Some(_), 0..=3) => 0,
+                            _ => {
+                                self.fallar_syscall(1);
+                                return;
+                            }
+                        },
+                        CONTAR_PARA => {
+                            self.contar_desde = None;
+                            0
+                        }
+                        _ => {
+                            self.fallar_syscall(1);
+                            return;
+                        }
+                    };
+                    self.finalizar_syscall(v);
+                    return;
+                }
                 op if op == TASK_OP_YIELD => {
                     if let Some(lote) = self.lotes.pop() {
                         self.teclas.extend_from_slice(&lote);
@@ -780,7 +873,7 @@ impl Machine {
                 self.fallar_syscall(2); // ERROR_INVALID_HANDLE
                 return;
             }
-            let v = self.audio_op(call.operation, call.arg0, self.regs[R10]);
+            let v = self.audio_op(call.operation, call.arg0, self.regs[R10], call.arg2);
             self.finalizar_syscall(v);
             return;
         } else if call.capability == CAP_ENTRADA {
@@ -812,6 +905,22 @@ impl Machine {
                     self.ofertas.push((base, desde, bytes, destino));
                 }
                 self.finalizar_syscall(if vale { 1 } else { 0 });
+                return;
+            }
+            // ** SOLTAR (14-10, A4b de EL_FOCO), como `obj/memory.rs`: el asa
+            // queda REVOCADA (su base ya no se resuelve: la VA no se reusa) y
+            // la peticion vuelve al tope, que cuenta bloques A LA VEZ. Contesta
+            // 1; un asa que ya no es un bloque vivo, 0. (El NO de un bloque
+            // aun PRESTADO -- un par -- no se modela: aqui nadie toma.)
+            if call.operation == bmo_abi::syscalls::surface::MEM_OP_SOLTAR {
+                let i = (call.capability - CAP_MEMORIA) as usize;
+                let vivo = self.mem_bloques.get(i).is_some_and(|b| *b != 0);
+                if vivo {
+                    self.mem_bloques[i] = 0;
+                    self.mem_peticiones -= 1;
+                    self.mem_soltados += 1;
+                }
+                self.finalizar_syscall(if vivo { 1 } else { 0 });
                 return;
             }
             let v = self.memoria_op(call.capability, call.operation);
