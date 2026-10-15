@@ -304,6 +304,61 @@ El primer CGI (IL10) pide **LZ1 a LZ4**; lo demas lo mejora despues.
 
 ---
 
+# 6d. HACIA HOUDINI, Y LA CARNE DE VERDAD (15-10)
+
+> El propietario, 15-10: *"me gustaria que mi ILLAPA ENCARE a Houdini por
+> completo, CAPAZ de generar todo iguales en lo que es basicamente, que
+> tengan mismo render al estilo RENDERMAN [...] tengo curiosidad TAN grande
+> en ver la carne REAL en ILLAPA con mi VERRANO"*.
+
+**Lo honesto primero.** Houdini son tres decadas de SideFX; "por completo" no es
+una meta que se pueda tachar. Lo que SI se puede: que lo BASICO de cada
+red de Houdini tenga su igual en ILLAPA, y que cada uno se pruebe contra
+una escena que en Houdini da un resultado conocido. Lo que ILLAPA tiene y
+Houdini no: la imagen comprobada bit a bit (el juez de la CPU) y la misma
+maquina de la app al metal.
+
+Lo que hace a Houdini ser Houdini, y donde vive aqui:
+
+```text
+   HOUDINI                    QUE ES                          EN ILLAPA
+   SOPs (geometria por        cada paso es un nodo; cambiar   HO1 (nuevo)
+   nodos)                     uno rehace los de abajo
+   atributos (P, N, Cd...)    datos pegados a cada punto      HO1: laminas por atributo
+   VEX / wrangle              un trozo de codigo por punto,   `gpu fn` de TITAN++: ya
+                              en paralelo                     existe; HO2 la pega a HO1
+   Vellum (tela, pelo,        XPBD sobre particulas           IL4
+   blando)
+   FLIP (liquido de cine)     particulas + rejilla            IL13
+   Pyro (humo y fuego)        rejilla de volumen              IL12
+   RBD (romper cosas)         fractura de Voronoi + rigidos   HO3 (nuevo)
+   FEM / musculos (la         solidos de tetraedros,          HO4, HO5 (nuevo)
+   CARNE)                     musculos que se contraen,
+                              grasa y piel que se deslizan
+   Karma / RenderMan          trazador de rayos fisico        IL14 y LZ1..LZ9
+   USD / Solaris              la escena como capas            IL9 (ESTRATOS)
+```
+
+**La carne REAL** sale de juntar tres peldanios: la forma que se mueve por
+dentro (HO4 y HO5: hueso, musculo, grasa, piel), la luz que entra en la piel
+(LZ5, la dispersion bajo la superficie) y la imagen final por rayos (IL14).
+Ninguno solo basta: una simulacion buena con luz de plastico parece goma.
+
+## Su escalera (despues de IL11; HO1 y HO2 pueden adelantarse)
+
+- [ ] HO1 -- GEOMETRIA POR NODOS: una red de nodos (crear, transformar, copiar sobre puntos, unir) donde cada nodo lee y escribe atributos por punto en laminas; cambiar un nodo rehace solo los de abajo. **Como se sabe:** la misma red, rehecha entera y por partes, da los mismos bytes
+- [ ] HO2 -- EL WRANGLE: una `gpu fn` de TITAN++ como nodo de HO1, corrida en la 3060 sobre cada punto y juzgada por la CPU
+- [ ] HO3 -- ROMPER: fractura de Voronoi y los trozos como rigidos del solucionador de IL4
+- [ ] HO4 -- LA CARNE: solidos de tetraedros con elementos finitos (el modelo neo-hookeano), estables con pasos grandes. **Como se sabe:** una viga que cae se dobla igual que la formula y conserva su volumen
+- [ ] HO5 -- LOS MUSCULOS: fibras que se contraen con una orden, pegadas al hueso del glTF (IL6), y la grasa y la piel que se deslizan encima. La prueba visible: un brazo que dobla el codo y el biceps que se hincha
+- [ ] HO6 -- LA PRUEBA CONTRA HOUDINI: cinco escenas simples (una tela que cae, una presa de agua, un cubo que se rompe, una viga blanda, un brazo) hechas aqui y en Houdini Apprentice (en Windows), comparadas a ojo y por numeros (volumen, energia, tiempo); se anota cual gana en que
+
+**Lo que pide de abajo:** `f32` en la 3060 ya lo hay; HO4 pide resolver
+sistemas grandes en la 3060 (gradiente conjugado: muchas `gpu fn` seguidas
+y una suma por bloques) y, por eso, IL1 y IL2 primero.
+
+---
+
 # 7. LO QUE ESTE PLAN NO HACE
 
 * **No trae Houdini ni Blender.** De Houdini se aprenden sus ideas, que son

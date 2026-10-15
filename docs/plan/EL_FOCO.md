@@ -391,7 +391,8 @@ esta en la HOJA 6b.
       Cyberpunk (`mov eax, [rdi+0x18c0]` -> `rdi`), SIB, `r13`, `rsp`,
       `rip`, sin base. "De que funcion" sigue siendo el `+desplazamiento` del
       renglon `rip` con `--map`, como antes. **Lo que falta:** un `.bex` que
-      falle a proposito en el Ryzen y leer `instr` en su `datos/fallos.txt`.
+      falle a proposito en el Ryzen y leer `instr` en su `datos/fallos.txt`:
+      es `c/autopsia.bex` (`toolchain/lang/c/examples/autopsia_C.c`, 15-10).
   - [x] **en el anfitrion** -- HECHO el 14-10 (lo de arriba).
   - [ ] **en el Ryzen** -- un `.bex` que falle a proposito y su renglon `instr` en `datos/fallos.txt` (hoja 6b, fila B2). Cuando se vea bien: se anota en la hoja
         y se tachan esta casilla y la de B2.
@@ -1142,10 +1143,11 @@ pieza entera en la 0b, y su fila de la tabla de estado pasa a `VISTO dd-mm`.
           vez                          veces; en la bitacora: la 1a      o la 2a vez la lente lee
                                        `lente: DEMOSTRADO`, la 2a        otra vez (sin `ya leido`)
                                        `lente: ya leido`
-   B2     la autopsia dice la          un `.bex` que lea de un puntero   sin renglon `instr`, o una  (sin probar)
-          instruccion                  malo; en `datos/fallos.txt` el    instruccion que no es la
-                                       renglon `instr`: la instruccion   del `rip`
-                                       y su registro con su valor
+   B2     la autopsia dice la          `run c/autopsia.bex` (lee de      sin renglon `instr`, o una  (sin probar)
+          instruccion                  0xDEAD0000 a proposito); en       instruccion que no es la
+                                       `datos/fallos.txt` el renglon     del `rip`, o la consola
+                                       `instr`: la instruccion y su      dice `no fallo`
+                                       registro, que dan 0xDEAD0190
    B3     el cubo en SU ventana        las filas Q0a2..Q0a4 de la        lo de esas filas            (sin probar)
                                        seccion 6
    B4     el perfil al arrancar        en la bitacora del arranque:      `NO es la del perfil` en    (sin probar)
@@ -1186,6 +1188,57 @@ pieza entera en la 0b, y su fila de la tabla de estado pasa a `VISTO dd-mm`.
                                        el juez `la 3060 da lo MISMO`,    bitacora), un fallo de la
                                        y el cubo gira igual que antes    IOMMU, o el juez DISTINTO
 ```
+
+## 6b1. LA SESION, EN ORDEN (15-10): que se trae y que foto se saca
+
+El propietario (15-10): *"dime los elementos que traere en BMO-X para darle
+el check en orden y preciso"*. Las once filas de arriba en UNA sesion, en
+este orden (cada paso deja listo el siguiente), con una foto por paso.
+
+```text
+   SE TRAE   el USB con el build de HOY (`desplegar.ps1`), la 3060 puesta,
+             el audifono USB, el raton y el movil para las fotos (y un
+             video corto con sonido para Q2)
+
+   paso  fila   QUE SE TECLEA                      LA FOTO DEBE MOSTRAR (*) 
+    1    B4     (nada: arrancar)                   la bitacora del arranque:
+                                                   `cpu: es la CPU del perfil` y
+                                                   `extensiones ... = 11`
+    2    C4     `cpu contadores`                   las 8 filas y `8 de 8`
+    3    A4     `run titan/suelta.bex`             `20 laminas ... : 190`
+                `run titan/laminas.bex`            `100 50 3 7`, `200`, `497`, `350`
+    4    C3     `gpu init`                         `[C3] la 3060 vuelca el
+                `gpu volcado`                      escritorio por defecto` y
+                                                   `1024 de 1024`; mover el raton
+                                                   y una ventana
+    5    C1     `run titan/cubogira.bex` (1a vez)  el cubo en SU ventana; en la
+         B3     desde Ejecutar                     consola `[C1] ... PRESTADA` y
+         B1                                        `[Q0a3] ... da lo MISMO`; en la
+                                                   bitacora `lente: DEMOSTRADO`
+    6    B1     `run titan/cubogira.bex` (2a vez)  la bitacora: `lente: ya leido`
+    7    C2     `gpu verrano banco inti`           `C2, el sello: la app TOCA EL
+                                                   TIMBRE` y la latencia
+         B3     `gpu verrano banco inti enram`     el juez IGUAL (Q0a2)
+    8    D1     `gpu verrano`                      IGUAL en el 0, el 30 y el 60
+                `gpu verrano banco`
+    9    Q2     `run apps/musica.bex`              `voces   `, las notas y
+                (con el audifono)                  `fin     0` -- y el VIDEO
+   10    B2     `run c/autopsia.bex`               que la app cae (y NO dice
+                                                   `no fallo`)
+   11    --     `save`                             nada: se trae la carpeta
+                                                   `informe\` entera (SESION.TXT,
+                                                   AUTOPSIA.TXT con el renglon
+                                                   `instr`, ...)
+
+   (*) Si la consola corre muy rapido, vale `save` y el SESION.TXT en vez de
+       la foto. Lo que salga MAL se fotografia igual: un NO con su foto vale
+       tanto como un FUNCIONO.
+```
+
+Con lo traido se escribe la columna `resultado` de cada fila y se tachan las
+subcasillas `en el Ryzen`. Si sobra tiempo, la seccion 6 de abajo (R2, R3,
+DOOM, ESTUDIO, MUNDO, TINTA) va en la misma sesion, despues del paso 10 y
+antes del `save`.
 
 # 6. QUE FALTA COMPROBAR EN EL METAL (10-10)
 
