@@ -49,7 +49,7 @@ use crate::tree::{Arm, Expr, Program, Step, Stmt, Ty};
 /// The two nodes of BMO-X a header may `use` (F1 draws them), and the
 /// permission of the `Titan.toml` each one needs -- the same pairs as
 /// titan-lector's `package.rs` (U2).
-pub const SYSTEM: [(&str, Permission); 2] = [("gpu", Permission::Gpu), ("director", Permission::Screen)];
+pub const SYSTEM: [(&str, Permission); 3] = [("gpu", Permission::Gpu), ("director", Permission::Screen), ("sonido", Permission::Sound)];
 
 /// More files than this is a `mod` that goes round, not a package.
 const MAX_FILES: usize = 64;

@@ -426,7 +426,7 @@ try {
     # en la carpeta de datos y el escritorio lo seguia ofreciendo: NAVEGAR salia
     # dos veces, el de INTI (muerto el 10-10) y el de TITAN++. Cada programa que
     # sale de INTI con su relevo en TITAN++ se apunta AQUI, y se borra.
-    foreach ($retirado in @('navegar.ibx', 'ventana.ibx', 'cubo.ibx', 'bico.ibx', 'png.ibx')) {
+    foreach ($retirado in @('navegar.ibx', 'ventana.ibx', 'cubo.ibx', 'bico.ibx', 'png.ibx', 'musica.ibx')) {
         $viejo = Join-Path (Join-Path $dataBase 'inti') $retirado
         if (Test-Path $viejo) {
             Remove-Item $viejo -Force
@@ -435,16 +435,16 @@ try {
     }
     Compilar-Ejemplos @(
         @{ src = 'toolchain\lang\inti\sondas\cpu.inti'; out = 'cpu.ibx'; dir = 'inti' },
-        @{ src = 'toolchain\lang\inti\sondas\pulso.inti'; out = 'pulso.ibx'; dir = 'inti' },
+        @{ src = 'toolchain\lang\inti\sondas\pulso.inti'; out = 'pulso.ibx'; dir = 'inti' }
         # (`cubo.ibx` salio el 09-10: VERRANO lo manda TITAN++. Su relevo es
         # `titan/cubogira.bex`, abajo -- corte 4 de PLAN_INTI_SAMURAI.)
         # (`navegar.ibx` y la sonda `ventana.ibx` salieron el 10-10, corte 4c:
         # NAVEGAR es de TITAN++ -- `apps/navegar.bex`, abajo -- y la ventana
         # tambien -- `titan/ventana.bex` --. F5 de docs/plan/EL_FOCO.md.)
-        # ** `run inti/musica.ibx [datos/x.mus]` (2026-09-13): el REPRODUCTOR.
-        # Suena por el audifono USB (el altavoz de esta placa no suena). Se
-        # queda hasta que TITAN++ suene (Q2 de EL_FOCO).
-        @{ src = 'toolchain\lang\inti\ejemplos\musica.inti'; out = 'musica.ibx'; dir = 'inti' }
+        # (`musica.ibx`, el REPRODUCTOR de INTI del 13-09, salio el 15-10: el
+        # sonido es de TITAN++ -- `apps/musica.bex`, abajo, Q2 de EL_FOCO --.
+        # Su fuente y su banco se quedan como prueba del compilador de INTI
+        # hasta que el Ryzen suene con el de TITAN++.)
     ) 'bmo-inti-x86-64' 'inti' 'ok:|error|aviso' $dataBase $repo
 
     Step 'Building TITAN++ programs...'
@@ -482,6 +482,10 @@ try {
         # ventana, con los mismos pixeles que el de INTI, que se fue. Va a
         # `apps/`, con DOOM, porque es una APP; su icono, en el empaquetado.
         @{ src = 'Ultra_userspace\apps\navegar\src\main.titan'; out = 'navegar.bex'; dir = 'apps' },
+        # ** MUSICA en TITAN++ (Q2 de EL_FOCO, 15-10; el propietario: "titan
+        # que aprenda del audio y no inti"): el reproductor, por las VOCES del
+        # orquestador. `run apps/musica.bex` toca `datos/tema.mus`.
+        @{ src = 'Ultra_userspace\apps\musica\src\main.titan'; out = 'musica.bex'; dir = 'apps' },
         # ** RESOLUCION (R1 de EL_FOCO, 2026-10-10): elegir la medida de las
         # ventanas de TITAN++ y guardarla en `datos\resol.txt`
         # (`director.guarda`, TA4); `titan/ventana.bex` ya se abre con ella.
@@ -523,7 +527,7 @@ try {
     # La melodia que `musica.ibx` toca si no le dan otra. Es TEXTO: esta en el
     # repo y se lee en un diff.
     Copy-Item (Join-Path $repo 'toolchain\lang\inti\ejemplos\tema.mus') (Join-Path $imgDst 'tema.mus') -Force
-    Write-Host '    [datos-componentes] tema.mus (Vivaldi, para inti/musica.ibx)' -ForegroundColor DarkGray
+    Write-Host '    [datos-componentes] tema.mus (Vivaldi, para apps/musica.bex)' -ForegroundColor DarkGray
     # La lamina de example.com, la misma que sirve la antena: NAVEGAR la pinta
     # si esta (N2 de PLAN_NAVEGAR). Texto, en el repo, y se lee en un diff.
     # [!] 8.3: el FAT32 de BMO-X busca por nombre corto y se salta las

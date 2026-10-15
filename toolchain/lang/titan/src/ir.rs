@@ -367,10 +367,36 @@ pub enum Director {
     /// 1 instrucciones retiradas, 2 saltos fallados, 3 fallos de la L1D --.
     /// Para MEDIR un trozo y decidir con el numero (la ley 0 de la optimizacion).
     Contado,
+    /// ** Q2 (15-10, el propietario: *"titan que aprenda del audio y no
+    /// inti"*): EL SONIDO, con `use sonido` (y `sound` en el Titan.toml). Son
+    /// las VOCES del orquestador (`AUDIO_OP_VOZ`): la app presta una lamina
+    /// con sus muestras -- 16 bits con signo, mono -- y DECLARA que suena; el
+    /// kernel las mezcla cada milisegundo, y una app que se atasca no corta.
+    ///
+    /// `sonido.toma()`: reclamar el sonido y armar el tubo del audifono (si
+    /// no lo estaba). `true` si es nuestro.
+    SonidoToma,
+    /// `sonido.banco(l)`: prestar la lamina `l` como banco de muestras; sus
+    /// bytes, o 0 si el kernel dijo que no.
+    SonidoBanco,
+    /// `sonido.toca(canal, desde, muestras, hz)`: tocar `muestras` muestras
+    /// desde el byte `desde` del banco, a `hz`, en el canal (0..15), por los
+    /// dos lados. `true` si quedo pedido.
+    SonidoToca,
+    /// `sonido.suena(canal)`: si ese canal suena (o esta pedido).
+    SonidoSuena,
+    /// `sonido.calla(canal)`: callarlo (255: todos).
+    SonidoCalla,
+    /// `sonido.pita(hz, ms)`: el altavoz del PC (esta placa no lo tiene: no
+    /// suena, pero la puerta existe).
+    SonidoPita,
+    /// `sonido.suelta()`: callar todo, desarmar el tubo si lo armo este
+    /// programa, y soltar el sonido.
+    SonidoSuelta,
 }
 
 impl Director {
-    pub const ALL: [Director; 28] = [
+    pub const ALL: [Director; 35] = [
         Director::Lamina,
         Director::Publica,
         Director::Espera,
@@ -399,6 +425,13 @@ impl Director {
         Director::Profundidad,
         Director::Contar,
         Director::Contado,
+        Director::SonidoToma,
+        Director::SonidoBanco,
+        Director::SonidoToca,
+        Director::SonidoSuena,
+        Director::SonidoCalla,
+        Director::SonidoPita,
+        Director::SonidoSuelta,
     ];
 
     /// Its whole name, as a program writes it.
@@ -432,6 +465,13 @@ impl Director {
             Director::Profundidad => "director.profundidad",
             Director::Contar => "director.contar",
             Director::Contado => "director.contado",
+            Director::SonidoToma => "sonido.toma",
+            Director::SonidoBanco => "sonido.banco",
+            Director::SonidoToca => "sonido.toca",
+            Director::SonidoSuena => "sonido.suena",
+            Director::SonidoCalla => "sonido.calla",
+            Director::SonidoPita => "sonido.pita",
+            Director::SonidoSuelta => "sonido.suelta",
         }
     }
 
@@ -443,18 +483,18 @@ impl Director {
     /// How many values it takes.
     pub fn takes(self) -> usize {
         match self {
-            Director::Presenta | Director::Toma | Director::Cierra | Director::Medida | Director::Evento | Director::Codigo | Director::RatonX | Director::RatonY | Director::Botones | Director::SeVe | Director::Ms | Director::Contar => 0,
-            Director::Lamina | Director::Espera | Director::Fichero | Director::Crea | Director::Escribe | Director::Byte | Director::Profundidad | Director::Contado => 1,
-            Director::Ventana | Director::Fila | Director::Guarda => 2,
+            Director::Presenta | Director::Toma | Director::Cierra | Director::Medida | Director::Evento | Director::Codigo | Director::RatonX | Director::RatonY | Director::Botones | Director::SeVe | Director::Ms | Director::Contar | Director::SonidoToma | Director::SonidoSuelta => 0,
+            Director::Lamina | Director::Espera | Director::Fichero | Director::Crea | Director::Escribe | Director::Byte | Director::Profundidad | Director::Contado | Director::SonidoBanco | Director::SonidoSuena | Director::SonidoCalla => 1,
+            Director::Ventana | Director::Fila | Director::Guarda | Director::SonidoPita => 2,
             Director::Pixel => 3,
-            Director::Publica => 4,
+            Director::Publica | Director::SonidoToca => 4,
             Director::Rect | Director::Letra | Director::Texto => 5,
         }
     }
 
     /// Whether it gives a value back: a yes/no, or an int.
     pub fn gives(self) -> bool {
-        !matches!(self, Director::Espera | Director::Pixel | Director::Rect | Director::Fila | Director::Presenta | Director::Escribe | Director::Profundidad)
+        !matches!(self, Director::Espera | Director::Pixel | Director::Rect | Director::Fila | Director::Presenta | Director::Escribe | Director::Profundidad | Director::SonidoCalla | Director::SonidoPita | Director::SonidoSuelta)
     }
 }
 

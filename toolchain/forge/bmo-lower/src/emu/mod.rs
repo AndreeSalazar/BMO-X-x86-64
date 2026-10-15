@@ -514,6 +514,8 @@ pub struct Machine {
     audio_volumenes: Vec<u64>,
     /// Todo lo que sono, en orden: `(hz, ms)`.
     audio_partitura: Vec<(u64, u64)>,
+    /// ** Q2: las voces del orquestador, modeladas (`sistema::VocesEmu`).
+    pub voces: sistema::VocesEmu,
     tubo: sistema::TuboEmu,
     data_len: u64,
     zf: bool,
@@ -603,6 +605,7 @@ impl Machine {
             audio_volumen: 50,
             audio_volumenes: Vec::new(),
             audio_partitura: Vec::new(),
+            voces: Default::default(),
             tubo: sistema::TuboEmu::default(),
             data_len: 0,
             zf: false,

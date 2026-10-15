@@ -1443,6 +1443,28 @@ UNA vez (saboteado: quien la entrega tambien la soltaria, y cae).
 
 ---
 
+### El sonido: `use sonido` (Q2 de EL_FOCO, 15-10)
+
+```text
+use director                     # leer la partitura (screen = true)
+use sonido                       # y en el Titan.toml: sound = true
+    if not sonido.toma()          # el sonido es nuestro (y el tubo, armado)
+    let mut banco = lamina(2097152)
+    sonido.banco(banco)           # la lamina, prestada como banco: sus bytes
+    banco[0] = byte(184)          # las muestras: 16 bits con signo, mono
+    sonido.toca(0, 0, n, 24000)   # canal, desde que byte, cuantas, a cuantos Hz
+    while sonido.suena(0)         # el orquestador la toca; el programa espera
+        director.espera(5)
+    sonido.calla(0)               # (255: todos)
+    sonido.suelta()               # callar, desarmar lo que se armo, soltar
+```
+
+**La lamina es el banco, y lo que suena lo mezcla el KERNEL** (las voces del
+orquestador): el programa declara y no empuja muestras a tiempo, asi que si
+se atasca el sonido no se corta. `sonido.pita(hz, ms)` es el altavoz del PC
+(la placa del propietario no lo tiene). Una gpu fn no suena: el sonido es de
+la CPU. El primero que suena con esto: `Ultra_userspace/apps/musica`.
+
 ## Los codigos
 
 | codigo | que |

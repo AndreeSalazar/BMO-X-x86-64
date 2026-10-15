@@ -43,11 +43,15 @@ const TENIDO_BASE: i32 = 0;
 const TENIDO_BYTES: i32 = 8;
 /// Lo que mide el bloque: lo tenido (16), el fichero que se ESCRIBE
 /// (`disco.rs`: su asa, los bytes de la palabra que espera, cuantos, y si
-/// algo no entro) y el RITMO de `director.espera` (el plazo del fotograma
-/// siguiente, en ciclos del TSC, y los ciclos por segundo).
-const TENIDO_MIDE: i32 = 64;
+/// algo no entro), el RITMO de `director.espera` (el plazo del fotograma
+/// siguiente, en ciclos del TSC, y los ciclos por segundo) y, desde Q2
+/// (15-10), el SONIDO (`sonido.rs`: su asa, y si el tubo lo armo este
+/// programa).
+const TENIDO_MIDE: i32 = 80;
 pub(super) const PLAZO: i32 = 48;
 pub(super) const HZ: i32 = 56;
+pub(super) const SONIDO: i32 = 64;
+pub(super) const ARMADO: i32 = 72;
 /// En la cola privada de la ventana: el ultimo evento.
 pub const COLA_EVENTO: i32 = 32;
 /// Lo mas que se lee de un fichero: 256 KiB, lo de NAVEGAR.

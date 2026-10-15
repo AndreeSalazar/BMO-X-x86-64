@@ -762,6 +762,13 @@ fn target(p: &Program, callee: &str, n: usize, line: usize, col: usize, as_value
             Director::Profundidad => "director.profundidad(true)",
             Director::Contar => "if director.contar()",
             Director::Contado => "let n = director.contado(1)",
+            Director::SonidoToma => "if not sonido.toma()",
+            Director::SonidoBanco => "let bytes = sonido.banco(banco)",
+            Director::SonidoToca => "if sonido.toca(0, 0, n, 22050)",
+            Director::SonidoSuena => "while sonido.suena(0)",
+            Director::SonidoCalla => "sonido.calla(0)",
+            Director::SonidoPita => "sonido.pita(440, 200)",
+            Director::SonidoSuelta => "sonido.suelta()",
             Director::Letra => "x = director.letra(x, y, 65, 1, 16777215)",
             Director::Texto => "x = director.texto(8, 8, \"hola\", 1, 16777215)",
         };

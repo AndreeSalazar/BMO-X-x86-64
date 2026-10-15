@@ -721,11 +721,12 @@ solo pierde su prueba). Lo que pide cada relevo:
    png.inti         Ultra_userspace/apps/png (`run             FUERA, 10-10 (4e):
                     titan/png.bex`): el CRC y el Adler sin     el mismo fichero,
                     operaciones de bits                        byte a byte
-   musica.inti      el reproductor en TITAN++ (`use sonido`:   el sonido (Q2):
-                    tomar, el tubo PCM desde una lamina, pitar  pedido por el
-                    y callar) -- lo pidio el propietario el     propietario el
-                    15-10: *"titan que aprenda del audio y no   15-10, despues
-                    inti"*                                      de D1
+   musica.inti      Ultra_userspace/apps/musica (`run apps/    FUERA del build el
+                    musica.bex`): `use sonido`, las VOCES del   15-10 (Q2, lo pidio
+                    orquestador -- la onda en una lamina, y el  el propietario);
+                    kernel la mezcla --; las mismas notas, los  su fuente y su
+                    mismos accidentes y las mismas rotas que el banco se quedan
+                    de INTI, y sus muestras una a una           hasta el Ryzen
    cpu.inti,        SE QUEDAN: son la puerta de TITAN++ a la CPU (y con
    pulso.inti       ellas el monton, mientras `cpu.inti` lo use)
 ```
@@ -949,7 +950,10 @@ Cada paso entra con sus pruebas en el anfitrion; el metal, UNA vez, al final
        indexado, SampleLevel y Load en una 2D de una mip, que la puerta mande
        a la 3060; su tabla en Windows y despues en el Ryzen
        (PLAN_LA_LENGUA_DE_LA_3060)
-   Q2  el sonido en TITAN++, y el corte 4d de INTI (musica.inti fuera)
+   Q2  HECHA EN EL ANFITRION el 15-10: el sonido en TITAN++ (`use sonido`,
+       las voces del orquestador) y el corte 4d de INTI (musica.ibx fuera
+       del build y del disco; `apps/musica.bex` es el reproductor). Ver la
+       fila Q2 de la hoja 6b: falta OIRLO en el Ryzen
    Q2b HECHA el 10-10: TITAN++ escribe byte a byte y el corte 4e de INTI
        (bico.inti y png.inti a TITAN++, seccion 1d)
    Q3  DOOM por la 3060 cerrado (D2c, la linea [perf]) y su paleta (D3)
@@ -1152,6 +1156,11 @@ pieza entera en la 0b, y su fila de la tabla de estado pasa a `VISTO dd-mm`.
           (V4)                         banco`): IGUAL en el 0, el 30 y   que NO al abrir, o DISTINTO
                                        el 60, con el sobre que ya no es  en algun fotograma: se
                                        SASS a mano                       vuelve al de antes con git
+   Q2     el sonido de TITAN++         `run apps/musica.bex`: dice       no suena (el tubo sin      (sin probar)
+                                       `voces   `, cada nota y `fin     armar: mirar `audio` en
+                                       0`, y SUENA el tema por el        CABINA), o suena a trozos
+                                       audifono USB (la misma melodia    (el banco que se reescribe
+                                       que tocaba `inti/musica.ibx`)     antes de acabar)
    C4     los contadores del Zen 3     `cpu contadores`: cada fila con   una fila `cuenta OTRA       (sin probar)
                                        lo contado y `CUENTA lo que dice  cosa` o `no conto NADA`
                                        el PPR`; al final `8 de 8`. Las   (apuntar CUAL: ese evento

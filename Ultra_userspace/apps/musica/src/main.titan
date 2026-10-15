@@ -1,0 +1,266 @@
+# espera: BIEN
+# EL REPRODUCTOR de BMO-X en TITAN++ (Q2 de docs/plan/EL_FOCO.md, 15-10; el
+# propietario: "titan que aprenda del audio y no inti"). El relevo de
+# `musica.inti`: lee la misma partitura (`datos/tema.mus`, el formato .mus:
+# T tempo, notas DO..SI con # o B y su octava, figuras en dieciseisavos tras
+# `:`, `-` silencio, `;` comentario) y dice lo mismo por consola, nota a nota.
+#
+# Lo que cambia es COMO suena: el de INTI empujaba muestras por el tubo del
+# audifono y tenia que llegar a tiempo; este las cuenta en una LAMINA y se la
+# presta al orquestador (`use sonido`, las voces): el kernel las mezcla cada
+# milisegundo, y si el programa se atasca el sonido no se corta.
+#
+# Onda cuadrada a +-3000 (unos -20 dB: en un audifono un cuadrado a tope
+# duele), el 85 % de cada nota suena y el resto calla -- sin ese hueco dos
+# notas iguales seguidas se oyen como una larga --. 24000 muestras por
+# segundo, mono, 16 bits.
+#
+# ** TITAN++ no tiene operaciones de bits ni division que redondee: `div` es
+# la de siempre (`png`), exacta.
+mod main "MUSICA: la partitura de datos/tema.mus, por las voces del orquestador"
+use director
+use sonido
+
+# Las muestras por segundo del banco.
+fn tasa() -> int
+    return 24000
+
+# Lo que mide el banco: 2 MiB, 43 segundos de musica antes de volver a empezar.
+fn medida_banco() -> int
+    return 2097152
+
+# La division entera, exacta (T0062).
+fn div(a: int, d: int) -> int
+    return (a - a % d) / d
+
+fn mayuscula(c: int) -> int
+    if c >= 97 and c <= 122
+        return c - 32
+    return c
+
+# Blancos y comentarios fuera. Un `;` se come la linea entera.
+fn salta_blancos(i: int, n: int) -> int
+    let mut k = i
+    while k < n
+        let c = director.byte(k)
+        if c == 59
+            while k < n and director.byte(k) != 10
+                k = k + 1
+        else
+            if c <= 32
+                k = k + 1
+            else
+                return k
+    return k
+
+# Un numero leido: hasta donde, y cuanto (se para en 6000: un tempo de 99999
+# no existe).
+type Leido
+    fin: int
+    valor: int
+
+fn cifras(k: int, n: int) -> Leido
+    let mut v = 0
+    let mut j = k
+    while j < n and director.byte(j) >= 48 and director.byte(j) <= 57 and v < 6000
+        v = v * 10 + director.byte(j) - 48
+        j = j + 1
+    return Leido { fin: j, valor: v }
+
+# La figura detras de `:`, o una negra. Una figura 0 es MAL ESCRITA: `:` sin
+# cifras, mas de 64, o pegada a otra cosa (`LA4X`).
+fn figura(j: int, n: int) -> Leido
+    let mut fin = j
+    let mut fig = 4
+    if j < n and director.byte(j) == 58
+        let r = cifras(j + 1, n)
+        fin = r.fin
+        fig = r.valor
+    if fin < n and director.byte(fin) > 32 and director.byte(fin) != 59
+        fig = 0
+    if fig > 64
+        fig = 0
+    return Leido { fin: fin, valor: fig }
+
+# El nombre de la nota: hasta donde, y su semitono + 1 (0: no es una nota).
+fn semitono(i: int, n: int) -> Leido
+    if i + 1 >= n
+        return Leido { fin: i, valor: 0 }
+    let a = mayuscula(director.byte(i))
+    let b = mayuscula(director.byte(i + 1))
+    if a == 68 and b == 79
+        return Leido { fin: i + 2, valor: 1 }
+    if a == 82 and b == 69
+        return Leido { fin: i + 2, valor: 3 }
+    if a == 77 and b == 73
+        return Leido { fin: i + 2, valor: 5 }
+    if a == 70 and b == 65
+        return Leido { fin: i + 2, valor: 6 }
+    if a == 76 and b == 65
+        return Leido { fin: i + 2, valor: 10 }
+    if a == 83 and b == 73
+        return Leido { fin: i + 2, valor: 12 }
+    if a == 83 and b == 79 and i + 2 < n
+        if mayuscula(director.byte(i + 2)) == 76
+            return Leido { fin: i + 3, valor: 8 }
+    return Leido { fin: i, valor: 0 }
+
+# La octava 8 en hercios redondeados; las demas salen dividiendo (los mismos
+# numeros que `<bmo/musica.h>`: LA4 440, DO4 262, SOL#5 831).
+fn octava8(s: int) -> int
+    let t = [4186, 4435, 4699, 4978, 5274, 5588, 5920, 6272, 6645, 7040, 7459, 7902]
+    return t[s]
+
+fn hz_de(semi: int, oct: int) -> int
+    let mut d = 1
+    let mut k = oct
+    while k < 8
+        d = d * 2
+        k = k + 1
+    return div(octava8(semi) + div(d, 2), d)
+
+# Lo que se lee de la partitura: que es (0 fin, 1 nota, 2 silencio, 3 tempo,
+# 4 MAL), hasta donde, y su dato (hercios o tempo) y su figura.
+type Token
+    tipo: int
+    fin: int
+    dato: int
+    fig: int
+
+fn mal(i: int) -> Token
+    return Token { tipo: 4, fin: i, dato: 0, fig: 0 }
+
+fn token(i0: int, n: int) -> Token
+    let i = salta_blancos(i0, n)
+    if i >= n
+        return Token { tipo: 0, fin: i, dato: 0, fig: 0 }
+    let c = mayuscula(director.byte(i))
+    if c == 84
+        let r = cifras(i + 1, n)
+        if r.fin == i + 1
+            return mal(i)
+        return Token { tipo: 3, fin: r.fin, dato: r.valor, fig: 0 }
+    if c == 45
+        let f = figura(i + 1, n)
+        if f.valor == 0
+            return mal(i)
+        return Token { tipo: 2, fin: f.fin, dato: 0, fig: f.valor }
+    let nombre = semitono(i, n)
+    if nombre.valor == 0
+        return mal(i)
+    let mut j = nombre.fin
+    # +11 y no -1: un bemol de DO baja de cero. Una octava arriba, y se corrige.
+    let mut s = nombre.valor + 11
+    if j < n and mayuscula(director.byte(j)) == 66
+        s = s - 1
+        j = j + 1
+    else
+        if j < n and director.byte(j) == 35
+            s = s + 1
+            j = j + 1
+    if j >= n
+        return mal(i)
+    if director.byte(j) < 48 or director.byte(j) > 56
+        return mal(i)
+    let mut oct = director.byte(j) - 48
+    j = j + 1
+    if s < 12
+        if oct == 0
+            return mal(i)
+        oct = oct - 1
+        s = s + 12
+    if s >= 24
+        if oct == 8
+            return mal(i)
+        oct = oct + 1
+        s = s - 12
+    let f = figura(j, n)
+    if f.valor == 0
+        return mal(i)
+    return Token { tipo: 1, fin: f.fin, dato: hz_de(s - 12, oct), fig: f.valor }
+
+fn acota(tempo: int) -> int
+    if tempo < 20
+        return 20
+    if tempo > 400
+        return 400
+    return tempo
+
+# Lo que suena del banco, y esperar a que acabe: el banco se reescribe despues.
+fn suelta_tramo(muestras: int)
+    if muestras > 0
+        if sonido.toca(0, 0, muestras, tasa())
+            while sonido.suena(0)
+                director.espera(5)
+
+# Una nota (o un silencio, con hz 0) en el banco, desde la muestra `pos`.
+# Devuelve por donde va.
+fn nota(mut banco: lamina, pos: int, hz: int, ms: int) -> int
+    let r = tasa()
+    let muestras = div(r * ms, 1000)
+    let mut p = pos
+    if 2 * (p + muestras) > len(banco)
+        suelta_tramo(p)
+        p = 0
+    let suenan = div(muestras * 85, 100)
+    for k in range(muestras)
+        let mut bajo = 0
+        let mut alto = 0
+        if hz > 0 and k < suenan
+            # Media onda arriba (+3000), media abajo (-3000).
+            if div(k * hz * 2, r) % 2 == 0
+                bajo = 184
+                alto = 11
+            else
+                bajo = 72
+                alto = 244
+        banco[2 * (p + k)] = byte(bajo)
+        banco[2 * (p + k) + 1] = byte(alto)
+    return p + muestras
+
+fn muestra(hz: int, fig: int)
+    if hz == 0
+        print("  pausa   x", fig)
+    else
+        print("  nota  ", hz, " Hz  x", fig)
+
+fn main()
+    print("musica  ")
+    if not director.fichero("datos/tema.mus")
+        print("fin     1")
+        return
+    let n = director.medida()
+    if n > 60000
+        print("fin     1")
+        return
+    if not sonido.toma()
+        print("fin     4")
+        return
+    let mut banco = lamina(medida_banco())
+    if sonido.banco(banco) == 0
+        print("fin     9")
+        sonido.suelta()
+        return
+    print("voces   ")
+    let mut i = 0
+    let mut tempo = 120
+    let mut pos = 0
+    let mut codigo = 0
+    while true
+        let t = token(i, n)
+        i = t.fin
+        if t.tipo == 0
+            break
+        if t.tipo == 4
+            print("mal en  ", i)
+            codigo = 5
+            break
+        if t.tipo == 3
+            tempo = acota(t.dato)
+        else
+            let ms = div(15000 * t.fig, tempo)
+            muestra(t.dato, t.fig)
+            pos = nota(mut banco, pos, t.dato, ms)
+    suelta_tramo(pos)
+    sonido.suelta()
+    print("fin     ", codigo)

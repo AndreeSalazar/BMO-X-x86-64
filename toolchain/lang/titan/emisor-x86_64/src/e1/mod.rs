@@ -48,6 +48,8 @@ mod monton;
 mod numero;
 mod ram;
 mod lamina;
+/// Q2 (15-10): el SONIDO de TITAN++ (`use sonido`): las voces del orquestador.
+mod sonido;
 mod entrada;
 mod letra;
 mod valor;

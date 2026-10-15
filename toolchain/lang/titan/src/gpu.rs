@@ -370,7 +370,7 @@ fn body(p: &Program, f: &Function, stmts: &[Stmt], hondo: usize, forma: Forma) -
             Stmt::If(i) => (1u64.saturating_add(expr(p, &i.cond, hondo, forma)?).saturating_add(body(p, f, &i.then, hondo, forma)?).saturating_add(body(p, f, &i.other, hondo, forma)?), None),
             Stmt::Return { value: Some(v), .. } => (1u64.saturating_add(expr(p, v, hondo, forma)?), None),
             Stmt::Return { line, col, value: None } => return Err(no(*line, *col, "un `return` sin valor en una gpu fn", "cada hilo devuelve su celda", "return x")),
-            Stmt::Call(c) if c.callee.starts_with("director.") => return Err(no_director(&c.callee, c.line, c.col)),
+            Stmt::Call(c) if c.callee.starts_with("director.") || c.callee.starts_with("sonido.") => return Err(no_director(&c.callee, c.line, c.col)),
             Stmt::Call(c) if c.callee == "print" => return Err(no(c.line, c.col, "`print` dentro de una gpu fn", "la 3060 no tiene consola: miles de hilos escribiendo a la vez no dirian nada que se pueda leer", "devuelve el valor, y escribelo en la CPU: print(round(x, 2))")),
             Stmt::Call(c) if gpu_fn(p, &c.callee).is_some() => return Err(no(c.line, c.col, &format!("`{}()` sola, sin usar lo que devuelve, en una gpu fn", c.callee), "una gpu fn es pura: no cambia nada fuera de ella, asi que llamarla sin usar su resultado no hace nada", &format!("let y = {}(...)", c.callee))),
             Stmt::Call(c) => return Err(no(c.line, c.col, &format!("`{}()` dentro de una gpu fn", c.callee), "una gpu fn solo llama a otra gpu fn, que se escribe EN LINEA en ella: lo de la CPU no corre en un hilo de la GPU", "escribe el calculo aqui mismo, o en otra gpu fn")),
@@ -623,7 +623,7 @@ fn expr(p: &Program, e: &Expr, hondo: usize, forma: Forma) -> Result<u64, Messag
             }
             Ok(cost.saturating_add(body(p, g, &g.body, hondo, forma_de(p, g))?))
         }
-        Expr::Call { callee, line, col, .. } if callee.starts_with("director.") => Err(no_director(callee, *line, *col)),
+        Expr::Call { callee, line, col, .. } if callee.starts_with("director.") || callee.starts_with("sonido.") => Err(no_director(callee, *line, *col)),
         // TA1: el byte es de la CPU (los pixeles guardados); en la 3060 todo es f32.
         // A4b: una gpu fn cuenta una celda; no le pide RAM al kernel.
         Expr::Call { callee, line, col, .. } if callee == "lamina" => Err(no(*line, *col, "`lamina()` dentro de una gpu fn", "un hilo de la 3060 cuenta UNA celda: la RAM la pide la CPU, que es la que habla con el kernel", "pide la lamina en una fn de la CPU")),

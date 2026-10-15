@@ -475,6 +475,34 @@ pub(super) fn director(what: Director, args: &[Value], at: At, known: &[Option<C
         Director::Medida | Director::Evento | Director::Codigo | Director::RatonX | Director::RatonY | Director::Botones | Director::Ms => Ok(Some(Class::Int)),
         // ** C4 (LB5): contarse a si mismo con los contadores del Zen 3.
         Director::Contar => Ok(Some(Class::Bool)),
+        // ** Q2: el sonido.
+        Director::SonidoToma => Ok(Some(Class::Bool)),
+        Director::SonidoSuena => {
+            int(0, "`sonido.suena` pide el CANAL: de 0 a 15", "while sonido.suena(0)")?;
+            Ok(Some(Class::Bool))
+        }
+        Director::SonidoCalla => {
+            int(0, "`sonido.calla` pide el CANAL: de 0 a 15 (255, todos)", "sonido.calla(0)")?;
+            Ok(None)
+        }
+        Director::SonidoBanco => {
+            if got[0] != Class::Lamina {
+                return Err(wrong(args[0].at(), &Class::Lamina, &got[0], m.defs(), "`sonido.banco` presta una LAMINA con las muestras", "let mut banco = lamina(96000)\nsonido.banco(banco)"));
+            }
+            Ok(Some(Class::Int))
+        }
+        Director::SonidoToca => {
+            for (k, que) in [(0, "el CANAL (0..15)"), (1, "DESDE que byte del banco"), (2, "cuantas MUESTRAS (de 16 bits)"), (3, "a cuantos HERCIOS (las muestras por segundo)")] {
+                int(k, &format!("`sonido.toca` pide {}", que), "sonido.toca(0, 0, n, 22050)")?;
+            }
+            Ok(Some(Class::Bool))
+        }
+        Director::SonidoPita => {
+            int(0, "`sonido.pita` pide los HERCIOS", "sonido.pita(440, 200)")?;
+            int(1, "y despues los MILISEGUNDOS", "sonido.pita(440, 200)")?;
+            Ok(None)
+        }
+        Director::SonidoSuelta => Ok(None),
         Director::Contado => {
             int(0, "`director.contado` pide QUE contador: 0 ciclos, 1 instrucciones, 2 saltos fallados, 3 fallos de la L1D", "let n = director.contado(1)")?;
             Ok(Some(Class::Int))

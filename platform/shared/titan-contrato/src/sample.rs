@@ -27,6 +27,9 @@ pub const DIRECTOR_NAME: &str = "DIRECTOR";
 pub const ROOT_PURPOSE: &str = "Titan.toml -- el nodo principal";
 pub const GPU_PURPOSE: &str = "sm_86: corre las `gpu fn`";
 pub const DIRECTOR_PURPOSE: &str = "el escritorio: muestra la ventana";
+/// Q2 (15-10): el SONIDO de BMO-X (`use sonido`): las voces del orquestador.
+pub const SONIDO_NAME: &str = "SONIDO";
+pub const SONIDO_PURPOSE: &str = "el sonido: las voces del orquestador";
 
 /// The graph and the script of `asteroids`, written by hand.
 pub fn asteroids() -> (Graph, Script) {

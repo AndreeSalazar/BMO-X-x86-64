@@ -104,6 +104,14 @@ impl E1<'_> {
             // ** C4 (LB5): los contadores del Zen 3, para este programa.
             Director::Contar => self.contar().map(Some),
             Director::Contado => self.contado(args).map(Some),
+            // ** Q2: el sonido (`sonido.rs`).
+            Director::SonidoToma => self.sonido_toma().map(Some),
+            Director::SonidoBanco => self.sonido_banco(args).map(Some),
+            Director::SonidoToca => self.sonido_toca(args).map(Some),
+            Director::SonidoSuena => self.sonido_suena(args).map(Some),
+            Director::SonidoCalla => self.sonido_calla(args).map(|_| None),
+            Director::SonidoPita => self.sonido_pita(args).map(|_| None),
+            Director::SonidoSuelta => self.sonido_suelta().map(|_| None),
             Director::Toma | Director::Fichero | Director::Medida | Director::Byte | Director::Evento | Director::Codigo | Director::RatonX | Director::RatonY | Director::Botones | Director::SeVe => self.entrada(what, args, at).map(Some),
         }
     }
