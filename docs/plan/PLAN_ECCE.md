@@ -1,4 +1,4 @@
-# PLAN LA PLUMA -- escribir en BMO-X: guiones al nivel de Final Draft, y todo lo demas
+# PLAN ECCE -- escribir en BMO-X: guiones al nivel de Final Draft, y todo lo demas
 
 > El propietario (15-10): *"puedes anotar el "Final Draft" como inspiracion
 > TOTAL + Window + TODO los elementos que sean asi para escribir? [...] ese
@@ -7,15 +7,20 @@
 >
 > **Es un plan LARGO y no es para ahora**, como
 > [`PLAN_CRAFTPHO.md`](PLAN_CRAFTPHO.md) y [`PLAN_ILLAPA.md`](PLAN_ILLAPA.md):
-> se empieza el dia que el propietario lo diga. `LA PLUMA` es un nombre
-> PROVISIONAL (decision D1, seccion 7).
+> se empieza el dia que el propietario lo diga.
+>
+> **El nombre (15-10, D1 contestada):** ECCE, de *Ecce Homo* ("he aqui el
+> hombre"), el libro en que Nietzsche se escribe a si mismo. El propietario
+> queria algo como Zaratustra pero mas corto: un bloc personal que, como
+> aquel libro, sirve para escribir quien es uno. Se llamo `LA PLUMA` mientras
+> no tenia nombre.
 
 ---
 
 ## 0. La respuesta corta
 
 ```text
-   que es        la app de ESCRIBIR de BMO-X. Un solo motor de texto con
+   que es        la app de ESCRIBIR de BMO-X: ECCE. Un solo motor de texto con
                  MODOS: guion de cine y de serie (Final Draft), documento
                  (Word), novela por capitulos y escenas (Scrivener), obra de
                  teatro, comic y notas
@@ -72,7 +77,7 @@ primera linea.
 escrito en TEXTO PLANO con reglas simples (`INT. CASA - NOCHE` es un
 encabezado, un nombre en mayusculas solo en su linea es un personaje). Es
 abierto, sin duenio de licencia, cabe en `git` y Final Draft lo abre y lo
-guarda. **El formato propio de LA PLUMA es Fountain**: no se inventa uno.
+guarda. **El formato propio de ECCE es Fountain**: no se inventa uno.
 
 ---
 
@@ -119,7 +124,7 @@ guardadas como ESTRATOS (como la `.obra` de
 
 ## 4. La escalera (de lo mas chico a lo mas grande)
 
-- [ ] **PL0 -- las decisiones de la seccion 7**, contestadas por el propietario.
+- [ ] **PL0 -- las decisiones de la seccion 7**, contestadas por el propietario (D1 si: ECCE).
 - [ ] **PL1 -- el motor de texto:** parrafos con elemento, cursor, seleccion,
       deshacer, buscar. Puro, en el anfitrion. **Como se sabe:** mil
       ediciones al azar y su deshacer vuelven al texto de partida, byte a byte.
@@ -183,12 +188,15 @@ guardadas como ESTRATOS (como la `.obra` de
 ## 7. Las decisiones del propietario
 
 ```text
-   D1  EL NOMBRE        `LA PLUMA` es provisional; el propietario lo pone
+   D1  EL NOMBRE        CONTESTADA (15-10): ECCE
    D2  DONDE VIVE       una app propia en la rejilla, o un modo del bloc
                         de texto que ya existe (`c/texto.bex`)
    D3  LA LETRA         una monoespacio dibujada en la casa, o Courier
                         Prime (licencia OFL, libre)
-   D4  QUE VA PRIMERO   el guion (PL1..PL8) o el documento (PL12)
+   D4  QUE VA PRIMERO   el guion (PL1..PL8) o el documento (PL12). El
+                        propietario (15-10): *"es para tener mi bloc de
+                        notas personales"* -- apunta a las NOTAS primero
+                        (PL1, PL3 y el modo notas), y el guion encima
 ```
 
 ---

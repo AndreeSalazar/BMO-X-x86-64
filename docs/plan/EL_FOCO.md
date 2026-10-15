@@ -954,7 +954,7 @@ Cada paso entra con sus pruebas en el anfitrion; el metal, UNA vez, al final
    Q2  HECHA EN EL ANFITRION el 15-10: el sonido en TITAN++ (`use sonido`,
        las voces del orquestador) y el corte 4d de INTI (musica.ibx fuera
        del build y del disco; `apps/musica.bex` es el reproductor). Ver la
-       fila Q2 de la hoja 6b: falta OIRLO en el Ryzen
+       fila Q2 de la hoja 6b: OIDO en el Ryzen el 15-10
    Q2b HECHA el 10-10: TITAN++ escribe byte a byte y el corte 4e de INTI
        (bico.inti y png.inti a TITAN++, seccion 1d)
    Q3  DOOM por la 3060 cerrado (D2c, la linea [perf]) y su paleta (D3)
@@ -1158,7 +1158,7 @@ pieza entera en la 0b, y su fila de la tabla de estado pasa a `VISTO dd-mm`.
           (V4)                         banco`): IGUAL en el 0, el 30 y   que NO al abrir, o DISTINTO
                                        el 60, con el sobre que ya no es  en algun fotograma: se
                                        SASS a mano                       vuelve al de antes con git
-   Q2     el sonido de TITAN++         `run apps/musica.bex`: dice       no suena (el tubo sin      A MEDIAS 15-10
+   Q2     el sonido de TITAN++         `run apps/musica.bex`: dice       no suena (el tubo sin      FUNCIONO 15-10
                                        `voces   `, cada nota y `fin     armar: mirar `audio` en
                                        0`, y SUENA el tema por el        CABINA), o suena a trozos
                                        audifono USB (la misma melodia    (el banco que se reescribe
@@ -1201,11 +1201,12 @@ pieza entera en la 0b, y su fila de la tabla de estado pasa a `VISTO dd-mm`.
    B2  FUNCIONO  AUTOPSIA: `instr  movsxd rax, dword [rax]  rax=0xdead0190`,
                  la direccion tocada 0xdead0190 -- exacto como en el
                  anfitrion; `recursos todo devuelto`
-   Q2  A MEDIAS  `musica.bex` escribio TODAS las notas y el kernel toco
-                 (`tocadas 1`, el medidor con pico 0.0 dB y rms -8.2 dB: SALIO
-                 sonido al cable); la corrida acabo en `^C frenado`, no en
-                 `fin 0`. Falta que el propietario diga si SE OYO la melodia
-                 entera y que llegue el `fin 0`
+   Q2  FUNCIONO  `musica.bex` escribio TODAS las notas y el kernel toco
+                 (`tocadas 1`, el medidor con pico 0.0 dB y rms -8.2 dB). El
+                 propietario: *"funciona pero lo corte porque es molesto lo
+                 repetitivo"* -- se OYO; el `^C frenado` fue suyo. Lo que
+                 queda es de gusto, no de cadena: la onda cuadrada suena
+                 a pitido (lo que viene, en PLAN_EL_SONIDO.md)
    B1  sin ver   `cubogira.bex` corrio dos veces (admitido las dos), pero la
                  linea `lente: ...` vive en la bitacora (F11), no en `save`
    B4  sin ver   la linea `cpu: es la CPU del perfil` vive en la bitacora del

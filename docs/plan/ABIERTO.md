@@ -144,6 +144,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] S3 -- EL MEZCLADOR: N fuentes, una salida
 - ... y 14 mas
 
+## [`PLAN_ECCE.md`](PLAN_ECCE.md) -- 16 abiertas, 0 hechas
+
+*PLAN ECCE -- escribir en BMO-X: guiones al nivel de Final Draft, y todo lo demas*
+
+- [ ] PL0 -- las decisiones de la seccion 7, contestadas por el propietario (D1 si: ECCE).
+- [ ] PL1 -- el motor de texto: parrafos con elemento, cursor, seleccion,
+- [ ] PL2 -- Fountain, leer y escribir. Como se sabe: los ejemplos
+- ... y 13 mas
+
 ## [`PLAN_LA_BANDEJA.md`](PLAN_LA_BANDEJA.md) -- 16 abiertas, 4 hechas
 
 *PLAN LA BANDEJA -- F2 donde viven TODOS los archivos, F12 el volumen, F1 todo nodos*
@@ -151,15 +160,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] B1 -- F2 abre LOS ARCHIVOS: una app propia como el TALLER (sys/archivos.bex), que el DIRECTOR la
 - [ ] B2 -- el GLOBO, en el MISMO commit que B1 (una linea de SABIAS tiene que ser verdad el dia que s
 - [ ] B3 -- LA BANDEJA (seccion 3): los discos que el kernel lee, con su perfil y su rango; el NVMe CE
-- ... y 13 mas
-
-## [`PLAN_LA_PLUMA.md`](PLAN_LA_PLUMA.md) -- 16 abiertas, 0 hechas
-
-*PLAN LA PLUMA -- escribir en BMO-X: guiones al nivel de Final Draft, y todo lo demas*
-
-- [ ] PL0 -- las decisiones de la seccion 7, contestadas por el propietario.
-- [ ] PL1 -- el motor de texto: parrafos con elemento, cursor, seleccion,
-- [ ] PL2 -- Fountain, leer y escribir. Como se sabe: los ejemplos
 - ... y 13 mas
 
 ## [`PLAN_MEDIOS.md`](PLAN_MEDIOS.md) -- 16 abiertas, 3 hechas
