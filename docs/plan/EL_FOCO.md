@@ -150,7 +150,9 @@ esta en la HOJA 6b.
           S4: la app en su nucleo              BLOQUEADO   (ver C2)
    C3     el volcado por la 3060, por defecto HECHO     falta (6b: C3)
           las ventanas pegadas por la 3060     DECIDIR     (ver C3)
-   C4..D2                                      --          --
+   C4     los contadores del Zen 3 (LB4)   HECHO       falta (6b: C4)
+          INTI y TITAN++ se cuentan (LB5)  HECHO       falta (6b: C4)
+   D1..D2                                      --          --
 ```
 
 **Escalon 1 -- solo el anfitrion (facil)**
@@ -566,6 +568,30 @@ esta en la HOJA 6b.
         las apps que dibuja VERRANO.
 - [ ] **C4 -- LB4 + LB5: los contadores del Zen 3, y INTI exprime con
       evidencia.** Primero MEDIR que cuenta cada contador en este Ryzen.
+      **HECHO EN EL ANFITRION el 15-10:**
+      - **LB4, calibrados:** `bmo-contadores` (puro, 8 pruebas): los MSR,
+        `PERF_CTL`, el catalogo con su FUENTE (el PPR de la familia 19h y el
+        `perf` de Linux) y su CONFIANZA -- ciclos, instrucciones, saltos y
+        saltos fallados, firmes; accesos y fallos de la L1D, por confirmar --,
+        y el juez. El kernel corre tres bucles que se saben de memoria
+        (recta, azar, persecucion por 256 KiB en permutacion) con las
+        interrupciones apagadas, UNA vez por arranque, y solo en la CPU del
+        perfil. `cpu contadores` pinta cada fila: lo contado, lo esperado y
+        si CUENTA lo que dice el papel.
+      - **LB5, un programa se cuenta:** `TASK_OP_CONTAR`; el cambio de tarea
+        enciende los contadores 0..3 solo para quien empezo, solo en Ring 3.
+        TITAN++: `director.contar()` y `director.contado(k)`; INTI:
+        `invoca(mi_tarea, op_contar, contar_empieza, 0, 0)` y
+        `invoca_valor(mi_tarea, op_contar, contar_lee, k, 0)`, sin tocar su
+        compilador. En los dos, lo contado es lineal en las vueltas de un
+        bucle (el emulador cuenta instrucciones con su metro).
+      - **Lo que NO esta:** que la LENTE diga en castellano "este bucle
+        falla la L1 una de cada 3" sobre un programa entero (pide los
+        numeros del metal primero); y que el emisor ELIJA con ellos (LB10,
+        la otra mitad).
+  - [x] **en el anfitrion** -- HECHO el 15-10 (lo de arriba; banco 5364 verdes).
+  - [ ] **en el Ryzen** -- `cpu contadores`: 8 de 8 filas CUENTAN (hoja 6b, fila C4). Cuando se vea bien: se anota en la hoja
+        y se tachan esta casilla y la de C4.
 
 **Escalon 4 -- lo mas duro**
 
@@ -1090,6 +1116,11 @@ pieza entera en la 0b, y su fila de la tabla de estado pasa a `VISTO dd-mm`.
                                        `cpu: es la CPU del perfil` y     el Ryzen, o una DECIDIDA
                                        `extensiones decididas que el     que el silicio no tiene
                                        silicio tiene` = 11
+   C4     los contadores del Zen 3     `cpu contadores`: cada fila con   una fila `cuenta OTRA       (sin probar)
+                                       lo contado y `CUENTA lo que dice  cosa` o `no conto NADA`
+                                       el PPR`; al final `8 de 8`. Las   (apuntar CUAL: ese evento
+                                       dos de la L1D son las que el      o su umask no es el de
+                                       metal confirma o no               este Ryzen)
    C3     el volcado por la 3060, por  `gpu init` (o el arranque con la  `[C3] ... fallo tres         (sin probar)
           defecto (C3a)                3060 lista): `[C3] la 3060        veces`, o la pantalla con
                                        vuelca el escritorio por          basura o a trozos, o `gpu

@@ -1,14 +1,14 @@
 <!-- GENERADO por toolchain/tools/planes. No se edita a mano. -->
 
-# LO QUE FALTA -- las casillas abiertas de los 84 planes
+# LO QUE FALTA -- las casillas abiertas de los 85 planes
 
 > Generado por `toolchain/tools/planes`. **El build comprueba que
 > este fichero y los planes dicen lo mismo**, asi que no puede
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   816 casillas ABIERTAS en 75 planes
-   636 hechas
+   831 casillas ABIERTAS en 76 planes
+   637 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -90,14 +90,14 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] IL2 -- LA REJILLA DE VECINOS: cada particula a su celda, ordenadas por celda (un conteo y un ord
 - ... y 27 mas
 
-## [`EL_FOCO.md`](EL_FOCO.md) -- 27 abiertas, 22 hechas
+## [`EL_FOCO.md`](EL_FOCO.md) -- 28 abiertas, 23 hechas
 
 *EL FOCO -- una cosa a la vez, hasta el final (10-10; el orden nuevo, 14-10)*
 
 - [ ] A4 -- TITAN++ pide RAM SOLO con laminas. director.lamina deja de
 - [ ] en el Ryzen -- un .bex del nivel 15 de TITAN++ corriendo (hoja 6b, fila A4). Cuando se vea bien:
 - [ ] B1 -- LB7 + LB8: verificar una vez y apartarse. Al admitir un
-- ... y 24 mas
+- ... y 25 mas
 
 ## [`PLAN_LA_3060_AFINADA.md`](PLAN_LA_3060_AFINADA.md) -- 25 abiertas, 18 hechas
 
@@ -170,6 +170,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] S2 -- LA TABLA DE REGISTROS COMO DATO, no como codigo. x86-64 nombra
 - [ ] S3 -- EL PRIMER CLIENTE: INTI. Porque puede declarar el alias. Y
 - ... y 12 mas
+
+## [`PLAN_CRAFTPHO.md`](PLAN_CRAFTPHO.md) -- 14 abiertas, 0 hechas
+
+*PLAN CRAFTPHO -- pintar y retocar en BMO-X, con capas, en la 3060*
+
+- [ ] K0 -- la pila de capas, compuesta. Capas de pixeles en mosaicos de
+- [ ] K1 -- los 12 modos separables del W3C (multiplicar, trama,
+- [ ] K2 -- los 4 no separables (tono, saturacion, color, luminosidad).
+- ... y 11 mas
 
 ## [`PLAN_EL_PLAZO.md`](PLAN_EL_PLAZO.md) -- 14 abiertas, 1 hechas
 

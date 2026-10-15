@@ -108,6 +108,10 @@ y la LENTE los dice en castellano: "este bucle falla la L1 una de cada 3".
 - solo lectura y solo en el kernel: un contador mal puesto no rompe nada,
   pero un numero mal leido burla
 
+**15-10: HECHO EN EL ANFITRION** (C4 de `EL_FOCO.md`, con el detalle): el
+catalogo con fuente y confianza (`bmo-contadores`), la calibracion en el
+kernel y `cpu contadores`. Falta que el Ryzen diga que fila CUENTA.
+
 ### [ ] LB5 -- INTI exprime con evidencia
 
 Con LB4, la fila "lo que hay y no se coge" (AVX2, FMA, BMI1...) deja de ser
@@ -115,6 +119,11 @@ una lista y pasa a tener NUMEROS: donde un programa de INTI o TITAN++ pierde
 tiempo y que extension lo cambiaria. La ley 0 de
 `../maestro/OPTIMIZACION_MAESTRO.md`: correcto, medido, y solo entonces
 rapido, y solo donde el numero diga.
+
+**15-10, la puerta HECHA EN EL ANFITRION** (C4 de `EL_FOCO.md`): INTI y
+TITAN++ se cuentan a si mismos (`op_contar`, `director.contar`/`contado`).
+Lo que falta es usar los numeros: un banco que diga, por programa, donde se
+pierde el tiempo y que extension lo cambiaria.
 
 ### [x] LB6 -- la cabecera del `.bex` dice EXACTAMENTE que instrucciones usa
 
