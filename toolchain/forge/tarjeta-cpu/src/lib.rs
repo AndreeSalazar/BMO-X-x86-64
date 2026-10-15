@@ -105,7 +105,9 @@ pub fn no_sabe(p: &Programa) -> Option<(usize, &'static str)> {
             Op::Entrada { .. } | Op::Salida { .. } | Op::Mul { .. } | Op::Add { .. } | Op::Sub { .. } | Op::Div { .. } | Op::Mad { .. } | Op::Dot { .. } | Op::Rsqrt { .. } | Op::Sqrt { .. } | Op::Saturate { .. } | Op::Abs { .. } | Op::Min { .. } | Op::Max { .. } => return None,
             Op::Compara { .. } | Op::Elige { .. } | Op::Copia { .. } | Op::SumaEntera { .. } | Op::Entera { .. } | Op::Convierte { .. } => return None,
             Op::Si { .. } | Op::SiNo | Op::FinSi | Op::Bucle | Op::RomperSi { .. } | Op::Romper | Op::Continuar | Op::FinBucle => return None,
-            Op::Constantes { .. } | Op::ConstantesEn { .. } => "lee un cbuffer, y la puerta de la CPU solo da entradas y una salida",
+            // V3 (15-10): la fila del cbuffer, por `rdx` (`nativo`), con su prueba.
+            Op::Constantes { .. } => return None,
+            Op::ConstantesEn { .. } => "lee un cbuffer con la fila calculada, y eso todavia no tiene su prueba en esta tarjeta",
             Op::Mate { .. } | Op::Muestra { .. } | Op::Lee { .. } | Op::EligeTextura { .. } => "llama al interprete en Rust (la matematica, las texturas), y dentro de un .bex no hay a quien llamar",
             Op::IdHilo { .. } | Op::Barrera | Op::LeeCompartida { .. } | Op::EscribeCompartida { .. } | Op::AtomicoCompartido { .. } => "es de computo (hilos, barreras, memoria compartida), y una celda de la CPU corre sola",
             Op::EscribeUav { .. } | Op::LeeUav { .. } | Op::MedidasUav { .. } | Op::Contador { .. } | Op::Atomico { .. } => "lee o escribe memoria de fuera (un UAV), y la puerta de la CPU solo da entradas y una salida",
@@ -162,13 +164,23 @@ fn palabras(n: usize, de: impl Iterator<Item = u32>) -> Vec<u8> {
 /// **Corre `c`** con estas entradas, y mira el CONTRATO DE LA LLAMADA: el NO,
 /// en las palabras de esta tarjeta.
 pub fn correr(c: &Codigo, entradas: &[[u32; 4]], salidas: usize) -> Result<Corrida, String> {
+    correr_con(c, entradas, &[], salidas)
+}
+
+/// Las filas de cbuffer que se le dan a un cuerpo que no dice las suyas (al
+/// emitirlo y al juzgarlo): las de una gpu fn que dibuja, todas a cero.
+const FILAS_CB: usize = 16;
+
+/// [`correr`] con su cbuffer (V3): la fila `f` en `rdx + 16 f`.
+pub fn correr_con(c: &Codigo, entradas: &[[u32; 4]], constantes: &[[u32; 4]], salidas: usize) -> Result<Corrida, String> {
     let mut m = Machine::new(arnes(&c.bytes));
     let n_regs = (c.registros as usize).max(1);
     let regs = m.load_data(&palabras(n_regs, core::iter::empty()));
     let ent_bytes = palabras(4 * entradas.len().max(1), entradas.iter().flatten().copied());
     let ent = m.load_data(&ent_bytes);
     let sal = m.load_data(&palabras(4 * salidas.max(1), core::iter::empty()));
-    let cb_bytes = [0u8; 16];
+    let mut cb_bytes = palabras(4 * FILAS_CB.max(constantes.len()), constantes.iter().flatten().copied());
+    cb_bytes.resize(16 * FILAS_CB.max(constantes.len()), 0);
     let cb = m.load_data(&cb_bytes);
     m.regs[7] = regs; // rdi
     m.regs[6] = ent; // rsi
@@ -277,6 +289,10 @@ impl Tarjeta for Cpu {
     /// mirado en cada celda.
     fn simular(&self, c: &Codigo, entradas: &[[u32; 4]], salidas: usize) -> Result<Vec<[u32; 4]>, String> {
         correr(c, entradas, salidas).map(|r| r.salidas)
+    }
+
+    fn simular_con(&self, c: &Codigo, entradas: &[[u32; 4]], constantes: &[[u32; 4]], salidas: usize) -> Result<Vec<[u32; 4]>, String> {
+        correr_con(c, entradas, constantes, salidas).map(|r| r.salidas)
     }
 }
 

@@ -423,11 +423,22 @@ pub fn run_gpu_dibujo(m: &Module, func: usize, celdas: &[Vec<[u32; 4]>]) -> Resu
         return Err(Message::new(Code::GpuBody, f.line, 1, "una gpu fn que dibuja sin sus registros", "gpu.rs tenia que haberlo dicho", "--"));
     };
     let entra = ty_of(entra).expect("gpu: the type exists");
+    // ** V3: its CONSTANTS (the second value, if any): in each cell, the rows
+    // after the elements it receives -- one per field --.
+    let cb = match f.params.get(1) {
+        Some((_, Ty::Named(n))) => Some(ty_of(n).expect("gpu: the type exists")),
+        _ => None,
+    };
     let mut r = Run { m, steps: 0, depth: 0, flat: Vec::new(), seen: m.functions.iter().map(|f| vec![false; f.blocks.len()]).collect(), last_turn: (0, 0), lenient: 0, device: None };
     let mut out = Vec::with_capacity(celdas.len());
     for e in celdas {
+        let n = m.types[entra].fields.len();
         let fields = m.types[entra].fields.iter().enumerate().map(|(k, c)| field(&c.ty, &e[k])).collect();
-        let (result, _) = r.call(func, vec![Const::Record(entra, fields)], (f.line, 1))?;
+        let mut args = vec![Const::Record(entra, fields)];
+        if let Some(k) = cb {
+            args.push(Const::Record(k, m.types[k].fields.iter().enumerate().map(|(j, c)| field(&c.ty, &e[n + j])).collect()));
+        }
+        let (result, _) = r.call(func, args, (f.line, 1))?;
         // What it leaves, by elements: a record of records (vertex), or one
         // record of f32 (pixel: the colour).
         let bits = |c: &Const| if let Const::F32(b) = c { *b } else { 0 };

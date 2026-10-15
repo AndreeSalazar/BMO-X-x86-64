@@ -112,7 +112,14 @@ pub fn campos(tipos: &[TypeDef], ty: &Ty) -> Option<Vec<(String, usize)>> {
 /// valores; `ret`: el de su resultado). Lo que no es de vertice ni de pixel
 /// es una celda, y la celda dice sus propios NO.
 pub fn forma(tipos: &[TypeDef], params: &[&Ty], ret: Option<&Ty>) -> Forma {
-    let ([a], Some(b)) = (params, ret) else { return Forma::Celda };
+    // ** V3 (D1 de EL_FOCO, 15-10): un SEGUNDO valor, si es un registro de
+    // constantes (`constantes`), es el cbuffer: lo mismo para todos los hilos.
+    let a = match params {
+        [a] => a,
+        [a, k] if constantes(tipos, k).is_some() => a,
+        _ => return Forma::Celda,
+    };
+    let Some(b) = ret else { return Forma::Celda };
     let (Some(entra), Some(sale)) = (campos(tipos, a), campos(tipos, b)) else { return Forma::Celda };
     if let Some(p) = sale.iter().position(|(n, k)| n == POSICION && *k == 4) {
         return Forma::Vertice { posicion: p };
@@ -121,6 +128,24 @@ pub fn forma(tipos: &[TypeDef], params: &[&Ty], ret: Option<&Ty>) -> Forma {
         (Some(p), Some(4)) => Forma::Pixel { posicion: p },
         _ => Forma::Celda,
     }
+}
+
+/// Las filas que puede tener un cbuffer de una gpu fn que dibuja: 16 de 16 B
+/// (la matriz, el mundo, la luz y lo que pida un cubo de D3D cabe).
+pub const FILAS_MAX: usize = 16;
+
+/// ** V3 (D1 de EL_FOCO, 15-10): **las CONSTANTES de una gpu fn que dibuja**
+/// -- su segundo valor --: un registro cuyos campos son cada uno UNA FILA del
+/// cbuffer (16 B: un f32 o un registro de 1 a 4 f32), en orden. Lo mismo para
+/// todos los hilos de un dibujo: lo que D3D llama un constant buffer y aqui
+/// viaja delante de los vertices (`base_bytes` del sobre). `None` si no lo es.
+pub fn constantes(tipos: &[TypeDef], ty: &Ty) -> Option<Vec<(String, usize)>> {
+    let Ty::Named(n) = ty else { return None };
+    let t = tipos.iter().find(|t| &t.name == n)?;
+    if t.fields.is_empty() || t.fields.len() > FILAS_MAX {
+        return None;
+    }
+    t.fields.iter().map(|c| componentes(tipos, &c.ty).map(|k| (c.name.clone(), k))).collect()
 }
 
 /// La forma de la gpu fn `f` del programa.
@@ -296,10 +321,12 @@ fn too_much(line: usize, col: usize, obra: u64) -> Message {
 fn signature(p: &Program, f: &Function) -> Result<Forma, Message> {
     let forma = forma_de(p, f);
     if forma != Forma::Celda {
-        // Una que DIBUJA (LB6): su registro llega como una COPIA, como una celda.
-        let a = &f.params[0];
-        if a.mode.word() != "" {
-            return Err(no(a.line, a.col, &format!("`{} {}` en una gpu fn", a.mode.word(), a.name), "cada hilo tiene su COPIA de lo que le llega: prestar o entregar es de la CPU", &format!("{}: {}, y devuelve el registro nuevo", a.name, a.ty.name())));
+        // Una que DIBUJA (LB6): su registro -- y sus constantes (V3) -- llegan
+        // como una COPIA, como una celda.
+        for a in &f.params {
+            if a.mode.word() != "" {
+                return Err(no(a.line, a.col, &format!("`{} {}` en una gpu fn", a.mode.word(), a.name), "cada hilo tiene su COPIA de lo que le llega: prestar o entregar es de la CPU", &format!("{}: {}, y devuelve el registro nuevo", a.name, a.ty.name())));
+            }
         }
         return Ok(forma);
     }

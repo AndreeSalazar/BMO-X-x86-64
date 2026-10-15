@@ -122,10 +122,16 @@ impl Tarjeta for Rtx3060_12g {
     }
 
     fn simular(&self, c: &Codigo, entradas: &[[u32; 4]], salidas: usize) -> Result<Vec<[u32; 4]>, String> {
+        self.simular_con(c, entradas, &[], salidas)
+    }
+
+    fn simular_con(&self, c: &Codigo, entradas: &[[u32; 4]], constantes: &[[u32; 4]], salidas: usize) -> Result<Vec<[u32; 4]>, String> {
         let codigo = de_bytes(&c.bytes)?;
-        // El ABI del banco: la entrada e, componente k, en c[1][16 e + 4 k].
+        // El ABI del banco: la entrada e, componente k, en c[1][16 e + 4 k];
+        // y el cbuffer (V3), fila f, en c[3][16 f + 4 k].
         let banco: Vec<u8> = entradas.iter().flat_map(|e| e.iter().flat_map(|x| x.to_le_bytes())).collect();
-        let mut m = Maquina::nueva([&[], &banco, &[], &[], &[], &[], &[], &[]]);
+        let cb: Vec<u8> = constantes.iter().flat_map(|e| e.iter().flat_map(|x| x.to_le_bytes())).collect();
+        let mut m = Maquina::nueva([&[], &banco, &[], &cb, &[], &[], &[], &[]]);
         correr(&codigo, &mut m).map_err(|e| format!("el simulador de {}: {:?}", NOMBRE, e))?;
         // La salida e, componente k, en el registro R(4 e + k) al EXIT.
         Ok((0..salidas).map(|e| [m.r[4 * e], m.r[4 * e + 1], m.r[4 * e + 2], m.r[4 * e + 3]]).collect())

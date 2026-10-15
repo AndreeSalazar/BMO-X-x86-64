@@ -201,7 +201,7 @@ fn lo_que_no_sabe_lo_dice_en_su_operacion_y_no_emite() {
         (Op::Mate { d: 1, a: 0, f: bmo_prometeo::mates::Mate::Sin }, "llama al interprete"),
         (Op::IdHilo { d: 1, que: 0, c: 0 }, "es de computo"),
         (Op::LeeUav { d: 1, u: 0, modo: bmo_prometeo::bufer::Modo::Crudo, i: 0, desp: 0, z: 0 }, "memoria de fuera"),
-        (Op::Constantes { d: 1, fila: 0, cb: 0 }, "cbuffer"),
+        (Op::ConstantesEn { d: 1, fila: 0, filas: 4, i: 0, cb: 0 }, "fila calculada"),
     ];
     for (op, dice) in casos {
         match CPU.emitir(&unaria(op.clone()), Para::Viaje) {
@@ -254,4 +254,37 @@ fn el_prologo_pone_los_registros_y_la_celda_corre_lo_que_dice() {
     assert_eq!(CPU.simular(&c, &[[3.0f32.to_bits(), 0, 0, 0]], 1).unwrap()[0][0], 1.5f32.to_bits());
     // lo mismo para el oraculo y para el viaje
     assert_eq!(CPU.emitir(&p, Para::Oraculo).unwrap(), c);
+}
+
+/// ** V3 (15-10): las CONSTANTES, por `rdx`: cada fila del cbuffer, sus
+/// cuatro componentes en sus cuatro registros, como el interprete -- y una
+/// cuenta con ellas (`x * c.x + c.w`) da sus bits --. Tres filas, la de en
+/// medio leida dos veces, en los valores que muerden.
+#[test]
+fn las_constantes_dan_los_bits_del_interprete() {
+    let ops = vec![
+        Op::Entrada { d: 0, elemento: 0, componente: 0 },
+        Op::Constantes { d: 1, fila: 1, cb: 0 },
+        Op::Constantes { d: 5, fila: 2, cb: 0 },
+        Op::Mad { d: 9, a: 0, b: 1, c: 4 },
+        Op::Add { d: 9, a: 9, b: 6 },
+        Op::Salida { s: 9, elemento: 0, componente: 0 },
+        Op::Salida { s: 2, elemento: 0, componente: 1 },
+        Op::Salida { s: 8, elemento: 0, componente: 2 },
+    ];
+    let mut p = programa(ops, vec![0.0; 10], 1);
+    p.filas_cb = 3;
+    let c = CPU.emitir(&p, Para::Viaje).unwrap_or_else(|e| panic!("{e:?}"));
+    CPU.juzgar(&c, Para::Viaje).unwrap();
+    let b = f32s();
+    for (i, &x) in b.iter().enumerate() {
+        let filas: Vec<[u32; 4]> = (0..3).map(|f| [b[(i + f) % b.len()], b[(i + f + 3) % b.len()], b[(i + 2 * f + 5) % b.len()], b[(i + f + 7) % b.len()]]).collect();
+        let suya = CPU.simular_con(&c, &[[x, 0, 0, 0]], &filas, 1).unwrap();
+        let cb: Vec<u8> = filas.iter().flatten().flat_map(|w| w.to_le_bytes()).collect();
+        let mut s = [[0.0f32; 4]; 1];
+        p.correr(&[[f32::from_bits(x), 0.0, 0.0, 0.0]], &cb, &mut s, &mut Vec::new());
+        for k in 0..3 {
+            assert!(mismo(suya[0][k], s[0][k].to_bits()), "x = {x:#x}, componente {k}: la CPU {:#x}, la casa {:#x}", suya[0][k], s[0][k].to_bits());
+        }
+    }
 }

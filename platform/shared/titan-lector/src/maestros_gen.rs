@@ -29,7 +29,7 @@ pub static FAMILIES: [&str; 16] = [
 ];
 
 /// Cuantos hay: la TAB mide sus tablas con esto.
-pub const COUNT: usize = 46;
+pub const COUNT: usize = 47;
 
 /// `static`, no `const`: UNA copia en `.rodata`, que Ring 3 lee por indice
 /// sin traerla a una pila de 64 KiB.
@@ -385,6 +385,17 @@ pub static MASTERS: [Master; COUNT] = [
         typed: &[],
         out: &["el cubo de V0, escrito en TITAN++: cubo_vertice y cubo_pixel"],
         source: "# sale: el cubo de V0, escrito en TITAN++: cubo_vertice y cubo_pixel\n# dos gpu fn que DIBUJAN (LB6), dichas por su firma: la de vertice recibe un registro y deja otro con su `posicion`; la de pixel recibe ese y deja su color. No se llaman: las pone a dibujar VERRANO (LB7). `titan sm86` las pega a la tuberia de la RTX 3060 12G y las mete en su sobre, cubo.bsf\nmod main \"el cubo de V0, en TITAN++\"\n\n# Cuatro f32: un punto en coordenadas de recorte (x, y, z, w), o un color (r, g, b, a).\ntype Cuatro\n    x: f32\n    y: f32\n    z: f32\n    w: f32\n\n# Un vertice del cubo como lo escribe la app (`Vertex` de VERRANO, 32 bytes): su posicion, ya en coordenadas de recorte, y el color de su cara.\ntype Vertice\n    posicion: Cuatro\n    color: Cuatro\n\n# La de VERTICE: deja lo que le dan -- la posicion, a la tarjeta; el color, a la de pixel.\ngpu fn cubo_vertice(v: Vertice) -> Vertice\n    return v\n\n# La de PIXEL: el color de su cara. Los tres vertices de una cara dan el mismo, y la tarjeta lo interpola exacto.\ngpu fn cubo_pixel(v: Vertice) -> Cuatro\n    return v.color\n\nfn main()\n    print(\"el cubo de V0, escrito en TITAN++: cubo_vertice y cubo_pixel\")\n",
+    },
+    Master {
+        name: "cubo3",
+        level: 11,
+        why: "V3 de PLAN_VERRANO (D1 de EL_FOCO): la gpu fn de vertice recibe un SEGUNDO valor, sus CONSTANTES -- el cbuffer: cada campo una fila de 16 B, lo mismo para todos los hilos --. La app sube la matriz UNA vez por fotograma y los vertices del cubo SIN transformar; las cuentas, en la tarjeta. `titan sm86` las pega a la tuberia de la RTX 3060 12G",
+        says: "el cubo de V3, en TITAN++",
+        words: &["fn", "let", "return", "type", "gpu", "f32"],
+        asks: Permissions::NONE.with(Permission::Gpu),
+        typed: &[],
+        out: &["el cubo de V3, escrito en TITAN++: la matriz en el cbuffer y la 3060 multiplicando"],
+        source: "# sale: el cubo de V3, escrito en TITAN++: la matriz en el cbuffer y la 3060 multiplicando\n# V3 de PLAN_VERRANO (D1 de EL_FOCO): la gpu fn de vertice recibe un SEGUNDO valor, sus CONSTANTES -- el cbuffer: cada campo una fila de 16 B, lo mismo para todos los hilos --. La app sube la matriz UNA vez por fotograma y los vertices del cubo SIN transformar; las cuentas, en la tarjeta. `titan sm86` las pega a la tuberia de la RTX 3060 12G\nmod main \"el cubo de V3, en TITAN++\"\n\n# Cuatro f32: un punto (x, y, z, w), un color (r, g, b, a) o una columna de una matriz.\ntype Cuatro\n    x: f32\n    y: f32\n    z: f32\n    w: f32\n\n# Un vertice del cubo: su posicion -- SIN transformar (w = 1) al entrar, en coordenadas de recorte al salir -- y el color de su cara.\ntype Vertice\n    posicion: Cuatro\n    color: Cuatro\n\n# Las constantes: la matriz mundo-vista-proyeccion por COLUMNAS, como D3D la sube (`mul(M, v)`): cada columna, una fila del cbuffer.\ntype Matriz\n    c0: Cuatro\n    c1: Cuatro\n    c2: Cuatro\n    c3: Cuatro\n\n# La de VERTICE: la matriz por la posicion, componente a componente y en el orden de D3D (columna 0 por x, mas columna 1 por y...); el color, tal cual.\ngpu fn cubo_vertice(v: Vertice, m: Matriz) -> Vertice\n    let p = v.posicion\n    let x = m.c0.x * p.x + m.c1.x * p.y + m.c2.x * p.z + m.c3.x * p.w\n    let y = m.c0.y * p.x + m.c1.y * p.y + m.c2.y * p.z + m.c3.y * p.w\n    let z = m.c0.z * p.x + m.c1.z * p.y + m.c2.z * p.z + m.c3.z * p.w\n    let w = m.c0.w * p.x + m.c1.w * p.y + m.c2.w * p.z + m.c3.w * p.w\n    return Vertice { posicion: Cuatro { x: x, y: y, z: z, w: w }, color: v.color }\n\n# La de PIXEL: el color de su cara.\ngpu fn cubo_pixel(v: Vertice) -> Cuatro\n    return v.color\n\nfn main()\n    print(\"el cubo de V3, escrito en TITAN++: la matriz en el cbuffer y la 3060 multiplicando\")\n",
     },
     Master {
         name: "dos_cubos",
