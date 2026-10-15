@@ -98,8 +98,11 @@ const TIPOS: &[Tipo] = &[
     Tipo { ext: b"exe", clase: Clase::Juego, abre: Abre::Con(b"sys/proton-x.bex") },
     Tipo { ext: b"bex", clase: Clase::App, abre: Abre::Programa },
     Tipo { ext: b"ibx", clase: Clase::App, abre: Abre::Programa },
-    // ** El reproductor recibe la ruta por los ARGUMENTOS (`task/argumentos.rs`).
-    Tipo { ext: b"mus", clase: Clase::Audio, abre: Abre::Con(b"inti/musica.ibx") },
+    // ** El reproductor de INTI recibia la ruta por los ARGUMENTOS
+    // (`task/argumentos.rs`); salio el 15-10 (Q2) y su relevo, `apps/musica.bex`
+    // de TITAN++, aun no lee argumentos: toca `datos/tema.mus`. Hasta que los
+    // lea, abrir OTRO `.mus` lo dice en vez de lanzar un programa que no esta.
+    Tipo { ext: b"mus", clase: Clase::Audio, abre: Abre::Falta("MUS: `run apps/musica.bex` toca datos/tema.mus; otro .mus pide argumentos en TITAN++") },
     Tipo { ext: b"wav", clase: Clase::Audio, abre: Abre::Falta("WAV: el tubo USB esta, falta leer el formato") },
     // ** Las tres que `bmo-imagen` sabe descifrar: al visor, que pinta la imagen
     // y no sus bytes (2026-09-13).

@@ -426,11 +426,16 @@ try {
     # en la carpeta de datos y el escritorio lo seguia ofreciendo: NAVEGAR salia
     # dos veces, el de INTI (muerto el 10-10) y el de TITAN++. Cada programa que
     # sale de INTI con su relevo en TITAN++ se apunta AQUI, y se borra.
+    # ** Y en `apps\` tambien (15-10, la captura del propietario: SEGUIA saliendo
+    # NAVEGAR dos veces). `navegar.ibx` no vivia en `inti\`: vivia en `apps\`,
+    # que es la carpeta que el escritorio convierte en iconos.
     foreach ($retirado in @('navegar.ibx', 'ventana.ibx', 'cubo.ibx', 'bico.ibx', 'png.ibx', 'musica.ibx')) {
-        $viejo = Join-Path (Join-Path $dataBase 'inti') $retirado
-        if (Test-Path $viejo) {
-            Remove-Item $viejo -Force
-            Write-Host ('    [inti] retirado del disco: inti\' + $retirado + ' (su relevo es de TITAN++)') -ForegroundColor DarkGray
+        foreach ($carpeta in @('inti', 'apps')) {
+            $viejo = Join-Path (Join-Path $dataBase $carpeta) $retirado
+            if (Test-Path $viejo) {
+                Remove-Item $viejo -Force
+                Write-Host ('    [inti] retirado del staging: ' + $carpeta + '\' + $retirado + ' (su relevo es de TITAN++)') -ForegroundColor DarkGray
+            }
         }
     }
     Compilar-Ejemplos @(
