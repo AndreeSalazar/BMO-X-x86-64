@@ -247,6 +247,16 @@ Guardian 'Validating profile fields match the code' `
     'toolchain\tools\perfil-campos\perfil_campos.py' 'los campos de los perfiles' `
     'perfil-campos: un perfil afirma algo que el codigo no dice (ver arriba)'
 
+# ** LLVM PIDE PERMISO (B4, 14-10). El propietario: "que ese LLVM de rust
+# TENGA OBLIGACION que tengas control ... yo decido por motivos". La columna
+# `llvm` de PERFIL/CPU.txt dice que puede elegir el compilador solo; esto
+# cierra sus tres puertas (la CPU del objetivo, los `+feature` y los
+# `#[target_feature]`). Lo que emite de verdad lo juzga `bex-link` en el
+# binario, con la lente.
+Guardian 'Validating LLVM only chooses what the owner decided' `
+    'toolchain\tools\llvm-obedece\llvm_obedece.py' 'LLVM contra la columna llvm del perfil' `
+    'llvm-obedece: un objetivo o una funcion deja a LLVM elegir lo que el propietario no decidio (ver arriba)'
+
 # ** Y QUE UNA BANDERA DECLARADA LLEGUE AL OTRO LADO. `desplegar.ps1` declaraba
 # `-Si` y no se lo pasaba a `bmo.ps1`: se aceptaba sin protestar y el despliegue
 # preguntaba igual. PowerShell no se queja de un `param` que no se use, asi que

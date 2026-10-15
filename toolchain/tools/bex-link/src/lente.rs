@@ -121,7 +121,7 @@ pub fn juzgar(b: &Barrido, mano: u64, nombre_de: impl Fn(usize) -> String) -> Re
     use bmo_abi::bef::requisitos::instrucciones::{nombres, por_nombre};
     let mut motivos = Vec::new();
     for (en, e) in b.no_sabe.iter().take(10) {
-        motivos.push(format!("{}: la lente no sabe leer esto ({e:?}) -- o se le ensena (`bmo-lente-x86/src/tabla.rs`), o no entra", nombre_de(*en)));
+        motivos.push(format!("{}: la lente no sabe leer esto ({e:?}) -- o se pone su fila en `bmo-lente-x86/src/tabla.rs`, o no entra", nombre_de(*en)));
     }
     if b.no_sabe.len() > 10 {
         motivos.push(format!("... y {} sitios mas que la lente no sabe leer", b.no_sabe.len() - 10));

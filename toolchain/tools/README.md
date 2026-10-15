@@ -41,6 +41,7 @@ decoracion**, y un obrero que juzga es un obrero que un dia se niega a trabajar.
 | [`perfil-placa`](perfil-placa/) | el perfil de la placa y los rodeos que se le hacen no cuadran |
 | [`perfil`](perfil/) | un perfil expone a un fichero que no existe |
 | [`perfil-campos`](perfil-campos/) | un campo de un perfil dice un numero y el codigo dice otro |
+| [`llvm-obedece`](llvm-obedece/) | un objetivo de Rust (o un `#[target_feature]`) deja a LLVM elegir una extension que `PERFIL/CPU.txt` no le permite |
 | [`relevo`](relevo/) | una bandera del traspaso se pierde entre una etapa y la siguiente |
 | [`proton-x`](proton-x/) | un `.exe` de prueba de PROTON-X sin su huella, sin copiar al volumen o sin prueba en el banco; una licencia ajena en su codigo; un nombre de Windows servido por dos modulos; un codigo de error publico en la casa; una funcion de Windows escrita y nunca conectada (28-09, 7 reglas con autoprueba) |
 | [`contrato`](contrato/) | cualquiera de sus **20 reglas**, y las 20 estan probadas con 90 casos. Es el mayor de todos |
