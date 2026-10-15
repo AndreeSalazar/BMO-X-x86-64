@@ -2098,6 +2098,37 @@ principio; lo que se mide es CUANTO cuesta, y de donde sale cada vatio.
       (P5), la tabla de arriba de los dos lados. **Como se sabe:** fps y
       vatios de Windows y de BMO-X, en la misma escena, con la fecha.
 
+## 4d. LA LENTE SOBRE PROTON-X -- que el binario lo diga, no el printf (15-10)
+
+> El propietario: *"quizas nos sorprenda que PROTON-X no deja claro aunque
+> printf ayude [...] el binario PRECISO en 0 y 1 diga algo"*.
+
+Un `printf` dice lo que quien lo escribio penso preguntar. El binario dice
+lo que la CPU HACE: es la unica fuente que no se equivoca de pregunta. La
+lente del kernel (`bmo-lente-x86`) lee x86-64 sin importarle quien lo
+emitio -- MSVC, un juego de GOG, PROTON-X --, y desde el 15-10 lo dice en
+castellano (`castellano::explica`).
+
+- [x] **LX0 -- el fallo de un juego, en castellano.** Ya es asi sin tocar
+      PROTON-X: la autopsia lee la instruccion en el `rip` del que cayo
+      -- sea codigo de BMO-X o del `.exe` del juego mapeado por PROTON-X --
+      y la dice (`instr` y `dice`, B2 y B2c de la hoja 6b de EL_FOCO).
+      Falta: verlo con un juego que caiga, en el Ryzen.
+- [ ] **LX1 -- `dentro JUEGO.EXE`.** La radiografia de un PE: cabecera,
+      secciones, la tabla de IMPORTACIONES (que DLL y que funciones pide: lo
+      que PROTON-X tiene que dar) y la lente desde la entrada, en
+      castellano. **Como se sabe:** el BMOX-12 de EPICX (P3c) y un juego
+      chico dicen las mismas importaciones que `dumpbin /imports`.
+- [ ] **LX2 -- el registro de PROTON-X con el binario al lado.** Cuando
+      PROTON-X apunta "esta funcion no la tengo" o un lote raro, la linea
+      lleva ademas las instrucciones del JUEGO alrededor del `call` que la
+      pidio, dichas en castellano: que estaba haciendo justo antes. Es lo
+      que el `printf` no puede saber.
+- [ ] **LX3 -- lo que el juego USA, antes de correrlo.** La lente recorre
+      todo el codigo alcanzable del `.exe` y cuenta que extensiones (AVX2,
+      x87...) y que importaciones alcanza de verdad: la seccion 4b ("la
+      MAYORIA de los juegos?") medida en el binario, no a ojo.
+
 ## 5. Lo que NO se hace
 
 - **Nada de 32 bits, ARM ni .NET** (seccion 1): se dicen FUERA y no se

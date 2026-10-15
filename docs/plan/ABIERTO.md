@@ -7,8 +7,8 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   861 casillas ABIERTAS en 79 planes
-   647 hechas
+   863 casillas ABIERTAS en 79 planes
+   649 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -261,6 +261,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] Q3 -- el INDICE POR HASH: es L9 de docs/plan/PLAN_LISTAS_Y_MAPAS.md
 - ... y 8 mas
 
+## [`PLAN_PROTON_X.md`](PLAN_PROTON_X.md) -- 11 abiertas, 9 hechas
+
+*PLAN PROTON-X -- un .exe de Windows en BMO-X, SOLO x86-64, y medido*
+
+- [ ] P3 -- el cubo D3D12. Partido en tres el 27-09, porque el .exe
+- [ ] P3b -- el cubo con sus sombreadores. Root signature, PSO,
+- [ ] P3c -- el BMOX-12 de EPICX-FRAMEWORK, sin tocar. [VISTO EN EL
+- ... y 8 mas
+
 ## [`PLAN_EL_LIBRETO.md`](PLAN_EL_LIBRETO.md) -- 10 abiertas, 1 hechas
 
 *PLAN EL LIBRETO -- Cyberpunk 2077 entra por VERRANO*
@@ -333,15 +342,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] MC3 -- la fisica. Gravedad, saltar, y el jugador como una CAJA
 - ... y 5 mas
 
-## [`PLAN_PROTON_X.md`](PLAN_PROTON_X.md) -- 8 abiertas, 8 hechas
-
-*PLAN PROTON-X -- un .exe de Windows en BMO-X, SOLO x86-64, y medido*
-
-- [ ] P3 -- el cubo D3D12. Partido en tres el 27-09, porque el .exe
-- [ ] P3b -- el cubo con sus sombreadores. Root signature, PSO,
-- [ ] P3c -- el BMOX-12 de EPICX-FRAMEWORK, sin tocar. [VISTO EN EL
-- ... y 5 mas
-
 ## [`PLAN_COBOL_MAESTRO.md`](PLAN_COBOL_MAESTRO.md) -- 7 abiertas, 1 hechas
 
 *PLAN COBOL MAESTRO -- un FRONTEND bien hecho, y el x86-64 aparte*
@@ -358,15 +358,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] pendiente [~] a medias, y se dice cuanto [x] hecho, con fecha
 - [ ] A1.3 -- el AP con reloj: un LAPIC timer propio, o el MWAITX con plazo
 - [ ] A2.1 -- bmo-orquesta: una clase de parte nueva, RESIDENTE, que no
-- ... y 4 mas
-
-## [`PLAN_EL_KERNEL_DE_LA_APP.md`](PLAN_EL_KERNEL_DE_LA_APP.md) -- 7 abiertas, 2 hechas
-
-*PLAN EL KERNEL DE LA APP -- cada app se administra sola; el kernel principal arbitra*
-
-- [ ] KA1 -- la APP CARPETA: apps/ecce/ con nucleo.bex y piezas
-- [ ] KA2 -- el CONTRATO de una pieza: su peso, lo que pide (los
-- [ ] KA3 -- PRESTAR DE GOLPE: un bloque de RAM y un tramo de
 - ... y 4 mas
 
 ## [`PLAN_EL_TOQUE.md`](PLAN_EL_TOQUE.md) -- 7 abiertas, 0 hechas
@@ -439,6 +430,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] E4 -- EL METAL. Ese .bex enlazado, en el Ryzen. Hoy corre en el
 - [ ] E5f -- errno, Y LOS extern QUE NADIE DEFINE. Lo encontro DOOM al
 - [ ] E5d -- EL bss NO SE SABE NOMBRAR. Salio al hacer E5b: una reloc del
+- ... y 3 mas
+
+## [`PLAN_EL_KERNEL_DE_LA_APP.md`](PLAN_EL_KERNEL_DE_LA_APP.md) -- 6 abiertas, 3 hechas
+
+*PLAN EL KERNEL DE LA APP -- cada app se administra sola; el kernel principal arbitra*
+
+- [ ] KA2 -- el CONTRATO de una pieza: su peso, lo que pide (los
+- [ ] KA3 -- PRESTAR DE GOLPE: un bloque de RAM y un tramo de
+- [ ] KA4 -- el kernel de la app CARGA AL TOCAR sus piezas (sobre EL1
 - ... y 3 mas
 
 ## [`PLAN_EL_NEUTRO_VIGILADO.md`](PLAN_EL_NEUTRO_VIGILADO.md) -- 6 abiertas, 12 hechas

@@ -111,9 +111,30 @@
       el 15-10: se llama **NUCLEO** (`apps/<app>/nucleo.bex`), la primera
       app partida es **ECCE**, y **cada app trae sus piezas** (compartir,
       despues y si hace falta).
-- [ ] **KA1 -- la APP CARPETA:** `apps/ecce/` con `nucleo.bex` y piezas
+- [x] **KA1 -- la APP CARPETA:** `apps/ecce/` con `nucleo.bex` y piezas
       `.bex`; el lanzador ve la carpeta como UNA app (un icono) y el
       cargador valida TODAS las piezas al admitir (B1, la firma, A6).
+      **15-10, HECHO EN EL ANFITRION** (compilan el kernel y el director, el
+      banco de ECCE en verde, avisos y pilas igual):
+      - ECCE se construye en `apps\ecce\nucleo.bex` (el `ecce.bex` suelto
+        se retira del disco).
+      - El ESCRITORIO ofrece una carpeta de `apps/` como UNA app si trae
+        `nucleo.bex`, con el nombre de la carpeta y la cara de su nucleo.
+      - El KERNEL (`task/carpeta.rs`): el proceso se llama como la carpeta
+        (`ecce`, asi lo dicen la ventana, la barra y Alt+Tab) y, ANTES de
+        admitir el nucleo, cada pieza de la carpeta pasa por la puerta
+        (`bmo-bex-gate`); una que no pasa para la app entera y CABINA dice
+        cual. No arranca a medias.
+      - `dentro apps/ecce` (o clic derecho sobre la carpeta > "ver la app
+        por dentro") dice cada pieza con la puerta y la LENTE, y si la app
+        entera entra.
+      **Lo que falta, dicho:** ECCE aun no TIENE piezas aparte (el deshacer
+      y el guardado viven en el nucleo): partirla pide que TITAN++ saque un
+      `mod` a su propio `.bex` (KA7) y que el kernel cargue una pieza al
+      tocarla (KA4) -- hoy ningun proceso puede mapear otro `.bex` dentro
+      de si. La lente y los papeles de cada pieza se juzgan al cargarla
+      (KA4). Y solo en DATOS: una carpeta en ESTRATOS se lanza como un
+      `.bex` suelto. Verlo en el Ryzen: hoja 6b de EL_FOCO, fila KA1.
 - [ ] **KA2 -- el CONTRATO de una pieza:** su peso, lo que pide (los
       permisos del `Titan.toml`, por pieza) y lo que ofrece. El kernel
       principal rechaza una pieza que pide mas de lo que la app tiene.

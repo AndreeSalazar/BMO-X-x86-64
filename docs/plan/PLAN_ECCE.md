@@ -129,7 +129,8 @@ guardadas como ESTRATOS (como la `.obra` de
       deshacer, buscar. Puro, en el anfitrion. **Como se sabe:** mil
       ediciones al azar y su deshacer vuelven al texto de partida, byte a byte.
       **15-10, la primera mitad:** `Ultra_userspace/apps/ecce` (TITAN++),
-      `apps/ecce.bex` con icono. El texto es una `[byte]` Latin-1; escribir,
+      `apps/ecce.bex` con icono (desde el 15-10, `apps/ecce/nucleo.bex`: una
+      app CARPETA, KA1 de PLAN_EL_KERNEL_DE_LA_APP; su cara, un SVG). El texto es una `[byte]` Latin-1; escribir,
       Enter, Tab, Retroceso, Supr, flechas, Inicio, Fin, RePag y AvPag; las
       lineas que SE VEN se parten en el ultimo espacio que cabe. Guarda SOLO
       `datos/notas.txt` (Ctrl es del escritorio: no hay Ctrl+S), al cerrar y

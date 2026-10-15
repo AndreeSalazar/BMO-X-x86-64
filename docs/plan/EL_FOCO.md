@@ -1159,8 +1159,9 @@ pieza entera en la 0b, y su fila de la tabla de estado pasa a `VISTO dd-mm`.
                                        el 60, con el sobre que ya no es  en algun fotograma: se
                                        SASS a mano                       vuelve al de antes con git
    RX     ver un .bex por dentro       F12 > DATOS > apps, clic derecho  no sale "ver por dentro",  (sin probar)
-          (KA-1 de PLAN_EL_KERNEL_     sobre ecce.bex > "ver por         o la puerta dice NO a un
-          DE_LA_APP)                   dentro" (o `dentro apps/ecce.bex` .bex que corre, o la lente
+          (KA-1 de PLAN_EL_KERNEL_     sobre ecce/nucleo.bex > "ver por  o la puerta dice NO a un
+          DE_LA_APP)                   dentro" (o `dentro apps/ecce/     .bex que corre, o la lente
+                                       nucleo.bex`
                                        en Ejecutar): regiones, anexos,   no DEMOSTRADO
                                        lente DEMOSTRADO, el manifiesto
                                        y "el kernel lo ADMITIRIA"; al
@@ -1173,6 +1174,16 @@ pieza entera en la 0b, y su fila de la tabla de estado pasa a `VISTO dd-mm`.
           (lente en castellano)        `dice  lee 4 bytes de la         hace la instruccion
                                        memoria en [rax] con signo y lo
                                        deja en rax`
+   KA1    ECCE es una CARPETA          el escritorio: UN icono `ecce`;   dos ECCE, o ninguno, o la   (sin probar)
+          (PLAN_EL_KERNEL_DE_LA_APP)   abrirlo; la ventana, la barra y   ventana dice `nucleo`, o
+                                       Alt+Tab dicen ECCE. F12 > DATOS > el `ecce.bex` viejo sigue
+                                       apps, clic derecho sobre `ecce` > en `apps\`
+                                       "ver la app por dentro": NUCLEO
+                                       ... ENTRA y "la app ENTERA entra"
+   IC     la cara ELEGANTE de ECCE     el icono de ECCE en el escritorio sale el cuadro con la E,  (sin probar)
+          (32 px, borde suave, de      a 32 con el borde suave (la hoja  o con bordes en escalera,
+          su `icono.svg`)              y la pluma de oro), sobre la foto o un halo oscuro alrededor
+                                       de fondo y marcado (la pastilla)
    EL0    lo que TOCA cada programa    abrir ECCE, TINTA y MUNDO,       la tabla no sale, o todo    (sin probar)
           (PLAN_EL_TOQUE.md)           usarlos un poco y CERRARLOS;      a cero, o un fallo al
                                        `save`: capitulo 5, la tabla      cerrar una app (el
