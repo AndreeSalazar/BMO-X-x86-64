@@ -80,6 +80,18 @@ fn sec() -> u64 {
 /// **Correrlo y esperar a `GSP_INIT_DONE`** (el paso de `save mode`).
 /// `Ok(ordenes corridas)`.
 pub(crate) fn correr() -> Result<u64, u32> {
+    // ** UNA VEZ POR ARRANQUE (15-10, el save del Ryzen de las 08:30). El
+    // secuenciador no se corre dos veces (`IOMMU_NO_SEC_YA`), y la segunda
+    // llamada -- un `gpu init` tecleado despues de que `save mode` ya hizo
+    // el suyo -- caia en la rama del error y GUARDABA su resumen vacio
+    // encima del bueno: el save decia "GSP_INIT_DONE NO llego en 10 s" con
+    // el GSP-RM contestando RPC en la fila de abajo, `listo()` pasaba a no,
+    // y todo lo que pide la 3060 lista volvia a intentarlo y se paraba.
+    if let Some(antes) = resumen() {
+        if antes.init_done {
+            return Ok((antes.sec & 0xFFFF) as u64);
+        }
+    }
     let hz = bmo::info(bmo::INFO_TSC_HZ).max(1000);
     let mut r = Resumen {
         sec: 0,
@@ -104,6 +116,11 @@ pub(crate) fn correr() -> Result<u64, u32> {
             }
             Ok(v) => r.sec = v,
             Err(m) => {
+                // Ya se corrio en este arranque: lo que se vio ENTONCES es
+                // lo que vale, no una vuelta que no pudo ni empezar.
+                if m == bmo::IOMMU_NO_SEC_YA && resumen().is_some() {
+                    return Err(m);
+                }
                 r.sec = sec();
                 r.no = m;
                 guardar(r);
@@ -173,6 +190,20 @@ pub(crate) fn listo() -> bool {
 /// queda quieta (metal 24-09 09:54, era BAR1: desde L0c4b3a se devuelve). En
 /// `save mode` es el paso `init`, seguido de `estatica` y `objetos`.
 pub(crate) fn orden(dsk: &mut Desktop, p: &bmo::Pantalla) -> After {
+    // Ya arrancado en este arranque (por `save mode` o por otro `gpu init`):
+    // se dice y no se toca nada -- ni el secuenciador, que no se repite, ni
+    // los objetos, que ya estan pedidos.
+    if listo() {
+        let g = &mut dsk.out.grid;
+        g.with_ink(INK_GOOD);
+        g.text(b"  GSP_INIT_DONE ya llego en este arranque: el GSP-RM esta arrancado\n");
+        g.with_ink(INK_PLAIN);
+        fila(&mut dsk.out.grid);
+        super::gsprpc::fila(&mut dsk.out.grid);
+        super::gspobjeto::fila(&mut dsk.out.grid);
+        dsk.field.n = 0;
+        return After::Settle;
+    }
     if !super::files::antes_de_arriesgar(dsk, p, b"gpu init") {
         dsk.field.n = 0;
         return After::Settle;
