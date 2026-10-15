@@ -181,6 +181,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "bmo-contadores"
+version = "0.1.0"
+
+[[package]]
 name = "bmo-cpp-front"
 version = "0.1.0"
 dependencies = [
@@ -486,6 +490,7 @@ dependencies = [
  "bmo-channel",
  "bmo-ciudad",
  "bmo-cola",
+ "bmo-contadores",
  "bmo-cubo",
  "bmo-dibujo",
  "bmo-disco-juicio",

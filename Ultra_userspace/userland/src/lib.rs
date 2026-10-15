@@ -749,6 +749,13 @@ pub const INFO_GPU_RC_VA: u64 = 0xD6;
 /// La frase de NVIDIA (`OS_ERROR_LOG`), de 8 en 8 bytes: `INFO_GPU_RC_TEXTO
 /// | trozo << 8`, little-endian; 0 cuando se acaba.
 pub const INFO_GPU_RC_TEXTO: u64 = 0xD7;
+/// ** C4 (15-10): los contadores del Zen 3. `INFO_CPU_CONTADORES`: bit 0 si
+/// se pueden tocar (la CPU del perfil, contadores extendidos), bits 8..16
+/// cuantas filas tiene la calibracion. `INFO_CPU_CONTADOR | k << 8`: la fila
+/// `k`, ya juzgada (`bmo_contadores::desempaquetar`); la primera pregunta
+/// corre la calibracion (~3 ms, UNA vez). Sin contadores, 0.
+pub const INFO_CPU_CONTADORES: u64 = 0xD8;
+pub const INFO_CPU_CONTADOR: u64 = 0xD9;
 /// El formato `i` (`INFO_AUDIO_FORMATO | (i << 8)`): alt, canales, bits,
 /// subframe, `wMaxPacketSize`, cuantas frecuencias, si CABE en 1 ms, si es el
 /// elegido y su sincronia. Ver `uaudio::info_formato` en el kernel.

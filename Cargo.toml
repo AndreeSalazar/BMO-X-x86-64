@@ -46,6 +46,7 @@ members = [
     # arranques despues, y por eso se prueba en el anfitrion.
     "platform/shared/bmo-orquesta",
     "platform/shared/bmo-futex",
+    "platform/shared/bmo-contadores",
     "platform/shared/bmo-alarma",
     "platform/shared/bmo-cache-juicio",
     # El juez del physmap. Nacio el 2026-08-30, de dos pantallas azules
