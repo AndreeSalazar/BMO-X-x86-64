@@ -323,6 +323,28 @@ $cRecursos = @(
             '................'
         ) }
     ) }
+    # ** LA CARA DE ECCE (15-10): una hoja con sus renglones y la pluma de
+    # oro que escribe en ella, en diagonal.
+    @{ bex = 'apps\ecce.bex'; recursos = @(
+        @{ nombre = 'icono'; icono = @(
+            '................',
+            '..oooooooooo....',
+            '..oWWWWWWWWo.yy.',
+            '..oWggggggWoyyo.',
+            '..oWWWWWWWWyyo..',
+            '..oWgggggWyyo...',
+            '..oWWWWWWyyo....',
+            '..oWggggyyoo....',
+            '..oWWWWyyWWo....',
+            '..oWgggyoWWo....',
+            '..oWWWWoWWWo....',
+            '..oWggggggWo....',
+            '..oWWWWWWWWo....',
+            '..oWggggWWWo....',
+            '..oooooooooo....',
+            '................'
+        ) }
+    ) }
     # ** LA CARA DE RESOLUCION (R1 de EL_FOCO, 2026-10-10): una pantalla con
     # sus dos flechas de esquina a esquina, la medida que crece.
     @{ bex = 'apps\resol.bex'; recursos = @(
@@ -431,4 +453,6 @@ $BICO_PALETA = @{
     'v' = @(0x30, 0xAA, 0x4C, 0xFF)
     't' = @(0x24, 0x48, 0x72, 0xFF)
     's' = @(0x18, 0x30, 0x4C, 0xFF)
+    # El oro de la pluma de ECCE (el mismo de su cursor: 216, 166, 87).
+    'y' = @(0x57, 0xA6, 0xD8, 0xFF)
 }

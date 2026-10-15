@@ -495,6 +495,10 @@ try {
         # ventanas de TITAN++ y guardarla en `datos\resol.txt`
         # (`director.guarda`, TA4); `titan/ventana.bex` ya se abre con ella.
         @{ src = 'Ultra_userspace\apps\resolucion\src\main.titan'; out = 'resol.bex'; dir = 'apps' },
+        # ** ECCE (PL1 y PL3 de docs/plan/PLAN_ECCE.md, 15-10): el bloc de
+        # notas, el primer peldanio de la app de escribir del propietario.
+        # Guarda solo en `datos\notas.txt`. Una APP: con su icono.
+        @{ src = 'Ultra_userspace\apps\ecce\src\main.titan'; out = 'ecce.bex'; dir = 'apps' },
         # ** TINTA (TB1 de docs/plan/PLAN_LA_TINTA.md, 2026-10-10): el lienzo
         # minimo -- pincel redondo con antialias, goma y PNG --, el primer
         # peldanio del Adobe + Clip Studio Paint propio. Una APP: con su icono.

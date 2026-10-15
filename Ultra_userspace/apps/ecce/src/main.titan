@@ -1,0 +1,357 @@
+# espera: BIEN
+# ECCE (15-10, PL1 y PL3 de docs/plan/PLAN_ECCE.md): el bloc de notas de
+# BMO-X, en TITAN++ -- el primer peldanio de la app de escribir del
+# propietario, la que crecera hasta los guiones de Final Draft. Hoy: las
+# NOTAS, que es para lo que el propietario la quiere primero.
+#
+#    letras           se escriben donde esta el cursor (Latin-1: tildes y ene)
+#    Enter            parte la linea        Tab   cuatro espacios
+#    Retroceso / Supr borran detras / delante
+#    flechas          mueven el cursor (arriba y abajo por la linea que SE VE)
+#    Inicio / Fin     al principio / al final de la linea
+#    RePag / AvPag    una pantalla arriba / abajo
+#    Esc              guarda (si hay algo nuevo) y cierra
+#
+# Guarda SOLO: Ctrl es del escritorio (`keys/app.rs`, la regla de las
+# teclas), asi que no hay Ctrl+S. Se guarda al cerrar y un segundo y medio
+# despues de la ultima tecla; el pie dice si esta guardado.
+#
+# El texto es una `[byte]`: un byte por letra, Latin-1, como la letra de
+# BMO-X. Las lineas que SE VEN se parten en el ultimo espacio que cabe
+# (`lineas`), y se rehacen en cada cambio: una nota es corta.
+mod main "ECCE: el bloc de notas -- escribir, moverse por lo escrito y guardar solo"
+use director
+mod medida
+
+# -- Los colores: tinta clara sobre noche, y el oro de la pluma ----------
+
+fn fondo() -> int
+    return 1579040
+
+fn tinta() -> int
+    return 15262416
+
+fn tenue() -> int
+    return 7894666
+
+fn oro() -> int
+    return 14198359
+
+fn barra() -> int
+    return 1052694
+
+fn aviso() -> int
+    return 16737095
+
+# -- Las medidas ----------------------------------------------------------
+
+fn margen() -> int
+    return 28
+
+fn alto_cabeza() -> int
+    return 40
+
+fn alto_pie() -> int
+    return 24
+
+fn alto_linea() -> int
+    return 20
+
+# Donde empieza la primera linea de texto.
+fn arriba_texto() -> int
+    return alto_cabeza() + 12
+
+fn div(a: int, d: int) -> int
+    return (a - a % d) / d
+
+# -- El texto -------------------------------------------------------------
+
+# **Las lineas que SE VEN**, de dos en dos: donde empieza cada una y cuantas
+# letras lleva. Un salto de linea siempre parte; una linea que no cabe se
+# parte en su ultimo espacio (que se queda al final, sin dibujarse); una
+# palabra mas larga que la linea se corta donde no cabe. Siempre hay una
+# linea, aunque el texto este vacio.
+fn lineas(t: [byte], cols: int) -> [int]
+    let mut r: [int] = []
+    let n = len(t)
+    let mut i = 0
+    let mut sigue = true
+    while sigue
+        let mut j = i
+        let mut espacio = -1
+        let mut fin = -1
+        let mut sig = -1
+        while fin < 0
+            if j >= n
+                fin = j
+                sig = -1
+            else if t[j] == 10
+                fin = j
+                sig = j + 1
+            else if j - i >= cols
+                if t[j] == 32
+                    fin = j
+                    sig = j + 1
+                else if espacio > i
+                    fin = espacio
+                    sig = espacio + 1
+                else
+                    fin = j
+                    sig = j
+            else
+                if t[j] == 32
+                    espacio = j
+                j = j + 1
+        push(mut r, i)
+        push(mut r, fin - i)
+        if sig < 0
+            sigue = false
+        else
+            i = sig
+    return r
+
+# La linea en la que esta el cursor `c`: la ultima que empieza en c o antes.
+fn fila_de(l: [int], c: int) -> int
+    let mut k = 0
+    for m in range(div(len(l), 2))
+        if l[2 * m] <= c
+            k = m
+    return k
+
+# El sitio de la linea `k` que esta en la columna `col` (o su final, si es
+# mas corta).
+fn en_columna(l: [int], k: int, col: int) -> int
+    let n = l[2 * k + 1]
+    if col > n
+        return l[2 * k] + n
+    return l[2 * k] + col
+
+# Mete el byte `b` en el sitio `c` (lo de detras se corre uno).
+fn mete(mut t: [byte], c: int, b: int)
+    push(mut t, byte(0))
+    let mut i = len(t) - 1
+    while i > c
+        t[i] = byte(t[i - 1])
+        i = i - 1
+    t[c] = byte(b)
+
+# Quita el byte del sitio `c` (lo de detras se corre uno).
+fn quita(mut t: [byte], c: int)
+    let n = len(t)
+    let mut i = c
+    while i < n - 1
+        t[i] = byte(t[i + 1])
+        i = i + 1
+    pop(mut t)
+
+fn palabras(t: [byte]) -> int
+    let mut n = 0
+    let mut dentro = false
+    for b in t
+        if b == 32 or b == 10 or b == 9
+            dentro = false
+        else if not dentro
+            dentro = true
+            n = n + 1
+    return n
+
+# **Guardar**: el fichero entero, creado de cero. Si el disco dice que no,
+# lo dice el pie y la nota sigue en la ventana.
+fn guardar(t: [byte]) -> bool
+    if not director.crea("datos/notas.txt")
+        return false
+    for b in t
+        director.escribe(b)
+    return director.cierra()
+
+# -- Lo que se ve -----------------------------------------------------------
+
+fn pinta_cabeza(w: int)
+    director.rect(0, 0, w, alto_cabeza(), barra())
+    let x = director.texto(margen(), 4, "ECCE", 2, oro())
+    let y = director.texto(x + 16, 20, "notas", 1, tenue())
+    director.rect(0, alto_cabeza() - 1, w, 1, oro())
+
+# El texto que cabe, desde la linea `arriba`, y el cursor: una barra de oro.
+fn pinta_texto(t: [byte], l: [int], w: int, alto: int, arriba: int, filas: int, c: int)
+    director.rect(0, alto_cabeza(), w, alto - alto_cabeza() - alto_pie(), fondo())
+    let cuantas = div(len(l), 2)
+    let kc = fila_de(l, c)
+    for r in range(filas)
+        let k = arriba + r
+        if k < cuantas
+            let s = l[2 * k]
+            let y = arriba_texto() + r * alto_linea()
+            let mut x = margen()
+            for i in range(l[2 * k + 1])
+                let b = t[s + i]
+                if b == 32
+                    x = x + 8
+                else
+                    x = director.letra(x, y, b, 1, tinta())
+            if k == kc
+                director.rect(margen() + (c - s) * 8, y - 2, 2, 20, oro())
+
+# Un numero, sin ceros delante.
+fn pon_numero(x: int, y: int, n: int, color: int) -> int
+    let mut px = x
+    let mut potencia = 1000000
+    let mut empezo = false
+    while potencia >= 1
+        let resto = n % (potencia * 10)
+        let cifra = (resto - resto % potencia) / potencia
+        if cifra != 0 or empezo or potencia == 1
+            px = director.letra(px, y, 48 + cifra, 1, color)
+            empezo = true
+        if potencia == 1
+            potencia = 0
+        else
+            potencia = potencia / 10
+    return px
+
+# El pie: las palabras, la linea, y si esta guardado (0 guardado, 1 sin
+# guardar, 2 el disco dijo que no).
+fn pinta_pie(t: [byte], w: int, alto: int, linea: int, estado: int)
+    let y = alto - alto_pie()
+    director.rect(0, y, w, alto_pie(), barra())
+    let mut x = pon_numero(margen(), y + 4, palabras(t), tenue())
+    x = director.texto(x, y + 4, " palabras   linea ", 1, tenue())
+    x = pon_numero(x, y + 4, linea, tenue())
+    if estado == 0
+        x = director.texto(w - margen() - 64, y + 4, "guardado", 1, oro())
+    else if estado == 1
+        x = director.texto(w - margen() - 88, y + 4, "sin guardar", 1, tenue())
+    else
+        x = director.texto(w - margen() - 152, y + 4, "el disco NO guardo", 1, aviso())
+
+fn main()
+    # La nota de antes, si la hay (sin los retornos de carro de Windows).
+    let mut t: [byte] = []
+    if director.fichero("datos/notas.txt")
+        for i in range(director.medida())
+            let b = director.byte(i)
+            if b >= 0 and b != 13
+                push(mut t, byte(b))
+    # La medida que eligio RESOLUCION (o 720 x 480).
+    let mut w = 720
+    let mut alto = 480
+    if director.fichero("datos/resol.txt")
+        let a = medida.ancho()
+        let b = medida.alto()
+        if a >= 240 and a <= 1920 and b >= 160 and b <= 1080
+            w = a
+            alto = b
+    if not director.ventana(w, alto)
+        print("ECCE es una ventana: abrela desde el escritorio")
+        return
+    let cols = div(w - 2 * margen(), 8)
+    let filas = div(alto - arriba_texto() - alto_pie() - 4, alto_linea())
+    let mut l = lineas(t, cols)
+    let mut c = len(t)
+    let mut arriba = 0
+    let mut estado = 0
+    let mut sucio = false
+    let mut ultimo = 0
+    let mut antes = true
+    let mut pinta = true
+    while true
+        for n in range(64)
+            let que = director.evento()
+            if que == 0
+                break
+            let k = director.codigo()
+            let mut cambio = false
+            if que == 3
+                if k == 27
+                    if sucio and not guardar(t)
+                        print("ECCE: el disco NO guardo datos/notas.txt")
+                    return
+                if k == 8
+                    if c > 0
+                        quita(mut t, c - 1)
+                        c = c - 1
+                        cambio = true
+                else if k == 13
+                    mete(mut t, c, 10)
+                    c = c + 1
+                    cambio = true
+                else if k == 9
+                    for e in range(4)
+                        mete(mut t, c, 32)
+                        c = c + 1
+                    cambio = true
+                else if k >= 32 and k <= 255 and k != 127
+                    mete(mut t, c, k)
+                    c = c + 1
+                    cambio = true
+            if que == 1
+                # Las teclas de moverse: los codigos propios del teclado USB
+                # (`bmo_uhid::SC_UP` y siguientes), no los del numerico.
+                let cuantas = div(len(l), 2)
+                let kc = fila_de(l, c)
+                let col = c - l[2 * kc]
+                if k == 104 and c > 0
+                    c = c - 1
+                    pinta = true
+                if k == 105 and c < len(t)
+                    c = c + 1
+                    pinta = true
+                if k == 102 and kc > 0
+                    c = en_columna(l, kc - 1, col)
+                    pinta = true
+                if k == 103 and kc < cuantas - 1
+                    c = en_columna(l, kc + 1, col)
+                    pinta = true
+                if k == 107
+                    c = l[2 * kc]
+                    pinta = true
+                if k == 110
+                    c = l[2 * kc] + l[2 * kc + 1]
+                    pinta = true
+                if k == 108
+                    let mut destino = kc - filas
+                    if destino < 0
+                        destino = 0
+                    c = en_columna(l, destino, col)
+                    pinta = true
+                if k == 111
+                    let mut destino = kc + filas
+                    if destino > cuantas - 1
+                        destino = cuantas - 1
+                    c = en_columna(l, destino, col)
+                    pinta = true
+                if k == 109 and c < len(t)
+                    quita(mut t, c)
+                    cambio = true
+            if cambio
+                l = lineas(t, cols)
+                sucio = true
+                estado = 1
+                ultimo = director.ms()
+                pinta = true
+        # Guardar solo, un segundo y medio despues de la ultima tecla (si el
+        # kernel no sabe el reloj, `ms` es 0 y se guarda al cerrar).
+        if sucio and ultimo > 0 and director.ms() - ultimo >= 1500
+            if guardar(t)
+                sucio = false
+                estado = 0
+            else
+                estado = 2
+            pinta = true
+        let se_ve = director.se_ve()
+        if se_ve and not antes
+            pinta = true
+        antes = se_ve
+        if pinta
+            # Que el cursor se vea: la pagina sigue a su linea.
+            let kc = fila_de(l, c)
+            if kc < arriba
+                arriba = kc
+            if kc >= arriba + filas
+                arriba = kc - filas + 1
+            pinta_cabeza(w)
+            pinta_texto(t, l, w, alto, arriba, filas, c)
+            pinta_pie(t, w, alto, kc + 1, estado)
+            director.presenta()
+            pinta = false
+        director.espera(16)
