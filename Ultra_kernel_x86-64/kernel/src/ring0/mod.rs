@@ -101,6 +101,8 @@ pub mod task {
     /// **Lo que va detras de la ruta.** `run prog.ibx datos/x` y el hijo lo lee.
     pub mod argumentos;
     pub mod launch;
+    /// **La app CARPETA** (KA1): su nombre y sus piezas por la puerta.
+    pub mod carpeta;
     /// De donde salio cada proceso, para que pueda leer su propia caja.
     pub mod package;
     pub mod percpu;

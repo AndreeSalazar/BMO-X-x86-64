@@ -44,6 +44,9 @@ pub enum Fallo {
     SinFirma,
     /// El `.bex` no paso la admision (BEX invalido, sin memoria...).
     NoAdmitido,
+    /// Una PIEZA de su carpeta no paso la puerta (KA1, `task/carpeta.rs`): la
+    /// app no arranca a medias.
+    PiezaMala,
 }
 
 impl Fallo {
@@ -67,6 +70,7 @@ impl Fallo {
             // Y este manda al sitio donde SI esta el motivo, que desde el 25-08
             // se alcanza desde el escritorio.
             Fallo::NoAdmitido => "el .bex no paso la admision -- el motivo exacto, en `cabina`",
+            Fallo::PiezaMala => "una PIEZA de la app no paso la puerta -- cual y por que, en `cabina`",
         }
     }
 
@@ -78,7 +82,7 @@ impl Fallo {
             Fallo::RutaVacia | Fallo::NoSeEncuentra(_) => ERROR_NOT_THERE,
             Fallo::FirmaMala | Fallo::SinFirma => ERROR_GATE,
             Fallo::SinHueco | Fallo::Ocupado => ERROR_BUSY,
-            Fallo::NoSePudoLeer | Fallo::NoAdmitido => ERROR_NO_ADMITIDO,
+            Fallo::NoSePudoLeer | Fallo::NoAdmitido | Fallo::PiezaMala => ERROR_NO_ADMITIDO,
         }
     }
 }
@@ -263,7 +267,11 @@ pub fn ruta(path: &str, autoridad: u64) -> Informe {
     // apunta al soltarse que el intento **quedo abierto**. Un lanzamiento que
     // desaparece sin decir como acabo era, hasta hoy, silencio.
     let testigo = crate::ring0::cabina::intento("lanzar");
-    let informe = con_buffer(path, autoridad);
+    // ** UNA APP CARPETA (KA1): sus piezas por la puerta ANTES que el nucleo.
+    let informe = match super::carpeta::revisar_piezas(path) {
+        Ok(_) => con_buffer(path, autoridad),
+        Err(f) => Informe { origen: "", bytes: 0, firma: None, pid: None, res: Err(f) },
+    };
     testigo.cerrar(informe.res.is_ok());
     // Se devuelve SIEMPRE y por un solo camino: volver a Ring 3 con el CR3 del
     // kernel puesto seria mucho peor que el fallo original -- la tarea seguiria
@@ -570,10 +578,8 @@ fn con_buffer(path: &str, autoridad: u64) -> Informe {
             crate::ring0::cabina::info("lanzar", "y la particion empieza en", base);
             crate::ring0::cabina::info("lanzar", "y el fichero mide", tam as u64);
         }
-        let name = match path.as_bytes().iter().rposition(|&c| c == b'/' || c == b'\\') {
-            Some(i) => &path[i + 1..],
-            None => path,
-        };
+        // El de la CARPETA si es su nucleo (KA1): `apps/ecce/nucleo.bex` es `ecce`.
+        let name = super::carpeta::nombre_de(path);
         let (res, pid) = match crate::ring0::task::proc::admitir_por_rangos(
             name,
             &buf[..prologo_n],
@@ -736,11 +742,9 @@ fn con_buffer(path: &str, autoridad: u64) -> Informe {
     }
 
     // El nombre del proceso es el ultimo componente de la ruta: es lo que se
-    // reconoce en el log, no la ruta entera.
-    let name = match path.as_bytes().iter().rposition(|&c| c == b'/' || c == b'\\') {
-        Some(i) => &path[i + 1..],
-        None => path,
-    };
+    // reconoce en el log, no la ruta entera. El de la CARPETA si es su nucleo
+    // (KA1, `task/carpeta.rs`).
+    let name = super::carpeta::nombre_de(path);
 
     // ** LA CONTRADICCION: los mismos bytes, leidos dos veces, distintos.
     //
