@@ -37,7 +37,36 @@ LAS EXTENSIONES -- que sabe hacer este silicio
   Antes de que un emisor pueda preguntar, el perfil tiene que contestar, y
   hasta hoy hablaba de nucleos y cache y de extensiones nada.
 
-  Tres columnas, y la diferencia entre las dos ultimas es la LEY 24:
+  *** Y DOS COLUMNAS QUE NO DICE EL SILICIO: LAS DECIDE EL PROPIETARIO (B4,
+  14-10). *"que ese LLVM de rust TENGA OBLIGACION que tengas control ... no
+  quiero tener choque con LLVM luego que decida sino que yo decido por
+  motivos"*.
+
+     mano       si = el codigo de la CASA puede usarla: las filas de
+                `intrinsics.toml` (BMO C, INTI, TITAN++) y el `asm!` /
+                `global_asm!` de los crates. `no` = no puede: `sem-asm` no
+                carga una fila que la pida y `bex-link` para el build de un
+                programa de Rust que la lleve
+     llvm       si = el COMPILADOR (LLVM) puede elegirla por su cuenta al
+                generar codigo: un `+feature` en el objetivo o un
+                `#[target_feature]`. `no` = LLVM se queda en x86-64 base; el
+                guardian `llvm-obedece` lo exige en cada objetivo
+     -          no es una instruccion que un programa elija (SSE2 es base;
+                NX, SMEP... son del kernel), o no esta en el catalogo de lo
+                que un `.bex` declara (`bmo-carga-juicio/src/instrucciones.rs`)
+
+  Reglas (las ata `perfil-campos`): cada extension del catalogo tiene aqui
+  su fila con `si` o `no` en las dos; `llvm: si` pide `mano: si` (el
+  compilador no elige lo que la casa no puede); `mano: si` pide `esperado:
+  si`. De estas dos columnas sale `bmo-carga-juicio/src/decidido.rs`
+  (`perfil_campos.py --apply`), que es lo que leen el codigo, el kernel y
+  las herramientas: UNA fuente.
+
+  Los valores del 14-10 son lo que BMO-X USABA ese dia, para no romper nada:
+  cambiar uno es una decision, con su commit y su motivo.
+
+  Las tres primeras columnas, y la diferencia entre las dos ultimas de ellas
+  es la LEY 24:
 
      esperado   lo que dice la HOJA DE DATOS de AMD para Zen 3 (Vermeer).
                 Es una suposicion escrita, no una medida
@@ -54,43 +83,45 @@ LAS EXTENSIONES -- que sabe hacer este silicio
   [!] Un `visto: no` en una fila que BMO usa NO se arregla aqui: se arregla
   en `usage.rs`, que es donde vive la mentira.
 
-  nombre           | esperado | visto
-  SSE2             | si       | si
-  SSE4.1           | si       | ?
-  SSE4.2           | si       | ?
-  AVX              | si       | si
-  AVX2             | si       | ?
-  FMA              | si       | ?
-  F16C             | si       | ?
-  POPCNT           | si       | ?
-  LZCNT            | si       | ?
-  BMI1             | si       | ?
-  BMI2             | si       | ?
-  MOVBE            | si       | ?
-  ADX              | si       | ?
-  RDRAND           | si       | ?
-  RDSEED           | si       | ?
-  AES-NI           | si       | ?
-  PCLMULQDQ        | si       | ?
-  SHA-NI           | si       | ?
-  XSAVE            | si       | si
-  CR4.OSXSAVE      | si       | si
-  XSAVEOPT         | si       | si
-  XSAVEC           | si       | ?
-  XSAVES           | si       | ?
-  ERMS             | si       | si
-  CLFLUSHOPT       | si       | ?
-  CLWB             | si       | ?
-  CLZERO           | si       | ?
-  PAGINAS 1G       | si       | ?
-  RDTSCP           | si       | si
-  TSC INVARIANTE   | si       | si
-  MONITOR/MWAIT    | si       | ?
-  MONITORX         | si       | ?
-  NX               | si       | si
-  SMEP             | si       | ?
-  SMAP             | si       | ?
-  UMIP             | si       | ?
+  nombre           | esperado | visto | mano | llvm
+  SSE2             | si       | si    | -    | -
+  SSE3             | si       | ?     | no   | no
+  SSSE3            | si       | ?     | no   | no
+  SSE4.1           | si       | ?     | si   | no
+  SSE4.2           | si       | ?     | no   | no
+  AVX              | si       | si    | si   | no
+  AVX2             | si       | ?     | no   | no
+  FMA              | si       | ?     | si   | no
+  F16C             | si       | ?     | -    | -
+  POPCNT           | si       | ?     | si   | no
+  LZCNT            | si       | ?     | si   | no
+  BMI1             | si       | ?     | si   | no
+  BMI2             | si       | ?     | no   | no
+  MOVBE            | si       | ?     | -    | -
+  ADX              | si       | ?     | -    | -
+  RDRAND           | si       | ?     | si   | no
+  RDSEED           | si       | ?     | si   | no
+  AES-NI           | si       | ?     | -    | -
+  PCLMULQDQ        | si       | ?     | -    | -
+  SHA-NI           | si       | ?     | -    | -
+  XSAVE            | si       | si    | -    | -
+  CR4.OSXSAVE      | si       | si    | si   | no
+  XSAVEOPT         | si       | si    | -    | -
+  XSAVEC           | si       | ?     | -    | -
+  XSAVES           | si       | ?     | -    | -
+  ERMS             | si       | si    | -    | -
+  CLFLUSHOPT       | si       | ?     | -    | -
+  CLWB             | si       | ?     | -    | -
+  CLZERO           | si       | ?     | -    | -
+  PAGINAS 1G       | si       | ?     | -    | -
+  RDTSCP           | si       | si    | si   | no
+  TSC INVARIANTE   | si       | si    | -    | -
+  MONITOR/MWAIT    | si       | ?     | si   | no
+  MONITORX         | si       | ?     | -    | -
+  NX               | si       | si    | -    | -
+  SMEP             | si       | ?     | -    | -
+  SMAP             | si       | ?     | -    | -
+  UMIP             | si       | ?     | -    | -
 
   Para rellenar `visto`: en el escritorio, `ext`, foto, y copiar fila a fila.
   Es un paso de la hoja del metal del 18-09.

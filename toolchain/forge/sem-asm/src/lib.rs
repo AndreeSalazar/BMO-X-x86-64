@@ -101,6 +101,20 @@ pub struct IntrinsicDef {
     pub cpu: u64,
 }
 
+/// Una fila que pide `cpu` cabe en lo que el propietario decidio (`mano`), o
+/// el error dice la fila y la extension.
+fn decidida(fila: &str, cpu: u64, mano: u64) -> Result<(), SemAsmError> {
+    let fuera = cpu & !mano;
+    if fuera == 0 {
+        return Ok(());
+    }
+    let nombres: Vec<&str> = bmo_carga_juicio::instrucciones::nombres(fuera).collect();
+    Err(SemAsmError::Parse(format!(
+        "[{fila}] pide {} y PERFIL/CPU.txt dice `mano: no`: el propietario no la permite",
+        nombres.join(", ")
+    )))
+}
+
 /// Tabla de intrinsecos cargada desde `arch/<isa>/intrinsics.toml`.
 pub struct Intrinsics {
     map: std::collections::HashMap<String, IntrinsicDef>,
@@ -152,6 +166,10 @@ impl Intrinsics {
                 })?;
                 cpu |= ext.bit;
             }
+            // ** Y LO QUE PIDE TIENE QUE ESTAR DECIDIDO (B4): la columna `mano`
+            // de `PERFIL/CPU.txt`. Una fila que pide lo que el propietario no
+            // permite no se carga, con su nombre: la decision es suya.
+            decidida(name, cpu, bmo_carga_juicio::decidido::MANO)?;
             map.insert(name.clone(), IntrinsicDef { bytes, args, returns, cpu });
         }
         Ok(Self { map })
@@ -215,6 +233,11 @@ mod tests {
         assert_eq!(intr.get("popcnt").unwrap().cpu, ext("POPCNT"));
         assert_eq!(intr.get("avx_funde4").unwrap().cpu, ext("AVX") | ext("FMA"));
         assert_eq!(intr.get("bsf").unwrap().cpu, 0, "bsf es x86-64 base");
+        // B4: si el propietario dijera `mano: no` a AVX, las filas de AVX no
+        // se cargarian, con su nombre.
+        let e = super::decidida("avx_suma4", ext("AVX"), bmo_carga_juicio::decidido::MANO & !ext("AVX")).unwrap_err();
+        assert!(format!("{e:?}").contains("AVX") && format!("{e:?}").contains("mano: no"), "{e:?}");
+        assert!(super::decidida("popcnt", ext("POPCNT"), bmo_carga_juicio::decidido::MANO).is_ok());
     }
 
     #[test]

@@ -52,7 +52,13 @@ pub fn of(f: Feat) -> Use {
     match f {
         // ================= vectores y matematica =================
         Feat::Sse2 => Use::Yes("BMO C: la ruta de flotantes emite movsd/addsd/comisd"),
-        Feat::Sse41 => Use::No("nada lo pide todavia"),
+        // SSE3 y SSSE3 (B4, 14-10): estaban en el catalogo de lo que un `.bex`
+        // declara (`bmo-carga-juicio`) y no aqui. Una lista, no dos.
+        Feat::Sse3 => Use::No("nada lo pide: sus horizontales no las emite nadie"),
+        Feat::Ssse3 => Use::No("nada lo pide: `pshufb` serviria al texto, sin cliente"),
+        // ** Decia "nada lo pide todavia", y el barrido de `bex-link --censo`
+        // (B4, 14-10) lo desmintio: PROTON-X redondea con `roundsd`.
+        Feat::Sse41 => Use::Yes("PROTON-X: ceil/floor/trunc con roundsd (proton-x-casa/src/crt.rs y crt_mates.rs)"),
         Feat::Sse42 => Use::No("su CRC32 serviria al gate, pero el hash es BLAKE3"),
 
         // *** ESTAS TRES FILAS DECIAN QUE NO SE PODIA, Y DEJO DE SER CIERTO EL

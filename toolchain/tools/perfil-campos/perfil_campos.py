@@ -125,11 +125,93 @@ FEATURES = os.path.join(K, "cpu_vendor", "features")
 
 
 def extensiones_del_perfil(texto):
-    """Las filas `nombre | esperado | visto` de CPU.txt, en orden."""
+    """Las filas `nombre | esperado | visto | mano | llvm` de CPU.txt, en orden.
+    Las dos ultimas son la DECISION del propietario (B4, 14-10)."""
     filas = []
-    for m in re.finditer(r"^\s*(\S[^|]*?)\s*\|\s*(si|no)\s*\|\s*(si|no|\?)\s*$", texto, re.M):
-        filas.append((m.group(1), m.group(2), m.group(3)))
+    for m in re.finditer(r"^\s*(\S[^|]*?)\s*\|\s*(si|no)\s*\|\s*(si|no|\?)\s*\|\s*(si|no|-)\s*\|\s*(si|no|-)\s*$", texto, re.M):
+        filas.append(m.groups())
     return filas
+
+
+# -- B4: la DECISION del propietario, a codigo ------------------------------
+CATALOGO = os.path.join(RAIZ, "platform", "shared", "bmo-carga-juicio", "src", "instrucciones.rs")
+DECIDIDO = os.path.join(RAIZ, "platform", "shared", "bmo-carga-juicio", "src", "decidido.rs")
+
+
+def catalogo():
+    """`[(bit, nombre)]` del catalogo de lo que un `.bex` declara."""
+    with open(CATALOGO, "r", encoding="utf-8") as fh:
+        return [(int(k), n) for k, n in re.findall(r'^\s*e\((\d+),\s*"([^"]+)"', fh.read(), re.M)]
+
+
+def decidido_rs(filas):
+    """El texto de `decidido.rs`: las dos columnas como mascaras del catalogo."""
+    dec = {n: (mano, llvm) for n, _, _, mano, llvm in filas}
+    def mascara(col):
+        bits = [(k, n) for k, n in catalogo() if dec.get(n, ("-", "-"))[col] == "si"]
+        if not bits:
+            return "0 /* ninguna */"
+        return " | ".join("1 << %d" % k for k, _ in bits) + " /* " + ", ".join(n for _, n in bits) + " */"
+    return (
+        "//! **LO QUE DECIDIO EL PROPIETARIO** (B4 de `docs/plan/EL_FOCO.md`):\n"
+        "//! las columnas `mano` y `llvm` de la tabla de extensiones de\n"
+        "//! `PERFIL/CPU.txt`, como mascaras de [`crate::instrucciones`].\n"
+        "//!\n"
+        "//! ** GENERADO por `toolchain/tools/perfil-campos/perfil_campos.py --apply`.\n"
+        "//! No se escribe a mano: se cambia el perfil y se regenera. El guardian\n"
+        "//! falla si este fichero y el perfil no dicen lo mismo.\n"
+        "\n"
+        "/// Lo que el codigo de la CASA puede usar: `intrinsics.toml` y el `asm!` de\n"
+        "/// los crates. `sem-asm` no carga una fila fuera de esto y `bex-link` para\n"
+        "/// el build de un programa de Rust que lo lleve.\n"
+        "pub const MANO: u64 = %s;\n"
+        "\n"
+        "/// Lo que el COMPILADOR (LLVM) puede elegir por su cuenta. Lo exige el\n"
+        "/// guardian `llvm-obedece` en cada objetivo de Rust.\n"
+        "pub const LLVM: u64 = %s;\n"
+        "\n"
+        "const _: () = assert!(LLVM & !MANO == 0, \"LLVM no elige lo que la casa no puede\");\n"
+    ) % (mascara(0), mascara(1))
+
+
+def comprobar_decision(filas, quejas, aplicar):
+    """Las reglas de las dos columnas, y `decidido.rs` igual al perfil."""
+    cat = [n for _, n in catalogo()]
+    por = {f[0]: f for f in filas}
+    for n in cat:
+        if n not in por:
+            quejas.append("CPU: el catalogo de `bmo-carga-juicio` tiene %s y el perfil no tiene esa fila -- "
+                          "un nombre, una forma de escribirlo" % n)
+    for n, esperado, _, mano, llvm in filas:
+        if n in cat:
+            if mano == "-" or llvm == "-":
+                quejas.append("CPU: %s esta en el catalogo: el propietario tiene que decir `si` o `no` en "
+                              "`mano` y `llvm`, no `-`" % n)
+            if llvm == "si" and mano != "si":
+                quejas.append("CPU: %s dice `llvm: si` y `mano: no` -- el compilador no elige lo que la "
+                              "casa no puede" % n)
+            if mano == "si" and esperado != "si":
+                quejas.append("CPU: %s dice `mano: si` y el perfil no espera que el silicio la tenga" % n)
+        elif mano != "-" or llvm != "-":
+            quejas.append("CPU: %s no esta en el catalogo de `bmo-carga-juicio`: su `mano`/`llvm` no los "
+                          "lee nadie, y una decision que nadie lee es una que no se cumple. Va `-`" % n)
+    quiere = decidido_rs(filas)
+    try:
+        with open(DECIDIDO, "r", encoding="utf-8") as fh:
+            hay = fh.read()
+    except OSError:
+        hay = ""
+    if hay != quiere:
+        if aplicar:
+            with open(DECIDIDO, "w", encoding="utf-8", newline="\n") as fh:
+                fh.write(quiere)
+            print("  decidido.rs reescrito desde PERFIL/CPU.txt")
+        else:
+            quejas.append("CPU: `bmo-carga-juicio/src/decidido.rs` no dice lo que el perfil decide -- "
+                          "`python toolchain/tools/perfil-campos/perfil_campos.py --apply`")
+
+
+APLICAR = False
 
 
 def censo_del_kernel():
@@ -156,9 +238,9 @@ def comprobar_extensiones(texto, quejas):
     filas = extensiones_del_perfil(texto)
     nombres, usa = censo_del_kernel()
     if not filas:
-        quejas.append("CPU: no hay tabla de extensiones (`nombre | esperado | visto`)")
+        quejas.append("CPU: no hay tabla de extensiones (`nombre | esperado | visto | mano | llvm`)")
         return 0, 0
-    del_perfil = [n for n, _, _ in filas]
+    del_perfil = [f[0] for f in filas]
     if del_perfil != nombres:
         faltan = [n for n in nombres if n not in del_perfil]
         sobran = [n for n in del_perfil if n not in nombres]
@@ -169,8 +251,9 @@ def comprobar_extensiones(texto, quejas):
         if not faltan and not sobran:
             quejas.append("CPU: las filas de extensiones no van en el orden del censo (`features::Feat`)")
         return 0, 0
+    comprobar_decision(filas, quejas, APLICAR)
     sin_foto = 0
-    for nombre, esperado, visto in filas:
+    for nombre, esperado, visto, _, _ in filas:
         if visto == "?":
             sin_foto += 1
         if usa[nombre] and esperado != "si":
@@ -252,7 +335,10 @@ def campo(texto, nombre):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--check", action="store_true")
+    ap.add_argument("--apply", action="store_true", help="reescribe decidido.rs desde el perfil")
     args = ap.parse_args()
+    global APLICAR
+    APLICAR = args.apply
 
     if not os.path.isdir(PERFIL):
         print("la carpeta NO EXISTE: falta PERFIL/")

@@ -468,10 +468,10 @@ const SUELTAS: &[Fila] = &[
     f(U, 0xD9, C, B(0xFF), "fcos", M),
     // -- Las de la tabla de intrinsecos que piden una extension (A6) -----
     f(D, 0x01, P0, B(0xF9), "rdtscp", M).pide("RDTSCP"),
-    f(D, 0x01, P0, B(0xD0), "xgetbv", M).pide("OSXSAVE"),
-    f(D, 0x01, P0, B(0xD1), "xsetbv", M).pide("OSXSAVE"),
-    f(D, 0x01, P0, B(0xC8), "monitor", M).pide("MONITOR"),
-    f(D, 0x01, P0, B(0xC9), "mwait", M).pide("MONITOR"),
+    f(D, 0x01, P0, B(0xD0), "xgetbv", M).pide("CR4.OSXSAVE"),
+    f(D, 0x01, P0, B(0xD1), "xsetbv", M).pide("CR4.OSXSAVE"),
+    f(D, 0x01, P0, B(0xC8), "monitor", M).pide("MONITOR/MWAIT"),
+    f(D, 0x01, P0, B(0xC9), "mwait", M).pide("MONITOR/MWAIT"),
     f(D, 0xC7, P0, E(6), "rdrand", M).pide("RDRAND"),
     f(D, 0xC7, P0, E(7), "rdseed", M).pide("RDSEED"),
 ];

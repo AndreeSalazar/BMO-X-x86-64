@@ -224,6 +224,35 @@ fn main() {
         eprintln!("bex-link: el ELF no tiene `.text` con contenido");
         std::process::exit(1);
     };
+
+    // ** LA OBLIGACION DE LLVM (B4, 14-10). Todo `.text` leido con la lente y
+    // juzgado contra lo que decidio el propietario en `PERFIL/CPU.txt`: lo que
+    // pide a la CPU se DECLARA en el `.bex` (y el kernel lo compara con el
+    // CPUID al admitirlo, A6); lo que el perfil no permite, o lo que la lente
+    // no sabe leer, PARA el build con su sitio. Ver `lente.rs`.
+    if let Some(t) = elf.secciones.iter().find(|s| s.name == ".text") {
+        let code = &bytes[t.offset as usize..(t.offset + t.size) as usize];
+        let barrido = lente::barrer(code, t.addr, &elf.simbolos);
+        let donde = |o: usize| lente::donde(o, t.addr, &elf.simbolos);
+        match lente::juzgar(&barrido, bmo_abi::bef::requisitos::decidido::MANO, donde) {
+            Ok(usa) => {
+                let nombres: Vec<&str> = bmo_abi::bef::requisitos::instrucciones::nombres(usa).collect();
+                println!(
+                    "  lente    {} instrucciones, todo .text leido; pide {}",
+                    barrido.leidas,
+                    if nombres.is_empty() { "solo x86-64 base".to_string() } else { nombres.join(" ") }
+                );
+                b.instrucciones(usa);
+            }
+            Err(motivos) => {
+                eprintln!("bex-link: el codigo NO entra -- lo decide el propietario (PERFIL/CPU.txt), no LLVM:");
+                for m in motivos {
+                    eprintln!("  {m}");
+                }
+                std::process::exit(1);
+            }
+        }
+    }
     if elf.entry < base_text {
         eprintln!(
             "bex-link: el punto de entrada (0x{:X}) cae fuera de `.text` (0x{:X})",

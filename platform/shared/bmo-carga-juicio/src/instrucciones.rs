@@ -51,7 +51,10 @@ const fn e(k: u8, nombre: &'static str, hoja: u32, subhoja: u32, reg: Reg, bit_c
     Extension { bit: 1 << k, nombre, hoja, subhoja, reg, bit_cpuid }
 }
 
-/// **Todas**, en el orden de su bit. Un bit que se retira no se reusa.
+/// **Todas**, en el orden de su bit. Un bit que se retira no se reusa. Cada
+/// nombre es una fila de la tabla de extensiones de `PERFIL/CPU.txt`, y alli
+/// el propietario DECIDE si se puede usar (`perfil-campos` lo ata; ver
+/// [`crate::decidido`]).
 pub const EXTENSIONES: [Extension; 16] = [
     e(0, "SSE3", 1, 0, Reg::Ecx, 0),
     e(1, "SSSE3", 1, 0, Reg::Ecx, 9),
@@ -67,9 +70,11 @@ pub const EXTENSIONES: [Extension; 16] = [
     e(11, "RDRAND", 1, 0, Reg::Ecx, 30),
     e(12, "RDSEED", 7, 0, Reg::Ebx, 18),
     e(13, "RDTSCP", 0x8000_0001, 0, Reg::Edx, 27),
-    // `xgetbv`/`xsetbv` piden que el sistema haya encendido XSAVE: OSXSAVE.
-    e(14, "OSXSAVE", 1, 0, Reg::Ecx, 27),
-    e(15, "MONITOR", 1, 0, Reg::Ecx, 3),
+    // `xgetbv`/`xsetbv` piden que el sistema haya encendido XSAVE (el bit
+    // OSXSAVE, que es CR4.OSXSAVE visto desde el CPUID). Los nombres son los
+    // de `PERFIL/CPU.txt` (B4): una sola forma de llamar a cada cosa.
+    e(14, "CR4.OSXSAVE", 1, 0, Reg::Ecx, 27),
+    e(15, "MONITOR/MWAIT", 1, 0, Reg::Ecx, 3),
 ];
 
 /// La extension de este nombre (el que lleva `intrinsics.toml`).

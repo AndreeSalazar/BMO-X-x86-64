@@ -308,7 +308,16 @@ fn la_sonda_del_ryzen_emite_los_mismos_bytes_que_antes_de_p1() {
     // `mov reg, r10` de 3 en cada uso de una local con peso. Por eso `cpu.ibx`
     // vuelve a no ser el fichero del 17-09 ni del 19-09: la medida del reloj
     // que salga de ESTE es la que compara.
-    assert_eq!(sin.len(), 11752, "la emision de la sonda cambio de medida");
+    //
+    //     11.840  A6: el `.ibx` DICE que instrucciones usa (2026-10-14)
+    //
+    // ** +88 y NO son codigo (la region de codigo es byte por byte la misma,
+    // comprobado al cambiar la cifra): es la linea `CLASE_INSTRUCCIONES` de
+    // los requisitos, la mascara y su motivo -- la sonda usa POPCNT, LZCNT,
+    // BMI1, RDRAND, RDTSCP y CR4.OSXSAVE, y el kernel la compara con el CPUID
+    // al admitirla. [!] Esta prueba estuvo roja desde el commit de A6 hasta el
+    // de B4: aquel dia se corrio `--lib` y no `tests/`.
+    assert_eq!(sin.len(), 11840, "la emision de la sonda cambio de medida");
 }
 
 /// **EL CODIGO NO CAMBIA POR LLEVAR MANIFIESTO.**

@@ -41,6 +41,7 @@
 
 #![no_std]
 
+pub mod decidido;
 pub mod instrucciones;
 pub use instrucciones::CLASE_INSTRUCCIONES;
 

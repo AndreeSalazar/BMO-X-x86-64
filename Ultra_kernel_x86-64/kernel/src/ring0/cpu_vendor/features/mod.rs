@@ -60,7 +60,7 @@ pub use usage::Use;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Feat {
     // -- vectors and maths --
-    Sse2, Sse41, Sse42, Avx, Avx2, Fma, F16c,
+    Sse2, Sse3, Ssse3, Sse41, Sse42, Avx, Avx2, Fma, F16c,
     // -- bits: counting and scanning --
     Popcnt, Lzcnt, Bmi1, Bmi2, Movbe, Adx,
     // -- randomness --
@@ -113,6 +113,8 @@ impl Feat {
     pub const fn name(self) -> &'static str {
         match self {
             Feat::Sse2 => "SSE2",
+            Feat::Sse3 => "SSE3",
+            Feat::Ssse3 => "SSSE3",
             Feat::Sse41 => "SSE4.1",
             Feat::Sse42 => "SSE4.2",
             Feat::Avx => "AVX",
@@ -153,7 +155,7 @@ impl Feat {
 
     pub const fn group(self) -> Group {
         match self {
-            Feat::Sse2 | Feat::Sse41 | Feat::Sse42 | Feat::Avx | Feat::Avx2
+            Feat::Sse2 | Feat::Sse3 | Feat::Ssse3 | Feat::Sse41 | Feat::Sse42 | Feat::Avx | Feat::Avx2
             | Feat::Fma | Feat::F16c => Group::Vector,
             Feat::Popcnt | Feat::Lzcnt | Feat::Bmi1 | Feat::Bmi2 | Feat::Movbe
             | Feat::Adx => Group::Bits,
@@ -171,7 +173,7 @@ impl Feat {
 
 /// Every feature, in report order. The one list both sides are checked against.
 pub const ALL: &[Feat] = &[
-    Feat::Sse2, Feat::Sse41, Feat::Sse42, Feat::Avx, Feat::Avx2, Feat::Fma, Feat::F16c,
+    Feat::Sse2, Feat::Sse3, Feat::Ssse3, Feat::Sse41, Feat::Sse42, Feat::Avx, Feat::Avx2, Feat::Fma, Feat::F16c,
     Feat::Popcnt, Feat::Lzcnt, Feat::Bmi1, Feat::Bmi2, Feat::Movbe, Feat::Adx,
     Feat::Rdrand, Feat::Rdseed,
     Feat::Aes, Feat::Pclmul, Feat::Sha,
@@ -220,7 +222,7 @@ impl Fila {
 /// stats. A counter that must be zero is a giant needle; a test that never runs
 /// is a comfort nobody earned.
 pub struct Censo {
-    pub filas: [Fila; 36],
+    pub filas: [Fila; 38],
     pub hay: u32,
     pub usadas: u32,
     /// ** Used and not declared by this silicon: an instruction that will
@@ -247,7 +249,7 @@ pub fn censar() -> Censo {
     // slot that is not gets counted by `sin_sitio`.
     let vacia = Fila { feat: Feat::Sse2, hay: false, uso: usage::of(Feat::Sse2) };
     let mut c = Censo {
-        filas: [vacia; 36],
+        filas: [vacia; 38],
         hay: 0,
         usadas: 0,
         conflictos: 0,

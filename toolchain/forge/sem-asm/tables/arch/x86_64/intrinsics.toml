@@ -268,14 +268,14 @@ returns = "u64_edx_eax"
 
 [xgetbv]
 description = "Lee un registro de control extendido: __xgetbv(indice). XCR0 es el 0"
-cpu = ["OSXSAVE"]
+cpu = ["CR4.OSXSAVE"]
 bytes = [0x0F, 0x01, 0xD0]
 args = ["ecx"]
 returns = "u64_edx_eax"
 
 [xsetbv]
 description = "Escribe uno: __xsetbv(indice, valor) (Ring 0)"
-cpu = ["OSXSAVE"]
+cpu = ["CR4.OSXSAVE"]
 bytes = [0x0F, 0x01, 0xD1]
 args = ["ecx", "u64_edx_eax"]
 
@@ -402,13 +402,13 @@ returns = "eax"
 
 [monitor]
 description = "Arma la vigilancia de una direccion: rax=dir (Ring 0)"
-cpu = ["MONITOR"]
+cpu = ["MONITOR/MWAIT"]
 bytes = [0x0F, 0x01, 0xC8]
 args = ["rax"]
 
 [mwait]
 description = "Duerme el nucleo hasta que escriban en lo vigilado. Mejor que un bucle: no gasta (Ring 0)"
-cpu = ["MONITOR"]
+cpu = ["MONITOR/MWAIT"]
 bytes = [0x0F, 0x01, 0xC9]
 
 [ud2]
