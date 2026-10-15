@@ -769,6 +769,36 @@ impl Machine {
                     }
                     return;
                 }
+                // ** C4: los contadores, MODELADOS: el de instrucciones
+                // retiradas es el metro (`pasos`); los demas, 0 -- el
+                // emulador no tiene cache ni predictor, y lo dice asi --.
+                op if op == bmo_abi::syscalls::surface::TASK_OP_CONTAR => {
+                    use bmo_abi::syscalls::surface::{CONTAR_EMPIEZA, CONTAR_LEE, CONTAR_PARA};
+                    let v = match call.arg0 {
+                        CONTAR_EMPIEZA => {
+                            self.contar_desde = Some(self.pasos);
+                            1
+                        }
+                        CONTAR_LEE => match (self.contar_desde, call.arg1) {
+                            (Some(d), 1) => self.pasos - d,
+                            (Some(_), 0..=3) => 0,
+                            _ => {
+                                self.fallar_syscall(1);
+                                return;
+                            }
+                        },
+                        CONTAR_PARA => {
+                            self.contar_desde = None;
+                            0
+                        }
+                        _ => {
+                            self.fallar_syscall(1);
+                            return;
+                        }
+                    };
+                    self.finalizar_syscall(v);
+                    return;
+                }
                 op if op == TASK_OP_YIELD => {
                     if let Some(lote) = self.lotes.pop() {
                         self.teclas.extend_from_slice(&lote);

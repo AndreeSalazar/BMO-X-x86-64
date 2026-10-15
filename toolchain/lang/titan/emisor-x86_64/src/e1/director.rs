@@ -37,7 +37,7 @@ use super::{Place, E1};
 use super::entrada::{HZ, PLAZO, RBX};
 use super::ventana::R12;
 use bmo_abi::syscalls::surface::SUP_TOMADA;
-use bmo_abi::syscalls::surface::{CURRENT_TASK, INFO_TSC_HZ, MEM_OP_OFRECER, NR_INVOKE, NR_WAIT, TASK_OP_FUTEX_DESPERTAR_COMPARTIDO, TASK_OP_INFO, TASK_OP_MI_PADRE};
+use bmo_abi::syscalls::surface::{CONTAR_EMPIEZA, CONTAR_LEE, CURRENT_TASK, INFO_TSC_HZ, MEM_OP_OFRECER, NR_INVOKE, NR_WAIT, TASK_OP_CONTAR, TASK_OP_FUTEX_DESPERTAR_COMPARTIDO, TASK_OP_INFO, TASK_OP_MI_PADRE};
 use bmo_lower::memoria;
 use bmo_lower::x86::{self, RAX, RCX, RDI, RDX, RSI, R10, R11, R8, R9};
 use bmo_titan_front::calc::Class;
@@ -101,6 +101,9 @@ impl E1<'_> {
             Director::Ms => self.ms().map(Some),
             // V2 (11-10): como se dibuja la lamina.
             Director::Profundidad => self.profundidad(args).map(|_| None),
+            // ** C4 (LB5): los contadores del Zen 3, para este programa.
+            Director::Contar => self.contar().map(Some),
+            Director::Contado => self.contado(args).map(Some),
             Director::Toma | Director::Fichero | Director::Medida | Director::Byte | Director::Evento | Director::Codigo | Director::RatonX | Director::RatonY | Director::Botones | Director::SeVe => self.entrada(what, args, at).map(Some),
         }
     }
@@ -159,6 +162,44 @@ impl E1<'_> {
         for s in nada {
             self.here(s);
         }
+        Ok((out, Class::Int))
+    }
+
+    /// ** `director.contar()` (C4, LB5): `TASK_OP_CONTAR` con
+    /// `CONTAR_EMPIEZA`. `true` si el kernel dijo que si.
+    fn contar(&mut self) -> Result<(Place, Class), String> {
+        let out = self.temp(8);
+        self.store_imm(out, 0);
+        self.imm(RDI, CURRENT_TASK as i64);
+        self.imm(RSI, TASK_OP_CONTAR as i64);
+        self.imm(RDX, CONTAR_EMPIEZA as i64);
+        x86::zero_r32(&mut self.code, R10);
+        x86::zero_r32(&mut self.code, R8);
+        self.invoke();
+        x86::test_r64_r64(&mut self.code, RAX, RAX);
+        let no = self.jcc(0x85);
+        self.store_imm(out, 1);
+        self.here(no);
+        Ok((out, Class::Bool))
+    }
+
+    /// `director.contado(k)`: `TASK_OP_CONTAR` con `CONTAR_LEE`; si el kernel
+    /// dice que no (nadie cuenta, o `k` fuera), 0.
+    fn contado(&mut self, args: &[Value]) -> Result<(Place, Class), String> {
+        let [k] = args else { return Err("`director.contado` sin su valor (fallo del compilador)".to_string()) };
+        let (k, _) = self.eval(k)?;
+        let out = self.temp(8);
+        self.store_imm(out, 0);
+        self.load(k, R10);
+        self.imm(RDI, CURRENT_TASK as i64);
+        self.imm(RSI, TASK_OP_CONTAR as i64);
+        self.imm(RDX, CONTAR_LEE as i64);
+        x86::zero_r32(&mut self.code, R8);
+        self.invoke();
+        x86::test_r64_r64(&mut self.code, RAX, RAX);
+        let no = self.jcc(0x85);
+        self.store(out, RDX);
+        self.here(no);
         Ok((out, Class::Int))
     }
 

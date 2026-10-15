@@ -760,6 +760,8 @@ fn target(p: &Program, callee: &str, n: usize, line: usize, col: usize, as_value
             Director::SeVe => "if director.se_ve()",
             Director::Ms => "let t0 = director.ms()",
             Director::Profundidad => "director.profundidad(true)",
+            Director::Contar => "if director.contar()",
+            Director::Contado => "let n = director.contado(1)",
             Director::Letra => "x = director.letra(x, y, 65, 1, 16777215)",
             Director::Texto => "x = director.texto(8, 8, \"hola\", 1, 16777215)",
         };

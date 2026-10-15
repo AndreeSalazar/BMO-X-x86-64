@@ -359,10 +359,18 @@ pub enum Director {
     /// 11-10): la lamina se dibuja con z-buffer, y con `true` sin las caras
     /// de detras. Sin valor de vuelta: lo dice la cabecera de la lamina.
     Profundidad,
+    /// ** `director.contar()` (C4 de `docs/plan/EL_FOCO.md`, LB5): empieza a
+    /// contar ESTE programa con los contadores del Zen 3 -- los cuatro a cero,
+    /// solo el, solo en Ring 3 --. `true` si se puede (la CPU del perfil).
+    Contar,
+    /// `director.contado(k)`: lo contado desde `director.contar()` -- 0 ciclos,
+    /// 1 instrucciones retiradas, 2 saltos fallados, 3 fallos de la L1D --.
+    /// Para MEDIR un trozo y decidir con el numero (la ley 0 de la optimizacion).
+    Contado,
 }
 
 impl Director {
-    pub const ALL: [Director; 26] = [
+    pub const ALL: [Director; 28] = [
         Director::Lamina,
         Director::Publica,
         Director::Espera,
@@ -389,6 +397,8 @@ impl Director {
         Director::Texto,
         Director::Ms,
         Director::Profundidad,
+        Director::Contar,
+        Director::Contado,
     ];
 
     /// Its whole name, as a program writes it.
@@ -420,6 +430,8 @@ impl Director {
             Director::Texto => "director.texto",
             Director::Ms => "director.ms",
             Director::Profundidad => "director.profundidad",
+            Director::Contar => "director.contar",
+            Director::Contado => "director.contado",
         }
     }
 
@@ -431,8 +443,8 @@ impl Director {
     /// How many values it takes.
     pub fn takes(self) -> usize {
         match self {
-            Director::Presenta | Director::Toma | Director::Cierra | Director::Medida | Director::Evento | Director::Codigo | Director::RatonX | Director::RatonY | Director::Botones | Director::SeVe | Director::Ms => 0,
-            Director::Lamina | Director::Espera | Director::Fichero | Director::Crea | Director::Escribe | Director::Byte | Director::Profundidad => 1,
+            Director::Presenta | Director::Toma | Director::Cierra | Director::Medida | Director::Evento | Director::Codigo | Director::RatonX | Director::RatonY | Director::Botones | Director::SeVe | Director::Ms | Director::Contar => 0,
+            Director::Lamina | Director::Espera | Director::Fichero | Director::Crea | Director::Escribe | Director::Byte | Director::Profundidad | Director::Contado => 1,
             Director::Ventana | Director::Fila | Director::Guarda => 2,
             Director::Pixel => 3,
             Director::Publica => 4,

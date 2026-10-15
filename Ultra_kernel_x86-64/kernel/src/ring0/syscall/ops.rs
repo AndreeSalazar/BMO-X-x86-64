@@ -348,6 +348,12 @@ pub(crate) const TASK_OP_ALARMA: u64 = 0x44;
 /// **Lo que se vio en pantalla, a la caja negra** (11-10). Espejo de
 /// `bmo_abi::...::TASK_OP_CAIDA_ANOTAR`. Ver `syscall/op_consola.rs`.
 pub(crate) const TASK_OP_CAIDA_ANOTAR: u64 = 0x45;
+/// ** C4 (15-10): contar UN programa con los contadores del Zen 3. Espejo de
+/// `bmo_abi::...::TASK_OP_CONTAR`. Ver `cpu_vendor/ryzen_5_5600x/contadores.rs`.
+pub(crate) const TASK_OP_CONTAR: u64 = 0x48;
+pub(crate) const CONTAR_EMPIEZA: u64 = 1;
+pub(crate) const CONTAR_LEE: u64 = 2;
+pub(crate) const CONTAR_PARA: u64 = 3;
 pub(crate) const IOMMU_OP_ENCENDER: u64 = 0x01;
 pub(crate) const IOMMU_OP_APAGAR: u64 = 0x02;
 /// Cegar la 3060 (M0e): su entrada, bloqueada.

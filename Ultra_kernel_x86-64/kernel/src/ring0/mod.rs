@@ -137,6 +137,8 @@ pub mod fsys {
 pub mod plat {
     //! [familia] plat  nivel 10 -- la plataforma: tick, interrupciones, SMP, fallos y reinicio
     //! [conecta] cabina, core, cpu, cpu_vendor, dev, mm, obj, reloj, task
+    /// ** C4 (15-10): contar UN programa con los contadores del nucleo (LB5).
+    pub mod contadores;
     pub mod faults;
     /// El censo de nucleos que da el firmware por ACPI. Es la fuente de los
     /// APIC IDs, y sustituye a la suposicion `0..hilos-1`.

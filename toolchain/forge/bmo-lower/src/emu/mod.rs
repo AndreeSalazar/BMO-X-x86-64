@@ -347,6 +347,9 @@ pub struct Machine {
     /// ** Cuantas instrucciones ejecuto `run` (2026-09-18). Es el metro del
     /// emisor: determinista, y sale igual en cualquier maquina que compile.
     pub pasos: u64,
+    /// ** C4: desde que paso cuenta `TASK_OP_CONTAR` (el modelo del contador
+    /// de instrucciones retiradas: cada paso, una).
+    pub contar_desde: Option<u64>,
     /// ** EL RELOJ (10-10, el cuello de botella de EL_FOCO): el emulador
     /// cuenta a 1 GHz -- cada instruccion, un nanosegundo -- y un WAIT sin
     /// asa ADELANTA el reloj lo que pidio dormir. `rdtsc` da
@@ -563,6 +566,7 @@ impl Machine {
             syscalls: Vec::new(),
             exited: false,
             pasos: 0,
+            contar_desde: None,
             dormido_ns: 0,
             censo: clases::Censo::default(),
             archivos: HashMap::new(),

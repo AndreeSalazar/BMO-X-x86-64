@@ -781,6 +781,17 @@ pub const ALARMA_BUZON_NO_ESCRIBIBLE: u32 = 5;
 /// DIRECTOR manda cada linea que cierra en su caja: si la maquina se
 /// reinicia, el `CAIDA.TXT` siguiente dice lo ultimo que el propietario VIO.
 pub const TASK_OP_CAIDA_ANOTAR: u64 = 0x45;
+/// ** C4 (15-10): CONTAR UN PROGRAMA con los contadores del Zen 3 (LB5). `arg0`
+/// es la suborden: `CONTAR_EMPIEZA` pone a cero los cuatro y cuenta SOLO a
+/// quien llama, solo en Ring 3 (el kernel los enciende y apaga al cambiar de
+/// tarea); `CONTAR_LEE` con `arg1` = k da el contador k (0 ciclos, 1
+/// instrucciones retiradas, 2 saltos fallados, 3 fallos de la L1D); y
+/// `CONTAR_PARA` los apaga. El ultimo que empieza se queda con ellos. Fuera de
+/// la CPU del perfil, NO.
+pub const TASK_OP_CONTAR: u64 = 0x48;
+pub const CONTAR_EMPIEZA: u64 = 1;
+pub const CONTAR_LEE: u64 = 2;
+pub const CONTAR_PARA: u64 = 3;
 /// La ventana de reserva: 384 GiB desde `0x20_0000_0000`, hasta el final
 /// de `PML4[0]` (era de 128: Cyberpunk aparta mas de 130 GiB al arrancar).
 pub const RESERVA_VENTANA_BASE: u64 = 0x0000_0020_0000_0000;

@@ -290,3 +290,22 @@ pub fn consola(texto: &str) {
     }
 }
 
+
+/// ** C4 (LB5): **empezar a contarse** con los contadores del Zen 3 -- los
+/// cuatro a cero, y solo este programa, solo en Ring 3. `false` fuera de la
+/// CPU del perfil.
+pub fn contar_empieza() -> bool {
+    invoke(CURRENT_TASK, OP_CONTAR, 1, 0, 0).ok()
+}
+
+/// El contador `k`: 0 ciclos, 1 instrucciones retiradas, 2 saltos fallados,
+/// 3 fallos de la L1D (este ultimo, por confirmar con `cpu contadores`).
+pub fn contado(k: u32) -> Option<u64> {
+    let st = invoke(CURRENT_TASK, OP_CONTAR, 2, k as u64, 0);
+    st.ok().then_some(st.value)
+}
+
+/// Dejar de contarse.
+pub fn contar_para() {
+    let _ = invoke(CURRENT_TASK, OP_CONTAR, 3, 0, 0);
+}

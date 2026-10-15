@@ -473,6 +473,12 @@ pub(super) fn director(what: Director, args: &[Value], at: At, known: &[Option<C
         // ** F2 y F3 (EL_FOCO, 10-10): lo que se lee y lo que llega.
         Director::Toma | Director::SeVe => Ok(Some(Class::Bool)),
         Director::Medida | Director::Evento | Director::Codigo | Director::RatonX | Director::RatonY | Director::Botones | Director::Ms => Ok(Some(Class::Int)),
+        // ** C4 (LB5): contarse a si mismo con los contadores del Zen 3.
+        Director::Contar => Ok(Some(Class::Bool)),
+        Director::Contado => {
+            int(0, "`director.contado` pide QUE contador: 0 ciclos, 1 instrucciones, 2 saltos fallados, 3 fallos de la L1D", "let n = director.contado(1)")?;
+            Ok(Some(Class::Int))
+        }
         Director::Fichero => {
             if got[0] == Class::Text {
                 Ok(Some(Class::Bool))

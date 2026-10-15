@@ -243,6 +243,7 @@ fn invoke_current_task(operation: u64, arg0: u64, arg1: u64) -> BmoStatus {
         TASK_OP_CONSOLE_WRITE => op_consola::console_write(arg0, arg1),
         TASK_OP_CONSOLE_READ => op_consola::console_read(arg0, arg1),
         TASK_OP_CAIDA_ANOTAR => op_consola::caida_anotar(arg0, arg1),
+        TASK_OP_CONTAR => contar(arg0, arg1),
         TASK_OP_DIR_ABRIR => op_abrir::dir_abrir(arg0, arg1),
         TASK_OP_ARCHIVO_ABRIR => op_abrir::archivo_abrir(arg0, arg1),
         TASK_OP_MI_PAQUETE => op_abrir::mi_paquete(arg0, arg1),
@@ -1358,4 +1359,23 @@ extern "C" fn dispatch(frame: &mut TrapFrame) -> u64 {
     let salida = percpu::trap_rsp();
     meter::stop(__metro);
     salida
+}
+
+/// ** C4: `TASK_OP_CONTAR` -- contar a quien llama (LB5). Lo que se decide,
+/// en `bmo_contadores`; lo que toca los MSR, en el perfil del Ryzen.
+fn contar(sub: u64, k: u64) -> BmoStatus {
+    use crate::ring0::plat::contadores as c;
+    let se_pueden = crate::ring0::cpu_vendor::ryzen_5_5600x::contadores::se_pueden();
+    match sub {
+        CONTAR_EMPIEZA if c::empezar(scheduler::current_tid(), se_pueden) => BmoStatus::ok_value(1),
+        CONTAR_LEE => match c::leer(k as u32) {
+            Some(v) => BmoStatus::ok_value(v),
+            None => BmoStatus::negado(1, 0),
+        },
+        CONTAR_PARA => {
+            c::parar();
+            BmoStatus::ok_value(0)
+        }
+        _ => BmoStatus::negado(1, 0),
+    }
 }
