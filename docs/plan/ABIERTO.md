@@ -7,7 +7,7 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   853 casillas ABIERTAS en 78 planes
+   854 casillas ABIERTAS en 78 planes
    645 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
@@ -360,6 +360,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] A2.1 -- bmo-orquesta: una clase de parte nueva, RESIDENTE, que no
 - ... y 4 mas
 
+## [`PLAN_EL_TOQUE.md`](PLAN_EL_TOQUE.md) -- 7 abiertas, 0 hechas
+
+*PLAN EL TOQUE -- la RAM se llena al USAR, y se vacia sola lo que dejo de usarse*
+
+- [ ] EL0 -- MEDIR antes de tocar nada. Por app: paginas mapeadas,
+- [ ] EL1 -- los CEROS al tocarlos. La region de ceros de un .bex (el
+- [ ] EL2 -- el CODIGO al tocarlo, leido del .bex (de la cache de
+- ... y 4 mas
+
 ## [`PLAN_EL_VIDEO.md`](PLAN_EL_VIDEO.md) -- 7 abiertas, 0 hechas
 
 *PLAN EL VIDEO -- ver video en BMO-X con la 3060, y la plataforma como pala*
@@ -439,15 +448,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] Y1.1 subir el bInterval del raton a Ring 0 y a Ring 3. Sin ese
 - [ ] Y1.2 que BUS_PERIOD_MS salga del minimo de los aparatos vivos y no
 - [ ] no promete 0 ms, y llamarlo asi seria vender humo: un pixel viaja por
-- ... y 3 mas
-
-## [`PLAN_EL_TOQUE.md`](PLAN_EL_TOQUE.md) -- 6 abiertas, 0 hechas
-
-*PLAN EL TOQUE -- la RAM se llena al USAR, y se vacia sola lo que dejo de usarse*
-
-- [ ] EL0 -- MEDIR antes de tocar nada. Por app: paginas mapeadas,
-- [ ] EL1 -- los CEROS al tocarlos. La region de ceros de un .bex (el
-- [ ] EL2 -- el CODIGO al tocarlo, leido del .bex (de la cache de
 - ... y 3 mas
 
 ## [`PLAN_INTI_SAMURAI.md`](PLAN_INTI_SAMURAI.md) -- 6 abiertas, 5 hechas

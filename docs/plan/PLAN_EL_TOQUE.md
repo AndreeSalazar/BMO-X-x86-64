@@ -93,6 +93,35 @@ R21).
 - [ ] **EL5 -- EN GLOBAL**: el director, los servicios y PROTON-X (que ya
       lo pide: "falta paginacion bajo demanda", PLAN_PROTON_X y LUDOTECA).
 
+- [ ] **EL6 -- EL PUNTERO AVISA** (el propietario, 15-10: *"el puntero
+      cuando apunte es potencial indicador que es 50/50 posibilidad y si le
+      da es 100% y el sistema actua"*). Lo que no esta en RAM vive en el
+      disco (ESTRATOS) y se trae ANTES de que haga falta: el raton QUIETO
+      sobre un icono o un boton (~100 ms) pide sus paginas al disco en
+      segundo plano; el clic, si llega, las encuentra ya en la RAM; si no
+      llega, se sueltan con el barrido de EL4. Es lo que hacen los
+      navegadores con un enlace (precarga al pasar por encima) y Windows con
+      SuperFetch. **Como se sabe:** el tiempo de clic-a-ventana con y sin
+      el aviso, en el Ryzen, y cuantas precargas se tiraron sin clic.
+
+### Por que sale a cuenta (las cifras, de memoria; se miden con `disco banda`)
+
+```text
+                       primera lectura    lo que da por segundo
+   disco duro (HDD)    ~5-10 ms           ~150 MB/s
+   SSD SATA (el del    ~0,1 ms            ~550 MB/s     <- el del Ryzen hoy
+   Ryzen: "SATA Gen3")                                     (`save`, capitulo 6)
+   NVMe Gen3 / Gen4    ~0,02 ms           ~3,5 / ~7 GB/s
+   la RAM (DDR4)       ~0,0001 ms         ~40-50 GB/s
+```
+
+El disco sigue siendo mil veces mas lento que la RAM en la primera lectura,
+pero entre que el raton se para sobre algo y el clic pasan unos 200-300 ms
+(lo que miden los que precargan enlaces). En ese hueco el SSD SATA del
+Ryzen trae ~100 MB, y un NVMe varios GB: una funcion entera llega antes que
+el dedo. [!] Hoy el disco de BMO-X usa 1 de sus 32 colas (`queue: 1 de 32`
+en el informe): con varias a la vez (NCQ) lee mas en el mismo hueco.
+
 ---
 
 ## 3. Lo que puede salir mal, dicho antes
