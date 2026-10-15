@@ -1192,6 +1192,11 @@ pieza entera en la 0b, y su fila de la tabla de estado pasa a `VISTO dd-mm`.
                                        por cada una, el sitio, la
                                        funcion del juego y lo de antes
                                        en castellano
+   MESA   la mesa de ECCE (PL9b de     ECCE con una nota larga (mas de   Alt+rueda no hace nada, o  (sin probar)
+          PLAN_ECCE)                   una hoja): Alt + rueda abajo: la  el clic abre otra hoja, o
+                                       mesa; otra vez: los nodos; un     Esc en la mesa CIERRA ECCE
+                                       clic en un nodo abre esa hoja con (debe solo volver)
+                                       el cursor al principio
    IC     la cara ELEGANTE de ECCE     el icono de ECCE en el escritorio sale el cuadro con la E,  (sin probar)
           (32 px, borde suave, de      a 32 con el borde suave (la hoja  o con bordes en escalera,
           su `icono.svg`)              y la pluma de oro), sobre la foto o un halo oscuro alrededor

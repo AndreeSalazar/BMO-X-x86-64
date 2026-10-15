@@ -192,6 +192,20 @@ guardadas como ESTRATOS (como la `.obra` de
         ~45 %), de cerca hace falta la letra a varias medidas (VERRANO).
       **Como se sabe:** en el Ryzen, un guion de 8 escenas se aleja y se
       acerca a 60 fps, y el clic en un nodo deja el cursor en esa escena.
+      **15-10, LA PRIMERA MESA, HECHA EN ECCE** (`apps/ecce/src/mesa.titan`;
+      el banco del emulador en verde): tres vistas -- la HOJA (escribir),
+      la MESA (cada hoja de 54 lineas en chico, una raya gris por linea, la
+      elegida con marco de oro) y los NODOS (una tarjeta por hoja con su
+      numero y su primera linea, unidas en orden por un hilo de oro). Alt +
+      rueda aleja y acerca; acercando se abre la hoja elegida. En la mesa,
+      las flechas eligen, Enter o un CLIC abren y Esc vuelve; la rueda sola,
+      en la hoja, mueve el cursor tres lineas. Pruebas: Alt + rueda dos
+      veces y un clic en el nodo 2 escriben al principio de la linea 55; los
+      pixeles de la mesa (papel, raya, marco) y de los nodos (tarjeta,
+      hilo). **Lo que falta, dicho:** el zoom es por PASOS, no continuo (la
+      letra de TITAN++ es de una medida); los nodos son HOJAS, no escenas
+      ni actos (eso pide el modo GUION, PL2..PL4); y verlo en el Ryzen (hoja
+      6b, fila MESA).
 - [ ] **PL10 -- los informes y el desglose:** escenas, personajes, lugares
       y etiquetas de produccion.
 - [ ] **PL11 -- los otros modos:** serie, teatro y comic sobre el mismo motor.
