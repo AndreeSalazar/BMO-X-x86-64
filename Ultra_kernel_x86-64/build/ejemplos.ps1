@@ -429,7 +429,8 @@ try {
     # ** Y en `apps\` tambien (15-10, la captura del propietario: SEGUIA saliendo
     # NAVEGAR dos veces). `navegar.ibx` no vivia en `inti\`: vivia en `apps\`,
     # que es la carpeta que el escritorio convierte en iconos.
-    foreach ($retirado in @('navegar.ibx', 'ventana.ibx', 'cubo.ibx', 'bico.ibx', 'png.ibx', 'musica.ibx')) {
+    # (`ecce.bex` suelto, tambien: desde el 15-10 ECCE es `apps\ecce\`, KA1.)
+    foreach ($retirado in @('navegar.ibx', 'ventana.ibx', 'cubo.ibx', 'bico.ibx', 'png.ibx', 'musica.ibx', 'ecce.bex')) {
         foreach ($carpeta in @('inti', 'apps')) {
             $viejo = Join-Path (Join-Path $dataBase $carpeta) $retirado
             if (Test-Path $viejo) {
@@ -498,7 +499,11 @@ try {
         # ** ECCE (PL1 y PL3 de docs/plan/PLAN_ECCE.md, 15-10): el bloc de
         # notas, el primer peldanio de la app de escribir del propietario.
         # Guarda solo en `datos\notas.txt`. Una APP: con su icono.
-        @{ src = 'Ultra_userspace\apps\ecce\src\main.titan'; out = 'ecce.bex'; dir = 'apps' },
+        # ** UNA APP CARPETA desde el 15-10 (KA1 de PLAN_EL_KERNEL_DE_LA_APP):
+        # `apps\ecce\nucleo.bex`, el que arranca; sus piezas iran al lado. El
+        # escritorio la ve como UNA app con el nombre de la carpeta, y su cara
+        # (IC2) la mete `titan build` desde el `icono.svg` del Titan.toml.
+        @{ src = 'Ultra_userspace\apps\ecce\src\main.titan'; out = 'nucleo.bex'; dir = 'apps\ecce' },
         # ** TINTA (TB1 de docs/plan/PLAN_LA_TINTA.md, 2026-10-10): el lienzo
         # minimo -- pincel redondo con antialias, goma y PNG --, el primer
         # peldanio del Adobe + Clip Studio Paint propio. Una APP: con su icono.

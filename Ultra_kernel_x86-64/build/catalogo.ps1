@@ -323,28 +323,10 @@ $cRecursos = @(
             '................'
         ) }
     ) }
-    # ** LA CARA DE ECCE (15-10): una hoja con sus renglones y la pluma de
-    # oro que escribe en ella, en diagonal.
-    @{ bex = 'apps\ecce.bex'; recursos = @(
-        @{ nombre = 'icono'; icono = @(
-            '................',
-            '..oooooooooo....',
-            '..oWWWWWWWWo.yy.',
-            '..oWggggggWoyyo.',
-            '..oWWWWWWWWyyo..',
-            '..oWgggggWyyo...',
-            '..oWWWWWWyyo....',
-            '..oWggggyyoo....',
-            '..oWWWWyyWWo....',
-            '..oWgggyoWWo....',
-            '..oWWWWoWWWo....',
-            '..oWggggggWo....',
-            '..oWWWWWWWWo....',
-            '..oWggggWWWo....',
-            '..oooooooooo....',
-            '................'
-        ) }
-    ) }
+    # ** LA CARA DE ECCE ya NO vive aqui (IC2, 15-10): la dice su Titan.toml
+    # (`icono = "icono.svg"`) y `titan build` la pinta a 32 con alfa entero y
+    # la mete en `apps\ecce\nucleo.bex`. Era la rejilla de 16 de abajo de
+    # todo con el oro 'y'; las demas apps pueden seguir el mismo camino.
     # ** LA CARA DE RESOLUCION (R1 de EL_FOCO, 2026-10-10): una pantalla con
     # sus dos flechas de esquina a esquina, la medida que crece.
     @{ bex = 'apps\resol.bex'; recursos = @(
