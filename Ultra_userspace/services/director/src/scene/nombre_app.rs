@@ -64,7 +64,7 @@ impl Nombre {
 }
 
 /// Los de la casa, como se escriben en el resto del sistema.
-const CASA: [(&[u8], &[u8]); 8] = [
+const CASA: [(&[u8], &[u8]); 9] = [
     (b"taller", b"TALLER"),
     (b"doom", b"DOOM"),
     (b"hermes", b"HERMES"),

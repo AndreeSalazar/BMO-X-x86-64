@@ -1,13 +1,13 @@
 <!-- GENERADO por toolchain/tools/planes. No se edita a mano. -->
 
-# LO QUE FALTA -- las casillas abiertas de los 85 planes
+# LO QUE FALTA -- las casillas abiertas de los 86 planes
 
 > Generado por `toolchain/tools/planes`. **El build comprueba que
 > este fichero y los planes dicen lo mismo**, asi que no puede
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   832 casillas ABIERTAS en 76 planes
+   854 casillas ABIERTAS en 77 planes
    638 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
@@ -63,6 +63,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] V3a -- VERRANO POR CATEGORIAS: el dibujo con PROGRAMAS (11-10,
 - ... y 42 mas
 
+## [`PLAN_ILLAPA.md`](PLAN_ILLAPA.md) -- 36 abiertas, 0 hechas
+
+*PLAN ILLAPA -- el motor de CGI en tiempo real de BMO-X: motor grafico + Houdini propio, en TITAN*
+
+- [ ] IL0 -- las decisiones de la seccion 8, contestadas por el propietario
+- [ ] IL1 -- gpu fn CON VECINOS: leer celdas de OTRA tabla por indice y bucles acotados, en el lenguaj
+- [ ] IL2 -- LA REJILLA DE VECINOS: cada particula a su celda, ordenadas por celda (un conteo y un ord
+- ... y 33 mas
+
 ## [`PLAN_LA_LUDOTECA.md`](PLAN_LA_LUDOTECA.md) -- 32 abiertas, 15 hechas
 
 *PLAN LA LUDOTECA -- los juegos que compraste, en BMO-X, y por donde NO*
@@ -80,15 +89,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] TB2 -- CAPAS Y FUSION: N capas con opacidad y los modos normal, multiplicar y pantalla; la fusio
 - [ ] TB3 -- TESELAS E HISTORIAL: capas en teselas de 256 (las vacias no existen) y deshacer/rehacer s
 - ... y 28 mas
-
-## [`PLAN_ILLAPA.md`](PLAN_ILLAPA.md) -- 30 abiertas, 0 hechas
-
-*PLAN ILLAPA -- el motor de CGI en tiempo real de BMO-X: motor grafico + Houdini propio, en TITAN*
-
-- [ ] IL0 -- las decisiones de la seccion 8, contestadas por el propietario
-- [ ] IL1 -- gpu fn CON VECINOS: leer celdas de OTRA tabla por indice y bucles acotados, en el lenguaj
-- [ ] IL2 -- LA REJILLA DE VECINOS: cada particula a su celda, ordenadas por celda (un conteo y un ord
-- ... y 27 mas
 
 ## [`EL_FOCO.md`](EL_FOCO.md) -- 29 abiertas, 24 hechas
 
@@ -151,6 +151,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] B1 -- F2 abre LOS ARCHIVOS: una app propia como el TALLER (sys/archivos.bex), que el DIRECTOR la
 - [ ] B2 -- el GLOBO, en el MISMO commit que B1 (una linea de SABIAS tiene que ser verdad el dia que s
 - [ ] B3 -- LA BANDEJA (seccion 3): los discos que el kernel lee, con su perfil y su rango; el NVMe CE
+- ... y 13 mas
+
+## [`PLAN_LA_PLUMA.md`](PLAN_LA_PLUMA.md) -- 16 abiertas, 0 hechas
+
+*PLAN LA PLUMA -- escribir en BMO-X: guiones al nivel de Final Draft, y todo lo demas*
+
+- [ ] PL0 -- las decisiones de la seccion 7, contestadas por el propietario.
+- [ ] PL1 -- el motor de texto: parrafos con elemento, cursor, seleccion,
+- [ ] PL2 -- Fountain, leer y escribir. Como se sabe: los ejemplos
 - ... y 13 mas
 
 ## [`PLAN_MEDIOS.md`](PLAN_MEDIOS.md) -- 16 abiertas, 3 hechas

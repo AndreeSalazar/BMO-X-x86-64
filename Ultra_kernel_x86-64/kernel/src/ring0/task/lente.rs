@@ -2,7 +2,8 @@
 //! `docs/plan/PLAN_LA_LENTE_BINARIA.md`). Verificar una vez, y apartarse.
 //!
 //! [carril]  AMARILLO  lee las paginas de codigo que el cargador acaba de mapear
-//! [consumo] UNA VEZ   por `.bex` (por el hash de su codigo); luego, nada
+//! [consumo] NADA      en reposo: trabaja UNA VEZ por `.bex` al admitirlo (por
+//!                     el hash de su codigo), y luego nada
 //!
 //! > 14-10, el propietario: *"que hable con mi Kernel que primero verifica con
 //! > respeto, luego se aparta y le habla a mi CPU (AMD) en binarios precisos"*.

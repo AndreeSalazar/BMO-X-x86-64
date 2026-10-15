@@ -185,7 +185,10 @@ $cEjemplos = @(
     @{ src = 'toolchain\lang\c\examples\ciclos_C.c';    out = 'ciclos.bex' ; dir = 'c' },
     # LA MEDIDA DEL BLIT: memcpy a RAM contra memcpy al framebuffer (WC), y
     # un bucle de 8 bytes como tercera fila. Ver su cabecera.
-    @{ src = 'toolchain\lang\c\examples\blit_C.c';      out = 'blit.bex'   ; dir = 'c' }
+    @{ src = 'toolchain\lang\c\examples\blit_C.c';      out = 'blit.bex'   ; dir = 'c' },
+    # ** B2 DE EL_FOCO (15-10): un programa que FALLA A PROPOSITO, para ver en
+    # el Ryzen el renglon `instr` de la autopsia en `datos/fallos.txt`.
+    @{ src = 'toolchain\lang\c\examples\autopsia_C.c';  out = 'autopsia.bex'; dir = 'c' }
 )
 
 # * LOS RECURSOS QUE VAN DENTRO DE UN `.bex`.

@@ -42,8 +42,7 @@
 use crate::*;
 
 mod amarilla;
-mod por_defecto;
-pub use por_defecto::{Mirada, Paso, PorDefecto};
+pub use verde::por_defecto::{Mirada, Paso, PorDefecto};
 mod roja;
 mod verde;
 
