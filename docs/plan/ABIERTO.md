@@ -7,8 +7,8 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   814 casillas ABIERTAS en 75 planes
-   635 hechas
+   816 casillas ABIERTAS en 75 planes
+   636 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -90,14 +90,14 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] IL2 -- LA REJILLA DE VECINOS: cada particula a su celda, ordenadas por celda (un conteo y un ord
 - ... y 27 mas
 
-## [`EL_FOCO.md`](EL_FOCO.md) -- 25 abiertas, 21 hechas
+## [`EL_FOCO.md`](EL_FOCO.md) -- 27 abiertas, 22 hechas
 
 *EL FOCO -- una cosa a la vez, hasta el final (10-10; el orden nuevo, 14-10)*
 
 - [ ] A4 -- TITAN++ pide RAM SOLO con laminas. director.lamina deja de
 - [ ] en el Ryzen -- un .bex del nivel 15 de TITAN++ corriendo (hoja 6b, fila A4). Cuando se vea bien:
 - [ ] B1 -- LB7 + LB8: verificar una vez y apartarse. Al admitir un
-- ... y 22 mas
+- ... y 24 mas
 
 ## [`PLAN_LA_3060_AFINADA.md`](PLAN_LA_3060_AFINADA.md) -- 25 abiertas, 18 hechas
 

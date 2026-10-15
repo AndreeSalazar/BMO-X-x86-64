@@ -148,7 +148,9 @@ esta en la HOJA 6b.
    C1     la lamina PRESTADA a la 3060         HECHO       falta (6b: C1)
    C2     S3: el banco duerme en el sello       HECHO       falta (6b: C2)
           S4: la app en su nucleo              BLOQUEADO   (ver C2)
-   C3..D2                                      --          --
+   C3     el volcado por la 3060, por defecto HECHO     falta (6b: C3)
+          las ventanas pegadas por la 3060     DECIDIR     (ver C3)
+   C4..D2                                      --          --
 ```
 
 **Escalon 1 -- solo el anfitrion (facil)**
@@ -529,6 +531,39 @@ esta en la HOJA 6b.
         tanda de la app por `repartir` en los obreros, sin mover la app).
 - [ ] **C3 -- Q0b: la 3060 COMPONE las ventanas** (la regla 1b): fuera los
       27,6 ms de la CPU copiando la pantalla.
+      **Lo que dijo el codigo al mirarlo (15-10):** cada fotograma tiene DOS
+      copias. (1) Lienzo -> pantalla (RAM -> VRAM por el PCIe, memoria
+      WC): ESA es la de los 27,6 ms (calculados: 8,3 MB a ~300 MB/s), y ya
+      tenia camino por la 3060 -- el motor de copia, pasos 1b y 1c de
+      PLAN_LA_3060, VISTO en el metal el 25-09: 649 us la entera --, pero
+      solo lo armaba `save mode` o `gpu volcado`. (2) Superficie de cada app
+      -> lienzo (`pegar_fila`, RAM -> RAM, solo lo que cambio): barata en la
+      CPU; ninguna orden de hoy copia un rectangulo a OTRA posicion.
+      **C3a HECHO EN EL ANFITRION el 15-10 -- el volcado por la 3060, POR
+      DEFECTO:** `bmo::PorDefecto` (pura, 4 pruebas) decide: con la 3060
+      lista (GSP_INIT_DONE) y lienzo, la primera vez una copia VERIFICADA
+      (1024 muestras) y despues armar; al volver la pantalla de un juego,
+      armar otra vez; las caidas solas (`Pantalla::caidas_gpu`) y los
+      intentos fallidos cuentan juntos, y a las tres la CPU (L32), dicho UNA
+      vez. `gpu volcado off` manda; `gpu apagar` y el reinicio lo sueltan y
+      no se rearma sobre un GSP apagado.
+  - [x] **en el anfitrion (C3a)** -- HECHO el 15-10 (lo de arriba).
+  - [ ] **en el Ryzen (C3a)** -- tras `gpu init`, la consola dice `[C3] la 3060 vuelca el escritorio por defecto` sin teclear `gpu volcado` (hoja 6b, fila C3). Cuando se vea bien: se anota en la hoja
+        y se tachan esta casilla y la de C3a.
+  - [ ] **C3b -- las VENTANAS pegadas por la 3060: DECIDIR.** Pide una orden
+        nueva del motor de copia (origen y destino con su propio desplazamiento
+        y su propio paso; hoy `Tanda::caja` usa el mismo en los dos) y prestar
+        la superficie de cada app por la IOMMU. Dos caminos, y ninguno es
+        gratis: (a) superficie -> LIENZO por la 3060: el lienzo sigue siendo
+        la verdad (el cursor, el cromo), pero es RAM -> RAM cruzando el PCIe
+        dos veces -- mas lento que la CPU --; (b) superficie -> PANTALLA
+        directo: una sola copia, pero el lienzo bajo la ventana queda viejo y
+        el cursor y las cajas sucias de encima tienen que ir DETRAS en la misma
+        tanda. **Lo que se propone:** medir antes en el Ryzen con C3a armado
+        (la fila `gpu volcado` y el tablero de E2) cuanto cuesta de verdad el
+        `pegar_fila`; si es menos de 1 ms (lo que dijo PLAN_EL_PIXEL el 09-09),
+        C3b no gana nada que se vea, y la regla 1b se cumple con (b) solo para
+        las apps que dibuja VERRANO.
 - [ ] **C4 -- LB4 + LB5: los contadores del Zen 3, y INTI exprime con
       evidencia.** Primero MEDIR que cuenta cada contador en este Ryzen.
 
@@ -1055,6 +1090,14 @@ pieza entera en la 0b, y su fila de la tabla de estado pasa a `VISTO dd-mm`.
                                        `cpu: es la CPU del perfil` y     el Ryzen, o una DECIDIDA
                                        `extensiones decididas que el     que el silicio no tiene
                                        silicio tiene` = 11
+   C3     el volcado por la 3060, por  `gpu init` (o el arranque con la  `[C3] ... fallo tres         (sin probar)
+          defecto (C3a)                3060 lista): `[C3] la 3060        veces`, o la pantalla con
+                                       vuelca el escritorio por          basura o a trozos, o `gpu
+                                       defecto` en la consola y la fila  volcado` dice menos de 1024
+                                       `volcado` con 1024 de 1024; el    muestras
+                                       raton y las ventanas se mueven
+                                       igual; `gpu volcado off` lo
+                                       devuelve y no vuelve solo
    C2     el banco duerme en el sello  `run titan/cubogira.bex` y        el banco se queda           (sin probar)
           (S3)                         `gpu verrano banco inti`: la      parado (2 s y `callada`),
                                        linea `C2, el sello: la app TOCA  o `NO toca el timbre`, o la
