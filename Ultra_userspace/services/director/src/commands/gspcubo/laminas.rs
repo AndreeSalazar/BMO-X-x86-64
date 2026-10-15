@@ -62,6 +62,13 @@ struct Estado {
     hoja_z: Option<bmo::Memoria>,
     dibujados: u32,
     dicho_distinto: bool,
+    /// ** C1: el kernel no tomo la lamina PRESTADA una vez: se dijo, y se
+    /// vuelve a copiar (lo de antes del 15-10) sin reintentar.
+    sin_prestar: bool,
+    /// Cuantos fotogramas fueron prestados y cuantos copiados: lo que el
+    /// metal mira para saber que C1 corre (`gpu laminas`).
+    prestados: u32,
+    copiados: u32,
 }
 
 static mut ESTADO: Estado = Estado {
@@ -75,6 +82,9 @@ static mut ESTADO: Estado = Estado {
     hoja_z: None,
     dibujados: 0,
     dicho_distinto: false,
+    sin_prestar: false,
+    prestados: 0,
+    copiados: 0,
 };
 
 fn estado() -> &'static mut Estado {
@@ -123,9 +133,10 @@ pub(crate) fn vuelta(dsk: &mut Desktop, p: &bmo::Pantalla) -> bool {
     // ve como palabras ATOMICAS: la app las escribe a la vez.
     let palabras = unsafe { core::slice::from_raw_parts(t.base as *const core::sync::atomic::AtomicU32, (t.bytes / 4) as usize) };
     let Ok(l) = Lamina::abrir(palabras) else { return false };
-    let (s, leido) = l.leer_si_nueva(e.secuencia, &mut e.v);
-    e.secuencia = s;
-    let Leido::Fotograma { vertices: n, .. } = leido else { return false };
+    // Sin publicacion nueva, UNA palabra y fuera (antes de reservar nada).
+    if l.secuencia() == e.secuencia {
+        return false;
+    }
     if w % 32 != 0 || (w as usize) * (h as usize) > PIXELES_MAX {
         decir(e, &mut dsk.out.grid, "su ventana no mide un multiplo de 32 de ancho o pasa de 1280x720"); dsk.tick.repaint_field = true;
         return false;
@@ -160,6 +171,38 @@ pub(crate) fn vuelta(dsk: &mut Desktop, p: &bmo::Pantalla) -> bool {
         }
     }
     let (Some(a), Some(b)) = (e.aparato.as_mut(), e.bloque.as_ref()) else { return false };
+    // ** C1 (15-10, EL_FOCO): si la app RESPETA LA VUELTA (`Lamina::reservar`),
+    // la ranura publicada se reserva -- el escritor no la toca hasta soltarla
+    // -- y la 3060 lee los vertices de ahi, PRESTADOS: sin copiarlos. Si no,
+    // o si el escritor estaba dentro, se copian como antes.
+    let reserva = if e.sin_prestar { None } else { l.reservar() };
+    let reserva = match reserva {
+        Some(r) if r.vertices == 0 || r.vertices > MAX_VERTICES || r.secuencia == e.secuencia => {
+            l.soltar();
+            if r.secuencia == e.secuencia {
+                return false;
+            }
+            None
+        }
+        r => r,
+    };
+    let (s, vertices): (u32, &[Vertex]) = match reserva {
+        Some(r) => {
+            // SAFETY: `reservar` comprobo que la ranura cabe en la lamina
+            // (`capacidad` cabe en sus palabras, `abrir`; alineada a 4), y hasta
+            // `soltar` (abajo, en todos los caminos) el escritor no la toca:
+            // aqui se lee como `Vertex`, y la 3060, por su direccion.
+            let v = unsafe { core::slice::from_raw_parts((t.base + r.desde_byte as u64) as *const Vertex, r.vertices) };
+            (r.secuencia, v)
+        }
+        None => {
+            let (s, leido) = l.leer_si_nueva(e.secuencia, &mut e.v);
+            let Leido::Fotograma { vertices: n, .. } = leido else { return false };
+            (s, &e.v[..n])
+        }
+    };
+    let prestada = reserva.is_some();
+    e.secuencia = s;
     let va = b.base() as u64;
     // SAFETY: el bloque residente mide `PIXELES_MAX` pixeles y `w * h` cabe
     // (comprobado arriba); solo lo escriben la 3060 (dentro de `draw`) y nadie
@@ -167,17 +210,44 @@ pub(crate) fn vuelta(dsk: &mut Desktop, p: &bmo::Pantalla) -> bool {
     let pixeles = unsafe { core::slice::from_raw_parts_mut(va as *mut u32, (w * h) as usize) };
     // V2 (11-10): como pide la app que se dibuje (la cabecera de su lamina).
     let (depth, cull) = l.estado();
-    let frame = Frame { clear: bmo_cubo::FONDO_F, vertices: &e.v[..n], viewport: Viewport { width: w, height: h }, depth, cull };
-    match a.draw(&frame, &mut Image { pixels: pixeles, width: w, height: h , depth: None }) {
+    let frame = Frame { clear: bmo_cubo::FONDO_F, vertices, viewport: Viewport { width: w, height: h }, depth, cull };
+    a.prestar = prestada;
+    let dibujo = a.draw(&frame, &mut Image { pixels: pixeles, width: w, height: h , depth: None });
+    a.prestar = false;
+    // El juez lee los mismos vertices: con la ranura aun reservada.
+    let dicho = match dibujo {
+        Ok(_) if e.dibujados % JUZGAR_CADA == 0 => juzgar(&mut e.hoja, &mut e.hoja_z, &mut e.dicho_distinto, e.dibujados == 0, &frame, pixeles, &mut dsk.out.grid),
+        _ => false,
+    };
+    if prestada {
+        l.soltar();
+    }
+    if dicho {
+        dsk.tick.repaint_field = true;
+    }
+    match dibujo {
         Ok(_) => {
-            if e.dibujados % JUZGAR_CADA == 0 {
-                if juzgar(&mut e.hoja, &mut e.hoja_z, &mut e.dicho_distinto, e.dibujados == 0, &frame, pixeles, &mut dsk.out.grid) {
-                    dsk.tick.repaint_field = true;
+            if prestada {
+                if e.prestados == 0 {
+                    bmo::consola("[C1] la lamina va PRESTADA a la 3060: sin copia\n");
                 }
+                e.prestados = e.prestados.wrapping_add(1);
+            } else {
+                e.copiados = e.copiados.wrapping_add(1);
             }
             e.dibujados = e.dibujados.wrapping_add(1);
             dsk.table.poner_fuente(i, va, s);
             true
+        }
+        Err(_) if prestada => {
+            // El kernel no la tomo (un kernel de antes, o `Porque` 29/30):
+            // se dice UNA vez y se copia desde el proximo fotograma.
+            e.sin_prestar = true;
+            e.secuencia = 0;
+            bmo::consola("[C1] la 3060 no tomo la lamina prestada: se copia (lo de antes)\n");
+            dsk.out.grid.text(b"  [C1] la 3060 no tomo la lamina prestada: se copia (lo de antes)\n");
+            dsk.tick.repaint_field = true;
+            false
         }
         Err(_) => {
             decir(e, &mut dsk.out.grid, "la 3060 no dibujo el fotograma (VERRANO dijo que no)"); dsk.tick.repaint_field = true;

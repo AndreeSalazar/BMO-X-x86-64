@@ -31,6 +31,8 @@ pub mod cubo;
 pub mod tuberia;
 #[cfg(test)]
 mod tuberia_vram;
+/// C1: la lamina prestada a la 3060 (los 16 B que van en vez de sus vertices).
+pub mod prestada;
 /// VERRANO V1b: el anillo -- la CPU prepara el fotograma N+1 mientras la
 /// 3060 dibuja el N (2026-09-26).
 pub mod anillo;

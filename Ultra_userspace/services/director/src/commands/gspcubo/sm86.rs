@@ -259,6 +259,11 @@ pub(super) struct Aparato<'a> {
     pub leer_ms: u64,
     /// Q0a3: dibuja en la `Image` misma (`Opciones::en_la_imagen`).
     en_la_imagen: bool,
+    /// ** C1 (15-10): los vertices del `Frame` son la ranura RESERVADA de una
+    /// lamina (`Lamina::reservar`): van PRESTADOS -- su direccion, no su
+    /// copia -- y la 3060 los lee de ahi. Lo enciende quien reservo, para
+    /// ese dibujo, y lo apaga al soltar.
+    pub prestar: bool,
 }
 
 /// **E2 -- DE QUE SON LOS US DEL ESCRITORIO** (26-09). Con `maximo` la pared
@@ -390,7 +395,7 @@ pub(super) fn abrir<'a>(dsk: &mut Desktop, p: &bmo::Pantalla, caja: &'a mut [u8]
     let ficha = super::super::gspcomputo::ficha_del_gr().map_err(|m| motivo(dsk, m))?;
     let origen: &'static [u8] = if op.bmox12 { b"de BMOX-12 por PROTON-X" } else { b"del BSF" };
     let abierto = Abierto { instrucciones, bytes_vs: vs.len(), bytes_ps: ps.len(), origen };
-    Ok((Aparato { ficha, paquete: caja, vs, ps, propio, propio_n, ligero: op.ligero, anillo: op.anillo, coopera: op.coopera, antes: None, limpiados: 0, dibujos: 0, gobierno: Gobierno { activo: op.anillo && !op.reposo, ..Gobierno::default() }, fases: Fases::default(), bmox12: op.bmox12.then_some(op.fotograma), antihorario: op.antihorario, z: op.z, ambas: op.ambas, enram, vertice: modulo, leer: true, leer_ms: 0, en_la_imagen: op.en_la_imagen }, abierto))
+    Ok((Aparato { ficha, paquete: caja, vs, ps, propio, propio_n, ligero: op.ligero, anillo: op.anillo, coopera: op.coopera, antes: None, limpiados: 0, dibujos: 0, gobierno: Gobierno { activo: op.anillo && !op.reposo, ..Gobierno::default() }, fases: Fases::default(), bmox12: op.bmox12.then_some(op.fotograma), antihorario: op.antihorario, z: op.z, ambas: op.ambas, enram, vertice: modulo, leer: true, leer_ms: 0, en_la_imagen: op.en_la_imagen, prestar: false }, abierto))
 }
 
 /// Un color de VERRANO (`[r, g, b, a]` de 0 a 1) como pixel de la memoria,
@@ -465,7 +470,7 @@ impl Backend for Aparato<'_> {
                 (tu::Descarte::Traseras, None)
             };
             let color = destino.map(|_| cu::PIXEL_FONDO);
-            let dibujo = tu::Dibujo { indices: Some(desde as u32), vertices: bmo_cubo::NUM_VERTICES as u32, descarte, antihorario: self.antihorario, destino, z, color, texturas: 0, cadena: false, escalera: false, pantalla: false, banco: 0, redondeo: bmo_gpu_ga10x::pegamento::Redondeo::NADA, mezcla: bmo_gpu_ga10x::mezcla::Mezcla::NINGUNA, registros: 0, mas: Default::default(), n_mas: 0 };
+            let dibujo = tu::Dibujo { indices: Some(desde as u32), vertices: bmo_cubo::NUM_VERTICES as u32, descarte, antihorario: self.antihorario, destino, z, color, texturas: 0, cadena: false, escalera: false, pantalla: false, banco: 0, redondeo: bmo_gpu_ga10x::pegamento::Redondeo::NADA, mezcla: bmo_gpu_ga10x::mezcla::Mezcla::NINGUNA, registros: 0, mas: Default::default(), n_mas: 0, prestada: None };
             tu::escribir_paquete_dibujo(self.paquete, self.ficha as u32, vs, self.ps, n, &datos[..bytes], dibujo).ok_or(Error::Vertices)?;
         } else if let Some(destino) = en_ram {
             // ** Q0a2 (EL_FOCO, 10-10): los vertices de V0 -- los de la LAMINA
@@ -479,7 +484,12 @@ impl Backend for Aparato<'_> {
             let z = frame.depth.then_some(bmo_gpu_ga10x::profundidad::Z { funcion: 2, escribir: true, limpiar: Some(bmo_gpu_ga10x::profundidad::UNO) });
             let descarte = if frame.cull == bmo_verrano::Cull::Back { tu::Descarte::Traseras } else { tu::Descarte::Ninguna };
             let dibujo = tu::Dibujo { vertices: frame.vertices.len() as u32, destino: Some(destino), color: Some(pixel_de(frame.clear)), z, descarte, antihorario: false, ..tu::Dibujo::default() };
-            tu::escribir_paquete_dibujo_de(self.paquete, self.ficha as u32, vs, self.ps, v, dibujo).ok_or(Error::Vertices)?;
+            if self.prestar {
+                // C1: 16 B de descriptor; la 3060 los lee de la lamina misma.
+                tu::escribir_paquete_prestado(self.paquete, self.ficha as u32, vs, self.ps, frame.vertices.as_ptr() as u64, frame.vertices.len(), dibujo).ok_or(Error::Vertices)?;
+            } else {
+                tu::escribir_paquete_dibujo_de(self.paquete, self.ficha as u32, vs, self.ps, v, dibujo).ok_or(Error::Vertices)?;
+            }
         } else if frame.depth || frame.cull != bmo_verrano::Cull::None {
             // V2: a la pantalla (V0) no hay z-buffer ni descarte: EN RAM si.
             return Err(Error::Image);
