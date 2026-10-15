@@ -94,6 +94,10 @@ pub(crate) fn enterrar(c: &Cadaver) {
             crate::ring0::cabina::warn("mm", "espacio NO desmontado: un sub-director sigue dentro", cr3);
             return;
         }
+        // EL0 de PLAN_EL_TOQUE: lo que toco en toda su vida, contado aqui --
+        // el unico sitio donde nadie mas camina este espacio -- y antes de
+        // desmontarlo. Solo lee.
+        mm::toque::verde::al_morir(c.tid, cr3);
         let (hojas, tablas) = mm::vmm::destroy_address_space(cr3, &c.vivos[..c.nv]);
         crate::ring0::cabina::info("mm", "hojas devueltas al reciclar", hojas);
         crate::ring0::cabina::info("mm", "tablas devueltas al reciclar", tablas);

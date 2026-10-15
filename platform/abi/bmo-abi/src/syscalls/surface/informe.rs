@@ -442,6 +442,14 @@ pub const INFO_PROG_REGION: u64 = 0x79;
 /// que son los que existen).
 pub const INFO_PROG_CIERRE: u64 = 0x7A;
 
+/// **Lo que un programa TOCO de la RAM que tiene** (EL0 de
+/// `docs/plan/PLAN_EL_TOQUE.md`, 15-10). `n >> 8` = `programa * 3 + region`
+/// (0 la imagen y su pila, 1 la memoria pedida, 2 lo demas), en paginas de
+/// 4 KiB: `[0..21)` las que estan, `[21..42)` las que la CPU toco (bit A),
+/// `[42..63)` las que escribio (bit D), bit 63 = hay cuenta (0: un tercero
+/// vivo, que no se camina), bit 62 = del que pregunta, en vivo.
+pub const INFO_PROG_TOQUE: u64 = 0xDA;
+
 /// **El veredicto del PEOR retraso del latido del bus USB** (2026-09-21).
 ///
 /// `el latido del bus llego TARDE 1266 ms` salio en dos saves seguidos y no
