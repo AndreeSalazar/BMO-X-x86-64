@@ -153,6 +153,9 @@ impl Menu {
             if let Sobre::Hijo(i) = sobre {
                 if super::data::fuente::hijo_tipo(i as u64) == bmo::estratos::DIRECTORIO {
                     self.mete("entrar", "", Hace::Entrar, false);
+                    // ** Una carpeta puede ser una APP (KA1, 15-10): sus piezas,
+                    // una a una, con la lente del kernel (`dentro` la entiende).
+                    self.mete("ver la app por dentro", "dentro", Hace::Dentro, false);
                 } else if es_programa(i as u64) {
                     // ** Mirar no escribe: vale en DATOS y en EFI (15-10).
                     self.mete("ver por dentro", "dentro", Hace::Dentro, false);

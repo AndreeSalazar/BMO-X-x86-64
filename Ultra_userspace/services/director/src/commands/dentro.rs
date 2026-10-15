@@ -11,6 +11,11 @@
 //!
 //! El fichero se lee en UN bloque prestado (como el fondo de pantalla) y el
 //! mapa de la lente en otro; los dos vuelven al acabar.
+//!
+//! ** Y UNA CARPETA (KA1, 15-10): `dentro apps/ecce` es la app entera -- cada
+//! pieza en una linea (la puerta, la lente y si el kernel la admitiria) y al
+//! final si la app ENTERA entra. El kernel, al lanzar su `nucleo.bex`, pasa
+//! cada pieza por la puerta (`task/carpeta.rs`); esto mira ademas la lente.
 
 use bmo_radiografia::{lente, nombre_anexo, nombre_clase, nombre_regla, nombres_instrucciones, radiografiar, Cual};
 use bmo_userland as bmo;
@@ -33,6 +38,10 @@ pub(crate) fn dentro(dsk: &mut Desktop, _p: &bmo::Pantalla, ruta: &[u8]) -> Afte
         return After::Settle;
     }
     let Ok(a) = bmo::Archivo::leer_de(ruta) else {
+        if let Ok(dir) = bmo::Directorio::open(ruta) {
+            carpeta(s, ruta, &dir);
+            return After::Settle;
+        }
         s.with_ink(INK_ERR);
         s.text(b"  no encuentro ese fichero\n");
         s.with_ink(INK_PLAIN);
@@ -245,3 +254,112 @@ pub(crate) fn dentro(dsk: &mut Desktop, _p: &bmo::Pantalla, ruta: &[u8]) -> Afte
     drop(fichero);
     After::Settle
 }
+
+/// **Una app CARPETA**: cada `.bex` / `.ibx` de dentro, en una linea, y el
+/// veredicto de la app entera (una pieza que no entra para la app).
+fn carpeta(s: &mut crate::scene::output::Output, ruta: &[u8], dir: &bmo::Directorio) {
+    s.with_ink(INK_ECHO);
+    s.text(b"  == LA APP CARPETA: ");
+    s.text(ruta);
+    s.text(b"  (cada pieza, con la puerta y la lente del kernel)\n");
+    s.with_ink(INK_PLAIN);
+    let (mut piezas, mut buenas, mut nucleo) = (0u32, 0u32, false);
+    while let Some(e) = dir.next() {
+        if e.es_dir {
+            continue;
+        }
+        let mut nombre = [0u8; 12];
+        let n = e.legible(&mut nombre);
+        let nombre = &nombre[..n];
+        let l = nombre.len();
+        if l < 5 || !(nombre[l - 4..].eq_ignore_ascii_case(b".bex") || nombre[l - 4..].eq_ignore_ascii_case(b".ibx")) {
+            continue;
+        }
+        let es_nucleo = nombre.eq_ignore_ascii_case(crate::scene::launcher::NUCLEO);
+        nucleo |= es_nucleo;
+        piezas += 1;
+        let mut camino = [0u8; 160];
+        let largo = (ruta.len() + 1 + n).min(camino.len());
+        camino[..ruta.len().min(largo)].copy_from_slice(&ruta[..ruta.len().min(largo)]);
+        if ruta.len() < largo {
+            camino[ruta.len()] = b'/';
+            camino[ruta.len() + 1..largo].copy_from_slice(&nombre[..largo - ruta.len() - 1]);
+        }
+        s.text(if es_nucleo { b"  NUCLEO  " as &[u8] } else { b"  pieza   " });
+        s.text(nombre);
+        for _ in n..13 {
+            s.byte(b' ');
+        }
+        s.dec(e.bytes as u64);
+        s.text(b" B   ");
+        match una(&camino[..largo]) {
+            Err(motivo) => {
+                s.with_ink(INK_ERR);
+                s.text(motivo);
+            }
+            Ok(r) => {
+                match r.falta {
+                    Some(f) => {
+                        s.with_ink(INK_ERR);
+                        s.text(b"la puerta: NO, ");
+                        s.text(f.nombre().as_bytes());
+                    }
+                    None => {
+                        s.text(b"la puerta: SI   lente: ");
+                        s.text(match r.lente {
+                            None => b"sin pasar" as &[u8],
+                            Some(l) if l.demostrado() => b"DEMOSTRADO",
+                            Some(l) if l.no_declarada.is_some() => b"NO (usa lo que no declara)",
+                            Some(_) => b"sin demostrar",
+                        });
+                    }
+                }
+                if r.admisible() {
+                    buenas += 1;
+                    s.with_ink(INK_GOOD);
+                    s.text(b"   -> ENTRA");
+                } else {
+                    s.with_ink(INK_ERR);
+                    s.text(b"   -> NO ENTRA");
+                }
+            }
+        }
+        s.with_ink(INK_PLAIN);
+        s.byte(b'\n');
+    }
+    if piezas == 0 {
+        s.text(b"  no hay ningun .bex: es una carpeta, no una app\n");
+        return;
+    }
+    if !nucleo {
+        s.with_ink(INK_ECHO);
+        s.text(b"  sin nucleo.bex: no es una app carpeta (el escritorio no la ofrece)\n");
+    } else if buenas == piezas {
+        s.with_ink(INK_GOOD);
+        s.text(b"  la app ENTERA entra: el kernel la ADMITIRIA\n");
+    } else {
+        s.with_ink(INK_ERR);
+        s.text(b"  una pieza NO entra: el kernel no arranca la app (no arranca a medias)\n");
+    }
+    s.with_ink(INK_PLAIN);
+    s.text(b"  (cada pieza por dentro: `dentro RUTA/pieza.bex`)\n");
+}
+
+/// Lee y radiografia UNA pieza; sus bloques vuelven al acabar.
+fn una(ruta: &[u8]) -> Result<bmo_radiografia::Radiografia, &'static [u8]> {
+    let a = bmo::Archivo::leer_de(ruta).map_err(|_| b"no se pudo abrir" as &[u8])?;
+    let mide = a.size();
+    if mide > TOPE {
+        return Err(b"pasa de 32 MiB: no se radiografia");
+    }
+    let (Some(fichero), Some(mapa)) = (bmo::Memoria::request(mide.max(1)), bmo::Memoria::request(VISTO + PILA * 4)) else {
+        return Err(b"sin memoria para leerla");
+    };
+    let n = a.leer_en(&fichero, 0, mide) as usize;
+    // SAFETY: como en `dentro`: bloques de este proceso, que no se pisan.
+    let bytes = unsafe { core::slice::from_raw_parts(fichero.base() as *const u8, n) };
+    let visto = unsafe { core::slice::from_raw_parts_mut(mapa.base() as *mut u8, VISTO as usize) };
+    let pila = unsafe { core::slice::from_raw_parts_mut(mapa.base().add(VISTO as usize) as *mut u32, PILA as usize) };
+    Ok(radiografiar(bytes, visto, pila))
+}
+
