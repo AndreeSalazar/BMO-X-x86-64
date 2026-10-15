@@ -152,7 +152,10 @@ esta en la HOJA 6b.
           las ventanas pegadas por la 3060     DECIDIR     (ver C3)
    C4     los contadores del Zen 3 (LB4)   HECHO       falta (6b: C4)
           INTI y TITAN++ se cuentan (LB5)  HECHO       falta (6b: C4)
-   D1..D2                                      --          --
+   D1     V4: cubo.bsf lo emite la casa    HECHO       falta (6b: D1)
+          V3: la matriz en el cbuffer      HECHO (TITAN++, las 2 tarjetas); V3b, el
+                                           escritorio dibujandolo, abierto
+   D2                                          --          --
 ```
 
 **Escalon 1 -- solo el anfitrion (facil)**
@@ -602,6 +605,31 @@ esta en la HOJA 6b.
       D3D12, no va debajo. Lo de la casa habla VERRANO directo; Vulkan y
       DX12 son EXTRANJEROS que se traducen a VERRANO (V5, PROTON-X), y
       SPIR-V o DXIL solo son lo que trae un juego ajeno.
+      **HECHO EN EL ANFITRION el 15-10:**
+      - **V4, `cubo.bsf` sin SASS a mano:** el sobre que toma el escritorio
+        es desde hoy el del cubo de TITAN++ (`ejemplos/nivel11/cubo`):
+        PROMETEO lo emite desde el Programa de la casa, el pegamento de
+        VERRANO lo pega a la tuberia, el juez dice PERFECTO con los registros
+        de la tuberia. Su fuente es el MAPA de la casa, no SPIR-V. Lo fabrica
+        y lo ata `tests/cubo.rs` de TITAN++ (`BSF_FIJAR=1`); el banco de
+        ga10x lo mira como la puerta. Los programas a mano se quedan (la
+        prueba sin LDG y el corpus del juez), juzgados.
+      - **V3, las constantes:** una gpu fn que dibuja recibe un SEGUNDO
+        valor, su cbuffer (cada campo una fila de 16 B, hasta 16). PROMETEO
+        lo baja a `Op::Constantes`; la 3060 lo lee de c[3] en el oraculo y
+        del DATOS en la tuberia (el pegamento ya lo sabia); la CPU, por
+        `rdx`. `ejemplos/nivel11/cubo3`: los vertices SIN transformar y la
+        `wvp` dan, en las dos tarjetas, la casa y el calculo, la posicion de
+        recorte de la tanda BIT A BIT -- la de la huella de D3D12 --; cambiar
+        el orden de la suma la rompe.
+      - **Lo que NO esta:** V3b, que el ESCRITORIO dibuje el cubo de V3 por
+        la 3060 (el contrato de `gspcubo/sm86.rs` con cbuffer y los DATOS
+        con sus filas delante); `LOAD_CONSTANT_BUFFER` (0x238c) dentro de las
+        ordenes, que era la otra forma de M2; y el FMA (la pregunta de V3):
+        el emisor no funde, y asi da los bits de D3D.
+  - [x] **en el anfitrion** -- HECHO el 15-10 (lo de arriba; banco 5368 verdes).
+  - [ ] **en el Ryzen** -- `gpu verrano` con el `cubo.bsf` de TITAN++ (hoja 6b, fila D1). Cuando se vea bien: se anota en la hoja
+        y se tachan esta casilla y la de D1.
 - [ ] **D2 -- Cyberpunk, retomado** con todo lo de arriba debajo.
 
 ---
@@ -693,7 +721,11 @@ solo pierde su prueba). Lo que pide cada relevo:
    png.inti         Ultra_userspace/apps/png (`run             FUERA, 10-10 (4e):
                     titan/png.bex`): el CRC y el Adler sin     el mismo fichero,
                     operaciones de bits                        byte a byte
-   musica.inti      --                                         el sonido (Q2)
+   musica.inti      el reproductor en TITAN++ (`use sonido`:   el sonido (Q2):
+                    tomar, el tubo PCM desde una lamina, pitar  pedido por el
+                    y callar) -- lo pidio el propietario el     propietario el
+                    15-10: *"titan que aprenda del audio y no   15-10, despues
+                    inti"*                                      de D1
    cpu.inti,        SE QUEDAN: son la puerta de TITAN++ a la CPU (y con
    pulso.inti       ellas el monton, mientras `cpu.inti` lo use)
 ```
@@ -1116,6 +1148,10 @@ pieza entera en la 0b, y su fila de la tabla de estado pasa a `VISTO dd-mm`.
                                        `cpu: es la CPU del perfil` y     el Ryzen, o una DECIDIDA
                                        `extensiones decididas que el     que el silicio no tiene
                                        silicio tiene` = 11
+   D1     el cubo.bsf de TITAN++       `gpu verrano` (y `gpu verrano     el juez de la puerta dice   (sin probar)
+          (V4)                         banco`): IGUAL en el 0, el 30 y   que NO al abrir, o DISTINTO
+                                       el 60, con el sobre que ya no es  en algun fotograma: se
+                                       SASS a mano                       vuelve al de antes con git
    C4     los contadores del Zen 3     `cpu contadores`: cada fila con   una fila `cuenta OTRA       (sin probar)
                                        lo contado y `CUENTA lo que dice  cosa` o `no conto NADA`
                                        el PPR`; al final `8 de 8`. Las   (apuntar CUAL: ese evento

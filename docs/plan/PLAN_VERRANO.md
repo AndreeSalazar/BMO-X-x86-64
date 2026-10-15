@@ -349,6 +349,10 @@ la SPH (128 B) y detras las instrucciones.
 - [ ] **V3 -- las constantes.** La matriz en un buffer y el programa de
       vertice multiplicando (lo que hace D3D): la pregunta del FMA, medida.
       **Como se sabe:** la huella de D3D12 sale con las cuentas en la 3060.
+      **15-10, HECHO EN EL ANFITRION desde la casa** (D1 de `EL_FOCO.md`):
+      el cubo de TITAN++ con la matriz en su cbuffer (`nivel11/cubo3`) da la
+      posicion de la tanda bit a bit en la 3060 simulada y en la CPU. Lo que
+      falta es V3b: que el escritorio lo dibuje por la 3060.
 > **V3b y V4, hechos plan (26-09):** [`PLAN_LA_LENGUA_DE_LA_3060.md`](PLAN_LA_LENGUA_DE_LA_3060.md)
 > -- los datos para estudiar (NAK, CUDA, el metal), donde vive cada pieza y
 > las casillas J0..J2 (el juez) y E1..E5 (el emisor).
@@ -371,7 +375,11 @@ la SPH (128 B) y detras las instrucciones.
       giro, blur, fractal) pasan; cada regla tiene un programa roto a
       proposito que el juez rechaza con SU motivo; y se pasa al de vertice
       de VERRANO V0 -- si dice NO, el motivo es la pista del cuelgue.
-- [ ] **V4 -- el emisor SPIR-V a SM86.** El `kind` SM86 deja de ser "a
+- [ ] **V4 -- el emisor SPIR-V a SM86.** **15-10: HECHO lo que importa, desde
+      la casa** (D1 de `EL_FOCO.md`): `cubo.bsf` ya no es SASS a mano, lo
+      emite PROMETEO desde el cubo de TITAN++; su fuente es el MAPA, no
+      SPIR-V, asi que el criterio de `Bsf::reproduce` (SPIR-V) no aplica.
+      Falta el metal. El `kind` SM86 deja de ser "a
       mano": el SASS sale de `cubo.vert.spv` en el anfitrion, como el x86-64
       de S4, reusando el lector, el juez de SPIR-V y el oraculo de
       `PLAN_EL_SOMBREADOR.md` (neutros) y un emisor propio de SM86 que pone
