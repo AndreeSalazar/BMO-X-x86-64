@@ -251,6 +251,37 @@ pub fn explica(i: &Instr, en: u64) -> Frase {
             let _ = if rep { f.write_str("rellena rcx veces la memoria en [rdi] con rax (memset)") } else { f.write_str("escribe rax en [rdi] y avanza") };
             return f;
         }
+        // ** LO QUE ESCRIBE MSVC (LX1, 15-10): los bits sueltos, los cerrojos
+        // entre hilos y el SSE por partes que traen los `.exe` de Windows.
+        "bt" => dos(&mut f, "mira el bit numero ", b, " de ", a, " (queda en el acarreo, para lo que venga)"),
+        "bts" => dos(&mut f, "mira el bit numero ", b, " de ", a, " y lo pone a 1"),
+        "btr" => dos(&mut f, "mira el bit numero ", b, " de ", a, " y lo pone a 0"),
+        "btc" => dos(&mut f, "mira el bit numero ", b, " de ", a, " y lo invierte"),
+        "cmpxchg" => dos(&mut f, "si ", a, " vale lo que hay en rax, pone ahi ", b, "; si no, trae su valor a rax (asi se hacen los cerrojos entre hilos)"),
+        "xadd" => dos(&mut f, "suma ", b, " a ", a, " y devuelve en el segundo lo que habia antes (un contador entre hilos)"),
+        "rdrand" | "rdseed" => dos(&mut f, "pide al procesador un numero AL AZAR (de su ruido electrico) y lo deja en ", a, "", "", ""),
+        "stmxcsr" => dos(&mut f, "guarda en ", a, " como redondea y que avisa la coma flotante (SSE)", "", ""),
+        "ldmxcsr" => dos(&mut f, "cambia como redondea y que avisa la coma flotante (SSE) a lo que dice ", a, "", "", ""),
+        "xgetbv" => {
+            let _ = f.write_str("le pregunta al sistema que registros guarda al cambiar de tarea (si AVX esta permitido)");
+        }
+        "shld" | "shrd" => dos(&mut f, "corre los bits de ", a, " metiendo por el otro lado los de ", b, ""),
+        "shufps" | "shufpd" | "pshufd" | "pshuflw" | "pshufhw" | "pshufb" => dos(&mut f, "reordena las partes de ", b, " (segun la mascara) y las deja en ", a, ""),
+        "paddb" | "paddw" | "paddd" | "paddq" => dos(&mut f, "suma por partes (varios enteros a la vez) ", b, " a ", a, ""),
+        "psubb" | "psubw" | "psubd" | "psubq" => dos(&mut f, "resta por partes (varios enteros a la vez) ", b, " de ", a, ""),
+        "psrlw" | "psrld" | "psrlq" | "psrldq" | "psraw" | "psrad" => {
+            dos(&mut f, "corre a la derecha cada parte de ", a, " tantos bits como ", if c.is_empty() { b } else { c }, "")
+        }
+        "psllw" | "pslld" | "psllq" | "pslldq" => dos(&mut f, "corre a la izquierda cada parte de ", a, " tantos bits como ", if c.is_empty() { b } else { c }, ""),
+        n if n.starts_with("pcmpeq") => dos(&mut f, "compara por partes ", a, " con ", b, " (cada parte igual queda toda a 1)"),
+        n if n.starts_with("pcmpgt") => dos(&mut f, "compara por partes ", a, " con ", b, " (cada parte mayor queda toda a 1)"),
+        n if n.starts_with("pinsr") => dos(&mut f, "mete ", b, " en una parte de ", a, ""),
+        n if n.starts_with("pextr") => dos(&mut f, "saca una parte de ", b, " y la deja en ", a, ""),
+        "movlps" | "movhps" | "movlpd" | "movhpd" | "movhlps" | "movlhps" => dos(&mut f, "copia media ", b, " en ", a, ""),
+        "cmpss" | "cmpps" | "cmppd" | "cmpsd" if !resto.is_empty() => dos(&mut f, "compara (coma flotante) ", a, " con ", b, " (donde se cumple queda todo a 1)"),
+        "andnps" | "andnpd" | "pandn" => dos(&mut f, "deja en ", a, " los bits de ", b, " que NO estaban en el"),
+        n if n.starts_with("unpck") || n.starts_with("punpck") => dos(&mut f, "entrelaza las partes de ", a, " y ", b, ""),
+        "movmskps" | "movmskpd" | "pmovmskb" => dos(&mut f, "junta en ", a, " el bit de signo de cada parte de ", b, ""),
         n if n.starts_with('f') && n.len() > 2 => {
             let _ = write!(f, "cuenta en coma flotante con el coprocesador x87 ({n} {resto})");
         }
