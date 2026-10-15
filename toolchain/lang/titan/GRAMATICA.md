@@ -1062,6 +1062,9 @@ let x = director.raton_x()                    # y raton_y(), botones()
 let muescas = director.rueda()                # con signo: arriba +, abajo -. Sola
                                               # o con Alt; Ctrl + rueda es del
                                               # escritorio (como todo Ctrl)
+let ruta = director.argumento()               # lo de detras de la ruta al lanzar
+                                              # ("" si nada): el explorador abre
+                                              # asi un fichero con su app (15-10)
 if director.se_ve()                           # no minimizada ni tapada (R-APP8)
     x = director.texto(8, 8, "hola", 1, 16777215)   # la x de detras
     x = director.letra(x, 8, 241, 2, 16777215)      # un glifo (aqui la n con tilde)

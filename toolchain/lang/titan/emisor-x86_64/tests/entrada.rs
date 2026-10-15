@@ -105,6 +105,24 @@ fn the_wheel() {
     assert_eq!(m.console, "6 -3\n6 2\n1 80\n");
 }
 
+/// ** EL ARGUMENTO (15-10, PL3 de PLAN_ECCE): lo que iba detras de la ruta
+/// al lanzar, entero y en un texto -- un nombre de mas de ocho letras, en
+/// varios trozos --; sin nada, el texto vacio.
+#[test]
+fn the_argument() {
+    let src = programa("    let a = director.argumento()\n    print(\"[\", a, \"] \", a == \"\")\n");
+    let mut m = maquina(&src);
+    m.poner_argumentos("datos/guion.fou");
+    let m = run(m, 2_000_000);
+    assert!(m.exited, "{}", m.console);
+    assert_eq!(m.console, "[datos/guion.fou] false\n");
+    let m = run(maquina(&src), 2_000_000);
+    assert_eq!(m.console, "[] true\n");
+    let mut m = maquina(&src);
+    m.poner_argumentos("12345678");
+    assert_eq!(run(m, 2_000_000).console, "[12345678] false\n");
+}
+
 const BLANCO: u32 = 0xFFFF_FFFF;
 /// El fondo de una ventana nueva: todo a cero.
 const NEGRO: u32 = 0;

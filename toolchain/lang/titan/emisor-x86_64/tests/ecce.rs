@@ -19,6 +19,11 @@
 //!                  que se escribe reemplaza lo seleccionado; Alt+Z lo deshace
 //!    el guion      Fountain: cada elemento en su columna; en la mesa, los
 //!                  nodos son ESCENAS en filas por ACTO (PL2, PL4, PL9b)
+//!    Final Draft   Tab cambia lo que es la linea (y en el dialogo, el
+//!                  parentesis); Enter baja al dialogo o deja el blanco (PL3)
+//!    el documento  el que le pasan (un .fou del explorador); Alt+F guarda
+//!                  como guion en datos/guion.fou (PL3)
+//!    el raton      el clic pone el cursor, arrastrar selecciona (PL3)
 //! ```
 
 use std::path::Path;
@@ -520,3 +525,114 @@ fn in_a_screenplay_the_nodes_are_scenes_by_act() {
     assert!(n.contains("\nXINT. BAR - NOCHE\n"), "el clic no abrio la escena 3:\n{n}");
 }
 
+
+// -- PL3: ESCRIBIR UN GUION COMO EN FINAL DRAFT --
+
+const TAB: u8 = 9;
+
+fn mayus_enter() -> [u64; 3] {
+    [tecla(MAYUS), letra(ENTER), 0x100 | MAYUS]
+}
+
+/// ** Tab y Enter de Final Draft: "ana" + Tab es el personaje (@ANA); Enter
+/// baja al dialogo sin linea en blanco; Enter tras el dialogo deja la linea
+/// en blanco de Fountain, y lo que sigue es accion.
+#[test]
+fn tab_and_enter_write_a_screenplay_like_final_draft() {
+    let mut ev = texto("ana");
+    ev.push(letra(TAB));
+    ev.push(letra(ENTER));
+    ev.extend(texto("hola"));
+    ev.push(letra(ENTER));
+    ev.extend(texto("sale"));
+    let m = con(Some(b"INT. CASA - DIA\n\n"), None, &ev);
+    assert_eq!(nota(&m).as_deref(), Some("INT. CASA - DIA\n\n@ANA\nhola\n\nsale"));
+}
+
+/// ** En el dialogo, Tab en una linea en blanco es el PARENTESIS (el cursor
+/// dentro); Enter tras el baja al dialogo. Y Tab da la vuelta: accion,
+/// personaje, transicion, escena, accion -- y Alt+Z la deja como estaba.
+#[test]
+fn tab_in_the_dialogue_is_a_parenthetical_and_cycles_the_rest() {
+    let mut ev = texto("hola");
+    ev.extend(mayus_enter());
+    ev.push(letra(TAB));
+    ev.extend(texto("bajo"));
+    ev.push(tecla(FIN));
+    ev.push(letra(ENTER));
+    ev.extend(texto("si"));
+    let m = con(Some(b"INT. CASA - DIA\n\nANA\n"), None, &ev);
+    assert_eq!(nota(&m).as_deref(), Some("INT. CASA - DIA\n\nANA\nhola\n(bajo)\nsi"));
+
+    let base: &[u8] = b"INT. CASA - DIA\n\nsale ana";
+    let vueltas = |n: usize| {
+        let ev: Vec<u64> = (0..n).map(|_| letra(TAB)).collect();
+        nota(&con(Some(base), None, &ev)).unwrap()
+    };
+    assert_eq!(vueltas(1), "INT. CASA - DIA\n\n@SALE ANA");
+    assert_eq!(vueltas(2), "INT. CASA - DIA\n\n>SALE ANA");
+    assert_eq!(vueltas(3), "INT. CASA - DIA\n\n.SALE ANA");
+    assert_eq!(vueltas(4), "INT. CASA - DIA\n\n!SALE ANA");
+    let mut ev = vec![letra(TAB), letra(TAB)];
+    ev.extend(con_alt(SC_Z));
+    ev.extend(texto("!"));
+    assert_eq!(nota(&con(Some(base), None, &ev)).as_deref(), Some("INT. CASA - DIA\n\n@SALE ANA!"));
+}
+
+/// ** El documento es el que le pasan (el explorador abre asi un .fou): se
+/// lee y se guarda ALLI, y las notas no se tocan. Alt+F guarda como guion,
+/// en datos/guion.fou.
+#[test]
+fn it_opens_the_file_it_is_given_and_alt_f_saves_a_fountain() {
+    let mut m = cargar_bex(&ecce()).expect("el .bex carga");
+    m.padre = 7;
+    m.buzon_por_vuelta = 32;
+    m.poner_argumentos("datos/peli.fou");
+    m.archivos.insert("datos/peli.fou".into(), b"EXT. MAR - DIA\n\nOlas".to_vec());
+    for e in texto(".") {
+        m.buzon_pendiente.push_back(e);
+    }
+    m.buzon_pendiente.push_back(letra(27));
+    let m = run(m, 3_000_000_000);
+    assert!(m.exited, "{}", m.console);
+    assert_eq!(m.archivos.get("datos/peli.fou").map(|v| v.as_slice()), Some(&b"EXT. MAR - DIA\n\nOlas."[..]));
+    assert!(nota(&m).is_none());
+
+    let mut ev = texto("una idea");
+    ev.extend(con_alt(33));
+    let m = con(None, None, &ev);
+    assert_eq!(m.archivos.get("datos/guion.fou").map(|v| v.as_slice()), Some(&b"una idea"[..]));
+    assert!(nota(&m).is_none(), "Alt+F cambio de documento: las notas no se escriben");
+}
+
+fn suelta(x: u64, y: u64) -> u64 {
+    SUP_EV_RATON | 0x100 | 0x200 | x << 16 | y << 32
+}
+
+fn arrastra(x: u64, y: u64) -> u64 {
+    clic(x, y)
+}
+
+/// El centro de la letra `col` de la linea que se ve `fila` (sin sangria).
+fn letra_en(fila: u64, col: u64) -> (u64, u64) {
+    (28 + col * 8 + 2, 52 + fila * 20 + 8)
+}
+
+/// ** El clic pone el cursor en la letra; arrastrar selecciona (y Alt+X lo
+/// corta); un clic en la cabeza no mueve nada.
+#[test]
+fn a_click_places_the_cursor_and_a_drag_selects() {
+    let (x, y) = letra_en(1, 1);
+    let m = con(Some(b"abc\ndef"), None, &[clic(x, y), suelta(x, y), letra(b'X')]);
+    assert_eq!(nota(&m).as_deref(), Some("abc\ndXef"));
+
+    let (x0, y0) = letra_en(0, 0);
+    let (x1, y1) = letra_en(1, 2);
+    let mut ev = vec![clic(x0, y0), arrastra(x1 - 4, y1), arrastra(x1, y1), suelta(x1, y1)];
+    ev.extend(con_alt(SC_X));
+    let m = con(Some(b"abc\ndef"), None, &ev);
+    assert_eq!(nota(&m).as_deref(), Some("f"));
+
+    let m = con(Some(b"abc\ndef"), None, &[clic(40, 10), suelta(40, 10), letra(b'X')]);
+    assert_eq!(nota(&m).as_deref(), Some("abc\ndefX"));
+}

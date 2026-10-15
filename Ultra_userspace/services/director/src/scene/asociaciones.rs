@@ -116,6 +116,12 @@ const TIPOS: &[Tipo] = &[
     // un progresivo lo dice el visor con nombre.
     // (`.jpeg` no cabe: el FAT32 es 8.3, tres letras. Se guarda como `.jpg`.)
     Tipo { ext: b"jpg", clase: Clase::Imagen, abre: Abre::Visor },
+    // ** Los GUIONES (15-10, PL3 de PLAN_ECCE): Fountain, el texto plano de
+    // los guionistas, se abre en ECCE en modo guion -- la app recibe la ruta
+    // por los argumentos (`director.argumento()` de TITAN++) y guarda ahi --.
+    // `.fountain` no cabe en 8.3: en FAT32 es `.fou`; ESTRATOS si lo trae largo.
+    Tipo { ext: b"fou", clase: Clase::Texto, abre: Abre::Con(b"apps/ecce/nucleo.bex") },
+    Tipo { ext: b"fountain", clase: Clase::Texto, abre: Abre::Con(b"apps/ecce/nucleo.bex") },
     Tipo { ext: b"txt", clase: Clase::Texto, abre: Abre::Visor },
     Tipo { ext: b"log", clase: Clase::Texto, abre: Abre::Visor },
     Tipo { ext: b"md", clase: Clase::Texto, abre: Abre::Visor },

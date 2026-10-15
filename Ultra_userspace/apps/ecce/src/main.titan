@@ -6,6 +6,13 @@
 #
 #    letras           se escriben donde esta el cursor (Latin-1: tildes y ene)
 #    Enter            parte la linea        Tab   cuatro espacios
+#                     (en GUION, como Final Draft: Tab cambia lo que es la
+#                     linea -- accion, personaje, transicion, escena; en el
+#                     dialogo, parentesis --; Enter tras un personaje o un
+#                     parentesis baja al dialogo, tras lo demas deja la linea
+#                     en blanco de Fountain; Mayus+Enter, un salto solo)
+#    raton            un clic pone el cursor; arrastrar selecciona (con
+#                     Mayus, el clic alarga la seleccion)
 #    Retroceso / Supr borran detras / delante
 #    flechas          mueven el cursor (arriba y abajo por la linea que SE VE)
 #    Inicio / Fin     al principio / al final de la linea
@@ -15,6 +22,8 @@
 #    Mayus + flechas  seleccionan (y Mayus + Inicio / Fin)
 #    Alt+C / Alt+X    copia / corta lo seleccionado (sin seleccion: la linea)
 #    Alt+V            pega (lo seleccionado se reemplaza)    Alt+A  todo
+#    Alt+F            guarda como GUION de Fountain: datos/guion.fou (y sigue
+#                     en ese, en modo guion; el explorador abre un .fou aqui)
 #    Alt+G            NOTAS o GUION (Fountain, guion.titan): las escenas, los
 #                     personajes y el dialogo en su sitio, como Final Draft.
 #                     Se abre en guion si la nota tiene un INT. o un EXT.
@@ -27,6 +36,9 @@
 # Alt y no Ctrl: Ctrl es del escritorio y a la app no le llegan los
 # modificadores, pero SI la tecla Alt al bajar y al subir (scancode 56):
 # ECCE lleva la cuenta, y con Alt abajo una letra no se escribe.
+#
+# EL DOCUMENTO: el que le pasen al lanzarla (`run apps/ecce/nucleo.bex
+# datos/x.fou`, lo que hace el explorador con un .fou), o datos/notas.txt.
 #
 # Guarda SOLO: Ctrl es del escritorio (`keys/app.rs`, la regla de las
 # teclas), asi que no hay Ctrl+S. Se guarda al cerrar y un segundo y medio
@@ -250,8 +262,8 @@ fn palabras(t: [byte]) -> int
 
 # **Guardar**: el fichero entero, creado de cero. Si el disco dice que no,
 # lo dice el pie y la nota sigue en la ventana.
-fn guardar(t: [byte]) -> bool
-    if not director.crea("datos/notas.txt")
+fn guardar(t: [byte], ruta: text) -> bool
+    if not director.crea(ruta)
         return false
     for b in t
         director.escribe(b)
@@ -259,13 +271,15 @@ fn guardar(t: [byte]) -> bool
 
 # -- Lo que se ve -----------------------------------------------------------
 
-fn pinta_cabeza(w: int, vista: int, en_guion: bool)
+fn pinta_cabeza(w: int, vista: int, en_guion: bool, ruta: text)
     director.rect(0, 0, w, alto_cabeza(), barra())
     let x = director.texto(margen(), 4, "ECCE", 2, oro())
     if vista == 0 and en_guion
         let y = director.texto(x + 16, 20, "guion", 1, tenue())
+        let z = director.texto(y + 16, 20, ruta, 1, tenue())
     else if vista == 0
         let y = director.texto(x + 16, 20, "notas", 1, tenue())
+        let z = director.texto(y + 16, 20, ruta, 1, tenue())
     else if vista == 1
         let y = director.texto(x + 16, 20, "la mesa", 1, tenue())
     else
@@ -354,6 +368,51 @@ fn linea_fin(t: [byte], c: int) -> int
         return i + 1
     return i
 
+# Cuantas lineas de texto (saltos) hay antes de `c`: la linea de `c` en
+# `guion.tipos`.
+fn linea_de(t: [byte], c: int) -> int
+    let mut n = 0
+    for i in range(c)
+        if t[i] == 10
+            n = n + 1
+    return n
+
+# Donde acaba la linea de texto de `c`, sin su salto.
+fn fin_de_linea(t: [byte], c: int) -> int
+    let mut i = c
+    while i < len(t) and t[i] != 10
+        i = i + 1
+    return i
+
+# Lo que es la linea de texto `k` (accion si no la hay).
+fn tipo_de(t: [byte], k: int) -> int
+    let ts = guion.tipos(t)
+    if k < len(ts)
+        return ts[k]
+    return guion.accion()
+
+# Tras ella, Enter no deja la linea en blanco: el dialogo va justo debajo.
+fn sin_blanco(que: int) -> bool
+    return que == guion.personaje() or que == guion.parentesis() or que == guion.vacia()
+
+# ** EL RATON EN LA HOJA: el sitio del texto bajo (x, y) -- la linea que se
+# ve en esa fila (o la primera o la ultima), y la letra mas cercana --.
+fn sitio_en(l: [int], ind: [int], arriba: int, filas: int, x: int, y: int) -> int
+    let cuantas = div(len(l), 2)
+    let mut fila = 0
+    if y > arriba_texto() - 2
+        fila = div(y - arriba_texto() + 2, alto_linea())
+    if fila > filas - 1
+        fila = filas - 1
+    let mut k = arriba + fila
+    if k > cuantas - 1
+        k = cuantas - 1
+    let mut col = 0
+    let x0 = margen() + ind[k] * 8
+    if x > x0
+        col = div(x - x0 + 4, 8)
+    return en_columna(l, k, col)
+
 # El pie de la mesa: cuantas hojas, y las manos.
 fn pinta_pie_mesa(w: int, alto: int, hojas: int, sel: int, escenas: bool)
     let y = alto - alto_pie()
@@ -384,7 +443,7 @@ fn seleccion() -> int
 # guion: las cabeceras de escena en oro y en mayusculas; personajes y
 # transiciones en mayusculas; secciones y sinopsis en tenue). Lo que esta
 # entre `ancla` y `c`, con fondo de seleccion.
-fn pinta_texto(t: [byte], l: [int], ind: [int], tl: [int], w: int, alto: int, arriba: int, filas: int, c: int, ancla: int)
+fn pinta_texto(t: [byte], l: [int], ind: [int], tl: [int], w: int, alto: int, arriba: int, filas: int, c: int, ancla: int, en_guion: bool)
     director.rect(0, alto_cabeza(), w, alto - alto_cabeza() - alto_pie(), fondo())
     let cuantas = div(len(l), 2)
     let kc = fila_de(l, c)
@@ -410,10 +469,17 @@ fn pinta_texto(t: [byte], l: [int], ind: [int], tl: [int], w: int, alto: int, ar
             let mut x = x0
             for i in range(l[2 * k + 1])
                 let b = t[s + i]
-                if s + i >= s0 and s + i < s1
+                let p = s + i
+                if p >= s0 and p < s1
                     director.rect(x, y - 2, 8, 20, seleccion())
+                # Las marcas de Fountain (@ . ! > <), en tenue: estan en el
+                # texto, pero no son el guion.
+                let primera = p == 0 or t[p - 1] == 10
+                let ultima = p + 1 == len(t) or t[p + 1] == 10
                 if b == 32
                     x = x + 8
+                else if en_guion and guion.es_marca(b, que, primera, ultima)
+                    x = director.letra(x, y, b, 1, tenue())
                 else if mayus
                     x = director.letra(x, y, guion.a_mayuscula(b), 1, color)
                 else
@@ -456,9 +522,13 @@ fn pinta_pie(t: [byte], w: int, alto: int, linea: int, estado: int)
         x = director.texto(w - margen() - 152, y + 4, "el disco NO guardo", 1, aviso())
 
 fn main()
-    # La nota de antes, si la hay (sin los retornos de carro de Windows).
+    # EL DOCUMENTO: el que le pasaron (el explorador, un .fou), o las notas.
+    let mut ruta = director.argumento()
+    if ruta == ""
+        ruta = "datos/notas.txt"
+    # Lo de antes, si lo hay (sin los retornos de carro de Windows).
     let mut t: [byte] = []
-    if director.fichero("datos/notas.txt")
+    if director.fichero(ruta)
         for i in range(director.medida())
             let b = director.byte(i)
             if b >= 0 and b != 13
@@ -505,6 +575,10 @@ fn main()
     # La MESA: 0 la hoja, 1 la mesa, 2 los nodos; y la hoja (o escena) elegida.
     let mut vista = 0
     let mut sel = 0
+    # El boton del raton: 0 suelto, 1 arrastrando en la hoja, 2 abajo pero
+    # no cuenta (el clic que abrio una hoja desde la mesa); y donde se pulso.
+    let mut boton = 0
+    let mut arrastre = 0
     while true
         for n in range(64)
             let que = director.evento()
@@ -519,6 +593,8 @@ fn main()
                 alt = true
             if que == 2 and k == 56
                 alt = false
+            if que == 4 and director.botones() % 2 == 0
+                boton = 0
             if que == 1 and (k == 42 or k == 54)
                 mayus = true
             if que == 2 and (k == 42 or k == 54)
@@ -568,11 +644,12 @@ fn main()
                     acs = guion.actos(tl, es)
                 let pf = mesa.por_fila(w, vista)
                 let mut abre = false
-                if que == 4 and director.botones() % 2 == 1
+                if que == 4 and director.botones() % 2 == 1 and boton == 0
                     let h = mesa.hoja_en(director.raton_x(), director.raton_y(), n_nodos, acs, sel, w, alto, alto_cabeza(), alto_pie(), vista)
                     if h >= 0
                         sel = h
                         abre = true
+                        boton = 2
                 if que == 1
                     if k == 104 and sel > 0
                         sel = sel - 1
@@ -664,6 +741,45 @@ fn main()
                 en_guion = not en_guion
                 l = rehaz(t, cols, en_guion, mut ind, mut tl)
                 pinta = true
+            # Alt+F (33): GUARDAR COMO GUION. El documento pasa a ser
+            # datos/guion.fou, en modo guion, y se guarda ya.
+            if que == 1 and alt and en_hoja and k == 33
+                ruta = "datos/guion.fou"
+                en_guion = true
+                l = rehaz(t, cols, en_guion, mut ind, mut tl)
+                if guardar(t, ruta)
+                    sucio = false
+                    estado = 0
+                else
+                    estado = 2
+                pinta = true
+            # ** EL RATON EN LA HOJA: el clic pone el cursor (con Mayus alarga
+            # la seleccion) y arrastrar selecciona. La cabeza y el pie no son
+            # texto: un clic ahi no mueve nada.
+            if que == 4 and en_hoja and director.botones() % 2 == 1 and boton != 2
+                let rx = director.raton_x()
+                let ry = director.raton_y()
+                let p = sitio_en(l, ind, arriba, filas, rx, ry)
+                if boton == 0
+                    if ry >= alto_cabeza() and ry < alto - alto_pie()
+                        if mayus
+                            if ancla < 0
+                                ancla = c
+                            arrastre = ancla
+                        else
+                            arrastre = p
+                            ancla = -1
+                        c = p
+                        if ancla == c
+                            ancla = -1
+                        boton = 1
+                        pinta = true
+                else
+                    c = p
+                    ancla = -1
+                    if c != arrastre
+                        ancla = arrastre
+                    pinta = true
             # Escribir con algo seleccionado: lo seleccionado se va primero
             # (Retroceso y Supr solo lo quitan).
             let escribe = que == 3 and not alt and en_hoja and k != 27
@@ -683,8 +799,8 @@ fn main()
                     k = -1
             if que == 3 and not alt and en_hoja
                 if k == 27
-                    if sucio and not guardar(t)
-                        print("ECCE: el disco NO guardo datos/notas.txt")
+                    if sucio and not guardar(t, ruta)
+                        print("ECCE: el disco NO guardo ", ruta)
                     return
                 if k == 8
                     if c > 0
@@ -695,10 +811,46 @@ fn main()
                         c = c - 1
                         cambio = true
                 else if k == 13
+                    # En GUION, como Final Draft: tras un personaje o un
+                    # parentesis el dialogo va justo debajo; tras lo demas,
+                    # la linea en blanco de Fountain (Mayus+Enter: un salto).
+                    let kl = linea_de(t, c)
+                    let al_final = c == fin_de_linea(t, c)
+                    let mut antes_q = guion.vacia()
+                    if en_guion
+                        antes_q = tipo_de(t, kl)
                     grupo = grupo + 1
                     apunta(mut hecho, grupo, 1, c, 10, c)
                     mete(mut t, c, 10)
                     c = c + 1
+                    if en_guion and al_final and not mayus
+                        if not sin_blanco(antes_q) and not sin_blanco(tipo_de(t, kl))
+                            apunta(mut hecho, grupo, 1, c, 10, c)
+                            mete(mut t, c, 10)
+                            c = c + 1
+                    cambio = true
+                else if k == 9 and en_guion
+                    # ** EL TAB DE FINAL DRAFT: la linea pasa a ser lo
+                    # siguiente (`guion.siguiente`), reescrita en Fountain
+                    # (`guion.como`). Un grupo: Alt+Z la deja como estaba.
+                    let ts = guion.tipos(t)
+                    let kl = linea_de(t, c)
+                    let a = linea_ini(t, c)
+                    let f = fin_de_linea(t, c)
+                    let mut previo = guion.vacia()
+                    if kl > 0
+                        previo = ts[kl - 1]
+                    let a_que = guion.siguiente(ts[kl], previo)
+                    let nuevo = guion.como(t, a, f, a_que, previo)
+                    grupo = grupo + 1
+                    borra_rango(mut t, mut hecho, grupo, a, f, c)
+                    for i in range(len(nuevo))
+                        apunta(mut hecho, grupo, 1, a + i, nuevo[i], c)
+                        mete(mut t, a + i, nuevo[i])
+                    c = a + len(nuevo)
+                    if a_que == guion.parentesis()
+                        c = c - 1
+                    ancla = -1
                     cambio = true
                 else if k == 9
                     grupo = grupo + 1
@@ -780,7 +932,7 @@ fn main()
         # Guardar solo, un segundo y medio despues de la ultima tecla (si el
         # kernel no sabe el reloj, `ms` es 0 y se guarda al cerrar).
         if sucio and ultimo > 0 and director.ms() - ultimo >= 1500
-            if guardar(t)
+            if guardar(t, ruta)
                 sucio = false
                 estado = 0
             else
@@ -797,10 +949,10 @@ fn main()
                 arriba = kc
             if kc >= arriba + filas
                 arriba = kc - filas + 1
-            pinta_cabeza(w, vista, en_guion)
+            pinta_cabeza(w, vista, en_guion, ruta)
             let es = guion.escenas(tl)
             if vista == 0
-                pinta_texto(t, l, ind, tl, w, alto, arriba, filas, c, ancla)
+                pinta_texto(t, l, ind, tl, w, alto, arriba, filas, c, ancla, en_guion)
                 if en_guion
                     pinta_pie_guion(w, alto, guion.escena_de(es, kc) + 1, len(es), div(kc, mesa.por_hoja()) + 1, tl[kc], estado)
                 else

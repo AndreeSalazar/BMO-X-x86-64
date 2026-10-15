@@ -758,6 +758,7 @@ fn target(p: &Program, callee: &str, n: usize, line: usize, col: usize, as_value
             Director::RatonY => "let y = director.raton_y()",
             Director::Botones => "let b = director.botones()",
             Director::Rueda => "let muescas = director.rueda()",
+            Director::Argumento => "let ruta = director.argumento()",
             Director::SeVe => "if director.se_ve()",
             Director::Ms => "let t0 = director.ms()",
             Director::Profundidad => "director.profundidad(true)",

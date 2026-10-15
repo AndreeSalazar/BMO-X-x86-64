@@ -343,6 +343,11 @@ pub enum Director {
     /// wheel event, signed -- up is positive. Plain or with Alt: Ctrl + wheel
     /// is the desktop's, like every Ctrl.
     Rueda,
+    /// `director.argumento()` (15-10, PL3 of PLAN_ECCE): what came behind
+    /// the path when this program was launched (`run apps/ecce/nucleo.bex
+    /// datos/guion.fou` -> `datos/guion.fou`), a text; empty if nothing. The
+    /// explorer opens a file this way: the app gets its path.
+    Argumento,
     /// `director.se_ve()`: whether the window is seen now (not minimized,
     /// covered or out of the panel): an app may skip drawing (R-APP8).
     SeVe,
@@ -400,7 +405,7 @@ pub enum Director {
 }
 
 impl Director {
-    pub const ALL: [Director; 36] = [
+    pub const ALL: [Director; 37] = [
         Director::Lamina,
         Director::Publica,
         Director::Espera,
@@ -423,6 +428,7 @@ impl Director {
         Director::RatonY,
         Director::Botones,
         Director::Rueda,
+        Director::Argumento,
         Director::SeVe,
         Director::Letra,
         Director::Texto,
@@ -464,6 +470,7 @@ impl Director {
             Director::RatonY => "director.raton_y",
             Director::Botones => "director.botones",
             Director::Rueda => "director.rueda",
+            Director::Argumento => "director.argumento",
             Director::SeVe => "director.se_ve",
             Director::Letra => "director.letra",
             Director::Texto => "director.texto",
@@ -489,7 +496,7 @@ impl Director {
     /// How many values it takes.
     pub fn takes(self) -> usize {
         match self {
-            Director::Presenta | Director::Toma | Director::Cierra | Director::Medida | Director::Evento | Director::Codigo | Director::RatonX | Director::RatonY | Director::Botones | Director::Rueda | Director::SeVe | Director::Ms | Director::Contar | Director::SonidoToma | Director::SonidoSuelta => 0,
+            Director::Presenta | Director::Toma | Director::Cierra | Director::Medida | Director::Evento | Director::Codigo | Director::RatonX | Director::RatonY | Director::Botones | Director::Rueda | Director::Argumento | Director::SeVe | Director::Ms | Director::Contar | Director::SonidoToma | Director::SonidoSuelta => 0,
             Director::Lamina | Director::Espera | Director::Fichero | Director::Crea | Director::Escribe | Director::Byte | Director::Profundidad | Director::Contado | Director::SonidoBanco | Director::SonidoSuena | Director::SonidoCalla => 1,
             Director::Ventana | Director::Fila | Director::Guarda | Director::SonidoPita => 2,
             Director::Pixel => 3,

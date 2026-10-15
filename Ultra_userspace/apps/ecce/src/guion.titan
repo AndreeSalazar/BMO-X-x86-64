@@ -17,6 +17,13 @@
 #    salto        "===": salto de pagina
 #    accion       todo lo demas (o forzada con "!")
 #
+# Al ESCRIBIR, como Final Draft (PL3): Tab cambia lo que es la linea --
+# accion > personaje > transicion > escena > accion; en el dialogo, dialogo
+# <> parentesis; una linea en blanco pasa a personaje, o a parentesis si va
+# en un dialogo -- reescribiendola en Fountain (`como`: su marca, mayusculas,
+# los parentesis). Y la ultima linea, vacia, debajo de un personaje ya es su
+# dialogo: el cursor va donde ira la letra.
+#
 # Los margenes, en columnas de la letra (8 px), los del oficio a 10 por
 # pulgada: accion 60 de ancho; personaje a 22; dialogo a 10 y 35 de ancho;
 # parentesis a 16 y 25; la transicion, pegada a la derecha. Si la ventana es
@@ -150,12 +157,16 @@ pub fn tipos(t: [byte]) -> [int]
         let f = fin[k]
         let blanco_antes = k == 0 or en_blanco(t, ini[k - 1], fin[k - 1])
         let blanco_despues = k + 1 >= cuantas or en_blanco(t, ini[k + 1], fin[k + 1])
+        # La ultima linea, vacia, es la que se esta escribiendo: no corta.
+        let abierta = k + 2 == cuantas and ini[k + 1] == fin[k + 1]
         let mut que = accion()
         let mut previo = vacia()
         if k > 0
             previo = r[k - 1]
         if en_blanco(t, a, f)
             que = vacia()
+            if k + 1 == cuantas and a == f and (previo == personaje() or previo == parentesis())
+                que = dialogo()
         else if f - a >= 3 and t[a] == 61 and t[a + 1] == 61 and t[a + 2] == 61
             que = salto()
         else if t[a] == 35
@@ -170,7 +181,7 @@ pub fn tipos(t: [byte]) -> [int]
             que = centrado()
         else if t[a] == 62
             que = transicion()
-        else if t[a] == 64 and not blanco_despues
+        else if t[a] == 64
             que = personaje()
         else if previo == personaje() or previo == dialogo() or previo == parentesis()
             if t[a] == 40
@@ -181,7 +192,7 @@ pub fn tipos(t: [byte]) -> [int]
             que = escena()
         else if blanco_antes and blanco_despues and en_mayusculas(t, a, f) and acaba_en_transicion(t, a, f)
             que = transicion()
-        else if blanco_antes and not blanco_despues and en_mayusculas(t, a, f)
+        else if blanco_antes and (not blanco_despues or abierta) and en_mayusculas(t, a, f)
             que = personaje()
         push(mut r, que)
     return r
@@ -330,4 +341,87 @@ pub fn escena_de(es: [int], k: int) -> int
     for i in range(len(es))
         if es[i] <= k
             r = i
+    return r
+
+# ** PL3: EL TAB DE FINAL DRAFT. Lo que pasa a ser una linea que es `que`
+# (y `previo` la de antes).
+pub fn siguiente(que: int, previo: int) -> int
+    if que == vacia()
+        if previo == personaje() or previo == dialogo() or previo == parentesis()
+            return parentesis()
+        return personaje()
+    if que == accion()
+        return personaje()
+    if que == personaje()
+        return transicion()
+    if que == transicion()
+        return escena()
+    if que == dialogo()
+        return parentesis()
+    if que == parentesis()
+        return dialogo()
+    return accion()
+
+# Si `b` es una MARCA de Fountain (! @ . > y el < del centrado) que fuerza
+# lo que es la linea de tipo `que`: se pinta en tenue.
+pub fn es_marca(b: int, que: int, primera: bool, ultima: bool) -> bool
+    if primera and b == 33 and que == accion()
+        return true
+    if primera and b == 64 and que == personaje()
+        return true
+    if primera and b == 46 and que == escena()
+        return true
+    if primera and b == 62 and (que == transicion() or que == centrado())
+        return true
+    return ultima and b == 60 and que == centrado()
+
+# La linea [i, f) sin sus marcas: la de delante (! @ . >, y el < del
+# centrado), los parentesis y los espacios de delante.
+fn limpia(t: [byte], i: int, f: int) -> [byte]
+    let mut a = i
+    let mut b = f
+    if a < b and (t[a] == 33 or t[a] == 64 or t[a] == 46 or t[a] == 62)
+        if t[a] == 62 and b - a >= 2 and t[b - 1] == 60
+            b = b - 1
+        a = a + 1
+    if a < b and t[a] == 40
+        a = a + 1
+        if a < b and t[b - 1] == 41
+            b = b - 1
+    while a < b and t[a] == 32
+        a = a + 1
+    let mut r: [byte] = []
+    for k in range(a, b)
+        push(mut r, t[k])
+    return r
+
+# **La linea [i, f) escrita como `a_que`**: con la marca que la fuerza (el
+# personaje "@", la transicion ">", la escena "." si no empieza por INT. o
+# EXT., la accion "!" si sin ella seria otra cosa), en mayusculas si lo es
+# (escena, personaje, transicion) y entre parentesis el parentesis.
+pub fn como(t: [byte], i: int, f: int, a_que: int, previo: int) -> [byte]
+    let s = limpia(t, i, f)
+    let n = len(s)
+    let mut r: [byte] = []
+    if a_que == personaje()
+        push(mut r, byte(64))
+    else if a_que == transicion()
+        push(mut r, byte(62))
+    else if a_que == escena() and not es_escena(s, 0, n)
+        push(mut r, byte(46))
+    else if a_que == parentesis()
+        push(mut r, byte(40))
+    else if a_que == accion() and n > 0
+        let dentro = previo == personaje() or previo == dialogo() or previo == parentesis()
+        let raro = s[0] == 35 or s[0] == 61 or s[0] == 46 or s[0] == 64 or s[0] == 62
+        if dentro or raro or en_mayusculas(s, 0, n) or es_escena(s, 0, n)
+            push(mut r, byte(33))
+    let mayus = a_que == personaje() or a_que == transicion() or a_que == escena()
+    for b in s
+        if mayus
+            push(mut r, byte(a_mayuscula(b)))
+        else
+            push(mut r, b)
+    if a_que == parentesis()
+        push(mut r, byte(41))
     return r

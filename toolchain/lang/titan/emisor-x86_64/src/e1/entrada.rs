@@ -30,9 +30,9 @@
 //! la ventana (`ventana.rs`): sin ventana no llega nada.
 
 use super::ventana::{BUZON, R12};
-use super::{Place, E1};
+use super::{Place, E1, TEXT_CAP};
 use bmo_abi::syscalls::surface::{
-    ARCH_OP_CERRAR, ARCH_OP_LEER_EN, ARCH_OP_MEDIDA, CURRENT_TASK, NR_WAIT, PRESTADO_OP_BASE, PRESTADO_OP_BYTES, SUP_BUZON_CABECERA, SUP_BUZON_RANURA, SUP_EV_CARACTER, SUP_EV_CONFIGURE, SUP_EV_RATON, SUP_EV_RUEDA, SUP_VISTA_SE_VE, TASK_OP_ARCHIVO_ABRIR, TASK_OP_RUTA, TASK_OP_TOMAR,
+    ARCH_OP_CERRAR, ARCH_OP_LEER_EN, ARCH_OP_MEDIDA, CURRENT_TASK, NR_WAIT, PRESTADO_OP_BASE, PRESTADO_OP_BYTES, SUP_BUZON_CABECERA, SUP_BUZON_RANURA, SUP_EV_CARACTER, SUP_EV_CONFIGURE, SUP_EV_RATON, SUP_EV_RUEDA, SUP_VISTA_SE_VE, TASK_OP_ARCHIVO_ABRIR, TASK_OP_ARGUMENTOS, TASK_OP_RUTA, TASK_OP_TOMAR,
 };
 use bmo_lower::x86::{self, RAX, RCX, RDI, RDX, RSI, R10, R8};
 use bmo_titan_front::calc::Class;
@@ -102,6 +102,7 @@ impl E1<'_> {
             Director::RatonY => self.de_la_cola(COLA_EVENTO, 32, 0xFFFF, 0),
             Director::Botones => self.de_la_cola(COLA_EVENTO, 0, 0xFF, 0),
             Director::Rueda => self.rueda(),
+            Director::Argumento => self.argumento(),
             Director::SeVe => self.se_ve(),
             _ => Err(format!("linea {}: `{}` no es de la entrada (fallo del compilador)", at.0, what.name())),
         }
@@ -176,6 +177,56 @@ impl E1<'_> {
         x86::zero_r32(&mut self.code, R10);
         x86::zero_r32(&mut self.code, R8);
         self.invoke();
+    }
+
+    /// `director.argumento()` (PL3 de PLAN_ECCE): los trozos de 8 de
+    /// `TASK_OP_ARGUMENTOS` en un texto, hasta el primer cero (el kernel
+    /// guarda como mucho 128 bytes: caben). Si el kernel dice que no, vacio.
+    fn argumento(&mut self) -> Result<(Place, Class), String> {
+        let t = self.temp(8 + TEXT_CAP as i32);
+        let k = self.temp(8);
+        self.store_imm(t, 0);
+        self.store_imm(k, 0);
+        let vuelta = self.code.len();
+        self.load(k, RAX);
+        x86::cmp_r64_imm32(&mut self.code, RAX, (TEXT_CAP / 8) as i32);
+        let lleno = self.jcc(0x8D);
+        self.load(k, RDX);
+        self.imm(RDI, CURRENT_TASK as i64);
+        self.imm(RSI, TASK_OP_ARGUMENTOS as i64);
+        x86::zero_r32(&mut self.code, R10);
+        x86::zero_r32(&mut self.code, R8);
+        self.invoke();
+        x86::test_r64_r64(&mut self.code, RAX, RAX);
+        let fallo = self.jcc(0x85);
+        // RDX: ocho bytes; se copian hasta el primer cero.
+        x86::zero_r32(&mut self.code, RCX);
+        let byte = self.code.len();
+        x86::cmp_r64_imm32(&mut self.code, RCX, 8);
+        let entero = self.jcc(0x8D);
+        x86::mov_r64_r64(&mut self.code, RAX, RDX);
+        x86::and_r64_imm32(&mut self.code, RAX, 0xFF);
+        let cero = self.jcc(0x84);
+        self.load(t, RSI);
+        self.addr(t.at(8), RDI);
+        x86::add_r64_r64(&mut self.code, RDI, RSI);
+        x86::mov_byte_at_reg_from_low(&mut self.code, RDI, RAX);
+        x86::inc_r64(&mut self.code, RSI);
+        self.store(t, RSI);
+        x86::shr_r64_imm8(&mut self.code, RDX, 8);
+        x86::inc_r64(&mut self.code, RCX);
+        let otro = self.jmp();
+        x86::patch_jump_to(&mut self.code, otro, byte);
+        self.here(entero);
+        self.load(k, RAX);
+        x86::inc_r64(&mut self.code, RAX);
+        self.store(k, RAX);
+        let sigue = self.jmp();
+        x86::patch_jump_to(&mut self.code, sigue, vuelta);
+        self.here(lleno);
+        self.here(fallo);
+        self.here(cero);
+        Ok((t, Class::Text))
     }
 
     /// `director.toma()`.
