@@ -42,6 +42,8 @@
 use crate::*;
 
 mod amarilla;
+mod por_defecto;
+pub use por_defecto::{Mirada, Paso, PorDefecto};
 mod roja;
 mod verde;
 
@@ -126,6 +128,10 @@ pub struct Pantalla {
     /// [`Pantalla::volcar_por_gpu`] y se QUITA SOLO si una tanda falla (la GPU
     /// apagada, un plazo): el fotograma sale por la CPU y los siguientes tambien.
     por_gpu: core::cell::Cell<bool>,
+    /// ** C3 (15-10): cuantas veces se QUITO SOLO (una tanda que fallo, una
+    /// valla que no se pago). Lo mira `PorDefecto`: una caida no es lo mismo
+    /// que soltarlo a proposito (prestar la pantalla a un juego).
+    caidas_gpu: core::cell::Cell<u32>,
     /// ** Una tanda de la 3060 en vuelo (1c): la VALLA sin esperar. La espera
     /// la primera escritura al lienzo ([`Pantalla::valla`]), no el volcado.
     pendiente: core::cell::Cell<bool>,
@@ -164,6 +170,7 @@ impl Pantalla {
             }),
             rayo: crate::sin_gpu::rayo::Rayo::nuevo(),
             por_gpu: core::cell::Cell::new(false),
+            caidas_gpu: core::cell::Cell::new(0),
             pendiente: core::cell::Cell::new(false),
             rayo_gpu: crate::sin_gpu::rayo::Rayo::nuevo(),
         })
@@ -195,6 +202,7 @@ impl Pantalla {
             volcado: core::cell::Cell::new(Volcado { fotogramas: 0, bytes: 0, peor: 0, ultimo: 0, cajas: 0, modo: Volcador::Ninguno }),
             rayo: crate::sin_gpu::rayo::Rayo::nuevo(),
             por_gpu: core::cell::Cell::new(false),
+            caidas_gpu: core::cell::Cell::new(0),
             pendiente: core::cell::Cell::new(false),
             rayo_gpu: crate::sin_gpu::rayo::Rayo::nuevo(),
         })

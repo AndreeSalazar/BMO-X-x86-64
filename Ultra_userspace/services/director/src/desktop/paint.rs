@@ -260,6 +260,11 @@ fn componer_apilado(dsk: &mut Desktop, p: &bmo::Pantalla, encima: Option<(u32, u
 }
 
 pub(crate) fn compose(dsk: &mut Desktop, p: &bmo::Pantalla, dead: usize) {
+    // ** C3 (EL_FOCO, 15-10): el volcado del lienzo a la pantalla, por la
+    // 3060 POR DEFECTO en cuanto esta lista; si no, la CPU, como siempre.
+    if crate::commands::gspvolcado::por_defecto(&mut dsk.out.grid, p) {
+        dsk.tick.repaint_field = true;
+    }
     // Aqui y no antes: `will_paint` no es definitivo hasta que la recogida de
     // entrada termina, y ella lo puede subir. Ver `Tick::pintados_por_segundo`.
     dsk.tick.anota_pintado();

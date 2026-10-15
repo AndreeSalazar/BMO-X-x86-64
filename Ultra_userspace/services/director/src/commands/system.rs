@@ -1126,8 +1126,9 @@ pub(crate) fn reboot(dsk: &mut Desktop, p: &bmo::Pantalla) -> After {
     // en `save manual`, nada).
     super::files::antes_de_reiniciar(dsk, p);
     if super::gspapagar::hace_falta() {
-        // Antes del apagado: la 3060 deja de volcar y devuelve el lienzo.
-        p.volcar_por_cpu();
+        // Antes del apagado: la 3060 deja de volcar y devuelve el lienzo (C3:
+        // y no se vuelve a armar sola).
+        super::gspvolcado::la_3060_se_va(p);
         paint_status(&p, &dsk.run_box, "apagando el GSP en orden antes de reiniciar", INK_DIM);
         match super::gspapagar::apagar() {
             Ok(_) => dsk.out.grid.text(b"  el GSP, apagado en orden: la WPR2 abajo\n"),

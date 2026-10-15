@@ -170,8 +170,9 @@ pub(crate) fn orden(dsk: &mut Desktop, p: &bmo::Pantalla) -> After {
         dsk.field.n = 0;
         return After::Settle;
     }
-    // Antes del apagado: la 3060 deja de volcar el escritorio y devuelve el lienzo.
-    p.volcar_por_cpu();
+    // Antes del apagado: la 3060 deja de volcar el escritorio y devuelve el
+    // lienzo -- y no se vuelve a armar sola (C3) --.
+    super::gspvolcado::la_3060_se_va(p);
     paint_status(p, &dsk.run_box, "apagando el GSP en orden: despedida, FWSEC-SB y el booter de descarga", INK_DIM);
     let r = apagar();
     let g = &mut dsk.out.grid;

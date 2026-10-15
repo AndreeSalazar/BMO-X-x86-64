@@ -49,6 +49,58 @@ struct Resumen {
 
 static mut LIENZO: u64 = 0;
 static mut RESUMEN: Option<Resumen> = None;
+/// ** C3 (15-10): cuando se arma SOLO (ver `bmo::PorDefecto`).
+static mut POR_DEFECTO: bmo::PorDefecto = bmo::PorDefecto::nuevo();
+
+fn por_defecto_() -> &'static mut bmo::PorDefecto {
+    // SAFETY: como `resumen`: un solo hilo, y solo desde aqui.
+    unsafe { &mut *core::ptr::addr_of_mut!(POR_DEFECTO) }
+}
+
+/// ** C3 -- EL VOLCADO POR LA 3060, POR DEFECTO (EL_FOCO, 15-10). Cada
+/// fotograma del escritorio, una mirada: con la 3060 lista (GSP_INIT_DONE)
+/// y un lienzo, la primera vez una copia VERIFICADA y despues armar; si
+/// vuelve la pantalla de un juego, armar otra vez; tres fallos y se queda en
+/// la CPU (L32), dicho UNA vez. `gpu volcado off` manda. `true` si dijo algo.
+pub(crate) fn por_defecto(s: &mut Output, p: &bmo::Pantalla) -> bool {
+    let m = bmo::Mirada { lista: super::gspinit::listo(), lienzo: p.tiene_doble_bufer(), por_gpu: p.volcando_por_gpu(), caidas: p.caidas_gpu() };
+    let d = por_defecto_();
+    let paso = d.mirar(m);
+    let bien = match paso {
+        bmo::Paso::Nada => return false,
+        bmo::Paso::Rendirse => return rendirse(s),
+        bmo::Paso::Probar => pedir(None).is_ok() && p.volcar_por_gpu().is_ok(),
+        bmo::Paso::Armar => p.volcar_por_gpu().is_ok(),
+    };
+    if !bien {
+        return d.salio(false) && rendirse(s);
+    }
+    d.salio(true);
+    // Solo la vez de la copia verificada se dice (al volver de un juego, no).
+    let primera = paso == bmo::Paso::Probar;
+    if primera {
+        s.with_ink(INK_GOOD);
+        s.text(b"  [C3] LA 3060 VUELCA TU ESCRITORIO en cada fotograma, POR DEFECTO (`gpu volcado off` lo devuelve a la CPU)\n");
+        s.with_ink(INK_PLAIN);
+        bmo::consola("[C3] la 3060 vuelca el escritorio por defecto\n");
+    }
+    primera
+}
+
+/// C3: la 3060 se va (`gpu apagar`, el reinicio): que no se arme sola
+/// otra vez sobre un GSP apagado. Solo `gpu volcado` la vuelve a pedir.
+pub(crate) fn la_3060_se_va(p: &bmo::Pantalla) {
+    por_defecto_().apagar();
+    p.volcar_por_cpu();
+}
+
+fn rendirse(s: &mut Output) -> bool {
+    s.with_ink(INK_ERR);
+    s.text(b"  [C3] el volcado por la 3060 fallo tres veces: la CPU vuelca hasta que lo pidas (`gpu volcado`)\n");
+    s.with_ink(INK_PLAIN);
+    bmo::consola("[C3] el volcado por la 3060 fallo tres veces: la CPU vuelca\n");
+    true
+}
 
 fn resumen() -> Option<Resumen> {
     // SAFETY: el escritorio es un solo hilo; esto solo se toca desde sus ordenes.
@@ -115,6 +167,8 @@ pub(crate) fn activar(s: &mut Output, p: &bmo::Pantalla) {
 
 /// `gpu volcado off`: vuelve a la CPU.
 pub(crate) fn orden_off(dsk: &mut Desktop, p: &bmo::Pantalla) -> After {
+    // C3: y no se vuelve a armar solo hasta `gpu volcado`.
+    por_defecto_().apagar();
     p.volcar_por_cpu();
     dsk.out.grid.text(b"  el volcado vuelve a la CPU; el lienzo, devuelto por la 3060\n");
     fila(&mut dsk.out.grid);
@@ -136,6 +190,8 @@ pub(crate) fn hecho() -> bool {
 /// `gpu volcado`: primero la CPU vuelca la pantalla ENTERA (lo que cuesta
 /// hoy), despues la 3060 lo mismo.
 pub(crate) fn orden(dsk: &mut Desktop, p: &bmo::Pantalla) -> After {
+    // C3: el propietario lo pide: lo de `off` y los fallos se olvidan.
+    por_defecto_().encender();
     paint_status(p, &dsk.run_box, "la CPU vuelca la pantalla entera, y luego la 3060", INK_DIM);
     let hz = bmo::info(bmo::INFO_TSC_HZ).max(1000);
     p.marcar(0, 0, p.ancho, p.alto);
