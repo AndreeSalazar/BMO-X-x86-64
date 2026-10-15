@@ -420,6 +420,19 @@ try {
     # (`bico.ibx`, la primera HERRAMIENTA en INTI -- 2026-09-12 --, salio el
     # 10-10 con `png.inti`, corte 4e: las dos son de TITAN++ --
     # `titan/bico.bex` y `titan/png.bex`, abajo --. 1d de EL_FOCO.)
+    # ** LOS QUE SALIERON SE BORRAN DEL DISCO (15-10, el propietario: *"tengo 2
+    # app navegador [...] elimines uno que genera inti"*). Quitar una fila de
+    # abajo dejaba de CONSTRUIR el programa, pero el `.ibx` de antes se quedaba
+    # en la carpeta de datos y el escritorio lo seguia ofreciendo: NAVEGAR salia
+    # dos veces, el de INTI (muerto el 10-10) y el de TITAN++. Cada programa que
+    # sale de INTI con su relevo en TITAN++ se apunta AQUI, y se borra.
+    foreach ($retirado in @('navegar.ibx', 'ventana.ibx', 'cubo.ibx', 'bico.ibx', 'png.ibx')) {
+        $viejo = Join-Path (Join-Path $dataBase 'inti') $retirado
+        if (Test-Path $viejo) {
+            Remove-Item $viejo -Force
+            Write-Host ('    [inti] retirado del disco: inti\' + $retirado + ' (su relevo es de TITAN++)') -ForegroundColor DarkGray
+        }
+    }
     Compilar-Ejemplos @(
         @{ src = 'toolchain\lang\inti\sondas\cpu.inti'; out = 'cpu.ibx'; dir = 'inti' },
         @{ src = 'toolchain\lang\inti\sondas\pulso.inti'; out = 'pulso.ibx'; dir = 'inti' },
