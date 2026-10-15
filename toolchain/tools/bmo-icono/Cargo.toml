@@ -1,0 +1,17 @@
+[package]
+name = "bmo-icono"
+version = "0.1.0"
+edition = "2021"
+description = "La cara de una app desde un PNG, un JPG o un SVG: un BICO con su alfa entero, a la medida del escritorio"
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "bmo-icono"
+path = "src/main.rs"
+
+[dependencies]
+# Los decodificadores de la casa: los mismos que el visor, probados contra
+# ficheros rotos. Aqui, con el alfa ENTERO.
+bmo-imagen = { path = "../../../platform/shared/bmo-imagen" }

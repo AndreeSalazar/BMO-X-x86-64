@@ -352,6 +352,9 @@ members = [
     # frontend; los datos llegan despues y de quien monta la app, asi que
     # empaquetar es un paso posterior y no una opcion del codegen.
     "toolchain/tools/bmo-pack",
+    # La CARA de una app desde un PNG, un JPG o un SVG (IC1, 15-10): un BICO
+    # de 32 con su alfa entero. Lo usan `titan build` y el empaquetado.
+    "toolchain/tools/bmo-icono",
     "toolchain/tools/bmo-enlazar",
     # El metro del emisor de x86-64 (2026-09-18): pasos, bytes y salida de un banco fijo.
     "toolchain/tools/metro",

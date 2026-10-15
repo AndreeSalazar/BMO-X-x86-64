@@ -423,6 +423,13 @@ name = "bmo-huesped"
 version = "0.1.0"
 
 [[package]]
+name = "bmo-icono"
+version = "0.1.0"
+dependencies = [
+ "bmo-imagen",
+]
+
+[[package]]
 name = "bmo-identify"
 version = "0.1.0"
 
@@ -940,14 +947,17 @@ name = "bmo-titan-x86-64"
 version = "0.1.0"
 dependencies = [
  "bmo-abi",
+ "bmo-bex-gate",
  "bmo-bsf",
  "bmo-cubo",
+ "bmo-icono",
  "bmo-lower",
  "bmo-prometeo",
  "bmo-tarjeta-cpu",
  "bmo-tarjeta-rtx3060-12g",
  "bmo-titan-contrato",
  "bmo-titan-front",
+ "bmo-titan-lector",
  "bmo-titan-prometeo",
  "bmo-verify",
  "bmo-verrano",
