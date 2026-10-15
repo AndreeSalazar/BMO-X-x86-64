@@ -128,6 +128,7 @@ members = [
     # LA LENTE de x86-64 (14-10, A5 de EL_FOCO): lee el binario de los emisores
     # y lo dice; lo que no esta en su tabla, con sus bytes. La juzga `metro`.
     "platform/shared/bmo-lente-x86",
+    "platform/abi/bmo-radiografia",
     "platform/shared/verrano",
     "platform/shared/verrano-trama",
     # AYNI (12-10, PLAN_AYNI): que la GPU gaste MENOS. UMA, la red diminuta de

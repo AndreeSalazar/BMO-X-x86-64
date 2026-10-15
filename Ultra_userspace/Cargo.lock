@@ -100,12 +100,20 @@ name = "bmo-bankcat"
 version = "0.1.0"
 
 [[package]]
+name = "bmo-bex-gate"
+version = "1.0.0"
+
+[[package]]
 name = "bmo-bsf"
 version = "0.1.0"
 dependencies = [
  "bmo-hash",
  "bmo-spirv-front",
 ]
+
+[[package]]
+name = "bmo-carga-juicio"
+version = "0.1.0"
 
 [[package]]
 name = "bmo-config"
@@ -168,6 +176,10 @@ version = "0.1.0"
 
 [[package]]
 name = "bmo-lamina"
+version = "0.1.0"
+
+[[package]]
+name = "bmo-lente-x86"
 version = "0.1.0"
 
 [[package]]
@@ -275,6 +287,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "bmo-radiografia"
+version = "0.1.0"
+dependencies = [
+ "bmo-bex-gate",
+ "bmo-carga-juicio",
+ "bmo-lente-x86",
+]
+
+[[package]]
 name = "bmo-registro"
 version = "0.1.0"
 
@@ -308,6 +329,7 @@ dependencies = [
  "bmo-lamina",
  "bmo-pase-gpu",
  "bmo-pila",
+ "bmo-radiografia",
  "bmo-registro",
  "bmo-ritmo",
  "bmo-rtc",

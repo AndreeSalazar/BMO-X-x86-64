@@ -448,6 +448,28 @@ pub(super) fn usar_entrada(
                 dsk.win.data.verified = Some(bmo::estratos::verificar(i as u64));
             }
         }
+        // ** "ver por dentro" (15-10): `dentro <ruta entera>` en la caja de
+        // Ejecutar y disparado, como el doble clic de un icono. La salida es
+        // larga y va a la consola grande (y a `informe/`), no a la de seis
+        // lineas del explorador.
+        Hace::Dentro => {
+            if let Sobre::Hijo(i) = sobre {
+                let mut ruta = [0u8; 120];
+                let r = scene::data::fuente::ruta_hijo(i as u64, &mut ruta);
+                let largo = 7 + r;
+                if r > 0 && largo <= dsk.field.path.len() {
+                    dsk.field.path[..7].copy_from_slice(b"dentro ");
+                    dsk.field.path[7..largo].copy_from_slice(&ruta[..r]);
+                    dsk.field.n = largo;
+                    dsk.field.cur = largo;
+                    dsk.tick.repaint_field = true;
+                    if dsk.field.ni < dsk.field.injected.len() {
+                        dsk.field.injected[dsk.field.ni] = b'\n';
+                        dsk.field.ni += 1;
+                    }
+                }
+            }
+        }
         Hace::Orden => dsk.win.data.consola.poner_orden(e.verbo, &nom[..n], true),
         Hace::Empezar => dsk.win.data.consola.poner_orden(e.verbo, &nom[..n], false),
     }

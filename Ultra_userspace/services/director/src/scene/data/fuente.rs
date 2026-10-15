@@ -136,27 +136,58 @@ fn entrada(nivel: usize, i: usize) -> Option<Entrada> {
     if i < n.cuantas { Some(n.e[i]) } else { None }
 }
 
-/// **Lee el nivel `l`**: la carpeta a la que se llega bajando por los elegidos
-/// de los niveles de encima.
-fn leer(l: usize) -> bool {
-    let mut ruta = [0u8; 128];
+/// La ruta de la carpeta del nivel `l` (el prefijo y `/nombre` por cada
+/// elegido de encima). `None` si no cabe o si un nivel no tiene elegido.
+fn ruta_hasta(l: usize, ruta: &mut [u8]) -> Option<usize> {
     let pre = prefijo();
-    ruta[..pre.len()].copy_from_slice(pre);
+    ruta.get_mut(..pre.len())?.copy_from_slice(pre);
     let mut k = pre.len();
     for n in 0..l {
         let niv = &niveles()[n];
-        let Some(e) = niv.e.get(niv.elegido).filter(|_| niv.elegido < niv.cuantas) else {
-            return false;
-        };
+        let e = niv.e.get(niv.elegido).filter(|_| niv.elegido < niv.cuantas)?;
         let m = e.largo as usize;
         if k + m + 1 > ruta.len() {
-            return false;
+            return None;
         }
         ruta[k] = b'/';
         k += 1;
         ruta[k..k + m].copy_from_slice(&e.nom[..m]);
         k += m;
     }
+    Some(k)
+}
+
+/// **La ruta del fichero `i` de la carpeta de ahora** (DATOS o EFI), como
+/// la escribe `run`: `apps/ecce.bex`, sin la barra de delante. 0 en
+/// ESTRATOS, o si no cabe. La usa "ver por dentro" del clic derecho.
+pub(crate) fn ruta_hijo(i: u64, dst: &mut [u8]) -> usize {
+    if es_estratos() {
+        return 0;
+    }
+    let h = hondo_fat();
+    let Some(e) = entrada(h, i as usize) else { return 0 };
+    let mut ruta = [0u8; 128];
+    let Some(mut k) = ruta_hasta(h, &mut ruta) else { return 0 };
+    let m = e.largo as usize;
+    if k + m + 1 > ruta.len() {
+        return 0;
+    }
+    ruta[k] = b'/';
+    k += 1;
+    ruta[k..k + m].copy_from_slice(&e.nom[..m]);
+    k += m;
+    // Sin la barra de delante cuando no hay prefijo: `apps/x.bex`, no `/apps/x.bex`.
+    let desde = if prefijo().is_empty() && ruta[0] == b'/' { 1 } else { 0 };
+    let n = (k - desde).min(dst.len());
+    dst[..n].copy_from_slice(&ruta[desde..desde + n]);
+    n
+}
+
+/// **Lee el nivel `l`**: la carpeta a la que se llega bajando por los elegidos
+/// de los niveles de encima.
+fn leer(l: usize) -> bool {
+    let mut ruta = [0u8; 128];
+    let Some(k) = ruta_hasta(l, &mut ruta) else { return false };
     let niv = &mut niveles()[l];
     niv.cuantas = 0;
     niv.truncado = false;

@@ -94,6 +94,8 @@ pub(crate) enum Hace {
     Entrar,
     Subir,
     Verificar,
+    /// "ver por dentro" un `.bex`: `dentro <ruta>` en la caja de Ejecutar.
+    Dentro,
 }
 
 #[derive(Clone, Copy)]
@@ -116,6 +118,14 @@ pub(crate) struct Menu {
 }
 
 const VACIA: Entrada = Entrada { texto: "", verbo: "", hace: Hace::Orden, pesa: false };
+
+/// El hijo `i` es un programa (`.bex` o `.ibx`): se puede ver por dentro.
+fn es_programa(i: u64) -> bool {
+    let mut nom = [0u8; 64];
+    let n = super::data::fuente::hijo_nombre(i, &mut nom);
+    let nom = &nom[..n];
+    n >= 4 && (nom[n - 4..].eq_ignore_ascii_case(b".bex") || nom[n - 4..].eq_ignore_ascii_case(b".ibx"))
+}
 
 impl Menu {
     pub(crate) const fn nuevo() -> Self {
@@ -143,6 +153,9 @@ impl Menu {
             if let Sobre::Hijo(i) = sobre {
                 if super::data::fuente::hijo_tipo(i as u64) == bmo::estratos::DIRECTORIO {
                     self.mete("entrar", "", Hace::Entrar, false);
+                } else if es_programa(i as u64) {
+                    // ** Mirar no escribe: vale en DATOS y en EFI (15-10).
+                    self.mete("ver por dentro", "dentro", Hace::Dentro, false);
                 }
             }
             if super::data::fuente::hondo() > 0 {

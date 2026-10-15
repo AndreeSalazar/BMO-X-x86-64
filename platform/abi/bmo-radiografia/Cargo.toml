@@ -1,0 +1,16 @@
+[package]
+name = "bmo-radiografia"
+version = "0.1.0"
+edition = "2021"
+description = "VER POR DENTRO un .bex con los OJOS DEL KERNEL: la misma puerta (bmo-bex-gate), la misma tabla de requisitos (bmo-carga-juicio) y la misma lente (bmo-lente-x86) que lo admiten. Pura, sin alloc."
+license = "Apache-2.0"
+
+# Sin `alloc` y sin `unsafe`, como sus tres dependencias: la usa el escritorio
+# (que no tiene monton) para el clic derecho "ver por dentro".
+[dependencies]
+bmo-bex-gate = { path = "../bmo-bex-gate" }
+bmo-carga-juicio = { path = "../../shared/bmo-carga-juicio" }
+bmo-lente-x86 = { path = "../../shared/bmo-lente-x86" }
+
+[dev-dependencies]
+bmo-titan-x86-64 = { path = "../../../toolchain/lang/titan/emisor-x86_64" }

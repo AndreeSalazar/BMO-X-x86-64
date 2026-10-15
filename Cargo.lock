@@ -807,6 +807,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "bmo-radiografia"
+version = "0.1.0"
+dependencies = [
+ "bmo-bex-gate",
+ "bmo-carga-juicio",
+ "bmo-lente-x86",
+ "bmo-titan-x86-64",
+]
+
+[[package]]
 name = "bmo-raiz-juicio"
 version = "0.1.0"
 
