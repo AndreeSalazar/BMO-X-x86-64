@@ -1,13 +1,13 @@
 <!-- GENERADO por toolchain/tools/planes. No se edita a mano. -->
 
-# LO QUE FALTA -- las casillas abiertas de los 85 planes
+# LO QUE FALTA -- las casillas abiertas de los 86 planes
 
 > Generado por `toolchain/tools/planes`. **El build comprueba que
 > este fichero y los planes dicen lo mismo**, asi que no puede
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   838 casillas ABIERTAS en 76 planes
+   854 casillas ABIERTAS en 77 planes
    638 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
@@ -151,6 +151,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] B1 -- F2 abre LOS ARCHIVOS: una app propia como el TALLER (sys/archivos.bex), que el DIRECTOR la
 - [ ] B2 -- el GLOBO, en el MISMO commit que B1 (una linea de SABIAS tiene que ser verdad el dia que s
 - [ ] B3 -- LA BANDEJA (seccion 3): los discos que el kernel lee, con su perfil y su rango; el NVMe CE
+- ... y 13 mas
+
+## [`PLAN_LA_PLUMA.md`](PLAN_LA_PLUMA.md) -- 16 abiertas, 0 hechas
+
+*PLAN LA PLUMA -- escribir en BMO-X: guiones al nivel de Final Draft, y todo lo demas*
+
+- [ ] PL0 -- las decisiones de la seccion 7, contestadas por el propietario.
+- [ ] PL1 -- el motor de texto: parrafos con elemento, cursor, seleccion,
+- [ ] PL2 -- Fountain, leer y escribir. Como se sabe: los ejemplos
 - ... y 13 mas
 
 ## [`PLAN_MEDIOS.md`](PLAN_MEDIOS.md) -- 16 abiertas, 3 hechas
