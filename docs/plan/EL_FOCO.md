@@ -1180,6 +1180,12 @@ pieza entera en la 0b, y su fila de la tabla de estado pasa a `VISTO dd-mm`.
                                        apps, clic derecho sobre `ecce` > en `apps\`
                                        "ver la app por dentro": NUCLEO
                                        ... ENTRA y "la app ENTERA entra"
+   LX1    un .exe de Windows por       copiar un .exe (el BMOX-12 de     no sale nada, o la lista    (sin probar)
+          dentro (PLAN_PROTON_X, 4d)   EPICX) a DATOS y `dentro X.exe`   no es la de `dumpbin
+                                       (o clic derecho > "ver por        /imports`, o una llamada a
+                                       dentro"): PROTON-X lo correria,   Windows sin su nombre
+                                       lo que pide DLL a DLL, la lente
+                                       y "llama a kernel32.dll!..."
    IC     la cara ELEGANTE de ECCE     el icono de ECCE en el escritorio sale el cuadro con la E,  (sin probar)
           (32 px, borde suave, de      a 32 con el borde suave (la hoja  o con bordes en escalera,
           su `icono.svg`)              y la pluma de oro), sobre la foto o un halo oscuro alrededor

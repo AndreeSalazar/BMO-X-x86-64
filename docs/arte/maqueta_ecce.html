@@ -1,0 +1,845 @@
+<title>ECCE Guion</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Courier+Prime:ital,wght@0,400;0,700;1,400&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* MAQUETA de ECCE como app de guion (PL de PLAN_ECCE.md), 15-10.
+   Una mesa de noche (el fondo de ECCE) con hojas de papel de verdad: el
+   formato de la industria (Courier 12, 1,5" a la izquierda, 1" al resto,
+   6 lineas por pulgada). Ctrl + rueda aleja la mesa: las hojas se hacen
+   chicas y, por debajo de un umbral, se vuelven NODOS de una historia
+   unidos escena a escena. Un clic en un nodo vuelve a su hoja.
+   Un solo aspecto a proposito (el de la app): mesa oscura, papel claro. */
+:root {
+  color-scheme: dark;
+  /* la mesa y su tinta: los colores de ECCE (fondo 0x181820, tinta, oro) */
+  --mesa: #15151C;
+  --mesa-2: #1C1C25;
+  --mesa-3: #24242F;
+  --raya: #2E2E3B;
+  --tinta: #E8E2D0;
+  --tenue: #8C877B;
+  --oro: #D8A657;
+  --oro-suave: #D8A65733;
+  /* el papel y lo que se escribe en el */
+  --papel: #FDFCF8;
+  --papel-tinta: #1B1B1F;
+  --papel-raya: #E6E2D8;
+  --rev-azul: #3E7BD6;
+  /* los actos */
+  --acto-1: #7FA7C9;
+  --acto-2: #D8A657;
+  --acto-3: #B48CD0;
+  --f-guion: "Courier Prime", "Courier New", Courier, monospace;
+  --f-ui: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-dato: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0;
+  background: var(--mesa);
+  color: var(--tinta);
+  font-family: var(--f-ui);
+  font-size: 14px;
+  overflow: hidden;
+}
+button { font: inherit; color: inherit; cursor: pointer; }
+button:focus-visible, [contenteditable]:focus-visible { outline: 2px solid var(--oro); outline-offset: 2px; }
+
+.app {
+  height: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 272px;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-areas: "barra barra" "mesa panel" "pie pie";
+}
+
+/* -- la barra: el nombre, el documento, los elementos, el zoom -- */
+.barra {
+  grid-area: barra;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding-block: 8px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  background: var(--mesa-2);
+  border-bottom: 1px solid var(--raya);
+}
+.marca { display: flex; align-items: center; gap: 10px; }
+.marca svg { width: 28px; height: 28px; flex: none; }
+.marca b { font-family: var(--f-guion); font-weight: 700; font-size: 17px; letter-spacing: .32em; color: var(--tinta); }
+.doc { display: flex; flex-direction: column; line-height: 1.2; min-width: 0; }
+.doc strong { font-family: var(--f-guion); font-size: 14px; letter-spacing: .08em; }
+.doc span { color: var(--tenue); font-size: 12px; }
+.elementos {
+  display: flex;
+  border: 1px solid var(--raya);
+  border-radius: 8px;
+  overflow: hidden;
+  margin-left: 8px;
+}
+.elementos button {
+  border: 0;
+  background: transparent;
+  padding: 6px 10px;
+  font-size: 12px;
+  color: var(--tenue);
+  border-right: 1px solid var(--raya);
+}
+.elementos button:last-child { border-right: 0; }
+.elementos button[aria-pressed="true"] { background: var(--oro-suave); color: var(--oro); }
+.zoom { margin-left: auto; display: flex; align-items: center; gap: 6px; }
+.zoom button {
+  border: 1px solid var(--raya);
+  background: var(--mesa-3);
+  border-radius: 7px;
+  padding: 5px 10px;
+  font-size: 12px;
+}
+.zoom button.ver[aria-pressed="true"] { border-color: var(--oro); color: var(--oro); }
+.zoom output { font-family: var(--f-dato); font-size: 12px; color: var(--tenue); min-width: 44px; text-align: right; font-variant-numeric: tabular-nums; }
+.solo-chico { display: none; }
+
+/* -- la mesa: el mundo (hojas) y encima, los nodos y sus hilos -- */
+.mesa {
+  grid-area: mesa;
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 1px 1px, #ffffff0d 1px, transparent 1.5px) 0 0 / 28px 28px,
+    var(--mesa);
+  touch-action: none;
+  cursor: grab;
+}
+.mesa.arrastra { cursor: grabbing; }
+.mundo { position: absolute; left: 0; top: 0; transform-origin: 0 0; will-change: transform; }
+.hilos, .nodos, .actos { position: absolute; inset: 0; pointer-events: none; }
+.hilos { width: 100%; height: 100%; overflow: visible; }
+
+/* -- una hoja: Courier 12 en una carta de 8,5 x 11 pulgadas (612 x 792) -- */
+.hoja {
+  position: absolute;
+  width: 612px;
+  height: 792px;
+  background: var(--papel);
+  color: var(--papel-tinta);
+  border-radius: 2px;
+  box-shadow: 0 1px 0 #0000000f, 0 14px 40px #00000073, 0 2px 6px #00000059;
+  font-family: var(--f-guion);
+  font-size: 12px;
+  line-height: 12px;
+  transition: box-shadow .2s;
+}
+.hoja.actual { box-shadow: 0 0 0 2px var(--oro), 0 14px 40px #00000073; }
+.hoja .num { position: absolute; top: 36px; right: 72px; }
+.hoja .rev-cab {
+  position: absolute;
+  top: 36px;
+  left: 108px;
+  color: var(--rev-azul);
+  font-size: 10px;
+  letter-spacing: .06em;
+}
+.texto { position: absolute; left: 108px; top: 72px; width: 432px; outline: none; caret-color: var(--oro); }
+.el { margin: 0; white-space: pre-wrap; position: relative; min-height: 12px; }
+.escena { margin-top: 24px; text-transform: uppercase; font-weight: 700; }
+.escena:first-child { margin-top: 0; }
+.escena::before, .escena::after { content: attr(data-n); position: absolute; font-weight: 700; }
+.escena::before { left: -54px; }
+.escena::after { left: 456px; }
+.accion { margin-top: 12px; }
+.personaje { margin-top: 12px; margin-left: 158px; text-transform: uppercase; }
+.parentesis { margin-left: 115px; width: 160px; }
+.dialogo { margin-left: 72px; width: 252px; }
+.transicion { margin-top: 12px; text-align: right; text-transform: uppercase; }
+.rev::after {
+  content: "*";
+  position: absolute;
+  top: 0;
+  left: var(--asterisco, 452px);
+  color: var(--rev-azul);
+  font-weight: 700;
+}
+.texto .el.vacio::before { content: attr(data-pista); color: #b8b2a3; position: absolute; text-transform: none; font-weight: 400; }
+
+/* -- los nodos: tarjetas en pantalla, del mismo tamano a cualquier zoom -- */
+.nodo {
+  position: absolute;
+  width: 184px;
+  transform: translate(-50%, -50%);
+  background: var(--mesa-2);
+  border: 1px solid var(--raya);
+  border-top: 3px solid var(--c);
+  border-radius: 10px;
+  padding: 9px 11px 10px;
+  pointer-events: auto;
+  cursor: pointer;
+  box-shadow: 0 8px 24px #00000066;
+  display: grid;
+  gap: 6px;
+  text-align: left;
+  font-family: var(--f-ui);
+}
+.nodo:hover { border-color: var(--c); }
+.nodo.actual { box-shadow: 0 0 0 2px var(--oro), 0 8px 24px #00000066; }
+.nodo .fila { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+.nodo .n { font-family: var(--f-dato); font-size: 11px; color: var(--c); font-variant-numeric: tabular-nums; }
+.nodo .cab { min-width: 0; flex: 1; font-family: var(--f-guion); font-weight: 700; font-size: 11.5px; letter-spacing: .02em; color: var(--tinta); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.nodo .que { font-size: 12px; color: var(--tenue); line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.nodo .quienes { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; }
+.chip { font-family: var(--f-dato); font-size: 10px; padding: 1px 6px; border-radius: 99px; background: var(--mesa-3); color: var(--tinta); border: 1px solid var(--raya); }
+.nodo .pag { margin-left: auto; font-family: var(--f-dato); font-size: 10px; color: var(--tenue); }
+.acto-et {
+  position: absolute;
+  transform: translateY(-50%);
+  font-family: var(--f-guion);
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: .3em;
+  color: var(--c);
+  white-space: nowrap;
+}
+.acto-et small { display: block; font-family: var(--f-ui); font-weight: 400; letter-spacing: 0; font-size: 11px; color: var(--tenue); margin-top: 2px; }
+
+/* -- el panel: escenas y personajes -- */
+.panel {
+  grid-area: panel;
+  background: var(--mesa-2);
+  border-left: 1px solid var(--raya);
+  overflow-y: auto;
+  padding: 14px 14px 20px;
+  display: grid;
+  gap: 18px;
+  align-content: start;
+}
+.panel h2 { margin: 0 0 8px; font-size: 11px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--tenue); }
+.lista { display: grid; gap: 2px; }
+.lista button {
+  display: grid;
+  grid-template-columns: 26px minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: baseline;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  padding: 6px 6px;
+}
+.lista button:hover { background: var(--mesa-3); }
+.lista button[aria-current="true"] { background: var(--oro-suave); }
+.lista .n { font-family: var(--f-dato); font-size: 11px; color: var(--c); font-variant-numeric: tabular-nums; }
+.lista .cab { font-family: var(--f-guion); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lista .pag { font-family: var(--f-dato); font-size: 10px; color: var(--tenue); }
+.personajes { display: grid; gap: 6px; }
+.personaje-fila { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: center; font-size: 13px; }
+.personaje-fila .barra-r { grid-column: 1 / -1; height: 4px; border-radius: 2px; background: var(--mesa-3); overflow: hidden; }
+.personaje-fila .barra-r i { display: block; height: 100%; background: var(--oro); }
+.personaje-fila span:last-of-type { font-family: var(--f-dato); font-size: 11px; color: var(--tenue); }
+.ayuda { display: grid; gap: 6px; font-size: 12.5px; color: var(--tenue); }
+.ayuda div { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+kbd { font-family: var(--f-dato); font-size: 11px; padding: 1px 6px; border-radius: 4px; background: var(--mesa-3); border: 1px solid var(--raya); border-bottom-width: 2px; color: var(--tinta); }
+.nota { font-size: 12px; color: var(--tenue); border-top: 1px solid var(--raya); padding-top: 12px; line-height: 1.45; }
+
+/* -- el pie: donde estas -- */
+.pie {
+  grid-area: pie;
+  display: flex;
+  gap: 18px;
+  flex-wrap: wrap;
+  align-items: center;
+  padding-block: 6px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  background: var(--mesa-2);
+  border-top: 1px solid var(--raya);
+  font-family: var(--f-dato);
+  font-size: 11.5px;
+  color: var(--tenue);
+  font-variant-numeric: tabular-nums;
+}
+.pie b { color: var(--tinta); font-weight: 500; }
+.pie .guardado { margin-left: auto; color: var(--oro); }
+
+@media (max-width: 900px) {
+  .app { grid-template-columns: minmax(0, 1fr); grid-template-areas: "barra" "mesa" "pie"; }
+  .panel {
+    position: fixed;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    width: min(300px, 86vw);
+    z-index: 5;
+    padding-top: calc(14px + env(safe-area-inset-top, 0px));
+    padding-right: max(14px, env(safe-area-inset-right, 0px));
+    box-shadow: -20px 0 40px #00000080;
+  }
+  .panel[data-cerrado="true"] { display: none; }
+  .solo-chico { display: inline-block; }
+  .elementos { order: 5; width: 100%; margin-left: 0; overflow-x: auto; }
+  .elementos button { flex: 1 0 auto; }
+}
+@media (max-width: 520px) {
+  .doc span { display: none; }
+  .pie span.min { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hoja { transition: none; }
+}
+</style>
+
+<div class="app">
+  <header class="barra">
+    <div class="marca" aria-label="ECCE">
+      <svg viewBox="0 0 32 32" aria-hidden="true">
+        <defs>
+          <linearGradient id="papel" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FBF8F1"/><stop offset="1" stop-color="#DDD6C6"/></linearGradient>
+          <linearGradient id="oro" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#F7D98A"/><stop offset="0.55" stop-color="#D8A657"/><stop offset="1" stop-color="#9C6A22"/></linearGradient>
+        </defs>
+        <rect x="5.5" y="4" width="18" height="25" rx="3" fill="#000" opacity="0.22"/>
+        <rect x="4.5" y="2.5" width="18" height="25" rx="3" fill="url(#papel)" stroke="#2A2F38" stroke-opacity="0.35" stroke-width="0.8"/>
+        <g stroke="#7A8494" stroke-width="1.3" fill="none"><line x1="8" y1="8.5" x2="18.5" y2="8.5"/><line x1="8" y1="12.5" x2="18.5" y2="12.5"/><line x1="8" y1="16.5" x2="16" y2="16.5"/><line x1="8" y1="20.5" x2="13" y2="20.5"/></g>
+        <g transform="translate(-1 1.5) rotate(38 22 16)">
+          <rect x="19.5" y="3" width="5" height="16.5" rx="1.6" fill="url(#oro)" stroke="#5A3A0E" stroke-width="0.6"/>
+          <rect x="19.5" y="6.2" width="5" height="1.6" fill="#6E4A16"/>
+          <path d="M19.8 19.5 L24.2 19.5 L22 25.5 Z" fill="#3B2A12"/>
+        </g>
+      </svg>
+      <b>ECCE</b>
+    </div>
+    <div class="doc">
+      <strong>EL LECTOR</strong>
+      <span>guion de cine · borrador 2 · revisión azul</span>
+    </div>
+    <div class="elementos" role="toolbar" aria-label="Elemento del guion" id="elementos"></div>
+    <div class="zoom">
+      <button type="button" id="b-hoja" title="Volver a la hoja (zoom de lectura)">Hoja</button>
+      <button type="button" class="ver" id="b-nodos" aria-pressed="false" title="Ver toda la historia como nodos">Nodos</button>
+      <button type="button" id="b-menos" aria-label="Alejar">−</button>
+      <output id="z-txt">100%</output>
+      <button type="button" id="b-mas" aria-label="Acercar">+</button>
+      <button type="button" class="solo-chico" id="b-panel" aria-expanded="false" aria-controls="panel">Escenas</button>
+    </div>
+  </header>
+
+  <main class="mesa" id="mesa" aria-label="La mesa: las hojas del guion">
+    <div class="mundo" id="mundo"></div>
+    <svg class="hilos" id="hilos" aria-hidden="true"></svg>
+    <div class="actos" id="actos" aria-hidden="true"></div>
+    <div class="nodos" id="nodos"></div>
+  </main>
+
+  <aside class="panel" id="panel" data-cerrado="true">
+    <section>
+      <h2>Escenas</h2>
+      <div class="lista" id="lista"></div>
+    </section>
+    <section>
+      <h2>Personajes</h2>
+      <div class="personajes" id="personajes"></div>
+    </section>
+    <section>
+      <h2>Manos</h2>
+      <div class="ayuda">
+        <div><kbd>Ctrl</kbd> + <kbd>rueda</kbd> aleja la mesa: las hojas se vuelven nodos</div>
+        <div><kbd>rueda</kbd> o arrastrar: moverse por la mesa</div>
+        <div>clic en un nodo: vuelve a su hoja</div>
+        <div><kbd>Tab</kbd> cambia el elemento (acción, personaje, transición…)</div>
+        <div><kbd>Enter</kbd> pasa al que toca: tras un personaje, su diálogo</div>
+      </div>
+    </section>
+    <p class="nota">Maqueta. El guion es de ejemplo. Lo que se escribe aquí no se guarda.</p>
+  </aside>
+
+  <footer class="pie" id="pie">
+    <span>Pág. <b id="p-pag">1</b> de <b id="p-total">8</b></span>
+    <span>Escena <b id="p-esc">1</b></span>
+    <span><b id="p-el">Acción</b></span>
+    <span class="min">~<b id="p-min">8</b> min de pantalla</span>
+    <span class="guardado">● sin cambios</span>
+  </footer>
+</div>
+
+<script>
+(() => {
+  // -- El guion de ejemplo. Una hoja por escena; tres actos en tres filas. --
+  const ESCENAS = [
+    { acto: 1, cab: "INT. PISO DE LUCÍA - NOCHE", que: "Lucía arranca su sistema. El cursor parpadea y no hace nada más.", b: [
+      ["accion", "Un piso pequeño en un quinto sin ascensor. Lo único encendido es un monitor, y en él, una línea blanca que parpadea."],
+      ["accion", "LUCÍA (34), sudadera de una universidad que no terminó, teclea sin mirar el teclado."],
+      ["personaje", "LUCÍA"],
+      ["parentesis", "(al monitor)"],
+      ["dialogo", "Venga. Una vez. Solo arranca una vez."],
+      ["accion", "Pulsa Enter. La pantalla se queda negra tres segundos. Luego, en letras grandes:"],
+      ["accion", "BMO-X."],
+      ["personaje", "LUCÍA"],
+      ["dialogo", "Hola a ti también."],
+      ["transicion", "CORTE A:"],
+    ] },
+    { acto: 1, cab: "INT. PISO DE LUCÍA - MÁS TARDE", que: "Un programa se cae y la máquina explica por qué. En castellano.", b: [
+      ["accion", "Tres latas vacías. En la pantalla, un recuadro rojo: un programa se ha caído."],
+      ["accion", "Debajo del volcado de registros, una línea que no estaba ayer:"],
+      ["accion", "\"lee 4 bytes de la memoria en [rax] con signo y lo deja en rax\"."],
+      ["personaje", "LUCÍA"],
+      ["parentesis", "(se ríe, sola)"],
+      ["dialogo", "Me lo has dicho como me lo diría mi padre."],
+      ["accion", "Copia la línea en un papel. La pega en la pared, junto a otras veinte."],
+    ] },
+    { acto: 1, cab: "EXT. AZOTEA - AMANECER", que: "Marcos le pregunta para qué sirve una máquina que habla. Ella no lo sabe aún.", b: [
+      ["accion", "La ciudad se despierta abajo. MARCOS (29), su hermano, trae dos cafés y el abrigo puesto."],
+      ["personaje", "MARCOS"],
+      ["dialogo", "¿Y para qué quieres que un ordenador te hable?"],
+      ["personaje", "LUCÍA"],
+      ["dialogo", "No me habla. Me cuenta lo que hace. Que es distinto."],
+      ["personaje", "MARCOS"],
+      ["dialogo", "¿Y lo que no hace?"],
+      ["accion", "Lucía no contesta. Mira el sol, que sale por donde siempre."],
+    ] },
+    { acto: 2, cab: "INT. CAFETERÍA DEL BARRIO - DÍA", que: "Marcos le trae un juego viejo de Windows: «a ver si tu máquina lo entiende».", b: [
+      ["accion", "Una barra de zinc, un televisor sin volumen. Marcos deja un pendrive sobre la mesa como quien deja una apuesta."],
+      ["personaje", "MARCOS"],
+      ["dialogo", "El juego de cuando éramos críos. En tu sistema no corre, ¿no?"],
+      ["personaje", "LUCÍA"],
+      ["dialogo", "Todavía no."],
+      ["personaje", "MARCOS"],
+      ["parentesis", "(sonríe)"],
+      ["dialogo", "Pues que te lo cuente."],
+    ] },
+    { acto: 2, cab: "INT. PISO DE LUCÍA - NOCHE", que: "La máquina lee el .exe: dice qué le pide a Windows, función a función.", b: [
+      ["accion", "El pendrive en el portátil. Lucía escribe una sola orden: dentro juego.exe."],
+      ["accion", "La pantalla se llena, línea a línea, como una carta:"],
+      ["accion", "\"llama a kernel32.dll!GetStdHandle (de Windows: en BMO-X la da PROTON-X)\"."],
+      ["personaje", "LUCÍA"],
+      ["parentesis", "(en voz baja)"],
+      ["dialogo", "Cuarenta y tres funciones. Me faltan seis."],
+      ["accion", "Las apunta en la pared, en otra columna, con otro color."],
+    ] },
+    { acto: 2, cab: "INT. PISO DE LUCÍA - MADRUGADA", rev: true, que: "Una instrucción sin frase. La máquina dice que no la sabe, en vez de inventarla.", b: [
+      ["accion", "Las cuatro de la mañana. Una línea distinta a todas:", true],
+      ["accion", "\"rdseed: (sin frase todavía)\".", true],
+      ["personaje", "LUCÍA"],
+      ["dialogo", "No la sabes.", true],
+      ["accion", "Lucía abre el código. Escribe despacio, como quien enseña una palabra a un niño:"],
+      ["accion", "\"pide al procesador un número AL AZAR, de su ruido eléctrico\".", true],
+      ["accion", "Vuelve a lanzar. La línea sale entera."],
+      ["transicion", "FUNDIDO A:"],
+    ] },
+    { acto: 3, cab: "EXT. CALLE - NOCHE - LLUVIA", que: "Lucía corre con el portátil bajo el abrigo a casa de Marcos.", b: [
+      ["accion", "Lluvia de la que no avisa. Lucía corre con el portátil bajo el abrigo, como quien lleva un pan recién hecho."],
+      ["accion", "Un semáforo en rojo. No espera."],
+      ["transicion", "CORTE A:"],
+    ] },
+    { acto: 3, cab: "INT. PISO DE MARCOS - AMANECER", que: "El juego arranca. La máquina no dice nada: ya no hace falta.", b: [
+      ["accion", "Marcos en pijama. Lucía, empapada, abre el portátil sobre la mesa de la cocina."],
+      ["accion", "Una pantalla de título de 1999. La música de siempre."],
+      ["personaje", "MARCOS"],
+      ["dialogo", "¿Y ahora qué te cuenta?"],
+      ["personaje", "LUCÍA"],
+      ["dialogo", "Nada. Ahora está jugando."],
+      ["transicion", "FUNDIDO A NEGRO."],
+    ] },
+  ];
+  const NOMBRES = { escena: "Escena", accion: "Acción", personaje: "Personaje", parentesis: "Paréntesis", dialogo: "Diálogo", transicion: "Transición" };
+  const PISTA = { escena: "INT. LUGAR - MOMENTO", accion: "Lo que se ve", personaje: "NOMBRE", parentesis: "(cómo lo dice)", dialogo: "Lo que dice", transicion: "CORTE A:" };
+  // Final Draft: Tab cambia el elemento; Enter pasa al que suele venir detrás.
+  const TAB = { accion: "personaje", personaje: "transicion", transicion: "escena", escena: "accion", dialogo: "parentesis", parentesis: "dialogo" };
+  const ENTER = { escena: "accion", accion: "accion", personaje: "dialogo", parentesis: "dialogo", dialogo: "accion", transicion: "escena" };
+  const ACTOS = [
+    { n: 1, nombre: "ACTO I", lema: "la máquina habla" },
+    { n: 2, nombre: "ACTO II", lema: "lo que no sabe" },
+    { n: 3, nombre: "ACTO III", lema: "ya no hace falta" },
+  ];
+  const W = 612, H = 792, HUECO_X = 620, HUECO_Y = 520;
+  const LECTURA_MAX = 1.3, Z_MIN = 0.1, Z_MAX = 2.4;
+
+  const $ = (id) => document.getElementById(id);
+  const mesa = $("mesa"), mundo = $("mundo"), hilos = $("hilos"), capaNodos = $("nodos"), capaActos = $("actos");
+  const colorActo = (a) => `var(--acto-${a})`;
+
+  // -- Posiciones: cada acto una fila, cada escena una columna --
+  const porActo = {};
+  ESCENAS.forEach((e, i) => {
+    const k = (porActo[e.acto] = (porActo[e.acto] || 0) + 1) - 1;
+    e.i = i;
+    e.x = k * (W + HUECO_X);
+    e.y = (e.acto - 1) * (H + HUECO_Y);
+  });
+
+  // -- Las hojas --
+  const hojas = ESCENAS.map((e, i) => {
+    const h = document.createElement("article");
+    h.className = "hoja";
+    h.style.left = e.x + "px";
+    h.style.top = e.y + "px";
+    h.setAttribute("aria-label", `Página ${i + 1}: ${e.cab}`);
+    if (i > 0) {
+      const num = document.createElement("div");
+      num.className = "num";
+      num.textContent = `${i + 1}.`;
+      h.appendChild(num);
+    }
+    if (e.rev) {
+      const r = document.createElement("div");
+      r.className = "rev-cab";
+      r.textContent = "REVISIÓN AZUL · 15/10";
+      h.appendChild(r);
+    }
+    const t = document.createElement("div");
+    t.className = "texto";
+    t.spellcheck = false;
+    t.appendChild(bloque("escena", e.cab, false, i + 1));
+    e.b.forEach(([tipo, txt, rev]) => t.appendChild(bloque(tipo, txt, rev)));
+    h.appendChild(t);
+    mundo.appendChild(h);
+    return h;
+  });
+
+  function bloque(tipo, txt, rev, n) {
+    const p = document.createElement("p");
+    p.className = "el " + tipo + (rev ? " rev" : "");
+    if (n) p.dataset.n = n;
+    p.textContent = txt;
+    marcaVacio(p);
+    return p;
+  }
+  function marcaVacio(p) {
+    const tipo = tipoDe(p);
+    p.dataset.pista = PISTA[tipo] || "";
+    p.classList.toggle("vacio", p.textContent.length === 0);
+  }
+  function tipoDe(p) {
+    return Object.keys(NOMBRES).find((k) => p.classList.contains(k)) || "accion";
+  }
+  // El asterisco de la revision va en el margen derecho de la HOJA, no del bloque.
+  function asteriscos() {
+    document.querySelectorAll(".rev").forEach((p) => {
+      p.style.setProperty("--asterisco", 452 - p.offsetLeft + "px");
+    });
+  }
+  asteriscos();
+
+  // -- Los botones de elemento --
+  const elementos = $("elementos");
+  Object.entries(NOMBRES).forEach(([k, v]) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.dataset.tipo = k;
+    b.textContent = v;
+    b.setAttribute("aria-pressed", "false");
+    b.addEventListener("mousedown", (ev) => ev.preventDefault());
+    b.addEventListener("click", () => {
+      const p = bloqueActual();
+      if (p) cambiaTipo(p, k);
+    });
+    elementos.appendChild(b);
+  });
+
+  // -- Los nodos, los hilos y los nombres de los actos --
+  const nodos = ESCENAS.map((e, i) => {
+    const n = document.createElement("button");
+    n.type = "button";
+    n.className = "nodo";
+    n.style.setProperty("--c", colorActo(e.acto));
+    const quienes = [...new Set(e.b.filter((x) => x[0] === "personaje").map((x) => x[1]))];
+    n.innerHTML = `<div class="fila"><span class="n">${String(i + 1).padStart(2, "0")}</span><span class="cab"></span></div>
+      <div class="que"></div>
+      <div class="quienes">${quienes.map((q) => `<span class="chip">${q}</span>`).join("")}<span class="pag">pág. ${i + 1}</span></div>`;
+    n.querySelector(".cab").textContent = e.cab;
+    n.querySelector(".que").textContent = e.que;
+    n.setAttribute("aria-label", `Escena ${i + 1}: ${e.cab}. Ir a su hoja`);
+    n.addEventListener("click", () => irAHoja(i));
+    capaNodos.appendChild(n);
+    return n;
+  });
+  const etiquetas = ACTOS.map((a) => {
+    const d = document.createElement("div");
+    d.className = "acto-et";
+    d.style.setProperty("--c", colorActo(a.n));
+    d.innerHTML = `${a.nombre}<small>${a.lema}</small>`;
+    capaActos.appendChild(d);
+    return d;
+  });
+
+  // -- El panel --
+  const lista = $("lista");
+  const filas = ESCENAS.map((e, i) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.style.setProperty("--c", colorActo(e.acto));
+    b.innerHTML = `<span class="n">${i + 1}</span><span class="cab"></span><span class="pag">p. ${i + 1}</span>`;
+    b.querySelector(".cab").textContent = e.cab;
+    b.addEventListener("click", () => { irAHoja(i); cierraPanel(); });
+    lista.appendChild(b);
+    return b;
+  });
+  function personajes() {
+    const cuenta = {};
+    document.querySelectorAll(".texto .personaje").forEach((p) => {
+      const nombre = p.textContent.trim().toUpperCase();
+      if (nombre) cuenta[nombre] = (cuenta[nombre] || 0) + 1;
+    });
+    const max = Math.max(1, ...Object.values(cuenta));
+    $("personajes").innerHTML = Object.entries(cuenta)
+      .sort((a, b) => b[1] - a[1])
+      .map(([n, c]) => `<div class="personaje-fila"><span>${n}</span><span>${c} ${c === 1 ? "réplica" : "réplicas"}</span><div class="barra-r"><i style="width:${(c / max) * 100}%"></i></div></div>`)
+      .join("");
+  }
+  personajes();
+  $("p-total").textContent = ESCENAS.length;
+  $("p-min").textContent = ESCENAS.length;
+
+  // -- La camara: pantalla = mundo * z + t --
+  let z = 1, tx = 0, ty = 0, animando = 0;
+  const sm = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+  function zLectura() {
+    const r = mesa.getBoundingClientRect();
+    return Math.min(LECTURA_MAX, (r.width - 48) / W);
+  }
+  function camaraHoja(i) {
+    const r = mesa.getBoundingClientRect();
+    const zl = zLectura();
+    const e = ESCENAS[i];
+    return { z: zl, tx: r.width / 2 - (e.x + W / 2) * zl, ty: 28 - e.y * zl };
+  }
+  function camaraTodo() {
+    const r = mesa.getBoundingClientRect();
+    const x1 = Math.max(...ESCENAS.map((e) => e.x + W)), y1 = Math.max(...ESCENAS.map((e) => e.y + H));
+    const margen = 150;
+    const zz = Math.max(0.12, Math.min((r.width - margen * 2) / x1, (r.height - margen) / y1, 0.22));
+    return { z: zz, tx: (r.width - x1 * zz) / 2 + 40, ty: (r.height - y1 * zz) / 2 };
+  }
+  function ve(c, suave = true) {
+    cancelAnimationFrame(animando);
+    const quieto = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (!suave || quieto) { z = c.z; tx = c.tx; ty = c.ty; pinta(); return; }
+    const z0 = z, x0 = tx, y0 = ty, t0 = performance.now(), dur = 520;
+    const paso = (ahora) => {
+      const k = Math.min(1, (ahora - t0) / dur), e = 1 - Math.pow(1 - k, 3);
+      // El zoom se interpola en escala logaritmica: se siente parejo.
+      z = Math.exp(Math.log(z0) + (Math.log(c.z) - Math.log(z0)) * e);
+      tx = x0 + (c.tx - x0) * e;
+      ty = y0 + (c.ty - y0) * e;
+      pinta();
+      if (k < 1) animando = requestAnimationFrame(paso);
+    };
+    animando = requestAnimationFrame(paso);
+  }
+  function irAHoja(i) { ve(camaraHoja(i)); }
+  function zoomEn(px, py, nz) {
+    nz = Math.min(Z_MAX, Math.max(Z_MIN, nz));
+    tx = px - (px - tx) * (nz / z);
+    ty = py - (py - ty) * (nz / z);
+    z = nz;
+    pinta();
+  }
+
+  let actual = 0;
+  function pinta() {
+    mundo.style.transform = `translate(${tx}px, ${ty}px) scale(${z})`;
+    // Las hojas se apagan y los nodos se encienden por debajo de ~25%.
+    const vHoja = sm(0.12, 0.26, z);
+    const vNodo = 1 - sm(0.16, 0.3, z);
+    mundo.style.opacity = 0.08 + 0.92 * vHoja;
+    capaNodos.style.opacity = vNodo;
+    capaNodos.style.visibility = vNodo < 0.02 ? "hidden" : "visible";
+    capaActos.style.opacity = vNodo;
+    hilos.style.opacity = Math.max(vNodo, 0.55 * (1 - sm(0.3, 0.5, z)));
+    const escribible = z >= 0.45;
+    hojas.forEach((h) => h.querySelector(".texto").setAttribute("contenteditable", escribible ? "true" : "false"));
+    mesa.classList.toggle("lejos", !escribible);
+    $("b-nodos").setAttribute("aria-pressed", String(vNodo > 0.5));
+    $("z-txt").textContent = Math.round(z * 100) + "%";
+
+    // Nodos e hilos, en pantalla.
+    const centro = (e) => [(e.x + W / 2) * z + tx, (e.y + H / 2) * z + ty];
+    nodos.forEach((n, i) => {
+      const [x, y] = centro(ESCENAS[i]);
+      n.style.left = x + "px";
+      n.style.top = y + "px";
+      // Muy lejos, la tarjeta se encoge un poco para no pisar a su vecina.
+      n.style.transform = `translate(-50%, -50%) scale(${Math.min(1, Math.max(0.75, z / 0.18))})`;
+      n.tabIndex = vNodo > 0.5 ? 0 : -1;
+    });
+    let d = "";
+    for (let i = 0; i + 1 < ESCENAS.length; i++) {
+      const [x1, y1] = centro(ESCENAS[i]), [x2, y2] = centro(ESCENAS[i + 1]);
+      if (ESCENAS[i].acto === ESCENAS[i + 1].acto) {
+        const dx = (x2 - x1) / 2;
+        d += `M${x1} ${y1} C${x1 + dx} ${y1} ${x2 - dx} ${y2} ${x2} ${y2} `;
+      } else {
+        const dy = (y2 - y1) / 2;
+        d += `M${x1} ${y1} C${x1} ${y1 + dy} ${x2} ${y2 - dy} ${x2} ${y2} `;
+      }
+    }
+    hilos.innerHTML = `<path d="${d}" fill="none" stroke="var(--oro)" stroke-opacity="0.55" stroke-width="1.6" stroke-dasharray="1 0"/>` +
+      ESCENAS.map((e) => { const [x, y] = centro(e); return `<circle cx="${x}" cy="${y}" r="3" fill="var(--oro)" fill-opacity="0.7"/>`; }).join("");
+    ACTOS.forEach((a, k) => {
+      const y = ((a.n - 1) * (H + HUECO_Y) + H / 2) * z + ty;
+      const x = tx - 18;
+      etiquetas[k].style.top = y + "px";
+      etiquetas[k].style.left = Math.max(12, x - 150) + "px";
+    });
+
+    // Donde estas: la hoja mas cerca del centro de la mesa.
+    const r = mesa.getBoundingClientRect();
+    const cx = (r.width / 2 - tx) / z, cy = (r.height / 3 - ty) / z;
+    let mejor = 0, dist = Infinity;
+    ESCENAS.forEach((e, i) => {
+      const dd = Math.hypot(e.x + W / 2 - cx, e.y + H / 2 - cy);
+      if (dd < dist) { dist = dd; mejor = i; }
+    });
+    if (mejor !== actual || !hojas[actual].classList.contains("actual")) {
+      actual = mejor;
+      hojas.forEach((h, i) => h.classList.toggle("actual", i === actual && vHoja > 0.5 && z < 0.9));
+      nodos.forEach((n, i) => n.classList.toggle("actual", i === actual));
+      filas.forEach((f, i) => f.setAttribute("aria-current", String(i === actual)));
+      $("p-pag").textContent = actual + 1;
+      $("p-esc").textContent = actual + 1;
+    }
+  }
+
+  // -- Ctrl + rueda: zoom alrededor del puntero. Rueda sola: moverse. --
+  mesa.addEventListener("wheel", (ev) => {
+    ev.preventDefault();
+    cancelAnimationFrame(animando);
+    const r = mesa.getBoundingClientRect();
+    if (ev.ctrlKey || ev.metaKey) {
+      zoomEn(ev.clientX - r.left, ev.clientY - r.top, z * Math.exp(-ev.deltaY * 0.0022));
+    } else {
+      tx -= ev.shiftKey ? ev.deltaY : ev.deltaX;
+      ty -= ev.shiftKey ? 0 : ev.deltaY;
+      pinta();
+    }
+  }, { passive: false });
+
+  // -- Arrastrar para moverse (y pellizcar en una pantalla tactil) --
+  const dedos = new Map();
+  let arrastre = null, pellizco = null;
+  mesa.addEventListener("pointerdown", (ev) => {
+    const enTexto = ev.target.closest(".texto[contenteditable='true']");
+    if (enTexto || ev.target.closest(".nodo")) return;
+    dedos.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
+    mesa.setPointerCapture(ev.pointerId);
+    cancelAnimationFrame(animando);
+    if (dedos.size === 1) {
+      arrastre = { x: ev.clientX, y: ev.clientY, tx, ty };
+      mesa.classList.add("arrastra");
+    } else if (dedos.size === 2) {
+      const [a, b] = [...dedos.values()];
+      pellizco = { d: Math.hypot(a.x - b.x, a.y - b.y), z };
+      arrastre = null;
+    }
+  });
+  mesa.addEventListener("pointermove", (ev) => {
+    if (!dedos.has(ev.pointerId)) return;
+    dedos.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
+    if (pellizco && dedos.size === 2) {
+      const [a, b] = [...dedos.values()];
+      const r = mesa.getBoundingClientRect();
+      zoomEn((a.x + b.x) / 2 - r.left, (a.y + b.y) / 2 - r.top, pellizco.z * (Math.hypot(a.x - b.x, a.y - b.y) / pellizco.d));
+    } else if (arrastre) {
+      tx = arrastre.tx + ev.clientX - arrastre.x;
+      ty = arrastre.ty + ev.clientY - arrastre.y;
+      pinta();
+    }
+  });
+  const suelta = (ev) => {
+    dedos.delete(ev.pointerId);
+    if (dedos.size < 2) pellizco = null;
+    if (dedos.size === 0) { arrastre = null; mesa.classList.remove("arrastra"); }
+  };
+  mesa.addEventListener("pointerup", suelta);
+  mesa.addEventListener("pointercancel", suelta);
+
+  // -- Los botones de la barra --
+  $("b-hoja").addEventListener("click", () => irAHoja(actual));
+  $("b-nodos").addEventListener("click", () => ve(z > 0.3 ? camaraTodo() : camaraHoja(actual)));
+  const zoomCentro = (k) => { const r = mesa.getBoundingClientRect(); cancelAnimationFrame(animando); zoomEn(r.width / 2, r.height / 2, z * k); };
+  $("b-mas").addEventListener("click", () => zoomCentro(1.25));
+  $("b-menos").addEventListener("click", () => zoomCentro(0.8));
+  const panel = $("panel"), bPanel = $("b-panel");
+  bPanel.addEventListener("click", () => {
+    const abierto = panel.dataset.cerrado !== "true";
+    panel.dataset.cerrado = String(abierto);
+    bPanel.setAttribute("aria-expanded", String(!abierto));
+  });
+  function cierraPanel() { panel.dataset.cerrado = "true"; bPanel.setAttribute("aria-expanded", "false"); }
+
+  // -- Escribir como en Final Draft: Tab cambia el elemento, Enter sigue --
+  function bloqueActual() {
+    const s = window.getSelection();
+    if (!s || !s.anchorNode) return null;
+    const n = s.anchorNode.nodeType === 1 ? s.anchorNode : s.anchorNode.parentElement;
+    return n && n.closest ? n.closest(".texto .el") : null;
+  }
+  function cambiaTipo(p, tipo) {
+    Object.keys(NOMBRES).forEach((k) => p.classList.remove(k));
+    p.classList.add(tipo);
+    if (tipo === "escena") {
+      const hoja = p.closest(".hoja");
+      p.dataset.n = hojas.indexOf(hoja) + 1;
+    } else {
+      delete p.dataset.n;
+    }
+    marcaVacio(p);
+    marcaElemento();
+    asteriscos();
+    personajes();
+    tocado();
+  }
+  function marcaElemento() {
+    const p = bloqueActual();
+    const tipo = p ? tipoDe(p) : null;
+    elementos.querySelectorAll("button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.tipo === tipo)));
+    if (tipo) $("p-el").textContent = NOMBRES[tipo];
+  }
+  function tocado() {
+    const g = document.querySelector(".guardado");
+    g.textContent = "● cambios de maqueta (no se guardan)";
+  }
+  document.addEventListener("selectionchange", marcaElemento);
+  mundo.addEventListener("keydown", (ev) => {
+    const p = bloqueActual();
+    if (!p) return;
+    if (ev.key === "Tab") {
+      ev.preventDefault();
+      cambiaTipo(p, TAB[tipoDe(p)]);
+    } else if (ev.key === "Enter") {
+      ev.preventDefault();
+      const s = window.getSelection();
+      const r = s.getRangeAt(0);
+      r.deleteContents();
+      const resto = document.createRange();
+      resto.setStart(r.endContainer, r.endOffset);
+      resto.setEndAfter(p.lastChild || p);
+      const despues = resto.extractContents().textContent;
+      const nuevo = bloque(ENTER[tipoDe(p)], despues, false);
+      if (nuevo.classList.contains("escena")) nuevo.dataset.n = hojas.indexOf(p.closest(".hoja")) + 1;
+      p.after(nuevo);
+      marcaVacio(p);
+      const c = document.createRange();
+      c.setStart(nuevo.firstChild || nuevo, 0);
+      c.collapse(true);
+      s.removeAllRanges();
+      s.addRange(c);
+      marcaElemento();
+      asteriscos();
+      tocado();
+    }
+  });
+  mundo.addEventListener("input", (ev) => {
+    const p = bloqueActual();
+    if (p) marcaVacio(p);
+    if (p && p.classList.contains("personaje")) personajes();
+    tocado();
+  });
+
+  window.addEventListener("resize", () => pinta());
+  // Al entrar, SIEMPRE la hoja: la primera, a tamano de lectura.
+  ve(camaraHoja(0), false);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { asteriscos(); pinta(); });
+})();
+</script>

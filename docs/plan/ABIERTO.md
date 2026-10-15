@@ -8,7 +8,7 @@
 
 ```text
    863 casillas ABIERTAS en 79 planes
-   649 hechas
+   650 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -144,6 +144,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] S3 -- EL MEZCLADOR: N fuentes, una salida
 - ... y 14 mas
 
+## [`PLAN_ECCE.md`](PLAN_ECCE.md) -- 16 abiertas, 1 hechas
+
+*PLAN ECCE -- escribir en BMO-X: guiones al nivel de Final Draft, y todo lo demas*
+
+- [ ] PL0 -- las decisiones de la seccion 7, contestadas por el propietario (D1 si: ECCE).
+- [ ] PL2 -- Fountain, leer y escribir. Como se sabe: los ejemplos
+- [ ] PL3 -- la ventana en TITAN++: (la ventana de NOTAS ya esta, 15-10:
+- ... y 13 mas
+
 ## [`PLAN_LA_BANDEJA.md`](PLAN_LA_BANDEJA.md) -- 16 abiertas, 4 hechas
 
 *PLAN LA BANDEJA -- F2 donde viven TODOS los archivos, F12 el volumen, F1 todo nodos*
@@ -161,15 +170,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] M1 WAV dias despues del tubo
 - [ ] M2 MP3 (= A5) media tarde de comprobar la coma flotante antes
 - ... y 13 mas
-
-## [`PLAN_ECCE.md`](PLAN_ECCE.md) -- 15 abiertas, 1 hechas
-
-*PLAN ECCE -- escribir en BMO-X: guiones al nivel de Final Draft, y todo lo demas*
-
-- [ ] PL0 -- las decisiones de la seccion 7, contestadas por el propietario (D1 si: ECCE).
-- [ ] PL2 -- Fountain, leer y escribir. Como se sabe: los ejemplos
-- [ ] PL3 -- la ventana en TITAN++: (la ventana de NOTAS ya esta, 15-10:
-- ... y 12 mas
 
 ## [`PLAN_EL_TROQUEL.md`](PLAN_EL_TROQUEL.md) -- 15 abiertas, 14 hechas
 
@@ -261,15 +261,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] Q3 -- el INDICE POR HASH: es L9 de docs/plan/PLAN_LISTAS_Y_MAPAS.md
 - ... y 8 mas
 
-## [`PLAN_PROTON_X.md`](PLAN_PROTON_X.md) -- 11 abiertas, 9 hechas
-
-*PLAN PROTON-X -- un .exe de Windows en BMO-X, SOLO x86-64, y medido*
-
-- [ ] P3 -- el cubo D3D12. Partido en tres el 27-09, porque el .exe
-- [ ] P3b -- el cubo con sus sombreadores. Root signature, PSO,
-- [ ] P3c -- el BMOX-12 de EPICX-FRAMEWORK, sin tocar. [VISTO EN EL
-- ... y 8 mas
-
 ## [`PLAN_EL_LIBRETO.md`](PLAN_EL_LIBRETO.md) -- 10 abiertas, 1 hechas
 
 *PLAN EL LIBRETO -- Cyberpunk 2077 entra por VERRANO*
@@ -304,6 +295,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] 7 ficheros dorados como oraculo -> toolchain/tools/maqueta/pruebas/calc.dorado
 - [ ] E2 lo que mas falta ahora, por usos: display:grid (117),
 - [ ] E3 las variables que las maquetas definen POR CAJA (--c en un
+- ... y 7 mas
+
+## [`PLAN_PROTON_X.md`](PLAN_PROTON_X.md) -- 10 abiertas, 10 hechas
+
+*PLAN PROTON-X -- un .exe de Windows en BMO-X, SOLO x86-64, y medido*
+
+- [ ] P3 -- el cubo D3D12. Partido en tres el 27-09, porque el .exe
+- [ ] P3b -- el cubo con sus sombreadores. Root signature, PSO,
+- [ ] P3c -- el BMOX-12 de EPICX-FRAMEWORK, sin tocar. [VISTO EN EL
 - ... y 7 mas
 
 ## [`PLAN_AYNI.md`](PLAN_AYNI.md) -- 9 abiertas, 2 hechas

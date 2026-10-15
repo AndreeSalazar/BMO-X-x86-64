@@ -166,6 +166,28 @@ guardadas como ESTRATOS (como la `.obra` de
       por color con su `*`.
 - [ ] **PL9 -- la estructura:** fichas de escena, esquema y tablero de
       beats, que mueven el texto de verdad (mover una ficha mueve la escena).
+- [ ] **PL9b -- LA MESA: la hoja de cerca, la historia de lejos** (el
+      propietario, 15-10: *"la hoja cuando entro es zoom siempre pero si
+      retrocedo con control + rueda del raton [...] las hojas se ven de lejos
+      como nodos"*). La maqueta: `docs/arte/maqueta_ecce.html`. Es un ZOOM
+      SEMANTICO: un solo lienzo con las hojas puestas por acto (una fila por
+      acto, una columna por escena); al entrar, siempre la hoja a medida de
+      lectura; Ctrl + rueda aleja alrededor del puntero y, por debajo de ~25 %,
+      cada hoja se vuelve un NODO (su numero, su cabecera, de que va y quien
+      sale) unido a la siguiente; un clic en un nodo vuelve a su hoja. Tab y
+      Enter como Final Draft (Tab cambia el elemento; tras un personaje, su
+      dialogo). Lo que pide abajo, dicho:
+      - **Ctrl hoy es del escritorio** (`keys/app.rs`): a la app no le llega.
+        O el escritorio deja pasar Ctrl + RUEDA a la app enfocada (solo la
+        rueda: Ctrl + tecla sigue siendo suyo), o la mesa usa Alt + rueda,
+        como el deshacer usa Alt + Z. Lo decide el propietario.
+      - La RUEDA del raton tiene que llegar a una app de TITAN++ (hoy llegan
+        teclas y el puntero).
+      - Pintar texto ESCALADO: hoy la letra de TITAN++ es de una medida; de
+        lejos basta con rayas grises (lo que hace la maqueta por debajo de
+        ~45 %), de cerca hace falta la letra a varias medidas (VERRANO).
+      **Como se sabe:** en el Ryzen, un guion de 8 escenas se aleja y se
+      acerca a 60 fps, y el clic en un nodo deja el cursor en esa escena.
 - [ ] **PL10 -- los informes y el desglose:** escenas, personajes, lugares
       y etiquetas de produccion.
 - [ ] **PL11 -- los otros modos:** serie, teatro y comic sobre el mismo motor.

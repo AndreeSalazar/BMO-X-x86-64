@@ -2114,11 +2114,27 @@ castellano (`castellano::explica`).
       -- sea codigo de BMO-X o del `.exe` del juego mapeado por PROTON-X --
       y la dice (`instr` y `dice`, B2 y B2c de la hoja 6b de EL_FOCO).
       Falta: verlo con un juego que caiga, en el Ryzen.
-- [ ] **LX1 -- `dentro JUEGO.EXE`.** La radiografia de un PE: cabecera,
+- [x] **LX1 -- `dentro JUEGO.EXE`.** La radiografia de un PE: cabecera,
       secciones, la tabla de IMPORTACIONES (que DLL y que funciones pide: lo
       que PROTON-X tiene que dar) y la lente desde la entrada, en
       castellano. **Como se sabe:** el BMOX-12 de EPICX (P3c) y un juego
       chico dicen las mismas importaciones que `dumpbin /imports`.
+      **15-10, HECHO EN EL ANFITRION:** `bmo_radiografia::pe` lee el `.exe`
+      SIN monton (el director no tiene) con el mismo veredicto y textos que
+      el cargador de PROTON-X, y el banco lo compara con el: las secciones y
+      cada importacion (DLL, funcion u ordinal, ranura de la IAT) de los
+      `.exe` de MSVC de `proton-x/prueba/` salen IGUAL. La lente lee desde la
+      entrada y desde cada funcion de `.pdata`: en el BMOX-12, 54.225
+      instrucciones, 203.061 de los 258.048 bytes de `.text`, y lo que usa
+      de la CPU (`xgetbv`, la pregunta del CRT por AVX, y BMI1). Cada
+      instruccion de todos los `.exe` de prueba (mas de 100.000) tiene su
+      frase en castellano (`castellano.rs` aprendio lo de MSVC: `bt`,
+      `cmpxchg`, `xadd`, el SSE por partes, `rdrand`...). En el escritorio:
+      `dentro juego.exe`, o clic derecho > "ver por dentro" sobre un `.exe`
+      o `.dll`: lo que pide a Windows, DLL a DLL, y las primeras
+      instrucciones con NOMBRE cuando llaman a Windows ("llama a
+      kernel32.dll!GetStdHandle"). Falta: verlo en el Ryzen (hoja 6b, fila
+      LX1) y, con LX2, decir cuales de esas funciones aun no da PROTON-X.
 - [ ] **LX2 -- el registro de PROTON-X con el binario al lado.** Cuando
       PROTON-X apunta "esta funcion no la tengo" o un lote raro, la linea
       lleva ademas las instrucciones del JUEGO alrededor del `call` que la
