@@ -341,6 +341,22 @@ const SUELTAS: &[Fila] = &[
     f(D, 0x11, P6, N, "movupd", XM),
     f(D, 0x11, P3, N, "movss", XM),
     f(D, 0x11, P2, N, "movsd", XM),
+    // ** 0F 12..17 y 0F 50 (15-10): las mezclas y medias cargas que LLVM
+    // emite para `estudio` (x86_64-bmo-ring3, con SSE). Sin ellas bex-link
+    // paraba el build. Los nombres son los de la forma con memoria; con dos
+    // registros 0F 12 es `movhlps` y 0F 16 es `movlhps`, mismo largo.
+    f(D, 0x12, P0, N, "movlps", X),
+    f(D, 0x12, P6, N, "movlpd", X),
+    f(D, 0x13, P0, N, "movlps", XM),
+    f(D, 0x13, P6, N, "movlpd", XM),
+    f(D, 0x14, P0, N, "unpcklps", X),
+    f(D, 0x14, P6, N, "unpcklpd", X),
+    f(D, 0x15, P0, N, "unpckhps", X),
+    f(D, 0x15, P6, N, "unpckhpd", X),
+    f(D, 0x16, P0, N, "movhps", X),
+    f(D, 0x16, P6, N, "movhpd", X),
+    f(D, 0x17, P0, N, "movhps", XM),
+    f(D, 0x17, P6, N, "movhpd", XM),
     f(D, 0x28, P0, N, "movaps", X),
     f(D, 0x28, P6, N, "movapd", X),
     f(D, 0x29, P0, N, "movaps", XM),
@@ -355,6 +371,8 @@ const SUELTAS: &[Fila] = &[
     f(D, 0x2E, P6, N, "ucomisd", X),
     f(D, 0x2F, P0, N, "comiss", X),
     f(D, 0x2F, P6, N, "comisd", X),
+    f(D, 0x50, P0, N, "movmskps", RX),
+    f(D, 0x50, P6, N, "movmskpd", RX),
     f(D, 0x51, P0, N, "sqrtps", X),
     f(D, 0x51, P3, N, "sqrtss", X),
     f(D, 0x51, P2, N, "sqrtsd", X),
@@ -401,6 +419,12 @@ const SUELTAS: &[Fila] = &[
     f(D, 0x6F, P6, N, "movdqa", X),
     f(D, 0x6F, P3, N, "movdqu", X),
     f(D, 0x70, P6, N, "pshufd", XI8),
+    // ** Los desplazamientos por un inmediato (15-10, `estudio`): el
+    // registro va en r/m y el campo reg es la extension. Se leen con XI8, que
+    // tiene el mismo largo (ModRM + imm8); el texto nombra un xmm de mas.
+    f(D, 0x72, P6, E(2), "psrld", XI8),
+    f(D, 0x72, P6, E(4), "psrad", XI8),
+    f(D, 0x72, P6, E(6), "pslld", XI8),
     f(D, 0x7E, P6, N, "movd", RmX),
     f(D, 0x7E, P3, N, "movq", X),
     f(D, 0x7F, P6, N, "movdqa", XM),
@@ -408,8 +432,24 @@ const SUELTAS: &[Fila] = &[
     f(D, 0xC2, P0, N, "cmpps", XI8),
     f(D, 0xC2, P3, N, "cmpss", XI8),
     f(D, 0xC2, P2, N, "cmpsd", XI8),
+    // `pinsrw xmm, r32/m16, imm8`: mismo largo que XI8 (15-10, `estudio`).
+    f(D, 0xC4, P6, N, "pinsrw", XI8),
     f(D, 0xC6, P0, N, "shufps", XI8),
     f(D, 0xD6, P6, N, "movq", XM),
+    // ** Lo entero de SSE2 que LLVM saca de las cuentas de `estudio` y de
+    // VERRANO en la CPU (15-10): todas `xmm, xmm/m`.
+    f(D, 0x62, P6, N, "punpckldq", X),
+    f(D, 0x66, P6, N, "pcmpgtd", X),
+    f(D, 0x6C, P6, N, "punpcklqdq", X),
+    f(D, 0x6D, P6, N, "punpckhqdq", X),
+    f(D, 0x76, P6, N, "pcmpeqd", X),
+    f(D, 0xD4, P6, N, "paddq", X),
+    f(D, 0xDB, P6, N, "pand", X),
+    f(D, 0xDF, P6, N, "pandn", X),
+    f(D, 0xEB, P6, N, "por", X),
+    f(D, 0xF4, P6, N, "pmuludq", X),
+    f(D, 0xFA, P6, N, "psubd", X),
+    f(D, 0xFB, P6, N, "psubq", X),
     f(D, 0xEF, P6, N, "pxor", X),
     f(D, 0xFE, P6, N, "paddd", X),
     // -- VEX: lo que emite la tabla de intrinsecos (AVX2) ---------------
