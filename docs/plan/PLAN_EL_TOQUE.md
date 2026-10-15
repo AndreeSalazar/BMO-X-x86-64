@@ -72,6 +72,19 @@ R21).
       codigo, ceros y laminas. **Como se sabe:** el informe lo dice para
       `d.bex`, ECCE, TINTA y MUNDO; si lo tocado es casi todo, este plan
       vale poco y se dice.
+      **15-10, HECHO EN EL ANFITRION** (compila el kernel y el director, el
+      contrato y la pila en verde; el kernel no corre en el anfitrion, asi
+      que la cuenta en si solo la da el Ryzen): el carril `ring0/mm/toque/`
+      nace con su verde, `verde.rs`, que SOLO LEE las tablas -- por region
+      (imagen y pila, memoria pedida, lo demas; la pantalla no cuenta) las
+      paginas que estan, las del bit A (tocadas) y las del bit D (escritas).
+      Se cuenta al morir, en el enterrador, justo antes de desmontar (el
+      unico momento en que nadie mas camina ese espacio), y en vivo SOLO del
+      que pregunta (su espacio es el que corre): un tercero vivo no se
+      camina. `INFO_PROG_TOQUE` (0xDA) lo lleva al director, y `save` pinta
+      una tabla nueva en el capitulo 5, "lo que TOCO de lo que tiene", con
+      la columna que importa: SIN TOCAR. Falta: verla en el Ryzen (hoja 6b
+      de EL_FOCO, fila EL0).
 - [ ] **EL1 -- los CEROS al tocarlos.** La region de ceros de un `.bex` (el
       `.bss`: 5 MB de los 10 de `d.bex`) se mapea NO PRESENTE y cada pagina
       nace a cero en su primer fallo. Es lo mas seguro: no hay nada que

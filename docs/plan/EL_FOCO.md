@@ -1158,6 +1158,12 @@ pieza entera en la 0b, y su fila de la tabla de estado pasa a `VISTO dd-mm`.
           (V4)                         banco`): IGUAL en el 0, el 30 y   que NO al abrir, o DISTINTO
                                        el 60, con el sobre que ya no es  en algun fotograma: se
                                        SASS a mano                       vuelve al de antes con git
+   EL0    lo que TOCA cada programa    abrir ECCE, TINTA y MUNDO,       la tabla no sale, o todo    (sin probar)
+          (PLAN_EL_TOQUE.md)           usarlos un poco y CERRARLOS;      a cero, o un fallo al
+                                       `save`: capitulo 5, la tabla      cerrar una app (el
+                                       "lo que TOCO de lo que tiene"     enterrador cuenta antes
+                                       (d.bex en vivo, las otras al      de desmontar)
+                                       cerrarse) -- y la foto
    PL1    ECCE, el bloc de notas        su icono (o `run apps/ecce.bex`): no abre, las letras no    (sin probar)
           (PLAN_ECCE.md)               escribir con tildes y ene, Enter,  salen, Alt+Z no deshace,
                                        flechas, Alt+Z y Alt+Y; Esc;      o al volver a abrir la
