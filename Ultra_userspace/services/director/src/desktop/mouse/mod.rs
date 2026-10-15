@@ -114,13 +114,14 @@ pub(crate) fn on_pointer(
     pos: bmo::Punto,
     wheel: i32,
     ctrl: bool,
+    alt: bool,
 ) {
     // ** MIENTRAS SE RECORTA, el raton es del recorte: ni ventanas ni apps.
     if crate::desktop::captura::recortando() {
         let antes = dsk.tick.button_before;
         crate::desktop::captura::raton(dsk, p, pos.x, pos.y, pos.botones & IZQUIERDO != 0, antes);
     } else {
-        repartir(dsk, p, pos, wheel, ctrl);
+        repartir(dsk, p, pos, wheel, ctrl, alt);
     }
     dsk.tick.button_before = pos.botones & IZQUIERDO != 0;
     // El flanco del derecho, aparte: sin el, mantenerlo pulsado reabriria el
@@ -145,6 +146,7 @@ fn repartir(
     pos: bmo::Punto,
     wheel: i32,
     ctrl: bool,
+    alt: bool,
 ) {
 
     // -- Raton --
@@ -304,6 +306,14 @@ fn repartir(
                 let how_many = scene::data::fuente::hijos() as usize;
                 dsk.win.data.move_sel(-wheel, how_many);
                 scene::data::paint(&p, &dsk.win.data);
+            }
+            // ** LA RUEDA SOBRE UNA APP (15-10, PL9b de PLAN_ECCE): a la app
+            // que esta DEBAJO del puntero, como un clic -- se gira donde se
+            // mira --, sola o con Alt (Alt + rueda: la mesa de ECCE se aleja).
+            // Ctrl + rueda NO: Ctrl es del escritorio, como toda tecla con
+            // Ctrl (`keys/app.rs`, `del_escritorio`).
+            Some(Ventana::App(_)) if !ctrl => {
+                crate::desktop::keys::app::rueda(dsk, pos.x, pos.y, wheel, alt);
             }
             _ => {}
         }

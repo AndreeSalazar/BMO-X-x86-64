@@ -205,6 +205,20 @@ pub(crate) fn raton(
     }
 }
 
+/// **UNA VUELTA DE RUEDA sobre una app** (15-10): a la que se ve en el punto,
+/// como un clic (no al foco). Las muescas con signo en el byte bajo (se
+/// recortan a -128..127) y Alt en el bit 16. `true` si entro.
+pub(crate) fn rueda(dsk: &mut Desktop, px: u32, py: u32, muescas: i32, alt: bool) -> bool {
+    let Some(i) = crate::desktop::paint::app_en(dsk, px, py) else {
+        return false;
+    };
+    let ev = bmo::SUP_EV_RUEDA | HAY | (muescas.clamp(-128, 127) as i8 as u8 as u64) | if alt { bmo::SUP_RUEDA_ALT } else { 0 };
+    match dsk.table.get_mut(i) {
+        Some(s) => s.publicar(ev),
+        None => false,
+    }
+}
+
 /// **Vaciar la cola cruda y dejar en su buzon lo que sea de la app con foco.**
 ///
 /// ** SE DRENA SIEMPRE, tenga foco una app o no, y esa es la unica parte de
