@@ -458,6 +458,12 @@ try {
         # cruza diez segundos. En el metal: `run titan/ventana.bex` desde
         # Ejecutar (desde el shell no hay escritorio que componga: lo dice).
         @{ src = 'toolchain\lang\titan\ejemplos\nivel11\ventana\src\main.titan'; out = 'ventana.bex'; dir = 'titan' },
+        # ** LA LAMINA (A4 de EL_FOCO, 15-10): el nivel 15 de TITAN++ al disco,
+        # para su prueba del Ryzen (hoja 6b, fila A4). `suelta.bex` pide VEINTE
+        # laminas con un tope de OCHO a la vez: si no se soltaran, la novena
+        # diria NO. Debe escribir `20 laminas de 4096 bytes, una por vuelta: 190`.
+        @{ src = 'toolchain\lang\titan\ejemplos\nivel15\pide_y_suelta.titan'; out = 'suelta.bex'; dir = 'titan' },
+        @{ src = 'toolchain\lang\titan\ejemplos\nivel15\dos_laminas.titan'; out = 'laminas.bex'; dir = 'titan' },
         # ** NAVEGAR en TITAN++ (F4 y F5 de EL_FOCO, 2026-10-10): la cara de la
         # LAMINA -- la que ofrece el antenista, o la del disco -- en su
         # ventana, con los mismos pixeles que el de INTI, que se fue. Va a

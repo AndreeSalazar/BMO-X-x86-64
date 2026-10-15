@@ -127,6 +127,28 @@ palabra mas al final de cada lectura (`trato::vigente`), y ya esta en BVER.
 Cada escalon entra con su prueba en el anfitrion; lo que pide el metal lo
 dice, y el metal se junta en UNA corrida por escalon.
 
+**El estado, de un vistazo (15-10).** Una pieza se TACHA entera cuando esta
+hecha en el anfitrion Y vista en el Ryzen (o no necesita el Ryzen). Las que
+solo esperan al Ryzen llevan dos subcasillas: `en el anfitrion` (tachada) y
+`en el Ryzen` (abierta); lo que hay que mirar, y donde se anota que funciono,
+esta en la HOJA 6b.
+
+```text
+   pieza  que                                  anfitrion   Ryzen
+   A1     el censo de laminas con juez         HECHO       no hace falta
+   A2     el trato uno                         HECHO       no hace falta
+   A3     las clases al trato                  HECHO       no hace falta
+   A4     TITAN++ pide RAM solo con laminas    HECHO       falta (6b: A4)
+   A5     la lente lee x86                     HECHO       no hace falta
+   A6     el .bex dice que instrucciones usa   HECHO       no hace falta
+   B1     verificar una vez y apartarse        HECHO       falta (6b: B1)
+   B2     la autopsia dice la instruccion      HECHO       falta (6b: B2)
+   B3     el cubo en SU ventana, por la 3060   HECHO       falta (6b: B3)
+   B4     el perfil, UNA fuente; LLVM obedece  HECHO       falta (6b: B4)
+   C1     la lamina PRESTADA a la 3060         --          --
+   C2..D2                                      --          --
+```
+
 **Escalon 1 -- solo el anfitrion (facil)**
 
 - [x] **A1 -- el CENSO de laminas con juez.** La tabla de 0a, en el codigo:
@@ -233,6 +255,9 @@ dice, y el metal se junta en UNA corrida por escalon.
         hablen); hasta entonces una lamina es del programa que la pidio, y
         tampoco se devuelve de una fn. **Falta el metal:** un `.bex` del
         nivel 15 corriendo en el Ryzen.
+  - [ ] **en el Ryzen** -- un `.bex` del nivel 15 de TITAN++ corriendo (hoja 6b, fila A4). Cuando se vea bien: se anota en la hoja
+        y se tachan esta casilla y la de A4 (A4a y A4b ya lo estan).
+
 - [x] **A5 -- LB3a: la LENTE lee x86** (`PLAN_LA_LENTE_BINARIA.md`, LB3): un
       decodificador del SUBCONJUNTO que emiten INTI y TITAN++ (prefijos,
       opcode, ModRM, SIB, desplazamiento), crate puro. Lo que no esta en la
@@ -331,6 +356,10 @@ dice, y el metal se junta en UNA corrida por escalon.
       `test al, imm8`, que su tabla no tiene) y lee del 3 al 70 % de su
       codigo: si la tabla crece, que vuelvan a pasar por `--recorre` ANTES
       de llegar al Ryzen.
+  - [x] **en el anfitrion** -- HECHO el 14-10, corregido el 14-10 con B3 (lo de arriba).
+  - [ ] **en el Ryzen** -- `run` dos veces del mismo `.bex`: la segunda, `lente: ya leido` (hoja 6b, fila B1). Cuando se vea bien: se anota en la hoja
+        y se tachan esta casilla y la de B1.
+
 - [ ] **B2 -- LB3b: la autopsia de Ring 3 dice la instruccion.** El capitulo
       7 de `save`: los bytes en RIP decodificados y explicados, de que
       programa y que funcion. **Como se sabe:** un programa que falla a
@@ -354,6 +383,10 @@ dice, y el metal se junta en UNA corrida por escalon.
       `rip`, sin base. "De que funcion" sigue siendo el `+desplazamiento` del
       renglon `rip` con `--map`, como antes. **Lo que falta:** un `.bex` que
       falle a proposito en el Ryzen y leer `instr` en su `datos/fallos.txt`.
+  - [x] **en el anfitrion** -- HECHO el 14-10 (lo de arriba).
+  - [ ] **en el Ryzen** -- un `.bex` que falle a proposito y su renglon `instr` en `datos/fallos.txt` (hoja 6b, fila B2). Cuando se vea bien: se anota en la hoja
+        y se tachan esta casilla y la de B2.
+
 - [ ] **B3 -- Q0a1..Q0a4: el cubo de TITAN++ en SU ventana, por la 3060**
       (seccion 5): VERRANO dibuja la lamina dentro de la ventana, y el
       DIRECTOR no nombra la 3060 (1c). **Como se sabe:** lo de la seccion 5.
@@ -371,6 +404,10 @@ dice, y el metal se junta en UNA corrida por escalon.
       titan/cubogira.bex` desde Ejecutar -- gira EN SU VENTANA, se mueve, se
       tapa --, la consola dice `[Q0a3] el juez ... 640x360: la 3060 da lo
       MISMO`, y con el cubo girando `gpu verrano banco inti enram` IGUAL.
+  - [x] **en el anfitrion** -- HECHO el 10-10 y el 12-10, revisado el 14-10 (lo de arriba).
+  - [ ] **en el Ryzen** -- el cubo de TITAN++ en SU ventana por la 3060 (hoja 6b, fila B3; y las filas Q0a2..Q0a4 de la 6). Cuando se vea bien: se anota en la hoja
+        y se tachan esta casilla y la de B3.
+
 - [ ] **B4 -- LB10 + LB12: el perfil del Ryzen, UNA fuente, comprobado al
       arrancar.** Lo leen el emisor, la puerta y la lente; si la CPU no es la
       del perfil, lo generico de x86-64 y se dice.
@@ -416,6 +453,9 @@ dice, y el metal se junta en UNA corrida por escalon.
       - **Lo que NO esta:** la otra mitad de LB10 -- "cual cuesta menos en
         el Zen 3" (latencias) para que el emisor elija -- no existe todavia;
         hoy el perfil decide QUE se puede, no CUAL conviene.
+  - [x] **en el anfitrion** -- HECHO el 14/15-10 (lo de arriba).
+  - [ ] **en el Ryzen** -- la linea del arranque `cpu: es la CPU del perfil` (hoja 6b, fila B4). Cuando se vea bien: se anota en la hoja
+        y se tachan esta casilla y la de B4.
 
 **Escalon 3 -- Ring 0 y el metal (dificil)**
 
@@ -922,6 +962,37 @@ y 4b). Lo que la regla 1b pide despues, leido en el DIRECTOR:
 - [ ] **Q0c -- las gpu fn al correr en la 3060** = LB8 de
       PLAN_LAS_LIBRERIAS (la puerta de computo, Ring 0, con el propietario;
       pide G0).
+
+# 6b. LA HOJA DE LA ESCALERA (15-10): donde se anota que FUNCIONO
+
+Una fila por pieza de la escalera (seccion 0b) que espera al Ryzen. Se prueba
+en la misma sesion que la seccion 6, con un `save` al final. En `resultado`
+se escribe `FUNCIONO dd-mm` (y la foto o el `SALIDA.TXT` que lo dice) o `NO:`
+y lo que salio; con un FUNCIONO se tachan la subcasilla `en el Ryzen` y la
+pieza entera en la 0b, y su fila de la tabla de estado pasa a `VISTO dd-mm`.
+
+```text
+   pieza  QUE SE MIRA                  COMO                              SI SALE MAL                 resultado
+   A4     la lamina del nivel 15       `run titan/suelta.bex`: escribe   la novena lamina dice NO    (sin probar)
+          (TITAN++ pide RAM por la     `20 laminas de 4096 bytes, una    (no se soltaban), o un
+          puerta y la suelta)          por vuelta: 190`; y `run          fallo de pagina
+                                       titan/laminas.bex`: `100 50 3 7`,
+                                       `200`, `497`, `350`
+   B1     la lente al admitir, UNA     `run titan/cubogira.bex` dos      un `.bex` bueno rechazado;  (sin probar)
+          vez                          veces; en la bitacora: la 1a      o la 2a vez la lente lee
+                                       `lente: DEMOSTRADO`, la 2a        otra vez (sin `ya leido`)
+                                       `lente: ya leido`
+   B2     la autopsia dice la          un `.bex` que lea de un puntero   sin renglon `instr`, o una  (sin probar)
+          instruccion                  malo; en `datos/fallos.txt` el    instruccion que no es la
+                                       renglon `instr`: la instruccion   del `rip`
+                                       y su registro con su valor
+   B3     el cubo en SU ventana        las filas Q0a2..Q0a4 de la        lo de esas filas            (sin probar)
+                                       seccion 6
+   B4     el perfil al arrancar        en la bitacora del arranque:      `NO es la del perfil` en    (sin probar)
+                                       `cpu: es la CPU del perfil` y     el Ryzen, o una DECIDIDA
+                                       `extensiones decididas que el     que el silicio no tiene
+                                       silicio tiene` = 11
+```
 
 # 6. QUE FALTA COMPROBAR EN EL METAL (10-10)
 

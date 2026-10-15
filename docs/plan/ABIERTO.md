@@ -7,8 +7,8 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   806 casillas ABIERTAS en 75 planes
-   629 hechas
+   811 casillas ABIERTAS en 75 planes
+   633 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -99,6 +99,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] A5 -- cada prestamo a la 3060 dice quien lo devuelve
 - ... y 22 mas
 
+## [`EL_FOCO.md`](EL_FOCO.md) -- 22 abiertas, 19 hechas
+
+*EL FOCO -- una cosa a la vez, hasta el final (10-10; el orden nuevo, 14-10)*
+
+- [ ] A4 -- TITAN++ pide RAM SOLO con laminas. director.lamina deja de
+- [ ] en el Ryzen -- un .bex del nivel 15 de TITAN++ corriendo (hoja 6b, fila A4). Cuando se vea bien:
+- [ ] B1 -- LB7 + LB8: verificar una vez y apartarse. Al admitir un
+- ... y 19 mas
+
 ## [`PLAN_FASE.md`](PLAN_FASE.md) -- 19 abiertas, 3 hechas
 
 *PLAN FASE -- el escritorio que se TRANSFORMA*
@@ -116,15 +125,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] E3 -- el compositor al compas de la pantalla
 - [ ] M0 -- la IOMMU (AMD-Vi) encendida: el NEUTRO pasa de censo a frontera
 - ... y 15 mas
-
-## [`EL_FOCO.md`](EL_FOCO.md) -- 17 abiertas, 15 hechas
-
-*EL FOCO -- una cosa a la vez, hasta el final (10-10; el orden nuevo, 14-10)*
-
-- [ ] A4 -- TITAN++ pide RAM SOLO con laminas. director.lamina deja de
-- [ ] B1 -- LB7 + LB8: verificar una vez y apartarse. Al admitir un
-- [ ] B2 -- LB3b: la autopsia de Ring 3 dice la instruccion. El capitulo
-- ... y 14 mas
 
 ## [`PLAN_AUTOCURACION.md`](PLAN_AUTOCURACION.md) -- 17 abiertas, 0 hechas
 
