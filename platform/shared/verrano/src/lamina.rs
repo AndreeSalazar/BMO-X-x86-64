@@ -34,7 +34,15 @@
 //!             Un escritor que la respeta lo dice con el bit 2 de la palabra
 //!             11 (`ESTADO_VUELTA`): solo entonces el escritorio presta la
 //!             ranura sin copiarla; si no, la copia como siempre
-//!    13..16   ceros
+//!    13       DUERME (C2, 15-10): 1 mientras el escritorio DUERME esperando
+//!             una secuencia nueva -- la escribe el escritorio --. Un escritor
+//!             con TIMBRE (bit 3 de la palabra 11, `ESTADO_TIMBRE`) la mira
+//!             DESPUES de publicar y, si es 1, lo despierta con el futex
+//!             COMPARTIDO en la palabra 4 (la secuencia). Sin timbre, el
+//!             escritorio mira cada milisegundo, como antes
+//!    14, 15   el TSC de la ultima publicacion (C2): lo escribe la app
+//!             justo ANTES de la secuencia; 0 = no lo dice. El banco mide
+//!             con el de publicado a pagado (la valla)
 //!    +64      ranura 0: `capacidad` x `Vertex` (32 bytes cada uno)
 //!    +64+C    ranura 1: lo mismo
 //! ```
@@ -129,9 +137,20 @@ pub const ESTADO_DESCARTE: u32 = 2;
 pub const ESTADO_VUELTA: u32 = 4;
 /// La palabra de VUELTA (C1): `k + 1` si la ranura `k` esta en vuelo.
 pub const CAMPO_VUELTA: usize = 12;
+/// Bit 3 de [`CAMPO_ESTADO`] (C2): el escritor TOCA EL TIMBRE -- despues de
+/// publicar mira [`CAMPO_DUERME`] y, si alguien duerme, lo despierta con el
+/// futex compartido en [`CAMPO_SECUENCIA`] --. Solo entonces el escritorio
+/// se atreve a dormir en el sello en vez de mirar cada milisegundo.
+pub const ESTADO_TIMBRE: u32 = 8;
+/// DUERME (C2): 1 mientras el escritorio espera dormido una secuencia nueva.
+pub const CAMPO_DUERME: usize = 13;
+/// El TSC de la ultima publicacion (C2): dos palabras, la baja primero
+/// (byte 56: alineado a 8, el emisor lo escribe de una vez).
+pub const CAMPO_PUBLICADA: usize = 14;
 
 const PALABRAS_VERTICE: usize = VERTEX_BYTES / 4;
 const _: () = assert!(CAMPO_SELLO + 2 <= CABECERA / 4 && CAMPO_VUELTA < CABECERA / 4 && CAMPO_VUELTA > CAMPO_ESTADO);
+const _: () = assert!(CAMPO_DUERME == CAMPO_VUELTA + 1 && CAMPO_PUBLICADA == CAMPO_DUERME + 1 && CAMPO_PUBLICADA + 2 <= CABECERA / 4 && (4 * CAMPO_PUBLICADA) % 8 == 0);
 // Sin mover un byte (A2): las palabras de BVER son las de antes del trato.
 const _: () = assert!(CAMPO_MAGIA == 0 && CAMPO_VERSION == 1 && CAMPO_CABECERA == 2 && CAMPO_CAPACIDAD == trato::PALABRAS_COMUNES);
 
@@ -228,7 +247,9 @@ impl<'a> Lamina<'a> {
 
     /// **Como se dibuja** (la app, V2): con profundidad, y que caras fuera.
     pub fn poner_estado(&self, depth: bool, cull: Cull) {
-        let e = if depth { ESTADO_PROFUNDIDAD } else { 0 } | if cull == Cull::Back { ESTADO_DESCARTE } else { 0 } | ESTADO_VUELTA;
+        // El timbre (C2) no es de como se dibuja: se queda como estaba.
+        let timbre = self.w[CAMPO_ESTADO].load(Ordering::Relaxed) & ESTADO_TIMBRE;
+        let e = if depth { ESTADO_PROFUNDIDAD } else { 0 } | if cull == Cull::Back { ESTADO_DESCARTE } else { 0 } | ESTADO_VUELTA | timbre;
         self.w[CAMPO_ESTADO].store(e, Ordering::Release);
     }
 
@@ -253,6 +274,14 @@ impl<'a> Lamina<'a> {
     /// **Publicar, y por que no** (C1): si la ranura que toca esta en vuelo,
     /// [`Publicacion::Ocupada`] sin tocar un byte.
     pub fn publica(&self, fotograma: u32, v: &[Vertex]) -> Publicacion {
+        self.publica_con_hora(fotograma, v, 0)
+    }
+
+    /// [`Lamina::publica`], diciendo CUANDO (C2): `tsc` es el reloj de la
+    /// CPU de quien publica (en BMO-X, `bmo::ciclos()`), y el banco mide con
+    /// el de publicado a pagado. Esta crate no lee el reloj: no tiene
+    /// `unsafe`. 0 = no lo dice.
+    pub fn publica_con_hora(&self, fotograma: u32, v: &[Vertex], tsc: u64) -> Publicacion {
         if v.len() > self.capacidad || v.len() % 3 != 0 {
             return Publicacion::NoCabe;
         }
@@ -274,9 +303,66 @@ impl<'a> Lamina<'a> {
         self.w[CAMPO_FOTOGRAMA + k].store(fotograma, Ordering::Relaxed);
         // PAR otra vez: la ranura esta entera.
         trato::acabar(self.w, CAMPO_SELLO + k, sello);
+        // C2: cuando se publico, para el banco (antes que la secuencia).
+        let t = tsc;
+        self.w[CAMPO_PUBLICADA].store(t as u32, Ordering::Relaxed);
+        self.w[CAMPO_PUBLICADA + 1].store((t >> 32) as u32, Ordering::Relaxed);
         // La publicacion: todo lo de arriba se ve antes que este numero.
         trato::publicar(self.w, CAMPO_SECUENCIA, s);
         Publicacion::Hecha
+    }
+
+    /// ** C2 -- EL TIMBRE, del lado de la app. Quien toca el timbre lo dice
+    /// UNA vez (al crear) y, despues de cada [`Lamina::publica`] hecha,
+    /// pregunta [`Lamina::hay_quien_duerme`]: si si, despierta con el futex
+    /// COMPARTIDO en [`Lamina::palabra_secuencia`] (en BMO-X,
+    /// `bmo::futex::despertar_compartido`). Esta crate no llama al kernel:
+    /// lo hace quien la usa.
+    pub fn con_timbre(&self) {
+        self.w[CAMPO_ESTADO].fetch_or(ESTADO_TIMBRE, Ordering::Release);
+    }
+
+    /// Si el escritor dice que toca el timbre (C2): solo entonces el
+    /// escritorio duerme en el sello.
+    pub fn tiene_timbre(&self) -> bool {
+        self.w[CAMPO_ESTADO].load(Ordering::Acquire) & ESTADO_TIMBRE != 0
+    }
+
+    /// **Hay quien duerme** (la app, DESPUES de publicar). La valla va entre
+    /// la secuencia (ya escrita) y esta mirada, y el escritorio pone la suya
+    /// entre DUERME y su mirada a la secuencia ([`Lamina::me_duermo`]): o la
+    /// app ve el 1 y despierta, o el escritorio ve la secuencia nueva y no
+    /// duerme. Las dos cosas a la vez no pueden faltar (Dekker otra vez).
+    pub fn hay_quien_duerme(&self) -> bool {
+        core::sync::atomic::fence(Ordering::SeqCst);
+        self.w[CAMPO_DUERME].load(Ordering::Relaxed) != 0
+    }
+
+    /// La palabra en la que se duerme y se despierta: la SECUENCIA.
+    pub fn palabra_secuencia(&self) -> &AtomicU32 {
+        &self.w[CAMPO_SECUENCIA]
+    }
+
+    /// **Me duermo** (el escritorio, C2): DUERME = 1, la valla, y la
+    /// secuencia que hay AHORA. Si es la ya vista, a dormir en el futex con
+    /// ella como `visto` (el kernel la vuelve a mirar bajo su cerrojo); si
+    /// no, hay fotograma y no se duerme. Despues, [`Lamina::despierto`].
+    pub fn me_duermo(&self) -> u32 {
+        self.w[CAMPO_DUERME].store(1, Ordering::Relaxed);
+        core::sync::atomic::fence(Ordering::SeqCst);
+        self.secuencia()
+    }
+
+    /// Ya no duerme: la app deja de llamar al kernel para despertarlo.
+    pub fn despierto(&self) {
+        self.w[CAMPO_DUERME].store(0, Ordering::Relaxed);
+    }
+
+    /// **El TSC de la ultima publicacion** (C2): 0 si la app no lo dice.
+    /// Puede ser de la siguiente a la leida si la app publico entre medias:
+    /// es una medida, no un sello.
+    pub fn publicada_tsc(&self) -> u64 {
+        self.w[CAMPO_PUBLICADA].load(Ordering::Relaxed) as u64 | (self.w[CAMPO_PUBLICADA + 1].load(Ordering::Relaxed) as u64) << 32
     }
 
     /// Si su escritor respeta la vuelta (C1): solo entonces se puede
@@ -565,6 +651,95 @@ mod pruebas {
         l.soltar();
         assert_eq!(l.publica(3, &marca(3, 6)), Publicacion::Hecha, "soltada, se escribe");
         assert_eq!(l.reservar().map(|r| r.fotograma), Some(3));
+    }
+
+    /// ** C2: EL TIMBRE no pierde un despertar. Un "kernel" de mentira con
+    /// un cerrojo y una condicion hace lo que `wait_current_checked`: mira la
+    /// palabra BAJO el cerrojo antes de dormir. El escritorio duerme con un
+    /// plazo largo (1 s); un despertar perdido seria un plazo cumplido. 3000
+    /// fotogramas, ninguno; y el escritor que NO toca el timbre (el sabotaje)
+    /// deja al escritorio dormido hasta el plazo: la prueba muerde.
+    #[test]
+    fn the_bell_never_loses_a_wakeup() {
+        use std::sync::{Condvar, Mutex};
+        use std::time::Duration;
+        struct Kernel {
+            m: Mutex<()>,
+            c: Condvar,
+        }
+        fn corre(toca: bool, fotogramas: u32) -> (u32, u32) {
+            let b: Arc<Vec<AtomicU32>> = Arc::new(bloque(3));
+            let k = Arc::new(Kernel { m: Mutex::new(()), c: Condvar::new() });
+            Lamina::crear(&b, 3).unwrap().con_timbre();
+            let (b2, k2) = (b.clone(), k.clone());
+            let app = std::thread::spawn(move || {
+                let l = Lamina::abrir(&b2).unwrap();
+                for f in 1..=fotogramas {
+                    while l.publica(f, &marca(f, 3)) != Publicacion::Hecha {}
+                    if toca && l.hay_quien_duerme() {
+                        let _g = k2.m.lock().unwrap();
+                        k2.c.notify_all();
+                    }
+                    if f % 64 == 0 {
+                        std::thread::yield_now();
+                    }
+                    // El saboteador va despacio: el escritorio llega a dormirse.
+                    if !toca {
+                        std::thread::sleep(Duration::from_millis(5));
+                    }
+                }
+            });
+            let l = Lamina::abrir(&b).unwrap();
+            assert!(l.tiene_timbre());
+            let (mut visto, mut plazos) = (0u32, 0u32);
+            while visto < fotogramas {
+                let s = l.me_duermo();
+                if s == visto {
+                    let g = k.m.lock().unwrap();
+                    // Bajo el cerrojo, otra vez: lo que hace el kernel.
+                    if l.secuencia() == visto {
+                        let (_g, r) = k.c.wait_timeout(g, Duration::from_millis(if toca { 1000 } else { 20 })).unwrap();
+                        // Desperto el PLAZO, no el timbre.
+                        if r.timed_out() {
+                            plazos += 1;
+                            if !toca && plazos > 2 {
+                                l.despierto();
+                                break;
+                            }
+                        }
+                    }
+                }
+                l.despierto();
+                visto = l.secuencia();
+            }
+            app.join().unwrap();
+            (visto, plazos)
+        }
+        let (visto, plazos) = corre(true, 3000);
+        assert_eq!((visto, plazos), (3000, 0), "con timbre, ningun despertar perdido");
+        let (_, plazos) = corre(false, 5);
+        assert!(plazos > 0, "sin timbre el escritorio se queda dormido: la prueba muerde");
+    }
+
+    /// La publicacion dice cuando fue, y el estado de dibujo no borra el timbre.
+    #[test]
+    fn the_publication_says_when_and_drawing_state_keeps_the_bell() {
+        let b = bloque(3);
+        let l = Lamina::crear(&b, 3).unwrap();
+        assert_eq!(l.publicada_tsc(), 0);
+        assert!(!l.tiene_timbre(), "una lamina nueva no lo promete");
+        l.con_timbre();
+        l.poner_estado(true, Cull::Back);
+        assert!(l.tiene_timbre() && l.respeta_vuelta());
+        assert!(l.publicar(1, &marca(1, 3)));
+        assert_eq!(l.publicada_tsc(), 0, "sin hora, no la dice");
+        assert_eq!(l.publica_con_hora(2, &marca(2, 3), 0x1_2345_6789_ABCD), Publicacion::Hecha);
+        assert_eq!(l.publicada_tsc(), 0x1_2345_6789_ABCD);
+        assert!(!l.hay_quien_duerme());
+        assert_eq!(l.me_duermo(), 2);
+        assert!(l.hay_quien_duerme());
+        l.despierto();
+        assert!(!l.hay_quien_duerme());
     }
 
     /// Una lamina de un escritor que NO respeta la vuelta (las de antes del

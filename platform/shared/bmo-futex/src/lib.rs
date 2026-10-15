@@ -45,6 +45,16 @@ pub const TECHO_RING3: u64 = 0x0000_8000_0000_0000;
 /// memoria, 0x0B el VBLANK, y las chicas de la red y el latido).
 pub const MARCA: u64 = 0xFE00_0000_0000_0000;
 
+/// ** C2 (S3 de PLAN_VERRANO, 15-10): la marca de las llaves COMPARTIDAS
+/// -- las de una palabra que dos procesos ven, cada uno en SU direccion
+/// (una lamina) --. Distinta de [`MARCA`]: una privada y una compartida no
+/// se despiertan nunca la una a la otra.
+pub const MARCA_COMPARTIDA: u64 = 0xFD00_0000_0000_0000;
+
+/// El techo de lo fisico que cabe en una llave (52 bits: lo que x86-64
+/// direcciona).
+pub const TECHO_FISICO: u64 = 1 << 52;
+
 /// Sin plazo: `ms` de [`empaquetar`] que dice "para siempre".
 pub const SIEMPRE: u32 = u32::MAX;
 
@@ -61,6 +71,25 @@ pub fn llave(pid: u32, dir: u64) -> Result<u64, NoFutex> {
         return Err(NoFutex::Desalineada);
     }
     Ok(MARCA | ((pid as u64 & 0xFF) << 47) | (dir >> 2))
+}
+
+/// **La llave COMPARTIDA de la palabra en `fisica`.** Un futex privado
+/// ([`llave`]) lleva el proceso, y dos procesos que comparten RAM la ven en
+/// direcciones DISTINTAS: no se encontrarian nunca. Lo que los dos tienen en
+/// comun es la FISICA de la palabra, y esa es la llave. Como en Linux (un
+/// futex sin `FUTEX_PRIVATE_FLAG` va por la pagina, no por la direccion).
+///
+/// ** Quien puede despertar: solo quien tiene la pagina MAPEADA (el kernel
+/// traduce por la tabla de quien llama). Despertar de mas no rompe nada --
+/// cada uno vuelve a mirar su palabra --, asi que no hace falta mas cerco.
+pub fn llave_compartida(fisica: u64) -> Result<u64, NoFutex> {
+    if fisica == 0 || fisica >= TECHO_FISICO {
+        return Err(NoFutex::NoEsRing3);
+    }
+    if fisica % 4 != 0 {
+        return Err(NoFutex::Desalineada);
+    }
+    Ok(MARCA_COMPARTIDA | (fisica >> 2))
 }
 
 /// La puerta lleva dos numeros: el segundo de `esperar` es lo visto (32
@@ -103,6 +132,23 @@ mod pruebas {
         for k in [0x7E4E_A000_0000_0001u64, 0xD15C_0000_0000_0001, 0x4D45_4D00_0000_0000, 0x0B1A_0000_0000_0001, 0x52_4544, 0x1A71D0] {
             assert_ne!(k >> 56, 0xFE, "las otras llaves del kernel no llevan la marca");
         }
+    }
+
+    /// ** C2: la compartida va por la FISICA -- la misma para los dos
+    /// procesos, cada uno con su direccion -- y no choca con la privada.
+    #[test]
+    fn la_compartida_va_por_la_fisica_y_no_cruza_con_la_privada() {
+        let a = llave_compartida(0x1_2345_6780).unwrap();
+        assert_eq!(a >> 56, 0xFD, "su marca");
+        assert_eq!(a, llave_compartida(0x1_2345_6780).unwrap(), "la misma palabra, la misma llave, sea quien sea");
+        assert_ne!(a, llave_compartida(0x1_2345_6784).unwrap(), "otra palabra");
+        assert_eq!(llave_compartida(TECHO_FISICO - 4).map(|k| k >> 56), Ok(0xFD), "la ultima fisica no pisa la marca");
+        for pid in [0, 1, 7, 255] {
+            assert_ne!(llave(pid, 0x1_2345_6780).unwrap(), a, "una privada nunca es una compartida");
+        }
+        assert_eq!(llave_compartida(0), Err(NoFutex::NoEsRing3));
+        assert_eq!(llave_compartida(TECHO_FISICO), Err(NoFutex::NoEsRing3));
+        assert_eq!(llave_compartida(0x1002), Err(NoFutex::Desalineada));
     }
 
     #[test]

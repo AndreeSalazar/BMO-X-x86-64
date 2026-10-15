@@ -366,7 +366,20 @@ fn banco(dsk: &mut Desktop, p: &bmo::Pantalla, mut aparato: destino::Aparato, op
                     if bmo::ciclos() > limite {
                         break;
                     }
-                    bmo::wait(0, 0, 1_000_000);
+                    // ** C2 (S3 de PLAN_VERRANO, 15-10): si la app TOCA EL
+                    // TIMBRE, se duerme en el SELLO -- el futex compartido en
+                    // su secuencia -- y la despierta su publicacion, no el
+                    // reloj. Si no lo toca (una app de antes), cada 1 ms.
+                    if l.tiene_timbre() {
+                        let s = l.me_duermo();
+                        if s == de_inti.secuencia {
+                            de_inti.dormidas += 1;
+                            let _ = bmo::futex::esperar_compartido(l.palabra_secuencia(), s, SIESTA_MS);
+                        }
+                        l.despierto();
+                    } else {
+                        bmo::wait(0, 0, 1_000_000);
+                    }
                 }
                 if bmo::ciclos() > limite {
                     de_inti.callada = true;
@@ -381,8 +394,13 @@ fn banco(dsk: &mut Desktop, p: &bmo::Pantalla, mut aparato: destino::Aparato, op
         let desde = bmo::ciclos();
         match aparato.draw(&frame, &mut Image { pixels: gpu, width: w, height: h , depth: None }) {
             Ok(st) => {
-                let ciclos = bmo::ciclos() - desde;
+                let ahora = bmo::ciclos();
+                let ciclos = ahora - desde;
                 dentro += ciclos;
+                // C2: de publicado (el TSC que la app apunto) a dibujado.
+                if let Some(t) = lamina.as_ref().map(|l| l.publicada_tsc()).filter(|&t| t != 0 && t <= ahora) {
+                    de_inti.latencia(ahora - t);
+                }
                 cuentas.apuntar(ciclos, &st);
                 if let Some(t) = tablero.as_mut() {
                     t.apuntar(ciclos, &st);
@@ -396,6 +414,13 @@ fn banco(dsk: &mut Desktop, p: &bmo::Pantalla, mut aparato: destino::Aparato, op
     // ** VERRANO ENTIENDE A INTI: el ultimo fotograma que la app publico se
     // compara, vertice a vertice y bit a bit, con el del juez de la CPU.
     let mut juicio_inti = Texto::nuevo();
+    let mut sello = Texto::nuevo();
+    if let Some(l) = lamina.as_ref() {
+        de_inti.el_sello(l.tiene_timbre(), hz, &mut sello);
+        if de_inti.latencias > 0 {
+            super::super::datos::anotar(b"gpu verrano banco inti latencia", de_inti.latencia_suma * 10_000_000 / hz / de_inti.latencias as u64, b"decimas de us");
+        }
+    }
     if lamina.is_some() {
         de_inti.juzgar(w, h, &mut juicio_inti);
     }
@@ -468,6 +493,11 @@ fn banco(dsk: &mut Desktop, p: &bmo::Pantalla, mut aparato: destino::Aparato, op
         g.text(gobierno.s());
         g.byte(b'\n');
     }
+    if !sello.s().is_empty() {
+        g.text(b"           ");
+        g.text(sello.s());
+        g.byte(b'\n');
+    }
     if !juicio_inti.s().is_empty() {
         g.with_ink(if de_inti.igual { INK_GOOD } else { INK_ERR });
         g.text(b"           ");
@@ -529,6 +559,11 @@ fn banco(dsk: &mut Desktop, p: &bmo::Pantalla, mut aparato: destino::Aparato, op
     After::Settle
 }
 
+/// C2: lo mas que se duerme en el sello sin que la app publique. Es solo un
+/// suelo: la publicacion despierta antes, y el banco acaba a los 2 s de
+/// silencio igual que antes.
+const SIESTA_MS: u32 = 100;
+
 /// ** Lo que VERRANO recibio de la app por la lamina, y su juicio.
 struct DeInti {
     /// El ultimo fotograma entero: la lamina se copia AQUI, una vez por
@@ -548,15 +583,44 @@ struct DeInti {
     tid: u32,
     /// La app dejo de publicar (2 s sin un fotograma nuevo) y el banco acabo antes.
     callada: bool,
+    /// C2: las veces que se durmio en el sello, y la latencia de publicado a
+    /// dibujado (en ciclos: suma, maxima y cuantas).
+    dormidas: u32,
+    latencia_suma: u64,
+    latencia_max: u64,
+    latencias: u32,
 }
 
 impl Default for DeInti {
     fn default() -> Self {
-        DeInti { v: [Vertex::default(); MAX_VERTICES], n: 0, secuencia: 0, fotograma: 0, visto: false, distintos: 0, rotos: 0, esperando: 0, igual: false, tid: 0, callada: false }
+        DeInti { v: [Vertex::default(); MAX_VERTICES], n: 0, secuencia: 0, fotograma: 0, visto: false, distintos: 0, rotos: 0, esperando: 0, igual: false, tid: 0, callada: false, dormidas: 0, latencia_suma: 0, latencia_max: 0, latencias: 0 }
     }
 }
 
 impl DeInti {
+    /// C2: un fotograma dibujado `ciclos` despues de publicado.
+    fn latencia(&mut self, ciclos: u64) {
+        self.latencia_suma += ciclos;
+        self.latencia_max = self.latencia_max.max(ciclos);
+        self.latencias += 1;
+    }
+
+    /// ** C2: como se espero a la app, y lo que tardo de publicado a dibujado.
+    fn el_sello(&self, timbre: bool, hz: u64, t: &mut Texto) {
+        t.t(b"C2, el sello: ");
+        if timbre {
+            t.t(b"la app TOCA EL TIMBRE, ").d(self.dormidas as u64).t(b" veces dormido en su secuencia (sin reloj)");
+        } else {
+            t.t(b"la app NO toca el timbre: se miro cada 1 ms (").d(self.esperando as u64).t(b" vueltas)");
+        }
+        if self.latencias > 0 {
+            let us = |c: u64| c * 1_000_000 / hz;
+            t.t(b"; de publicado a dibujado ").d(us(self.latencia_suma / self.latencias as u64)).t(b" us de media, ").d(us(self.latencia_max)).t(b" us la peor");
+        } else {
+            t.t(b"; la app no dice cuando publica (sin latencia)");
+        }
+    }
+
     /// Un fotograma entero ya esta en `v` (los `n` primeros).
     fn nuevo(&mut self, fotograma: u32, n: usize) {
         if !self.visto || fotograma != self.fotograma {

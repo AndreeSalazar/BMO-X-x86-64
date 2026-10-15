@@ -135,6 +135,9 @@ pub const OP_SUB_ESPERAR: u32 = 0x41;
 /// `bmo_abi::...::TASK_OP_FUTEX_*`. Ver [`futex`].
 pub const OP_FUTEX_ESPERAR: u32 = 0x42;
 pub const OP_FUTEX_DESPERTAR: u32 = 0x43;
+/// C2: el futex COMPARTIDO (la llave por la fisica: entre dos procesos).
+pub const OP_FUTEX_ESPERAR_COMPARTIDO: u32 = 0x46;
+pub const OP_FUTEX_DESPERTAR_COMPARTIDO: u32 = 0x47;
 /// `bmo_abi::...::TASK_OP_ALARMA`. Ver [`alarma`].
 pub const OP_ALARMA: u32 = 0x44;
 /// `bmo_abi::...::TASK_OP_CAIDA_ANOTAR`: lo que se vio en pantalla, a la caja

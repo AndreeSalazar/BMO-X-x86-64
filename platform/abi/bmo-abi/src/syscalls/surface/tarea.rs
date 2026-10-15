@@ -751,6 +751,12 @@ pub const TASK_OP_FUTEX_ESPERAR: u64 = 0x42;
 /// `FUTEX_DESPERTAR`: `arg0` = la direccion, `arg1` = cuantos como mucho.
 /// Devuelve cuantos desperto.
 pub const TASK_OP_FUTEX_DESPERTAR: u64 = 0x43;
+/// ** C2 (15-10): el futex COMPARTIDO -- los mismos `arg0` y `arg1` que
+/// los de arriba, pero la llave es la FISICA de la palabra
+/// (`bmo_futex::llave_compartida`): un proceso espera y OTRO despierta,
+/// cada uno con la palabra en su direccion (una lamina).
+pub const TASK_OP_FUTEX_ESPERAR_COMPARTIDO: u64 = 0x46;
+pub const TASK_OP_FUTEX_DESPERTAR_COMPARTIDO: u64 = 0x47;
 /// Los NO del futex (espejo de `bmo_futex::NoFutex`).
 pub const FUTEX_DESALINEADA: u32 = 1;
 pub const FUTEX_NO_ES_RING3: u32 = 2;

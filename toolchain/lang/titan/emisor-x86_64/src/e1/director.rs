@@ -37,12 +37,12 @@ use super::{Place, E1};
 use super::entrada::{HZ, PLAZO, RBX};
 use super::ventana::R12;
 use bmo_abi::syscalls::surface::SUP_TOMADA;
-use bmo_abi::syscalls::surface::{CURRENT_TASK, INFO_TSC_HZ, MEM_OP_OFRECER, NR_INVOKE, NR_WAIT, TASK_OP_INFO, TASK_OP_MI_PADRE};
+use bmo_abi::syscalls::surface::{CURRENT_TASK, INFO_TSC_HZ, MEM_OP_OFRECER, NR_INVOKE, NR_WAIT, TASK_OP_FUTEX_DESPERTAR_COMPARTIDO, TASK_OP_INFO, TASK_OP_MI_PADRE};
 use bmo_lower::memoria;
 use bmo_lower::x86::{self, RAX, RCX, RDI, RDX, RSI, R10, R11, R8, R9};
 use bmo_titan_front::calc::Class;
 use bmo_titan_front::ir::{At, Director, Value};
-use bmo_verrano::lamina::{ESTADO_DESCARTE, ESTADO_PROFUNDIDAD, ESTADO_VUELTA, CAMPO_ESTADO, CAMPO_VUELTA};
+use bmo_verrano::lamina::{ESTADO_DESCARTE, ESTADO_PROFUNDIDAD, ESTADO_TIMBRE, ESTADO_VUELTA, CAMPO_DUERME, CAMPO_ESTADO, CAMPO_PUBLICADA, CAMPO_VUELTA};
 use bmo_verrano::lamina::{CABECERA, CAMPO_CAPACIDAD, CAMPO_FOTOGRAMA, CAMPO_MAGIA, CAMPO_SECUENCIA, CAMPO_SELLO, CAMPO_VERSION, CAMPO_VERTICES, MAGIA, VERSION};
 use bmo_verrano::{VERTEX_BYTES, VERTEX_COLOR, VERTEX_POSITION};
 
@@ -117,7 +117,7 @@ impl E1<'_> {
         self.load(d, RAX);
         self.imm(RCX, ESTADO_DESCARTE as i64);
         x86::imul_r64_r64(&mut self.code, RAX, RCX);
-        self.imm(RCX, (ESTADO_PROFUNDIDAD | ESTADO_VUELTA) as i64);
+        self.imm(RCX, (ESTADO_PROFUNDIDAD | ESTADO_VUELTA | ESTADO_TIMBRE) as i64);
         x86::or_r64_r64(&mut self.code, RAX, RCX);
         self.lea(RDI, R13, byte(CAMPO_ESTADO));
         x86::mov_at_reg_from_r32(&mut self.code, RDI, RAX);
@@ -222,8 +222,9 @@ impl E1<'_> {
         x86::mov_at_reg_disp32_from_r64(&mut self.code, RDI, byte(CAMPO_CABECERA_Y_CAPACIDAD), RAX);
         // C1 (15-10): este escritor RESPETA la palabra de vuelta (`publica`,
         // abajo). Lo dice antes de ofrecer: sin el bit, el escritorio no le
-        // presta la ranura a la 3060 sin copiarla.
-        self.imm(RAX, ESTADO_VUELTA as i64);
+        // presta la ranura a la 3060 sin copiarla. ** C2: y TOCA EL TIMBRE
+        // (`publica`): con el, el escritorio duerme en el sello.
+        self.imm(RAX, (ESTADO_VUELTA | ESTADO_TIMBRE) as i64);
         self.lea(RCX, RDI, byte(CAMPO_ESTADO));
         x86::mov_at_reg_from_r32(&mut self.code, RCX, RAX);
         // La cola: el asa del bloque y lo ofrecido.
@@ -385,11 +386,33 @@ impl E1<'_> {
         // El sello, a PAR: la ranura esta entera.
         x86::inc_r64(&mut self.code, R11);
         x86::mov_at_reg_from_r32(&mut self.code, RDI, R11);
+        // ** C2 (15-10): CUANDO, para el banco: el TSC, de una vez (8 bytes
+        // alineados), antes que la secuencia.
+        self.code.extend_from_slice(&[0x0F, 0x31]);
+        x86::shl_r64_imm8(&mut self.code, RDX, 32);
+        x86::or_r64_r64(&mut self.code, RAX, RDX);
+        x86::mov_at_reg_disp32_from_r64(&mut self.code, R13, byte(CAMPO_PUBLICADA), RAX);
         // Y LO ULTIMO, la secuencia: la publicacion.
         self.lea(RDI, R13, byte(CAMPO_SECUENCIA));
         x86::mov_r32_at_reg(&mut self.code, RAX, RDI);
         x86::inc_r64(&mut self.code, RAX);
         x86::mov_at_reg_from_r32(&mut self.code, RDI, RAX);
+        // ** C2 -- EL TIMBRE: la valla (la secuencia ya se ve) y DUERME. Si
+        // el escritorio duerme, el futex COMPARTIDO en la secuencia lo
+        // despierta; si no, ni una llamada. El escritorio pone su valla entre
+        // DUERME y su mirada: o se ve aqui su 1, o el ve esta secuencia.
+        x86::mfence(&mut self.code);
+        self.lea(RCX, R13, byte(CAMPO_DUERME));
+        x86::mov_r32_at_reg(&mut self.code, RAX, RCX);
+        x86::test_r64_r64(&mut self.code, RAX, RAX);
+        let nadie = self.jcc(0x84);
+        self.imm(RDI, CURRENT_TASK as i64);
+        self.imm(RSI, TASK_OP_FUTEX_DESPERTAR_COMPARTIDO as i64);
+        self.lea(RDX, R13, byte(CAMPO_SECUENCIA));
+        self.imm(R10, 1);
+        x86::zero_r32(&mut self.code, R8);
+        self.invoke();
+        self.here(nadie);
         self.store_imm(out, 1);
         for j in no {
             self.here(j);

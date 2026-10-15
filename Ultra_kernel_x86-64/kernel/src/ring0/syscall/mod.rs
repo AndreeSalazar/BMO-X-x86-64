@@ -383,6 +383,8 @@ fn invoke_current_task(operation: u64, arg0: u64, arg1: u64) -> BmoStatus {
         TASK_OP_SUB_ESPERAR => op_subdirector::esperar(),
         TASK_OP_FUTEX_ESPERAR => op_futex::esperar(arg0, arg1),
         TASK_OP_FUTEX_DESPERTAR => op_futex::despertar(arg0, arg1),
+        TASK_OP_FUTEX_ESPERAR_COMPARTIDO => op_futex::esperar_compartido(arg0, arg1),
+        TASK_OP_FUTEX_DESPERTAR_COMPARTIDO => op_futex::despertar_compartido(arg0, arg1),
         TASK_OP_IOMMU => op_maquina::iommu(arg0, arg1),
         // ** PROTON-X P1d: el GS de Ring 3 de ESTE hilo. Solo el suyo, asi que
         // no pide autoridad; lo unico que se exige es que sea de la mitad de
