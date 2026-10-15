@@ -238,7 +238,10 @@ pub(crate) fn al_llegar(s: &mut Output) {
         s.text(b"crudo, antes del firmware de arranque: WPR2 0x");
         s.hex(w as u32 as u64, 8);
         s.text(b" / 0x");
-        s.hex((w >> 32) as u32 as u64, 8);
+        // ** Sin el bit 63, que es la BANDERA de "foto tomada" (`gpu.rs`), no
+        // el registro: el 15-10 se leia "0x80000000" y parecia una WPR2
+        // puesta en una tarjeta que llego fria.
+        s.hex((w >> 32) as u32 as u64 & 0x7FFF_FFFF, 8);
         if let Some(l) = salud::enlace(f as u16, (f >> 32) as u32) {
             s.text(b", enlace Gen");
             s.dec(l.gen as u64);
