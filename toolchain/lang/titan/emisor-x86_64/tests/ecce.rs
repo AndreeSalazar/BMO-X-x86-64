@@ -58,7 +58,11 @@ fn con(nota: Option<&[u8]>, medida: Option<&str>, eventos: &[u64]) -> Machine {
 }
 
 fn con_tope(nota: Option<&[u8]>, medida: Option<&str>, eventos: &[u64], tope: usize) -> Machine {
-    let mut m = cargar_bex(&ecce()).expect("el .bex carga");
+    con_bex_tope(&ecce(), nota, medida, eventos, tope)
+}
+
+fn con_bex_tope(bex: &[u8], nota: Option<&[u8]>, medida: Option<&str>, eventos: &[u64], tope: usize) -> Machine {
+    let mut m = cargar_bex(bex).expect("el .bex carga");
     m.padre = 7;
     // Las teclas llegan en rafagas (hasta 32 por vuelta, como un teclado
     // rapido): ECCE las lee todas y pinta UNA vez.
@@ -303,3 +307,26 @@ fn a_thousand_random_edits_undo_to_the_start() {
     let m = con_tope(Some(antes), chica, &ev, 120_000_000_000);
     assert_eq!(m.archivos.get(NOTAS), Some(&despues), "rehacerlo todo vuelve al final");
 }
+
+/// ** SU CARA (IC2, 15-10): el `icono.svg` de su Titan.toml, pintado en un
+/// BICO de 32 con alfa entero, va DENTRO del `.bex` -- y el `.bex` sigue
+/// pasando por la puerta del kernel y corriendo igual.
+#[test]
+fn ecce_lleva_su_cara_de_32_y_sigue_pasando_la_puerta() {
+    let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../../Ultra_userspace/apps/ecce");
+    let toml = std::fs::read(dir.join("Titan.toml")).expect("el Titan.toml");
+    let (bex, saltado) = bmo_titan_x86_64::con_cara(Some(&toml), &mut |p| std::fs::read(dir.join(p)).ok(), ecce()).expect("la cara");
+    assert!(saltado.is_empty(), "el SVG trae lo que no se sabe pintar: {saltado:?}");
+    bmo_bex_gate::revisar(&bex, bex.len()).expect("la puerta del kernel");
+    let d = bmo_abi::bef2::paquete::directorio(&bex).expect("el directorio de recursos");
+    let cara = d.datos(d.buscar("icono").expect("el recurso icono")).expect("sus bytes");
+    assert_eq!(&cara[..8], b"BICO\x20\x00\x20\x00");
+    assert_eq!(cara.len(), 8 + 32 * 32 * 4);
+    // Hay bordes SUAVES: algun pixel ni transparente ni opaco.
+    let medios = cara[8..].chunks(4).filter(|p| p[3] != 0 && p[3] != 255).count();
+    assert!(medios > 20, "solo {medios} pixeles de borde suave");
+    // Y corre igual: escribe y guarda.
+    let m = con_bex_tope(&bex, None, None, &texto("hola"), 3_000_000_000);
+    assert_eq!(nota(&m).as_deref(), Some("hola"));
+}
+

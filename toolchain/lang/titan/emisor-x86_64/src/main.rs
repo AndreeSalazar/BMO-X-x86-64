@@ -105,6 +105,17 @@ fn main() -> ExitCode {
                     return fail(&compiler_failure(&why, file));
                 }
             };
+            // ** SU CARA (IC2): si el Titan.toml dice `icono`, va DENTRO.
+            let toml = std::fs::read(dir.join("Titan.toml")).ok();
+            let bex = match bmo_titan_x86_64::con_cara(toml.as_deref(), &mut |p| std::fs::read(dir.join(p)).ok(), bex) {
+                Ok((b, saltado)) => {
+                    for s in saltado {
+                        eprintln!("[!] el icono: <{s}> no se sabe pintar y no sale");
+                    }
+                    b
+                }
+                Err(e) => return fail(&e),
+            };
             let dst = out.unwrap_or_else(|| Path::new(file).with_extension("bex"));
             if let Err(e) = std::fs::write(&dst, &bex) {
                 return fail(&format!("no pude escribir {}: {}", dst.display(), e));

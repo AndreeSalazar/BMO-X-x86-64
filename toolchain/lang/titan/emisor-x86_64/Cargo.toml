@@ -48,6 +48,11 @@ bmo-tarjeta-cpu = { path = "../../../forge/tarjeta-cpu" }
 # (`lamina.rs`) --, que E1 escribe cuando un programa habla con el director.
 # Los numeros de E1 salen de aqui; el lector de la prueba, tambien.
 bmo-verrano = { path = "../../../../platform/shared/verrano" }
+# ** IC2 (15-10): la CARA de la app. `[package] icono = "icono.svg"` en el
+# Titan.toml, y `build` la pinta (SVG, PNG o JPG) en un BICO de 32 con su
+# alfa entero y la mete en el `.bex` -- el escritorio la saca de ahi.
+bmo-icono = { path = "../../../tools/bmo-icono" }
+bmo-titan-lector = { path = "../../../../platform/shared/titan-lector" }
 
 [lib]
 name = "bmo_titan_x86_64"
@@ -68,3 +73,5 @@ bmo-lower = { path = "../../../forge/bmo-lower", features = ["emulator"] }
 # el lector de BSF de la casa (`tests/cubo.rs`).
 bmo-cubo = { path = "../../../../platform/shared/bmo-cubo" }
 bmo-bsf = { path = "../../spirv/bsf" }
+# IC2: un ECCE con su cara sigue pasando por la puerta del kernel.
+bmo-bex-gate = { path = "../../../../platform/abi/bmo-bex-gate" }
