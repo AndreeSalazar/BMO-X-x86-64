@@ -1197,6 +1197,15 @@ pieza entera en la 0b, y su fila de la tabla de estado pasa a `VISTO dd-mm`.
                                        mesa; otra vez: los nodos; un     Esc en la mesa CIERRA ECCE
                                        clic en un nodo abre esa hoja con (debe solo volver)
                                        el cursor al principio
+   GUION  ECCE en modo guion           una nota con "INT. CASA - NOCHE"  todo pegado a la izquierda, (sin probar)
+          (PL2..PL4 de PLAN_ECCE)      y un personaje con su dialogo:    o la escena no sale en oro,
+                                       ECCE abre en GUION (la escena en  o Alt+G no cambia de modo
+                                       oro, el personaje a 22, el
+                                       dialogo a 10); Alt+G a notas
+   COPIA  seleccionar y copiar en      Mayus + flechas, Alt+C, Alt+V;    Alt+C no copia, o Ctrl+C   (sin probar)
+          ECCE                         Alt+X y Alt+Z lo devuelve          (que es del escritorio)
+                                                                          cierra sin querer: es lo
+                                                                          suyo, ver keys/windows.rs
    IC     la cara ELEGANTE de ECCE     el icono de ECCE en el escritorio sale el cuadro con la E,  (sin probar)
           (32 px, borde suave, de      a 32 con el borde suave (la hoja  o con bordes en escalera,
           su `icono.svg`)              y la pluma de oro), sobre la foto o un halo oscuro alrededor

@@ -146,16 +146,67 @@ guardadas como ESTRATOS (como la `.obra` de
       todo da el texto de partida byte a byte, rehacerlo todo el de despues.
       Restaurar un byte equivocado al deshacer la pone roja. PL1 HECHO en el
       anfitrion (los elementos por parrafo son de PL3 en adelante).
+      **15-10, la tercera mitad: SELECCIONAR, COPIAR Y PEGAR.** Mayus +
+      flechas (e Inicio / Fin, RePag / AvPag) seleccionan; Alt+C copia y
+      Alt+X corta (sin seleccion, la linea entera); Alt+V pega; Alt+A lo
+      selecciona todo; escribir, Retroceso o Supr con algo seleccionado lo
+      reemplazan; todo con su deshacer (un corte entero vuelve con UN Alt+Z).
+      Alt y no Ctrl: Ctrl+C es del escritorio (cierra la app de delante o
+      frena el comando, `keys/windows.rs`), y una app no puede quitarselo.
+      Pruebas: copiar y pegar, cortar y deshacer, escribir encima de lo
+      seleccionado. **Falta:** el portapapeles es de ECCE; uno de la CASA,
+      compartido entre apps, pide al director (PL16).
 - [ ] **PL2 -- Fountain, leer y escribir.** **Como se sabe:** los ejemplos
       de la especificacion de Fountain dan los elementos que ella dice, y
       leer-escribir-leer no cambia nada.
+      **15-10, LA MAYOR PARTE** (`apps/ecce/src/guion.titan`): lo que es
+      cada linea sale de COMO esta escrita, como manda Fountain; el texto no
+      se toca, asi que leer-escribir-leer es el mismo byte a byte. Alt+G
+      cambia de NOTAS a GUION, y ECCE se abre en guion si la nota tiene un
+      INT. o un EXT. Los elementos, uno a uno:
+      - [x] escena: INT. / EXT. / EST. / INT./EXT. / I/E con blanco antes, y
+        forzada con "." (en oro y en mayusculas)
+      - [x] accion (y forzada con "!")
+      - [x] personaje: en MAYUSCULAS con blanco antes y algo debajo, con su
+        extension -- "ANA (V.O.)" -- y forzado con "@"
+      - [x] dialogo, y el parentesis "(asi)" dentro de el
+      - [x] transicion: MAYUSCULAS que acaban en "TO:" o en " A:" (CORTE
+        A:), y forzada con ">"
+      - [x] centrado: ">asi<"
+      - [x] seccion "# ACTO I" (los ACTOS de la mesa) y sinopsis "= ..."
+      - [~] salto de pagina "===": se reconoce, pero la pagina aun no salta
+        ahi (PL4)
+      - [ ] la PAGINA DE TITULO (Title:, Credit:, Author:, Draft date:...)
+      - [ ] las notas "[[...]]" y el boneyard "/* ... */"
+      - [ ] el dialogo DOBLE ("^" detras del segundo personaje, PL15)
+      - [ ] las letras de cancion ("~")
+      - [ ] el enfasis: *cursiva*, **negrita**, _subrayado_ (pide la letra
+        en cursiva y negrita: la tinta)
+      - [ ] no pintar los forzadores (".", "@", ">", "!") al imprimir
+      - [ ] el JUEZ: los ejemplos de fountain.io, leidos aqui, dan los
+        elementos que dice la especificacion
 - [ ] **PL3 -- la ventana en TITAN++:** (la ventana de NOTAS ya esta, 15-10:
       ver PL1; falta el modo guion encima) escribir un guion con Tab y Enter,
       cada elemento con su sangria, y guardarlo como `.fountain`.
+      - [x] cada elemento con su sangria, en la ventana (15-10): accion y
+        escena a la izquierda, personaje a 22 columnas, dialogo a 10 (35 de
+        ancho), parentesis a 16, transicion pegada a la derecha; el pie dice
+        la escena, la pagina y el ELEMENTO donde esta el cursor (prueba
+        `the_screenplay_elements_sit_in_their_columns`)
+      - [ ] Tab y Enter de Final Draft: Tab cambia el elemento de la linea
+        (escribiendo lo que Fountain pide: mayusculas, "(", ">"), Enter pasa
+        al que toca (tras un personaje, su dialogo)
+      - [ ] guardarlo como `.fountain`, y abrir otros ficheros (hoy, uno
+        solo: `datos/notas.txt`)
+      - [ ] el raton en la hoja: un clic pone el cursor, arrastrar selecciona
 - [ ] **PL4 -- EL PAGINADO del oficio:** margenes, (MAS) y (CONT.), no
       cortar donde no se corta. **Como se sabe (el juez):** guiones de
       prueba paginados en Final Draft dan las MISMAS paginas y los mismos
       cortes aqui.
+      - [x] los margenes del oficio, en columnas (15-10)
+      - [ ] la pagina de 55 lineas con sus reglas: no dejar un personaje
+        solo al final, (MAS) y (CONT.) en el dialogo partido, "===" salta
+      - [ ] el juez contra Final Draft
 - [ ] **PL5 -- SmartType:** completar personajes, lugares y momentos.
 - [ ] **PL6 -- el PDF:** el guion entregable. **Como se sabe:** abre en
       cualquier lector de PDF y se ve igual que en pantalla.
@@ -166,7 +217,7 @@ guardadas como ESTRATOS (como la `.obra` de
       por color con su `*`.
 - [ ] **PL9 -- la estructura:** fichas de escena, esquema y tablero de
       beats, que mueven el texto de verdad (mover una ficha mueve la escena).
-- [ ] **PL9b -- LA MESA: la hoja de cerca, la historia de lejos** (el
+- [x] **PL9b -- LA MESA: la hoja de cerca, la historia de lejos** (el
       propietario, 15-10: *"la hoja cuando entro es zoom siempre pero si
       retrocedo con control + rueda del raton [...] las hojas se ven de lejos
       como nodos"*). La maqueta: `docs/arte/maqueta_ecce.html`. Es un ZOOM
@@ -206,6 +257,16 @@ guardadas como ESTRATOS (como la `.obra` de
       letra de TITAN++ es de una medida); los nodos son HOJAS, no escenas
       ni actos (eso pide el modo GUION, PL2..PL4); y verlo en el Ryzen (hoja
       6b, fila MESA).
+      **15-10, Y EN GUION LOS NODOS SON ESCENAS:** una tarjeta por escena
+      ("esc N" y su cabecera), cada ACTO ("# ACTO I") una fila con su titulo
+      en oro encima, y el hilo de una escena a la siguiente entrando por la
+      izquierda (no tacha el titulo). Un clic en una escena la abre con el
+      cursor en su cabecera (prueba `in_a_screenplay_the_nodes_are_scenes_by_
+      act`). Es la maqueta, de verdad. Lo que queda va en PL9c.
+- [ ] **PL9c -- la mesa, entera:** el zoom CONTINUO alrededor del puntero
+      (pide la letra de BMO-X a varias medidas -- VERRANO --, o pintar la
+      hoja en una lamina y escalarla), mover una tarjeta y que se mueva la
+      escena (PL9), y en cada nodo quien sale y de que va (la sinopsis "=").
 - [ ] **PL10 -- los informes y el desglose:** escenas, personajes, lugares
       y etiquetas de produccion.
 - [ ] **PL11 -- los otros modos:** serie, teatro y comic sobre el mismo motor.
@@ -216,6 +277,9 @@ guardadas como ESTRATOS (como la `.obra` de
 - [ ] **PL14 -- el corrector** en castellano y en ingles (un diccionario
       abierto: Hunspell tiene los dos).
 - [ ] **PL15 -- dialogo doble** y el modo sin distracciones.
+- [ ] **PL16 -- el portapapeles de la CASA:** copiar en ECCE y pegar en otra
+      app (y en la linea de Ejecutar). Lo guarda el director; las apps lo
+      piden por su buzon. Hoy cada app tiene el suyo.
 
 ---
 

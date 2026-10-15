@@ -7,8 +7,8 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   862 casillas ABIERTAS en 79 planes
-   652 hechas
+   875 casillas ABIERTAS en 79 planes
+   662 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -90,6 +90,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] TB3 -- TESELAS E HISTORIAL: capas en teselas de 256 (las vacias no existen) y deshacer/rehacer s
 - ... y 28 mas
 
+## [`PLAN_ECCE.md`](PLAN_ECCE.md) -- 29 abiertas, 12 hechas
+
+*PLAN ECCE -- escribir en BMO-X: guiones al nivel de Final Draft, y todo lo demas*
+
+- [ ] PL0 -- las decisiones de la seccion 7, contestadas por el propietario (D1 si: ECCE).
+- [ ] PL2 -- Fountain, leer y escribir. Como se sabe: los ejemplos
+- [ ] la PAGINA DE TITULO (Title:, Credit:, Author:, Draft date:...)
+- ... y 26 mas
+
 ## [`PLAN_LA_3060_AFINADA.md`](PLAN_LA_3060_AFINADA.md) -- 25 abiertas, 18 hechas
 
 *PLAN LA 3060 AFINADA -- aislar mas, medir, y solo entonces optimizar*
@@ -143,15 +152,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] S2 -- LA FRACCION: 44.100 Hz y sus parientes
 - [ ] S3 -- EL MEZCLADOR: N fuentes, una salida
 - ... y 14 mas
-
-## [`PLAN_ECCE.md`](PLAN_ECCE.md) -- 16 abiertas, 2 hechas
-
-*PLAN ECCE -- escribir en BMO-X: guiones al nivel de Final Draft, y todo lo demas*
-
-- [ ] PL0 -- las decisiones de la seccion 7, contestadas por el propietario (D1 si: ECCE).
-- [ ] PL2 -- Fountain, leer y escribir. Como se sabe: los ejemplos
-- [ ] PL3 -- la ventana en TITAN++: (la ventana de NOTAS ya esta, 15-10:
-- ... y 13 mas
 
 ## [`PLAN_LA_BANDEJA.md`](PLAN_LA_BANDEJA.md) -- 16 abiertas, 4 hechas
 
