@@ -138,11 +138,11 @@ esta en la HOJA 6b.
    A1     el censo de laminas con juez         HECHO       no hace falta
    A2     el trato uno                         HECHO       no hace falta
    A3     las clases al trato                  HECHO       no hace falta
-   A4     TITAN++ pide RAM solo con laminas    HECHO       falta (6b: A4)
+   A4     TITAN++ pide RAM solo con laminas    HECHO       VISTO 15-10
    A5     la lente lee x86                     HECHO       no hace falta
    A6     el .bex dice que instrucciones usa   HECHO       no hace falta
    B1     verificar una vez y apartarse        HECHO       falta (6b: B1)
-   B2     la autopsia dice la instruccion      HECHO       falta (6b: B2)
+   B2     la autopsia dice la instruccion      HECHO       VISTO 15-10
    B3     el cubo en SU ventana, por la 3060   HECHO       falta (6b: B3)
    B4     el perfil, UNA fuente; LLVM obedece  HECHO       falta (6b: B4)
    C1     la lamina PRESTADA a la 3060         HECHO       falta (6b: C1)
@@ -150,8 +150,8 @@ esta en la HOJA 6b.
           S4: la app en su nucleo              BLOQUEADO   (ver C2)
    C3     el volcado por la 3060, por defecto HECHO     falta (6b: C3)
           las ventanas pegadas por la 3060     DECIDIR     (ver C3)
-   C4     los contadores del Zen 3 (LB4)   HECHO       falta (6b: C4)
-          INTI y TITAN++ se cuentan (LB5)  HECHO       falta (6b: C4)
+   C4     los contadores del Zen 3 (LB4)   HECHO       VISTO 15-10
+          INTI y TITAN++ se cuentan (LB5)  HECHO       sin prueba propia en el metal
    D1     V4: cubo.bsf lo emite la casa    HECHO       falta (6b: D1)
           V3: la matriz en el cbuffer      HECHO (TITAN++, las 2 tarjetas); V3b, el
                                            escritorio dibujandolo, abierto
@@ -209,7 +209,7 @@ esta en la HOJA 6b.
       el userspace entero y ESTUDIO para su objetivo, el kernel con
       `cargo check`, y los guardianes como estaban. **Falta el metal:** la
       ventana, el pase de la 3060 (`gpu pase`) y la red, como siempre.
-- [ ] **A4 -- TITAN++ pide RAM SOLO con laminas.** `director.lamina` deja de
+- [x] **A4 -- TITAN++ pide RAM SOLO con laminas.** `director.lamina` deja de
       ser "la de vertices": una lamina con medida y clase, la que el programa
       tiene en la mano para administrar y llamar. **Como se sabe:** un
       ejemplo de TITAN++ que pide dos laminas, publica en una y lee la otra;
@@ -264,7 +264,7 @@ esta en la HOJA 6b.
         hablen); hasta entonces una lamina es del programa que la pidio, y
         tampoco se devuelve de una fn. **Falta el metal:** un `.bex` del
         nivel 15 corriendo en el Ryzen.
-  - [ ] **en el Ryzen** -- un `.bex` del nivel 15 de TITAN++ corriendo (hoja 6b, fila A4). Cuando se vea bien: se anota en la hoja
+  - [x] **en el Ryzen** -- FUNCIONO el 15-10 (hoja 6b, fila A4). Era: un `.bex` del nivel 15 de TITAN++ corriendo (hoja 6b, fila A4). Cuando se vea bien: se anota en la hoja
         y se tachan esta casilla y la de A4 (A4a y A4b ya lo estan).
 
 - [x] **A5 -- LB3a: la LENTE lee x86** (`PLAN_LA_LENTE_BINARIA.md`, LB3): un
@@ -369,7 +369,7 @@ esta en la HOJA 6b.
   - [ ] **en el Ryzen** -- `run` dos veces del mismo `.bex`: la segunda, `lente: ya leido` (hoja 6b, fila B1). Cuando se vea bien: se anota en la hoja
         y se tachan esta casilla y la de B1.
 
-- [ ] **B2 -- LB3b: la autopsia de Ring 3 dice la instruccion.** El capitulo
+- [x] **B2 -- LB3b: la autopsia de Ring 3 dice la instruccion.** El capitulo
       7 de `save`: los bytes en RIP decodificados y explicados, de que
       programa y que funcion. **Como se sabe:** un programa que falla a
       proposito, y el informe dice su instruccion y su registro malo.
@@ -394,7 +394,7 @@ esta en la HOJA 6b.
       falle a proposito en el Ryzen y leer `instr` en su `datos/fallos.txt`:
       es `c/autopsia.bex` (`toolchain/lang/c/examples/autopsia_C.c`, 15-10).
   - [x] **en el anfitrion** -- HECHO el 14-10 (lo de arriba).
-  - [ ] **en el Ryzen** -- un `.bex` que falle a proposito y su renglon `instr` en `datos/fallos.txt` (hoja 6b, fila B2). Cuando se vea bien: se anota en la hoja
+  - [x] **en el Ryzen** -- FUNCIONO el 15-10 (hoja 6b, fila B2). Era: un `.bex` que falle a proposito y su renglon `instr` en `datos/fallos.txt` (hoja 6b, fila B2). Cuando se vea bien: se anota en la hoja
         y se tachan esta casilla y la de B2.
 
 - [ ] **B3 -- Q0a1..Q0a4: el cubo de TITAN++ en SU ventana, por la 3060**
@@ -570,7 +570,7 @@ esta en la HOJA 6b.
         `pegar_fila`; si es menos de 1 ms (lo que dijo PLAN_EL_PIXEL el 09-09),
         C3b no gana nada que se vea, y la regla 1b se cumple con (b) solo para
         las apps que dibuja VERRANO.
-- [ ] **C4 -- LB4 + LB5: los contadores del Zen 3, y INTI exprime con
+- [x] **C4 -- LB4 + LB5: los contadores del Zen 3, y INTI exprime con
       evidencia.** Primero MEDIR que cuenta cada contador en este Ryzen.
       **HECHO EN EL ANFITRION el 15-10:**
       - **LB4, calibrados:** `bmo-contadores` (puro, 8 pruebas): los MSR,
@@ -594,7 +594,7 @@ esta en la HOJA 6b.
         numeros del metal primero); y que el emisor ELIJA con ellos (LB10,
         la otra mitad).
   - [x] **en el anfitrion** -- HECHO el 15-10 (lo de arriba; banco 5364 verdes).
-  - [ ] **en el Ryzen** -- `cpu contadores`: 8 de 8 filas CUENTAN (hoja 6b, fila C4). Cuando se vea bien: se anota en la hoja
+  - [x] **en el Ryzen** -- FUNCIONO el 15-10 (hoja 6b, fila C4). Era: `cpu contadores`: 8 de 8 filas CUENTAN (hoja 6b, fila C4). Cuando se vea bien: se anota en la hoja
         y se tachan esta casilla y la de C4.
 
 **Escalon 4 -- lo mas duro**
@@ -1134,7 +1134,7 @@ pieza entera en la 0b, y su fila de la tabla de estado pasa a `VISTO dd-mm`.
 
 ```text
    pieza  QUE SE MIRA                  COMO                              SI SALE MAL                 resultado
-   A4     la lamina del nivel 15       `run titan/suelta.bex`: escribe   la novena lamina dice NO    (sin probar)
+   A4     la lamina del nivel 15       `run titan/suelta.bex`: escribe   la novena lamina dice NO    FUNCIONO 15-10
           (TITAN++ pide RAM por la     `20 laminas de 4096 bytes, una    (no se soltaban), o un
           puerta y la suelta)          por vuelta: 190`; y `run          fallo de pagina
                                        titan/laminas.bex`: `100 50 3 7`,
@@ -1143,7 +1143,7 @@ pieza entera en la 0b, y su fila de la tabla de estado pasa a `VISTO dd-mm`.
           vez                          veces; en la bitacora: la 1a      o la 2a vez la lente lee
                                        `lente: DEMOSTRADO`, la 2a        otra vez (sin `ya leido`)
                                        `lente: ya leido`
-   B2     la autopsia dice la          `run c/autopsia.bex` (lee de      sin renglon `instr`, o una  (sin probar)
+   B2     la autopsia dice la          `run c/autopsia.bex` (lee de      sin renglon `instr`, o una  FUNCIONO 15-10
           instruccion                  0xDEAD0000 a proposito); en       instruccion que no es la
                                        `datos/fallos.txt` el renglon     del `rip`, o la consola
                                        `instr`: la instruccion y su      dice `no fallo`
@@ -1158,12 +1158,12 @@ pieza entera en la 0b, y su fila de la tabla de estado pasa a `VISTO dd-mm`.
           (V4)                         banco`): IGUAL en el 0, el 30 y   que NO al abrir, o DISTINTO
                                        el 60, con el sobre que ya no es  en algun fotograma: se
                                        SASS a mano                       vuelve al de antes con git
-   Q2     el sonido de TITAN++         `run apps/musica.bex`: dice       no suena (el tubo sin      (sin probar)
+   Q2     el sonido de TITAN++         `run apps/musica.bex`: dice       no suena (el tubo sin      A MEDIAS 15-10
                                        `voces   `, cada nota y `fin     armar: mirar `audio` en
                                        0`, y SUENA el tema por el        CABINA), o suena a trozos
                                        audifono USB (la misma melodia    (el banco que se reescribe
                                        que tocaba `inti/musica.ibx`)     antes de acabar)
-   C4     los contadores del Zen 3     `cpu contadores`: cada fila con   una fila `cuenta OTRA       (sin probar)
+   C4     los contadores del Zen 3     `cpu contadores`: cada fila con   una fila `cuenta OTRA       FUNCIONO 15-10
                                        lo contado y `CUENTA lo que dice  cosa` o `no conto NADA`
                                        el PPR`; al final `8 de 8`. Las   (apuntar CUAL: ese evento
                                        dos de la L1D son las que el      o su umask no es el de
@@ -1187,6 +1187,35 @@ pieza entera en la 0b, y su fila de la tabla de estado pasa a `VISTO dd-mm`.
                                        PRESTADA a la 3060: sin copia`,   porque 29/30 en la
                                        el juez `la 3060 da lo MISMO`,    bitacora), un fallo de la
                                        y el cubo gira igual que antes    IOMMU, o el juez DISTINTO
+```
+
+** 15-10, 08:24-08:34 (la primera sesion de la hoja; los informes de `save`
+08:30, 08:32 y 08:34, y cinco capturas):
+
+```text
+   A4  FUNCIONO  `20 laminas de 4096 bytes, una por vuelta: 190`, y
+                 `100 50 3 7`, `200`, `497`, `350`
+   C4  FUNCIONO  `8 de 8 filas cuentan lo que dice el papel`; las dos de la
+                 L1D, CONFIRMADAS: accesos 129195 y fallos 104523 en 100000
+                 vueltas, dentro de lo esperado
+   B2  FUNCIONO  AUTOPSIA: `instr  movsxd rax, dword [rax]  rax=0xdead0190`,
+                 la direccion tocada 0xdead0190 -- exacto como en el
+                 anfitrion; `recursos todo devuelto`
+   Q2  A MEDIAS  `musica.bex` escribio TODAS las notas y el kernel toco
+                 (`tocadas 1`, el medidor con pico 0.0 dB y rms -8.2 dB: SALIO
+                 sonido al cable); la corrida acabo en `^C frenado`, no en
+                 `fin 0`. Falta que el propietario diga si SE OYO la melodia
+                 entera y que llegue el `fin 0`
+   B1  sin ver   `cubogira.bex` corrio dos veces (admitido las dos), pero la
+                 linea `lente: ...` vive en la bitacora (F11), no en `save`
+   B4  sin ver   la linea `cpu: es la CPU del perfil` vive en la bitacora del
+                 arranque (F11)
+   C1 C2 C3 D1 B3  sin probar: el GSP-RM no dio `GSP_INIT_DONE` en 10 s
+                 (`listo: ... NO llego`, lo de siempre: L0c4b) y el volcado
+                 dijo `NO`; sin `gpu init` + `gpu verrano banco inti` no hay
+                 nada que mirar de la 3060
+   y ademas      tinta, mundo y resol abrieron su ventana (mundo ofrecio su
+                 lamina); ni un aviso en el anillo salvo la caida buscada
 ```
 
 ## 6b1. LA SESION, EN ORDEN (15-10): que se trae y que foto se saca
