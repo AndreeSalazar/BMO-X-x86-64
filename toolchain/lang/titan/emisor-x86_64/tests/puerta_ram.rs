@@ -90,8 +90,8 @@ fn every_ram_request_leaves_by_one_door() {
     let (consola, p) = peticiones(CINCO);
     assert_eq!(consola, "100\n13\ntrue\n");
     // La ventana (64 x 32 pixeles de 4 B, su cabecera y su buzon), el primer
-    // trozo del monton, lo tenido (64 B), el fichero (sus 13 bytes) y la
+    // trozo del monton, lo tenido (80 B desde Q2: el asa del sonido), el fichero (sus 13 bytes) y la
     // lamina de VERRANO (su cabecera y dos ranuras de 6 vertices).
-    assert_eq!(p.iter().map(|x| x.0).skip(1).collect::<Vec<_>>(), vec![16 << 20, 64, 13, 64 + 2 * 6 * 32 + 16]);
+    assert_eq!(p.iter().map(|x| x.0).skip(1).collect::<Vec<_>>(), vec![16 << 20, 80, 13, 64 + 2 * 6 * 32 + 16]);
     una_puerta(&p);
 }
