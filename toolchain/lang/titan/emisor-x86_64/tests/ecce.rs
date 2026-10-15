@@ -15,6 +15,10 @@
 //!    la ventana    la cabecera con su raya de oro, y la tinta de lo escrito
 //!    la mesa       Alt + rueda aleja: las hojas en chico y los nodos; un
 //!                  clic en un nodo abre su hoja (PL9b)
+//!    copiar        Mayus + flechas seleccionan; Alt+C, Alt+X, Alt+V; lo
+//!                  que se escribe reemplaza lo seleccionado; Alt+Z lo deshace
+//!    el guion      Fountain: cada elemento en su columna; en la mesa, los
+//!                  nodos son ESCENAS en filas por ACTO (PL2, PL4, PL9b)
 //! ```
 
 use std::path::Path;
@@ -412,5 +416,107 @@ fn further_out_the_pages_are_nodes() {
     assert_eq!(px(28 + 160, 64 + 50), 0x1C_1C_26, "sin la tarjeta de la hoja 1");
     assert_eq!(px(28 + 168 + 20, 64 + 28), 0x8B_60_25, "sin el hilo de la hoja 1 a la 2");
     assert_eq!(px(28 + 168 + 20, 64 + 10), 0x18_18_20, "el hilo es una raya, no una banda");
+}
+
+// -- COPIAR Y PEGAR (15-10): Alt, porque Ctrl es del escritorio --
+
+const MAYUS: u64 = 42;
+const SC_C: u64 = 46;
+const SC_X: u64 = 45;
+const SC_V: u64 = 47;
+const SC_Z: u64 = 44;
+
+fn con_alt(sc: u64) -> [u64; 3] {
+    [tecla(ALT), tecla(sc), 0x100 | ALT]
+}
+
+/// ** Mayus + Inicio selecciona la linea, Alt+C la copia, Fin y Alt+V la pegan.
+#[test]
+fn shift_selects_alt_c_copies_alt_v_pastes() {
+    let mut ev = texto("hola mundo");
+    ev.extend([tecla(MAYUS), tecla(INICIO), 0x100 | MAYUS]);
+    ev.extend(con_alt(SC_C));
+    ev.push(tecla(FIN));
+    ev.extend(con_alt(SC_V));
+    let m = con(None, None, &ev);
+    assert_eq!(nota(&m).as_deref(), Some("hola mundohola mundo"));
+}
+
+/// ** Alt+X corta lo seleccionado, y Alt+Z lo devuelve entero de una vez.
+#[test]
+fn alt_x_cuts_and_alt_z_brings_it_back() {
+    let mut ev = texto("uno dos");
+    ev.extend([tecla(MAYUS), tecla(IZQUIERDA), tecla(IZQUIERDA), tecla(IZQUIERDA), 0x100 | MAYUS]);
+    ev.extend(con_alt(SC_X));
+    let solo_corte = con(None, None, &ev);
+    assert_eq!(nota(&solo_corte).as_deref(), Some("uno "));
+    ev.extend(con_alt(SC_Z));
+    let m = con(None, None, &ev);
+    assert_eq!(nota(&m).as_deref(), Some("uno dos"));
+}
+
+/// ** Lo que se escribe con algo seleccionado lo REEMPLAZA (y pegar tambien).
+#[test]
+fn typing_replaces_the_selection() {
+    let mut ev = texto("el gato negro");
+    ev.extend([tecla(MAYUS), tecla(IZQUIERDA), tecla(IZQUIERDA), tecla(IZQUIERDA), tecla(IZQUIERDA), tecla(IZQUIERDA), 0x100 | MAYUS]);
+    ev.extend(texto("blanco"));
+    let m = con(None, None, &ev);
+    assert_eq!(nota(&m).as_deref(), Some("el gato blanco"));
+}
+
+// -- EL MODO GUION (Fountain) --
+
+const GUION: &str = "# ACTO I\n\nINT. CASA - NOCHE\n\nAna entra.\n\nANA\nHola.\n\nEXT. CALLE - DIA\n\nLlueve.\n\n# ACTO II\n\nINT. BAR - NOCHE\n\nMARCOS\n(bajo)\nOtra.\n\nCORTE A:";
+
+/// La primera x con tinta (lo que no es el fondo) de la linea que se ve `k`.
+fn primera_tinta(px: &dyn Fn(u64, u64) -> u32, k: u64) -> Option<u64> {
+    let y0 = 52 + k * 20;
+    (0..720).find(|&x| (y0..y0 + 16).any(|y| px(x, y) != FONDO))
+}
+
+/// ** Con un INT. dentro, ECCE se abre en GUION y cada elemento va en su
+/// columna, como en Final Draft: la escena a la izquierda (en oro), el
+/// personaje a 22 columnas, el dialogo a 10, el parentesis a 16 y la
+/// transicion pegada a la derecha del ancho del guion (60).
+#[test]
+fn the_screenplay_elements_sit_in_their_columns() {
+    // Dos RePag: el cursor arriba, y la primera linea que se ve es la 0.
+    let m = abierta(GUION.as_bytes(), &[tecla(0x6C), tecla(0x6C)]);
+    let (_, _, px) = pantalla(&m);
+    let col = |k: u64| primera_tinta(&px, k).map(|x| (x - 28) / 8);
+    let oro_en = |k: u64| (28..200).any(|x| (0..16).any(|y| px(x, 52 + k * 20 + y) == ORO));
+    assert_eq!(col(0), Some(0), "el acto");
+    assert_eq!(col(2), Some(0), "la escena");
+    assert!(oro_en(2), "la escena va en oro");
+    assert!(!oro_en(4), "la accion no");
+    assert_eq!(col(4), Some(0), "la accion");
+    assert_eq!(col(6), Some(22), "el personaje");
+    assert_eq!(col(7), Some(10), "el dialogo");
+    assert_eq!(col(15), Some(0), "la escena del acto II");
+    assert_eq!(col(17), Some(22), "el segundo personaje");
+    assert_eq!(col(18), Some(16), "el parentesis");
+    assert_eq!(col(19), Some(10), "su dialogo");
+}
+
+/// ** La transicion va pegada a la derecha del ancho del guion (60 columnas):
+/// "CORTE A:" (8 letras) empieza en la 52.
+#[test]
+fn the_transition_sits_on_the_right() {
+    let m = abierta(GUION.as_bytes(), &[]);
+    let (_, _, px) = pantalla(&m);
+    // Con el cursor al final se ven las lineas 2..21: la 21 es la fila 19.
+    assert_eq!(primera_tinta(&px, 19).map(|x| (x - 28) / 8), Some(52));
+}
+
+/// ** En la mesa del guion los nodos son ESCENAS, y cada ACTO empieza fila:
+/// el tercer nodo (INT. BAR, del acto II) esta en la segunda fila, y un clic
+/// en el abre esa escena.
+#[test]
+fn in_a_screenplay_the_nodes_are_scenes_by_act() {
+    let ev = [tecla(ALT), rueda(-1, true), rueda(-1, true), 0x100 | ALT, clic(28 + 84, 64 + 96 + 28), letra(b'X')];
+    let m = con(Some(GUION.as_bytes()), None, &ev);
+    let n = nota(&m).expect("guardo");
+    assert!(n.contains("\nXINT. BAR - NOCHE\n"), "el clic no abrio la escena 3:\n{n}");
 }
 
