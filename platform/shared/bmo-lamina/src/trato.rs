@@ -56,6 +56,37 @@
 //! de publicar `s + 1`, y la barrera de [`intacto`] hace que, si se copio
 //! algo suyo de despues, esa publicacion ya se vea.
 //!
+//! # La palabra de VUELTA: un lector que NO copia (C1, 15-10)
+//!
+//! La 3060 lee la ranura EN SU SITIO -- prestada por la IOMMU, sin copia -- y
+//! no sabe mirar un sello. Asi que quien la manda (el escritorio) RESERVA la
+//! ranura antes, en una palabra de la clase, y el escritor la RESPETA:
+//!
+//! ```text
+//!    reservar   s = secuencia; k = s % 2                            [`reservar`]
+//!               VUELTA = k + 1 ("la ranura k esta en vuelo")
+//!               barrera SeqCst
+//!               sello k par y secuencia = s todavia? si no: VUELTA = 0 y nada
+//!               ... la 3060 lee la ranura k, el tiempo que haga falta ...
+//!               VUELTA = 0 (tras la valla de la 3060)              [`soltar`]
+//!    escribir   k = (s + 1) % 2; sello k + 1 (IMPAR)                [`empezar_si_libre`]
+//!               barrera SeqCst
+//!               VUELTA = k + 1? si: el sello como estaba y NO se escribe
+//!               (ese fotograma se pierde: gana el ultimo, como siempre)
+//! ```
+//!
+//! ** Por que no hay hueco: las dos barreras SeqCst. El lector ESCRIBE la
+//! vuelta y luego LEE el sello; el escritor ESCRIBE el sello y luego LEE la
+//! vuelta. Con una barrera SeqCst entre la escritura y la lectura de cada uno,
+//! al menos uno ve lo del otro (es el de Dekker): o el lector ve el sello
+//! impar y se aparta, o el escritor ve la vuelta y se aparta. Nunca los dos
+//! dentro de la misma ranura.
+//!
+//! [!] Lo que el lector reserva puede ser un fotograma ENTERO pero POSTERIOR a
+//! `s` (el escritor acabo la ranura `k` con el siguiente y aun no lo
+//! publico): para quien dibuja no es medio dato ni va hacia atras -- es el que
+//! iba a publicarse --, y por eso aqui basta con el sello y la secuencia.
+//!
 //! En x86-64 las escrituras se ven en orden y las lecturas tambien (TSO): un
 //! escritor en INTI o TITAN++ solo tiene que ESCRIBIR en este orden, sin
 //! barreras. Aqui las barreras se dicen para que valga en cualquier maquina.
@@ -179,6 +210,49 @@ pub fn vigente(w: &[AtomicU32], campo: usize, s: u32) -> bool {
     secuencia(w, campo) == s
 }
 
+// -- La palabra de VUELTA (C1) -------------------------------------------------
+
+/// **Reservar la ranura publicada** para un lector que no copia (la 3060):
+/// `Some((s, k))` si la ranura `k` del publicado `s` queda en vuelo -- el
+/// escritor no la tocara hasta [`soltar`] --; `None` si no hay nada publicado
+/// o el escritor estaba dentro (se vuelve a intentar la vuelta siguiente).
+pub fn reservar(w: &[AtomicU32], campo_vuelta: usize, campo_secuencia: usize, campo_sello: usize) -> Option<(u32, usize)> {
+    let s = secuencia(w, campo_secuencia);
+    if s == 0 {
+        return None;
+    }
+    let k = ranura_publicada(s);
+    w[campo_vuelta].store(k as u32 + 1, Ordering::Relaxed);
+    fence(Ordering::SeqCst);
+    let par = w[campo_sello + k].load(Ordering::Relaxed) % 2 == 0;
+    if !par || secuencia(w, campo_secuencia) != s {
+        soltar(w, campo_vuelta);
+        return None;
+    }
+    fence(Ordering::Acquire);
+    Some((s, k))
+}
+
+/// **Soltar la reserva** (cuando la 3060 acabo: tras su valla).
+pub fn soltar(w: &[AtomicU32], campo_vuelta: usize) {
+    w[campo_vuelta].store(0, Ordering::Release);
+}
+
+/// **Empezar a escribir la ranura `k`, si no esta en vuelo** (el escritor que
+/// respeta la vuelta): como [`empezar`], pero si el lector la reservo, deja
+/// el sello como estaba y da `None` -- ese fotograma no se escribe --.
+pub fn empezar_si_libre(w: &[AtomicU32], campo_sello: usize, campo_vuelta: usize, k: usize) -> Option<u32> {
+    let sello = w[campo_sello + k].load(Ordering::Relaxed);
+    w[campo_sello + k].store(sello.wrapping_add(1), Ordering::Relaxed);
+    fence(Ordering::SeqCst);
+    if w[campo_vuelta].load(Ordering::Relaxed) == k as u32 + 1 {
+        // No se toco nada de la ranura: el sello vuelve a ser el de antes.
+        w[campo_sello + k].store(sello, Ordering::Release);
+        return None;
+    }
+    Some(sello)
+}
+
 #[cfg(test)]
 mod pruebas {
     extern crate std;
@@ -276,6 +350,99 @@ mod pruebas {
         let e1 = mirar(&b, SELLO + k).expect("par: el escritor ya salio");
         assert!(intacto(&b, SELLO + k, e1), "el sello solo no lo ve");
         assert!(!vigente(&b, SEC, s), "la secuencia si");
+    }
+
+    /// La vuelta, paso a paso: reservada, el escritor no entra en esa ranura;
+    /// soltada, si.
+    #[test]
+    fn la_vuelta_aparta_al_escritor() {
+        const SEC: usize = 3;
+        const SELLO: usize = 4;
+        const VUELTA: usize = 6;
+        let b = bloque(8);
+        assert_eq!(reservar(&b, VUELTA, SEC, SELLO), None, "nada publicado");
+        // publicar el 1 en la ranura 1
+        let s = empezar_si_libre(&b, SELLO, VUELTA, 1).unwrap();
+        acabar(&b, SELLO + 1, s);
+        publicar(&b, SEC, 0);
+        assert_eq!(reservar(&b, VUELTA, SEC, SELLO), Some((1, 1)));
+        // el escritor va a la ranura 0 (libre) y publica el 2...
+        let s = empezar_si_libre(&b, SELLO, VUELTA, 0).unwrap();
+        acabar(&b, SELLO, s);
+        publicar(&b, SEC, 1);
+        // ...y la siguiente es la 1, EN VUELO: no entra, y el sello no cambia
+        let antes = b[SELLO + 1].load(Ordering::Relaxed);
+        assert_eq!(empezar_si_libre(&b, SELLO, VUELTA, 1), None);
+        assert_eq!(b[SELLO + 1].load(Ordering::Relaxed), antes);
+        soltar(&b, VUELTA);
+        assert!(empezar_si_libre(&b, SELLO, VUELTA, 1).is_some(), "soltada, entra");
+        // y con el escritor DENTRO (sello impar) no se reserva
+        publicar(&b, SEC, 2);
+        let k = ranura_publicada(3);
+        b[SELLO + k].store(1, Ordering::Relaxed);
+        assert_eq!(reservar(&b, VUELTA, SEC, SELLO), None);
+        assert_eq!(b[VUELTA].load(Ordering::Relaxed), 0, "y la reserva fallida no se queda puesta");
+    }
+
+    /// ***Castigado***: la 3060 de mentira. Un escritor que respeta la vuelta
+    /// y un lector que NO copia: reserva y mira la ranura VARIAS veces,
+    /// despacio, como la leeria la 3060. Mientras esta en vuelo no cambia ni
+    /// una palabra, y lo que ve es una ranura entera.
+    #[test]
+    fn la_tres_mil_sesenta_de_mentira_nunca_ve_cambiar_su_ranura() {
+        const SEC: usize = 3;
+        const SELLO: usize = 4;
+        const VUELTA: usize = 6;
+        const DATOS: usize = 8;
+        const ANCHO: usize = 16;
+        let b: Arc<Vec<AtomicU32>> = Arc::new(bloque(DATOS + 2 * ANCHO));
+        assert!(crear(&b, PRUEBA, 1, DATOS * 4));
+        let basta = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let escritor = {
+            let b = Arc::clone(&b);
+            let basta = Arc::clone(&basta);
+            std::thread::spawn(move || {
+                let mut ocupadas = 0u32;
+                let mut n = 0u32;
+                // escribe hasta que el lector diga basta: los dos a la vez
+                while !basta.load(Ordering::Relaxed) {
+                    n += 1;
+                    let s = secuencia_propia(&b, SEC);
+                    let k = ranura_para_escribir(s);
+                    let Some(sello) = empezar_si_libre(&b, SELLO, VUELTA, k) else {
+                        ocupadas += 1;
+                        continue;
+                    };
+                    for x in &b[DATOS + k * ANCHO..DATOS + (k + 1) * ANCHO] {
+                        x.store(n, Ordering::Relaxed);
+                    }
+                    acabar(&b, SELLO + k, sello);
+                    publicar(&b, SEC, s);
+                }
+                ocupadas
+            })
+        };
+        let (mut dibujados, mut ultimo) = (0u32, 0u32);
+        while dibujados < 20_000 {
+            let Some((_, k)) = reservar(&b, VUELTA, SEC, SELLO) else { continue };
+            let ranura = &b[DATOS + k * ANCHO..DATOS + (k + 1) * ANCHO];
+            let primera = ranura[0].load(Ordering::Relaxed);
+            // "la 3060 lee": cuatro pasadas, con tiempo entre medias
+            for _ in 0..4 {
+                for x in ranura {
+                    assert_eq!(x.load(Ordering::Relaxed), primera, "la ranura en vuelo cambio");
+                }
+                std::hint::spin_loop();
+            }
+            assert!(primera >= ultimo, "no va hacia atras: {primera} tras {ultimo}");
+            ultimo = primera;
+            dibujados += 1;
+            soltar(&b, VUELTA);
+        }
+        basta.store(true, Ordering::Relaxed);
+        let ocupadas = escritor.join().unwrap();
+        std::eprintln!("vuelta: {dibujados} dibujados sin copia, {ocupadas} fotogramas que el escritor no escribio (ranura en vuelo), el ultimo {ultimo}");
+        assert!(ocupadas > 0, "con dos hilos a toda velocidad, el escritor tiene que haberse apartado alguna vez");
     }
 
     /// ***Castigado***: un escritor y un lector en dos hilos, con el trato

@@ -215,3 +215,53 @@ fn the_spinning_cube_published_by_titan_is_the_tanda_of_bmo_cubo() {
 /// cada cuanto mira el escritorio.
 const PASOS_DEL_CUBO: usize = 184_000_000;
 const LEE_CADA: usize = 200_000;
+
+/// ** C1 (15-10): LA PALABRA DE VUELTA, en el codigo que emite TITAN++. El
+/// escritorio de mentira RESERVA la ranura publicada a mitad de programa (la
+/// 3060 la leeria sin copia): el siguiente fotograma va a la otra ranura, y
+/// los que tocarian la reservada NO se escriben -- `director.publica` dice
+/// `false` -- y sus bytes no cambian ni uno.
+#[test]
+fn titan_respects_the_slot_in_flight() {
+    const CINCO: &str = "mod main \"cinco fotogramas\"
+use director
+
+fn main()
+    if not director.lamina(6)
+        print(\"nadie compone\")
+        return
+    let p: [f32; 12] = [0.0, 0.5, 0.0, 1.0, 0.5, -0.5, 0.0, 1.0, -0.5, -0.5, 0.0, 1.0]
+    let c: [f32; 12] = [1.0, 0.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 0.0, 1.0, 1.0]
+    for f in range(5)
+        print(f, \" \", director.publica(f, 3, p, c))
+        director.espera(16)
+";
+    let mut m = cargar_bex(&bex(SCREEN, CINCO)).expect("carga");
+    m.padre = 7;
+    // hasta que publica el fotograma 0
+    let mut hecho;
+    loop {
+        (m, hecho) = run_acotado(m, 20);
+        if m.console.contains("0 true\n") || hecho {
+            break;
+        }
+    }
+    assert!(!hecho && m.console == "0 true\n", "{}", m.console);
+    let &(base, desde, _, _) = m.ofertas.iter().find(|o| es_lamina(&m, o)).expect("la lamina");
+    let base = base + desde;
+    let palabra = |m: &Machine, k: usize| m.read_u64(base + 4 * k as u64) as u32;
+    assert_eq!(palabra(&m, lamina::CAMPO_ESTADO) & lamina::ESTADO_VUELTA, lamina::ESTADO_VUELTA, "TITAN++ dice que respeta la vuelta");
+    let s = palabra(&m, lamina::CAMPO_SECUENCIA);
+    assert_eq!(s, 1);
+    let k = (s % 2) as usize;
+    // El escritorio RESERVA la ranura publicada.
+    m.escribir(base + 4 * lamina::CAMPO_VUELTA as u64, &(k as u32 + 1).to_le_bytes());
+    let desde_ranura = lamina::CABECERA + k * 6 * 32;
+    let foto = |m: &Machine| -> Vec<u8> { (0..6 * 32).map(|i| m.read_u8_pub(base + (desde_ranura + i) as u64)).collect() };
+    let antes = (foto(&m), palabra(&m, lamina::CAMPO_SELLO + k), palabra(&m, lamina::CAMPO_FOTOGRAMA + k));
+    let m = run(m, 2_000_000);
+    assert!(m.exited, "{}", m.console);
+    assert_eq!(m.console, "0 true\n1 true\n2 false\n3 false\n4 false\n", "el 1 va a la otra ranura; los demas tocarian la reservada");
+    assert_eq!((foto(&m), palabra(&m, lamina::CAMPO_SELLO + k), palabra(&m, lamina::CAMPO_FOTOGRAMA + k)), antes, "la ranura en vuelo no se toco");
+    assert_eq!(palabra(&m, lamina::CAMPO_SECUENCIA), 2, "solo se publico el 1");
+}

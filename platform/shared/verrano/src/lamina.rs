@@ -29,7 +29,12 @@
 //!    11       COMO SE DIBUJA (V2, 11-10): bit 0 con profundidad, bit 1 sin
 //!             las caras de detras. La app, al crearla; 0 = como V0 (las
 //!             laminas de antes dicen 0: nada cambia para ellas)
-//!    12..16   ceros
+//!    12       VUELTA (C1, 15-10): 0, o k + 1 si la ranura k esta EN VUELO
+//!             -- la lee la 3060 sin copia; la escribe el escritorio --.
+//!             Un escritor que la respeta lo dice con el bit 2 de la palabra
+//!             11 (`ESTADO_VUELTA`): solo entonces el escritorio presta la
+//!             ranura sin copiarla; si no, la copia como siempre
+//!    13..16   ceros
 //!    +64      ranura 0: `capacidad` x `Vertex` (32 bytes cada uno)
 //!    +64+C    ranura 1: lo mismo
 //! ```
@@ -118,9 +123,15 @@ pub const CAMPO_ESTADO: usize = 11;
 pub const ESTADO_PROFUNDIDAD: u32 = 1;
 /// Bit 1 de [`CAMPO_ESTADO`]: sin las caras de detras (`Cull::Back`).
 pub const ESTADO_DESCARTE: u32 = 2;
+/// Bit 2 de [`CAMPO_ESTADO`] (C1): el escritor RESPETA la palabra de vuelta
+/// (`trato::empezar_si_libre`). Sin el, el escritorio no presta la ranura sin
+/// copia: un escritor de antes la pisaria mientras la 3060 la lee.
+pub const ESTADO_VUELTA: u32 = 4;
+/// La palabra de VUELTA (C1): `k + 1` si la ranura `k` esta en vuelo.
+pub const CAMPO_VUELTA: usize = 12;
 
 const PALABRAS_VERTICE: usize = VERTEX_BYTES / 4;
-const _: () = assert!(CAMPO_SELLO + 2 <= CABECERA / 4);
+const _: () = assert!(CAMPO_SELLO + 2 <= CABECERA / 4 && CAMPO_VUELTA < CABECERA / 4 && CAMPO_VUELTA > CAMPO_ESTADO);
 // Sin mover un byte (A2): las palabras de BVER son las de antes del trato.
 const _: () = assert!(CAMPO_MAGIA == 0 && CAMPO_VERSION == 1 && CAMPO_CABECERA == 2 && CAMPO_CAPACIDAD == trato::PALABRAS_COMUNES);
 
@@ -140,6 +151,29 @@ pub enum NoEs {
     Version,
     /// La capacidad que declara no cabe en lo que se presto (o es cero).
     NoCabe,
+}
+
+/// Lo que dio una publicacion.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Publicacion {
+    Hecha,
+    /// No cabe en la capacidad, o no son triangulos enteros.
+    NoCabe,
+    /// La ranura que tocaba esta EN VUELO (la 3060 la lee): este fotograma no
+    /// se escribe -- gana el siguiente --.
+    Ocupada,
+}
+
+/// **Una ranura RESERVADA** para quien la lee sin copia (C1): su secuencia,
+/// el fotograma, cuantos vertices y donde empiezan, en bytes desde el
+/// principio de la lamina. Vale hasta [`Lamina::soltar`].
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Reserva {
+    pub secuencia: u32,
+    pub ranura: usize,
+    pub fotograma: u32,
+    pub vertices: usize,
+    pub desde_byte: usize,
 }
 
 /// Lo que dio una lectura.
@@ -169,6 +203,8 @@ impl<'a> Lamina<'a> {
             return None;
         }
         w[CAMPO_CAPACIDAD].store(capacidad as u32, Ordering::Release);
+        // Este escritor respeta la vuelta (C1): lo dice desde que nace.
+        w[CAMPO_ESTADO].store(ESTADO_VUELTA, Ordering::Release);
         Some(Lamina { w, capacidad })
     }
 
@@ -192,7 +228,7 @@ impl<'a> Lamina<'a> {
 
     /// **Como se dibuja** (la app, V2): con profundidad, y que caras fuera.
     pub fn poner_estado(&self, depth: bool, cull: Cull) {
-        let e = if depth { ESTADO_PROFUNDIDAD } else { 0 } | if cull == Cull::Back { ESTADO_DESCARTE } else { 0 };
+        let e = if depth { ESTADO_PROFUNDIDAD } else { 0 } | if cull == Cull::Back { ESTADO_DESCARTE } else { 0 } | ESTADO_VUELTA;
         self.w[CAMPO_ESTADO].store(e, Ordering::Release);
     }
 
@@ -209,16 +245,25 @@ impl<'a> Lamina<'a> {
     }
 
     /// **Publicar un fotograma** (la app): en la ranura que no se lee, y la
-    /// secuencia AL FINAL. `false` si no cabe o no son triangulos enteros.
+    /// secuencia AL FINAL. `false` si no se publico (ver [`Lamina::publica`]).
     pub fn publicar(&self, fotograma: u32, v: &[Vertex]) -> bool {
+        self.publica(fotograma, v) == Publicacion::Hecha
+    }
+
+    /// **Publicar, y por que no** (C1): si la ranura que toca esta en vuelo,
+    /// [`Publicacion::Ocupada`] sin tocar un byte.
+    pub fn publica(&self, fotograma: u32, v: &[Vertex]) -> Publicacion {
         if v.len() > self.capacidad || v.len() % 3 != 0 {
-            return false;
+            return Publicacion::NoCabe;
         }
         let s = trato::secuencia_propia(self.w, CAMPO_SECUENCIA);
         let k = trato::ranura_para_escribir(s);
         let r = self.ranura(k);
-        // El sello, IMPAR antes de tocar nada de la ranura.
-        let sello = trato::empezar(self.w, CAMPO_SELLO + k);
+        // El sello, IMPAR antes de tocar nada de la ranura; y si la ranura
+        // esta en vuelo, ni eso.
+        let Some(sello) = trato::empezar_si_libre(self.w, CAMPO_SELLO, CAMPO_VUELTA, k) else {
+            return Publicacion::Ocupada;
+        };
         for (i, x) in v.iter().enumerate() {
             let p = r + i * PALABRAS_VERTICE;
             for (j, b) in x.position.iter().chain(x.color.iter()).enumerate() {
@@ -231,7 +276,42 @@ impl<'a> Lamina<'a> {
         trato::acabar(self.w, CAMPO_SELLO + k, sello);
         // La publicacion: todo lo de arriba se ve antes que este numero.
         trato::publicar(self.w, CAMPO_SECUENCIA, s);
-        true
+        Publicacion::Hecha
+    }
+
+    /// Si su escritor respeta la vuelta (C1): solo entonces se puede
+    /// [`Lamina::reservar`].
+    pub fn respeta_vuelta(&self) -> bool {
+        self.w[CAMPO_ESTADO].load(Ordering::Acquire) & ESTADO_VUELTA != 0
+    }
+
+    /// **Reservar la ranura publicada** para leerla sin copia (C1, el
+    /// escritorio que se la da a la 3060). `None` si no hay nada, si el
+    /// escritor estaba dentro, si no respeta la vuelta, o si la ranura dice
+    /// un numero de vertices imposible (miente: no se presta). Hasta
+    /// [`Lamina::soltar`] el escritor no toca esa ranura.
+    pub fn reservar(&self) -> Option<Reserva> {
+        if !self.respeta_vuelta() {
+            return None;
+        }
+        let (s, k) = trato::reservar(self.w, CAMPO_VUELTA, CAMPO_SECUENCIA, CAMPO_SELLO)?;
+        let n = self.w[CAMPO_VERTICES + k].load(Ordering::Relaxed) as usize;
+        if n > self.capacidad || n % 3 != 0 {
+            trato::soltar(self.w, CAMPO_VUELTA);
+            return None;
+        }
+        Some(Reserva {
+            secuencia: s,
+            ranura: k,
+            fotograma: self.w[CAMPO_FOTOGRAMA + k].load(Ordering::Relaxed),
+            vertices: n,
+            desde_byte: self.ranura(k) * 4,
+        })
+    }
+
+    /// **Soltar la reserva** (tras la valla de la 3060).
+    pub fn soltar(&self) {
+        trato::soltar(self.w, CAMPO_VUELTA);
     }
 
     /// **Leer el ultimo fotograma publicado** (VERRANO), a `out`.
@@ -315,7 +395,8 @@ mod pruebas {
         assert_eq!(Lamina::abrir(&b).unwrap().estado(), (false, Cull::None));
         l.poner_estado(true, Cull::Back);
         assert_eq!(Lamina::abrir(&b).unwrap().estado(), (true, Cull::Back));
-        assert_eq!(b[CAMPO_ESTADO].load(Ordering::Relaxed), 3);
+        // (y el escritor de Rust dice ademas que respeta la vuelta: C1)
+        assert_eq!(b[CAMPO_ESTADO].load(Ordering::Relaxed), ESTADO_PROFUNDIDAD | ESTADO_DESCARTE | ESTADO_VUELTA);
         l.poner_estado(true, Cull::None);
         assert_eq!(Lamina::abrir(&b).unwrap().estado(), (true, Cull::None));
         // un bit que no se conoce no cuenta
@@ -457,5 +538,46 @@ mod pruebas {
         escritor.join().unwrap();
         assert!(buenos > 0);
         std::eprintln!("lamina: {buenos} fotogramas enteros leidos, {rotos} descartados, el ultimo {ultimo}");
+    }
+
+    /// ** C1: la ranura RESERVADA para la 3060 no la pisa el escritor. La
+    /// reserva dice donde esta (para prestarla por la IOMMU); mientras dura,
+    /// el fotograma que tocaba en esa ranura sale `Ocupada`; soltada, vuelve.
+    #[test]
+    fn a_reserved_slot_is_not_written_until_released() {
+        let b = bloque(6);
+        let l = Lamina::crear(&b, 6).unwrap();
+        assert!(l.respeta_vuelta());
+        assert_eq!(l.reservar(), None, "nada publicado");
+        assert_eq!(l.publica(1, &marca(1, 6)), Publicacion::Hecha);
+        let r = l.reservar().expect("la publicada");
+        assert_eq!((r.secuencia, r.fotograma, r.vertices), (1, 1, 6));
+        assert_eq!(r.desde_byte, CABECERA + r.ranura * 6 * VERTEX_BYTES);
+        let antes: Vec<u32> = b.iter().map(|x| x.load(Ordering::Relaxed)).collect();
+        // la otra ranura esta libre: se publica el 2
+        assert_eq!(l.publica(2, &marca(2, 3)), Publicacion::Hecha);
+        // el 3 tocaria la reservada: no se escribe, y sus bytes no cambian
+        assert_eq!(l.publica(3, &marca(3, 6)), Publicacion::Ocupada);
+        let ranura = |v: &[u32]| v[r.desde_byte / 4..r.desde_byte / 4 + 6 * VERTEX_BYTES / 4].to_vec();
+        let ahora: Vec<u32> = b.iter().map(|x| x.load(Ordering::Relaxed)).collect();
+        assert_eq!(ranura(&ahora), ranura(&antes), "la ranura en vuelo no se toco");
+        assert_eq!(b[CAMPO_VERTICES + r.ranura].load(Ordering::Relaxed), 6);
+        l.soltar();
+        assert_eq!(l.publica(3, &marca(3, 6)), Publicacion::Hecha, "soltada, se escribe");
+        assert_eq!(l.reservar().map(|r| r.fotograma), Some(3));
+    }
+
+    /// Una lamina de un escritor que NO respeta la vuelta (las de antes del
+    /// 15-10, sin el bit) no se reserva: se sigue copiando.
+    #[test]
+    fn an_old_writer_is_never_lent_without_a_copy() {
+        let b = bloque(6);
+        let l = Lamina::crear(&b, 6).unwrap();
+        assert!(l.publicar(1, &marca(1, 6)));
+        b[CAMPO_ESTADO].store(0, Ordering::Relaxed);
+        assert!(!l.respeta_vuelta());
+        assert_eq!(l.reservar(), None);
+        let mut out = [Vertex { position: [0.0; 4], color: [0.0; 4] }; 6];
+        assert!(matches!(l.leer(&mut out), Leido::Fotograma { fotograma: 1, vertices: 6 }), "copiar, si");
     }
 }
