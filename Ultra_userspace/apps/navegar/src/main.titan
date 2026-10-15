@@ -99,20 +99,22 @@ fn tope(largo: int) -> int
         return 0
     return al - alto_pagina()
 
+# Las flechas y las paginas: las del teclado USB (`bmo_uhid::SC_*`: 103
+# abajo, 111 AvPag, 102 arriba, 108 RePag) y las del numerico.
 fn desliza(desliz: int, tecla: int, hasta: int) -> int
-    if tecla == 80
+    if tecla == 80 or tecla == 103
         if desliz + 32 > hasta
             return hasta
         return desliz + 32
-    if tecla == 81
+    if tecla == 81 or tecla == 111
         if desliz + alto_pagina() > hasta
             return hasta
         return desliz + alto_pagina()
-    if tecla == 72
+    if tecla == 72 or tecla == 102
         if desliz < 32
             return 0
         return desliz - 32
-    if tecla == 73
+    if tecla == 73 or tecla == 108
         if desliz < alto_pagina()
             return 0
         return desliz - alto_pagina()

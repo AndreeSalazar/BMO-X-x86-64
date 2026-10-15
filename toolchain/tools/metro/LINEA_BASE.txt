@@ -3,9 +3,9 @@
 # Se reescribe con `cargo run --release -p bmo-metro -- --fijar`.
 # programa  pasos  accesos  codigo  salida
 Ultra_userspace/apps/bico/src/main.titan 437 124 31811 e333c242be2a9b49
-Ultra_userspace/apps/navegar/src/main.titan 2612 437 56987 e897113c8df4c7be
+Ultra_userspace/apps/navegar/src/main.titan 2612 437 57451 e897113c8df4c7be
 Ultra_userspace/apps/png/src/main.titan 7878422 3992285 18171 326cdc9020a51072
-Ultra_userspace/apps/resolucion/src/main.titan 304 88 31843 085091bc4bc966b3
+Ultra_userspace/apps/resolucion/src/main.titan 304 88 32075 085091bc4bc966b3
 toolchain/lang/ada/examples/1-basico/cierre.adb 369 69 1560 ed567b986aa22dd2
 toolchain/lang/c/examples/bits_C.c 872 144 559 582273125d487ce0
 toolchain/lang/c/examples/blit_C.c 57720 6438 3035 25042ff916c7a1d5

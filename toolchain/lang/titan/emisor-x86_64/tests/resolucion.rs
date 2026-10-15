@@ -108,6 +108,10 @@ fn arrows_choose_and_enter_saves() {
     let abajo = [tecla(ABAJO); 9];
     let m = con(None, &[&abajo[..], &[tecla(ENTER)]].concat(), false);
     assert_eq!(guardado(&m).as_deref(), Some("2560 1440\n"));
+    // ** Las flechas del teclado USB (15-10): `bmo_uhid::SC_DOWN` y `SC_UP`
+    // llegan con su codigo propio, no con el del numerico.
+    let m = con(None, &[tecla(0x67), tecla(0x67), tecla(0x66), tecla(ENTER)], false);
+    assert_eq!(guardado(&m).as_deref(), Some("1366 768\n"));
 }
 
 /// ** Lo guardado se elige al abrirse; las cifras y el raton eligen; una
