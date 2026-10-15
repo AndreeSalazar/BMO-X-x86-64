@@ -374,6 +374,48 @@ dice, y el metal se junta en UNA corrida por escalon.
 - [ ] **B4 -- LB10 + LB12: el perfil del Ryzen, UNA fuente, comprobado al
       arrancar.** Lo leen el emisor, la puerta y la lente; si la CPU no es la
       del perfil, lo generico de x86-64 y se dice.
+      **HECHO EN EL ANFITRION el 14/15-10, con lo que pidio el propietario
+      al darlo:** *"que ese LLVM de rust TENGA OBLIGACION que tengas
+      control ... yo decido por motivos"*. **Falta solo ver en el Ryzen la
+      linea del arranque** (`cpu: es la CPU del perfil` y la cuenta de las
+      decididas que tiene).
+      - **La decision, en el perfil.** La tabla de extensiones de
+        `PERFIL/CPU.txt` gana dos columnas que escribe el propietario:
+        `mano` (lo que la casa puede usar: `intrinsics.toml`, `asm!`,
+        `global_asm!`) y `llvm` (lo que el compilador elige solo). Del dia:
+        lo que BMO-X ya usaba; LLVM, nada fuera de x86-64 base.
+      - **UNA fuente.** El catalogo de A6 lleva los nombres del perfil
+        (`CR4.OSXSAVE`, `MONITOR/MWAIT`), el censo del kernel gana SSE3 y
+        SSSE3, y `perfil-campos` ata las reglas (`llvm: si` pide `mano:
+        si`; `mano: si` pide `esperado: si`; todo el catalogo decidido) y
+        genera `bmo-carga-juicio/src/decidido.rs` (`--apply`). Lo leen: el
+        EMISOR (`sem-asm` no carga una fila con `mano: no`: saboteado AVX,
+        "[avx_funde4] pide AVX ... no la permite"); la LENTE (`bex-link`,
+        abajo); y el KERNEL al arrancar.
+      - **LLVM obedece, en dos sitios.** Antes de compilar, el guardian
+        `llvm-obedece` cierra sus tres puertas -- la CPU del objetivo
+        (`x86-64`, nunca `native` ni `znver3`), los `+feature` y los
+        `#[target_feature]` -- contra la columna `llvm` (saboteado `+avx2`,
+        `znver3` y un `target_feature`: cae las tres). Y despues, en el
+        BINARIO: `bex-link` barre TODO `.text` del ELF con la lente --
+        cada instruccion, la misma que `objdump`: 1.062.403 en el DIRECTOR,
+        578.457 en PROTON-X -- y declara en el `.bex` lo que pide, o PARA
+        el build si algo no esta decidido o no se sabe leer (saboteado
+        RDRAND: para en `process_prng+0x91`). Para leerlo todo la lente
+        aprendio lo que LLVM escribe: `cs:`/`fs:`/`gs:`, `test al, imm`,
+        `shld`/`shrd`, `roundsd`, `mov sreg`, `fxsave64` y el x87 del crt de
+        PROTON-X.
+      - **Lo que salio a la luz:** PROTON-X usa SSE4.1 (`roundsd`, asm de
+        la casa), RDRAND y CR4.OSXSAVE; ahora su `.bex` lo DECLARA. Y
+        `usage.rs` decia que SSE4.1 no lo pedia nadie: corregido.
+      - **LB12, el arranque:** `profile::carear_extensiones()`, al lado del
+        careo de la topologia: si la CPU no es la del perfil (familia/modelo)
+        lo grita y queda lo generico de x86-64 -- un `.bex` que pida lo que
+        no hay no entra (A6) --; y cada extension DECIDIDA que el silicio no
+        tiene, con su nombre.
+      - **Lo que NO esta:** la otra mitad de LB10 -- "cual cuesta menos en
+        el Zen 3" (latencias) para que el emisor elija -- no existe todavia;
+        hoy el perfil decide QUE se puede, no CUAL conviene.
 
 **Escalon 3 -- Ring 0 y el metal (dificil)**
 

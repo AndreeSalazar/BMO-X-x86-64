@@ -346,6 +346,9 @@ pub fn main(ctx: &mut BootContext) {
     // existia dentro de `smp::despertar()` y por eso no dijo nada el 25-08,
     // cuando un 6/12 se mostraba como 27/54 en todos los paneles.
     crate::ring0::cpu_vendor::profile::carear_topologia();
+    // ** Y LAS EXTENSIONES (LB12 / B4, 14-10): de que chip es esto, y si
+    // tiene lo que el propietario decidio en PERFIL/CPU.txt.
+    crate::ring0::cpu_vendor::profile::carear_extensiones();
     splash::intro_paso(25);
     // * Y se le pregunta al CPU si sabe medirse a si mismo. UNA vez: despues
     // `INFO_CPU_HZ_REAL` solo mira una bandera, porque lo va a pedir un panel

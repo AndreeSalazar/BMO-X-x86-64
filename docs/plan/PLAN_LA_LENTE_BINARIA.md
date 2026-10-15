@@ -219,6 +219,13 @@ ya la lee una maquina, y `perfil-campos` la compara con el codigo) y
 
 ### [ ] LB10 -- una sola fuente para el build, el kernel y la lente
 
+**La mitad de QUE SE PUEDE, HECHA el 14/15-10 (B4 de `EL_FOCO.md`):**
+`PERFIL/CPU.txt` es la fuente -- con las columnas `mano` y `llvm` que decide
+el propietario --, `perfil-campos` genera `bmo-carga-juicio/src/decidido.rs`,
+y lo leen `sem-asm`, `bex-link` (la lente sobre todo `.text`), el guardian
+`llvm-obedece` y el kernel al arrancar. **Falta la mitad de CUAL CONVIENE**
+(las latencias del Zen 3 para que el emisor elija).
+
 El perfil, como datos que leen TRES: INTI y TITAN++ al emitir (que
 instruccion usar y cual cuesta menos en el Zen 3), la puerta al admitir (LB6:
 que extensiones hay) y la lente (LB3/LB4: como se lee y que cuenta cada
@@ -241,6 +248,12 @@ lo lee la siguiente vez. Un numero medido que contradiga al declarado se
 dice, no se esconde.
 
 ### [ ] LB12 -- el perfil se COMPRUEBA al arrancar
+
+**ESCRITO el 15-10, sin ver en el metal:** `profile::carear_extensiones()`,
+llamado en el arranque al lado de `carear_topologia`: familia/modelo contra
+el perfil (si no es, lo dice y queda lo generico de x86-64; un `.bex` que pida
+lo que no hay lo para A6), y cada extension decidida contra el CPUID. Se
+cierra cuando el Ryzen lo diga en su bitacora.
 
 Un perfil es una suposicion: si la CPU que hay debajo no es la del perfil (otra
 placa, otro Ryzen), el kernel lo dice y usa lo GENERICO de x86-64. Nunca
