@@ -434,3 +434,23 @@ fn reads_what_llvm_writes() {
     // y `gs:` se dice en la direccion de la autopsia
     assert_eq!(lee(&[0x65, 0x48, 0x8B, 0x04, 0x25, 0x30, 0, 0, 0]).unwrap().memoria().unwrap().segmento, SEG_GS);
 }
+
+/// ** EN CASTELLANO (15-10): los bytes, dichos para una persona.
+#[test]
+fn says_it_in_spanish() {
+    use crate::castellano::explica;
+    let di = |b: &[u8], en: u64| String::from(explica(&lee(b).unwrap(), en).as_str());
+    assert_eq!(di(&[0x48, 0x63, 0x00], 0), "lee 4 bytes de la memoria en [rax] con signo y lo deja en rax");
+    assert_eq!(di(&[0x31, 0xC0], 0), "pone eax a cero");
+    assert_eq!(di(&[0xC3], 0), "vuelve a quien llamo a esta funcion");
+    assert_eq!(di(&[0x48, 0x01, 0xD8], 0), "suma rbx a rax");
+    assert_eq!(di(&[0x48, 0x83, 0xEC, 0x08], 0), "resta el numero 0x8 de rsp");
+    assert_eq!(di(&[0x48, 0x85, 0xC0], 0), "mira si rax es cero o negativo (para lo que venga)");
+    assert_eq!(di(&[0x0F, 0x05], 0), "LLAMA AL KERNEL: le pide algo a BMO-X (la puerta)");
+    assert_eq!(di(&[0x0F, 0x0B], 0), "para el programa A PROPOSITO: es una trampa (una regla que no se cumplio)");
+    assert_eq!(di(&[0x75, 0xFA], 0x100), "salta a 0xfc si la comparacion anterior salio distinto (o no cero)");
+    assert_eq!(di(&[0xE8, 0x20, 0, 0, 0], 0), "llama a la funcion en 0x25 (y vuelve aqui al acabar)");
+    assert_eq!(di(&[0x50], 0), "guarda rax en la pila");
+    // Una llamada por un registro: adonde va lo dice el registro.
+    assert_eq!(di(&[0xFF, 0xD0], 0), "llama a la funcion en la direccion que hay en rax (y vuelve aqui al acabar)");
+}
