@@ -7,8 +7,8 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   862 casillas ABIERTAS en 79 planes
-   646 hechas
+   861 casillas ABIERTAS en 79 planes
+   647 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -324,15 +324,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] H3 -- LA BARRA LATERAL EN VIVO (2026-09-22)
 - ... y 5 mas
 
-## [`PLAN_EL_KERNEL_DE_LA_APP.md`](PLAN_EL_KERNEL_DE_LA_APP.md) -- 8 abiertas, 1 hechas
-
-*PLAN EL KERNEL DE LA APP -- cada app se administra sola; el kernel principal arbitra*
-
-- [ ] KA0 -- las decisiones de la seccion 5, contestadas por el propietario.
-- [ ] KA1 -- la APP CARPETA: apps/ecce/ con nucleo.bex y piezas
-- [ ] KA2 -- el CONTRATO de una pieza: su peso, lo que pide (los
-- ... y 5 mas
-
 ## [`PLAN_MUNDO.md`](PLAN_MUNDO.md) -- 8 abiertas, 0 hechas
 
 *PLAN MUNDO -- el Minecraft propio, en TITAN++, por VERRANO*
@@ -367,6 +358,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] pendiente [~] a medias, y se dice cuanto [x] hecho, con fecha
 - [ ] A1.3 -- el AP con reloj: un LAPIC timer propio, o el MWAITX con plazo
 - [ ] A2.1 -- bmo-orquesta: una clase de parte nueva, RESIDENTE, que no
+- ... y 4 mas
+
+## [`PLAN_EL_KERNEL_DE_LA_APP.md`](PLAN_EL_KERNEL_DE_LA_APP.md) -- 7 abiertas, 2 hechas
+
+*PLAN EL KERNEL DE LA APP -- cada app se administra sola; el kernel principal arbitra*
+
+- [ ] KA1 -- la APP CARPETA: apps/ecce/ con nucleo.bex y piezas
+- [ ] KA2 -- el CONTRATO de una pieza: su peso, lo que pide (los
+- [ ] KA3 -- PRESTAR DE GOLPE: un bloque de RAM y un tramo de
 - ... y 4 mas
 
 ## [`PLAN_EL_TOQUE.md`](PLAN_EL_TOQUE.md) -- 7 abiertas, 0 hechas

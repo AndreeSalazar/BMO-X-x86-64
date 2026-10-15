@@ -96,7 +96,10 @@
       SI, lente DEMOSTRADO, manifiesto con `screen = true`), uno roto (la
       puerta dice su NO por nombre) y sin sitio para la lente. Falta: verlo
       en el Ryzen (hoja 6b de EL_FOCO, fila RX).
-- [ ] **KA0 -- las decisiones de la seccion 5**, contestadas por el propietario.
+- [x] **KA0 -- las decisiones de la seccion 5**, contestadas por el propietario
+      el 15-10: se llama **NUCLEO** (`apps/<app>/nucleo.bex`), la primera
+      app partida es **ECCE**, y **cada app trae sus piezas** (compartir,
+      despues y si hace falta).
 - [ ] **KA1 -- la APP CARPETA:** `apps/ecce/` con `nucleo.bex` y piezas
       `.bex`; el lanzador ve la carpeta como UNA app (un icono) y el
       cargador valida TODAS las piezas al admitir (B1, la firma, A6).
@@ -134,11 +137,12 @@
 ## 5. Las decisiones del propietario
 
 ```text
-   D1  EL NOMBRE        del kernel de la app (aqui "kernel de la app")
-   D2  LA PRIMERA APP   que se parte en piezas: ECCE (chica, se ve
-                        rapido) o CraftPho (la que mas lo necesita)
-   D3  COMPARTIR        una pieza la usan varias apps (como una DLL, pero
-                        con contrato) o cada app trae las suyas
+   D1  EL NOMBRE        CONTESTADA (15-10): NUCLEO -- `apps/<app>/nucleo.bex`
+   D2  LA PRIMERA APP   CONTESTADA (15-10): ECCE -- chica, ya funciona y se ve
+                        rapido (el deshacer y el guardado, piezas aparte)
+   D3  COMPARTIR        CONTESTADA (15-10): cada app trae las suyas. Mas
+                        simple y el fallo de una pieza solo toca a su app;
+                        compartir con contrato se puede abrir despues
 ```
 
 ---
