@@ -191,7 +191,7 @@ fn instrucciones_de_esta_cpu() -> u64 {
         return v & !SABIDO;
     }
     let hay = bmo_carga_juicio::instrucciones::de_cpuid(|hoja, sub| {
-        let r = unsafe { core::arch::x86_64::__cpuid_count(hoja, sub) };
+        let r = core::arch::x86_64::__cpuid_count(hoja, sub);
         [r.eax, r.ebx, r.ecx, r.edx]
     });
     HAY.store(hay | SABIDO, Ordering::Relaxed);

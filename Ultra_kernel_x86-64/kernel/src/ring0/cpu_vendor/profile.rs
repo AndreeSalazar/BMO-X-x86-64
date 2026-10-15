@@ -322,8 +322,7 @@ pub fn carear_extensiones() {
     }
 
     let hay = instrucciones::de_cpuid(|hoja, sub| {
-        // SAFETY: CPUID no tiene efectos, y toda CPU de 64 bits lo tiene.
-        let r = unsafe { core::arch::x86_64::__cpuid_count(hoja, sub) };
+        let r = core::arch::x86_64::__cpuid_count(hoja, sub);
         [r.eax, r.ebx, r.ecx, r.edx]
     });
     let faltan = decidido::MANO & !hay;

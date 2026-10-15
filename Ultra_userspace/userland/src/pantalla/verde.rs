@@ -66,6 +66,7 @@ use crate::*;
 /// por el pintor compartido. Es verde por lo mismo que esto: `punto` encima
 /// de `punto`. Ver su cabecera.
 pub(super) mod fina;
+pub(super) mod por_defecto;
 
 /// La fuente 8x16 de BMO, la MISMA que pinta el kernel.
 ///
