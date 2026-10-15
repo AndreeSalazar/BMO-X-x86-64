@@ -1158,6 +1158,11 @@ pieza entera en la 0b, y su fila de la tabla de estado pasa a `VISTO dd-mm`.
           (V4)                         banco`): IGUAL en el 0, el 30 y   que NO al abrir, o DISTINTO
                                        el 60, con el sobre que ya no es  en algun fotograma: se
                                        SASS a mano                       vuelve al de antes con git
+   PL1    ECCE, el bloc de notas        su icono (o `run apps/ecce.bex`): no abre, las letras no    (sin probar)
+          (PLAN_ECCE.md)               escribir con tildes y ene, Enter,  salen, o al volver a
+                                       flechas; Esc; abrirlo otra vez:   abrir la nota no esta
+                                       la nota sigue ahi (datos/
+                                       notas.txt)
    Q2     el sonido de TITAN++         `run apps/musica.bex`: dice       no suena (el tubo sin      FUNCIONO 15-10
                                        `voces   `, cada nota y `fin     armar: mirar `audio` en
                                        0`, y SUENA el tema por el        CABINA), o suena a trozos
@@ -1211,10 +1216,17 @@ pieza entera en la 0b, y su fila de la tabla de estado pasa a `VISTO dd-mm`.
                  linea `lente: ...` vive en la bitacora (F11), no en `save`
    B4  sin ver   la linea `cpu: es la CPU del perfil` vive en la bitacora del
                  arranque (F11)
-   C1 C2 C3 D1 B3  sin probar: el GSP-RM no dio `GSP_INIT_DONE` en 10 s
-                 (`listo: ... NO llego`, lo de siempre: L0c4b) y el volcado
-                 dijo `NO`; sin `gpu init` + `gpu verrano banco inti` no hay
-                 nada que mirar de la 3060
+   C1 C2 C3 D1 B3  sin probar. El save dijo `GSP_INIT_DONE NO llego en
+                 10 s`, PERO ERA MENTIRA DEL RESUMEN (investigado el 15-10):
+                 `save mode` ya lo habia visto llegar -- por eso la fila de
+                 abajo, `GET_GSP_STATIC_INFO CONTESTADA`, y los objetos NV_OK
+                 --; el `gpu init` tecleado DESPUES no puede volver a correr
+                 el secuenciador (`IOMMU_NO_SEC_YA`) y guardaba su resumen
+                 vacio ENCIMA del bueno (las huellas: `1 tramos`, sin `dijo:`,
+                 BAR1 despues 0). Arreglado en `commands/gspinit.rs`: una vez
+                 por arranque, `gpu init` repetido lo dice y no toca nada.
+                 La proxima sesion: NO teclear `gpu init` si save mode ya lo
+                 hizo (o teclearlo: ahora contesta "ya llego")
    y ademas      tinta, mundo y resol abrieron su ventana (mundo ofrecio su
                  lamina); ni un aviso en el anillo salvo la caida buscada
 ```

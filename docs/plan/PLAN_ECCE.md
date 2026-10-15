@@ -128,10 +128,20 @@ guardadas como ESTRATOS (como la `.obra` de
 - [ ] **PL1 -- el motor de texto:** parrafos con elemento, cursor, seleccion,
       deshacer, buscar. Puro, en el anfitrion. **Como se sabe:** mil
       ediciones al azar y su deshacer vuelven al texto de partida, byte a byte.
+      **15-10, la primera mitad:** `Ultra_userspace/apps/ecce` (TITAN++),
+      `apps/ecce.bex` con icono. El texto es una `[byte]` Latin-1; escribir,
+      Enter, Tab, Retroceso, Supr, flechas, Inicio, Fin, RePag y AvPag; las
+      lineas que SE VEN se parten en el ultimo espacio que cabe. Guarda SOLO
+      `datos/notas.txt` (Ctrl es del escritorio: no hay Ctrl+S), al cerrar y
+      un segundo y medio despues de la ultima tecla. Las pruebas:
+      `emisor-x86_64/tests/ecce.rs`, 8 (romper el corte de lineas las pone
+      rojas). **Falta para tachar PL1:** el DESHACER y su prueba de las mil
+      ediciones; los elementos por parrafo (son de PL3 en adelante).
 - [ ] **PL2 -- Fountain, leer y escribir.** **Como se sabe:** los ejemplos
       de la especificacion de Fountain dan los elementos que ella dice, y
       leer-escribir-leer no cambia nada.
-- [ ] **PL3 -- la ventana en TITAN++:** escribir un guion con Tab y Enter,
+- [ ] **PL3 -- la ventana en TITAN++:** (la ventana de NOTAS ya esta, 15-10:
+      ver PL1; falta el modo guion encima) escribir un guion con Tab y Enter,
       cada elemento con su sangria, y guardarlo como `.fountain`.
 - [ ] **PL4 -- EL PAGINADO del oficio:** margenes, (MAS) y (CONT.), no
       cortar donde no se corta. **Como se sabe (el juez):** guiones de
