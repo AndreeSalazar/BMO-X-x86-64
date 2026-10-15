@@ -96,6 +96,17 @@
       SI, lente DEMOSTRADO, manifiesto con `screen = true`), uno roto (la
       puerta dice su NO por nombre) y sin sitio para la lente. Falta: verlo
       en el Ryzen (hoja 6b de EL_FOCO, fila RX).
+      **Y EN CASTELLANO** (15-10, el propietario: *"que mi kernel se
+      convierta mismo que entienda binarios puros [...] y sepa [...] que
+      significan en castellano"*): `bmo_lente_x86::castellano::explica`
+      dice cada instruccion decodificada como frase ("lee 4 bytes de la
+      memoria en [rax] con signo y lo deja en rax", "LLAMA AL KERNEL",
+      "para el programa A PROPOSITO: es una trampa"). Las 12074
+      instrucciones de ECCE tienen la suya (prueba). `dentro` pinta las 16
+      primeras desde la entrada y, en un `.ibx` de INTI, sus KATANAS por
+      nombre ("E1001 desbordar un entero ATRAPA", ...) con donde cae su trampa. Y el
+      kernel lo usa solo: la autopsia lleva un renglon `dice` debajo de
+      `instr` (fila B2c de la hoja 6b).
 - [x] **KA0 -- las decisiones de la seccion 5**, contestadas por el propietario
       el 15-10: se llama **NUCLEO** (`apps/<app>/nucleo.bex`), la primera
       app partida es **ECCE**, y **cada app trae sus piezas** (compartir,

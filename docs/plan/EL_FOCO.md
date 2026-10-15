@@ -1163,7 +1163,16 @@ pieza entera en la 0b, y su fila de la tabla de estado pasa a `VISTO dd-mm`.
           DE_LA_APP)                   dentro" (o `dentro apps/ecce.bex` .bex que corre, o la lente
                                        en Ejecutar): regiones, anexos,   no DEMOSTRADO
                                        lente DEMOSTRADO, el manifiesto
-                                       y "el kernel lo ADMITIRIA"
+                                       y "el kernel lo ADMITIRIA"; al
+                                       final, las 16 primeras
+                                       instrucciones DICHAS EN
+                                       CASTELLANO (y en un `.ibx` de
+                                       INTI, sus katanas por nombre)
+   B2c    la autopsia lo dice en       `run c/autopsia.bex` y `fallo`:   sin renglon `dice`, o una  (sin probar)
+          castellano                   debajo de `instr`, el renglon     frase que no es lo que
+          (lente en castellano)        `dice  lee 4 bytes de la         hace la instruccion
+                                       memoria en [rax] con signo y lo
+                                       deja en rax`
    EL0    lo que TOCA cada programa    abrir ECCE, TINTA y MUNDO,       la tabla no sale, o todo    (sin probar)
           (PLAN_EL_TOQUE.md)           usarlos un poco y CERRARLOS;      a cero, o un fallo al
                                        `save`: capitulo 5, la tabla      cerrar una app (el
