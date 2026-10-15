@@ -119,12 +119,13 @@ pub(crate) struct Menu {
 
 const VACIA: Entrada = Entrada { texto: "", verbo: "", hace: Hace::Orden, pesa: false };
 
-/// El hijo `i` es un programa (`.bex` o `.ibx`): se puede ver por dentro.
+/// El hijo `i` es un programa (`.bex` o `.ibx`, o un `.exe`/`.dll` de
+/// Windows desde LX1): se puede ver por dentro.
 fn es_programa(i: u64) -> bool {
     let mut nom = [0u8; 64];
     let n = super::data::fuente::hijo_nombre(i, &mut nom);
     let nom = &nom[..n];
-    n >= 4 && (nom[n - 4..].eq_ignore_ascii_case(b".bex") || nom[n - 4..].eq_ignore_ascii_case(b".ibx"))
+    n >= 4 && [b".bex", b".ibx", b".exe", b".dll"].iter().any(|e| nom[n - 4..].eq_ignore_ascii_case(*e))
 }
 
 impl Menu {

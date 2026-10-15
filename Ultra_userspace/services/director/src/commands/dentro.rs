@@ -34,7 +34,7 @@ pub(crate) fn dentro(dsk: &mut Desktop, _p: &bmo::Pantalla, ruta: &[u8]) -> Afte
     let s = &mut dsk.out.grid;
     let ruta = ruta.trim_ascii();
     if ruta.is_empty() {
-        s.text(b"  dentro RUTA: lo que hay dentro de un .bex (o clic derecho > ver por dentro)\n");
+        s.text(b"  dentro RUTA: lo que hay dentro de un .bex, un .exe de Windows o una app carpeta (o clic derecho > ver por dentro)\n");
         return After::Settle;
     }
     let Ok(a) = bmo::Archivo::leer_de(ruta) else {
@@ -67,6 +67,11 @@ pub(crate) fn dentro(dsk: &mut Desktop, _p: &bmo::Pantalla, ruta: &[u8]) -> Afte
     let bytes = unsafe { core::slice::from_raw_parts(fichero.base() as *const u8, n) };
     let visto = unsafe { core::slice::from_raw_parts_mut(mapa.base() as *mut u8, VISTO as usize) };
     let pila = unsafe { core::slice::from_raw_parts_mut(mapa.base().add(VISTO as usize) as *mut u32, PILA as usize) };
+    // ** Un `.exe` de WINDOWS (LX1): lo que PROTON-X tiene que saber de el.
+    if bmo_radiografia::pe::es_pe(bytes) {
+        super::dentro_exe::exe(s, ruta, bytes, visto, pila);
+        return After::Settle;
+    }
     let r = radiografiar(bytes, visto, pila);
 
     s.with_ink(INK_ECHO);
