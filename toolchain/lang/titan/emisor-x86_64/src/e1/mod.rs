@@ -56,6 +56,7 @@ mod entrada;
 mod letra;
 mod llamada;
 mod valor;
+mod vector;
 mod ventana;
 
 use crate::{Cuerpos, Emitted};
@@ -769,6 +770,10 @@ impl<'m> E1<'m> {
                     self.code.push(0xC3); // ret
                 }
                 End::Jump(t) => {
+                    // AF9: la entrada de un bucle de datos, en vectores
+                    if *t > i {
+                        self.suma_en_vectores(f, *t)?;
+                    }
                     // B3: la vuelta de un bucle mira su condicion AQUI
                     if let Some(js) = self.vuelta_girada(f, i, *t)? {
                         jumps.extend(js);

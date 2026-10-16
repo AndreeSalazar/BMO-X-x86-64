@@ -96,6 +96,17 @@ fn bytes_run_in_the_machine_as_the_calculation_says() {
             "fn main()\n    let n = 9\n    let mut a: [byte] = []\n    for i in range(n)\n        push(mut a, byte(7))\n    print(len(a), \" \", a[8])\n",
             "9 7\n",
         ),
+        // ** AF9 (16-10): `s = s + b` sobre una `[byte]` se suma de 32 en 32
+        // con `psadbw` (como Clang), y el bucle de siempre hace lo que queda
+        (
+            "fn suma(n: int) -> int\n    let mut b: [byte] = []\n    for i in range(n)\n        push(mut b, byte((i * 37 + 11) % 256))\n    let mut s = 0\n    for x in b\n        s = s + x\n    return s\nfn main()\n    print(suma(0), \" \", suma(1), \" \", suma(31), \" \", suma(32), \" \", suma(33), \" \", suma(1000))\n",
+            "0 11 3722 3856 4027 127572\n",
+        ),
+        // y si la suma no cabe, el NO es el mismo y en su linea
+        (
+            "fn main()\n    let mut b: [byte] = []\n    for i in range(100)\n        push(mut b, byte(255))\n    let mut s = 9223372036854775807 - 20000\n    for x in b\n        s = s + x\n    print(s)\n",
+            "NO T0060 linea 9",
+        ),
     ];
     let mut wrong = Vec::new();
     for (k, (body, want)) in programs.iter().enumerate() {

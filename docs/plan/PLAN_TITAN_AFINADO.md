@@ -366,10 +366,27 @@ en sus cientos de programas) y el metro sin que ninguna salida cambie.
       con su sabotaje (los registros cruzados al llegar: lo dice)
 - [ ] **AF8 -- COPIAR DENTRO (fase C, ventaja 3).** Una fn chica de un
       paquete se emite dentro de quien la llama: sin `call`, sin marco
-- [ ] **AF9 -- EL BUCLE DE DATOS EN VECTORES (fase C, ventajas 1 y 2).** Un
-      `for` que recorre una lista sin alias y sin llamadas se emite en SSE
-      (16 bytes) -- `mano: si` hoy solo para SSE4.1 --, y en AVX2 (32) el dia
-      que el propietario lo decida en PERFIL. **Lo decide el propietario**
+- [x] **AF9a -- LA SUMA DE UNA LISTA DE BYTES EN VECTORES** (16-10,
+      `e1/vector.rs`). El propietario: *"sobre simd eso usa aprende de
+      clang y superarlo"*. Lo que hace Clang: `psadbw` contra cero suma 8
+      bytes, y un `xmm` hace dos a la vez. El emisor reconoce `for b in a`
+      sobre una `[byte]` cuyo cuerpo es solo `s = s + b`, y ANTES del
+      bucle suma de 32 en 32 (`movdqu`, `psadbw`, `paddq`); el bucle de
+      siempre hace lo que queda. El mismo NO en la misma linea (los bytes
+      solo suben la suma). SSE2: toda CPU de x86-64. El emulador aprendio
+      `movdqu`, `pshufd`, `paddq`, `pxor` y `psadbw` (con su prueba contra
+      la suma uno a uno). El duelo: bytes 1,03 -> 0,62 x el C de la casa,
+      1,5 x Rust y 1,1 x g++. El banco 33,1 -> 30,6 millones de
+      instrucciones y 9,9 -> 7,9 millones de accesos. Sube el codigo de
+      `bytes` (+127 B: la parte en vectores), a la vista. `tests/bytes.rs`
+      (largos 0, 1, 31, 32, 33 y 1000; el desborde en su linea), con
+      sabotaje (el segundo bloque de 16 leyendo el primero: lo dice)
+- [ ] **AF9 -- el resto del bucle de DATOS en vectores.** Llenar una lista
+      (`push` de una cuenta), otras reducciones (`[int]`, max, min) y, con
+      la decision del propietario en PERFIL, AVX2 (32 bytes por
+      instruccion). Clang a tope (`-O3 -march=znver3`) sigue 10 x por
+      delante en `bytes`: llena la lista en vectores. **Lo decide el
+      propietario** (AVX2)
 - [ ] **AF10 -- MEDIR EN EL RYZEN (fase C, ventaja 5).** El duelo corrido en
       el metal con `director.contar`: ciclos de verdad, no instrucciones,
       para TITAN++ y para el C de la casa. Y el dia que gane, que lo diga el

@@ -8,7 +8,7 @@
 
 ```text
    882 casillas ABIERTAS en 80 planes
-   683 hechas
+   684 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -423,13 +423,13 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] 6 compilar hola.ada el frontend de Ada dentro del mismo
 - ... y 4 mas
 
-## [`PLAN_TITAN_AFINADO.md`](PLAN_TITAN_AFINADO.md) -- 7 abiertas, 13 hechas
+## [`PLAN_TITAN_AFINADO.md`](PLAN_TITAN_AFINADO.md) -- 7 abiertas, 14 hechas
 
 *PLAN TITAN AFINADO -- TITAN++ a la altura de C, sin aprender de CPU*
 
 - [ ] AF5 -- EL PRECIO DE LA SEGURIDAD, medido. Cuantas instrucciones del
 - [ ] AF8 -- COPIAR DENTRO (fase C, ventaja 3). Una fn chica de un
-- [ ] AF9 -- EL BUCLE DE DATOS EN VECTORES (fase C, ventajas 1 y 2). Un
+- [ ] AF9 -- el resto del bucle de DATOS en vectores. Llenar una lista
 - ... y 4 mas
 
 ## [`PLAN_EL_ENLAZADOR.md`](PLAN_EL_ENLAZADOR.md) -- 6 abiertas, 10 hechas
