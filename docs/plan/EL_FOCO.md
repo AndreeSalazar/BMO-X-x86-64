@@ -1225,6 +1225,16 @@ pieza entera en la 0b, y su fila de la tabla de estado pasa a `VISTO dd-mm`.
                                        partido lleva "(MAS)" y "NOMBRE   dice "pag N de M"
                                        (CONT.)"; Alt + rueda: la mesa
                                        muestra esas paginas
+   PDF    el guion en PDF (PL6 de      ECCE con un guion: Alt+P, la      no sale datos/guion.pdf, o  (sin probar)
+          PLAN_ECCE)                   cabecera dice "PDF: datos/        un lector de PDF no lo
+                                       guion.pdf"; copiarlo al PC y      abre, o las columnas no
+                                       abrirlo: Courier, la escena a     son las de un guion
+                                       1,5", el personaje a 3,7", el
+                                       dialogo a 2,5", "2." arriba
+   LETRA  la cabeza y el pie de ECCE   abrir ECCE: "ECCE" en negrita     la de 8 x 16 de siempre (el (sin probar)
+          con la letra de la casa      con el borde suave, "notas" y la  build no dejo letra.blt), o
+          (LE2 de PL18)                ruta finas, el pie igual; teclear letras cortadas, o ECCE va
+                                       no va mas lento que antes         a tirones al teclear
    IC     la cara ELEGANTE de ECCE     el icono de ECCE en el escritorio sale el cuadro con la E,  (sin probar)
           (32 px, borde suave, de      a 32 con el borde suave (la hoja  o con bordes en escalera,
           su `icono.svg`)              y la pluma de oro), sobre la foto o un halo oscuro alrededor

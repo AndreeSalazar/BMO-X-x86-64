@@ -240,7 +240,17 @@ guardadas como ESTRATOS (como la `.obra` de
       - [ ] el juez contra Final Draft (pide guiones paginados en Final
         Draft: los da el propietario, en PDF o `.fdx`, PL7)
 - [ ] **PL5 -- SmartType:** completar personajes, lugares y momentos.
-- [ ] **PL6 -- el PDF:** el guion entregable. **Como se sabe:** abre en
+- [x] **PL6 -- el PDF:** el guion entregable. **HECHO en el anfitrion el
+      16-10** (`pdf.titan`, Alt+P): PDF 1.4 con la Courier de 12 puntos, una
+      de las catorce que todo lector trae (no se mete la letra); las
+      paginas de PL4 con su (MAS), su NOMBRE (CONT.) y el numero desde la
+      segunda; sin actos, sinopsis ni marcas de Fountain. Lo validan poppler
+      (`pdftotext`) y `pypdf` en modo estricto, y las pruebas miran su
+      indice por dentro (`alt_p_writes_the_screenplay_as_a_pdf`,
+      `a_long_screenplay_has_its_pages_numbers_more_and_cont`). Para
+      escribirlo, TITAN++ aprendio `push(mut bytes, "texto")`. Falta: el
+      nombre del fichero (hoy `datos/guion.pdf`, PL17), la portada, y verlo
+      en el Ryzen. **Como se sabe:** abre en
       cualquier lector de PDF y se ve igual que en pantalla.
 - [ ] **PL7 -- .fdx:** abrir y guardar el formato de Final Draft. **Como se
       sabe:** un `.fdx` hecho en Final Draft entra, sale y Final Draft lo
@@ -320,28 +330,38 @@ guardadas como ESTRATOS (como la `.obra` de
 
 - [ ] **PL18 -- LA LETRA ELEGANTE** (el propietario, 16-10: *"ECCE puede
       tener letras elegantes? [...] que todo el INTERFAZ se vea mucho mas
-      elegante"*). Hoy todo BMO-X escribe con UNA letra de mapa de bits,
-      8x16 y sin grises (`fontgen`). Una letra de verdad es un fichero
-      `.ttf` / `.otf`: contornos (curvas) que se RASTERIZAN a la medida que
-      se pida, con el borde suave. La escalera:
-      - [ ] LE1 -- `bmo-letra` (Rust, en el anfitrion, como `bmo-icono`, y
-        con su mismo rasterizador de contornos): lee un TrueType (`glyf`,
-        curvas cuadraticas) y saca un ATLAS de Latin-1 a las medidas pedidas,
-        con alfa de 8 bits. El juez: sus glifos contra FreeType, pixel a
-        pixel con tolerancia
-      - [ ] LE2 -- TITAN++: `letra = "CourierPrime.ttf"` en el Titan.toml
-        (como el icono) va al paquete de la app, y `director.letra` /
-        `director.texto` aprenden la letra y la medida, mezclando el alfa
-      - [ ] LE3 -- ECCE con la letra del oficio: Courier Prime (libre, OFL,
-        hecha para guiones) en la hoja; una letra de interfaz (Inter o Lora,
-        OFL) en la cabecera, el pie y la mesa
-      - [ ] LE4 -- EL ESCRITORIO entero con la misma letra: el director lee
-        el atlas; la de 8x16 queda para el kernel y la caja negra
+      elegante"*, y *"no creo que letras sean dificiles [...] eso va en
+      RING 3"*). La casa YA tiene su letra: `platform/shared/bmo-letra`
+      (proporcional, de borde suave, trazos propios), la de las apps de
+      Rust y del escritorio. Lo que no la tenia era TITAN++: `director.texto`
+      pinta la de 8 x 16 del kernel, sin grises. Y la regla del propietario
+      del 03-10 sigue: *"no integrar objetos terceros, sino tomar la
+      inspiracion"* -- ninguna letra de otros entra al arbol.
+      - [x] LE1 -- `toolchain/tools/bmo-atlas` (16-10): el ATLAS de una
+        letra -- cada una de Latin-1 ya dibujada con su alfa (formato BLET)
+        --, de la letra de la casa o de un TrueType que el propietario ELIJA
+        (lee `glyf` con curvas cuadraticas y glifos COMPUESTOS, como la "a"
+        con tilde; el fichero no entra al arbol). El juez: la tinta de una
+        curva es su AREA, a cada medida (pruebas `tests/atlas.rs`, con un
+        TrueType hecho a mano dentro de la prueba)
+      - [x] LE2 -- ECCE escribe su CABEZA y su PIE con la letra de la casa
+        (16-10, `letra.titan`): el build deja `apps/ecce/letra.blt` (14 px)
+        y `titulo.blt` (26 px, negrita) junto al nucleo, ECCE los lee y
+        pinta cada letra mezclando su borde con la barra. Sin ellos, la de
+        8 x 16 de siempre (prueba `the_house_letter_writes_the_header_and_the_footer`).
+        Para que fuera rapido, E1 ya no COPIA una lista que una fn solo lee
+        (PRESTADO PARA LEER, `e1/mod.rs`): pintar la cabecera bajo de mas de
+        100 millones de pasos a menos de 120, y todo ECCE copia menos
+      - [ ] LE3 -- LA HOJA con una letra de ancho fijo y borde suave: el
+        guion necesita columnas exactas (diez letras por pulgada). La de la
+        casa es proporcional: o se le hace una version de ancho fijo (trazos
+        propios), o el propietario elige un TrueType de ancho fijo para SU
+        maquina (`bmo-atlas fuente.ttf`). **Lo decide el propietario**
+      - [ ] LE4 -- la letra de la casa en `director.texto` para TODA app de
+        TITAN++ (el atlas en el director, no en cada app), y la mesa de
+        ECCE con ella
       - [ ] LE5 -- OpenType con CFF (curvas cubicas), el kerning y las
-        ligaduras
-      Las letras vienen de Google Fonts (ficheros `.ttf` con su licencia OFL,
-      que deja meterlas en el arbol con su `OFL.txt`); NO de un video: una
-      letra es un fichero, no una imagen.
+        ligaduras, para los TrueType que el propietario elija
 ---
 
 ## 5. Que hace cada lado

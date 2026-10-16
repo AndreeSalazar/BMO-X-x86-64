@@ -22,10 +22,17 @@ tres primeros **ya han ejecutado en el Ryzen**.
 >   el dialogo partido con "(MAS)" y "NOMBRE (CONT.)", "===" salta --. La
 >   ventana pinta donde acaba cada pagina y la mesa muestra las paginas de
 >   verdad. Falta el juez contra Final Draft y el Ryzen (6b: PAG).
-> - **La letra elegante** la pidio el propietario (*"que todo el INTERFAZ
->   se vea mucho mas elegante"*): plan PL18 de `docs/plan/PLAN_ECCE.md`,
->   leer `.ttf` y rasterizar con borde suave, primero ECCE y luego el
->   escritorio entero.
+> - **PL6, el PDF** (*"el PDF ese es importante, no?"*: si, es lo que se
+>   ENTREGA): Alt+P en ECCE deja `datos/guion.pdf` con la Courier del oficio
+>   y sus paginas; lo abren poppler y pypdf. TITAN++ aprendio a meter un
+>   texto en una `[byte]` para escribirlo.
+> - **La letra elegante** (*"que todo el INTERFAZ se vea mucho mas
+>   elegante"*): la casa ya tenia la suya (`bmo-letra`); ahora `bmo-atlas` la
+>   deja en un atlas y ECCE pinta su cabeza y su pie con ella. Sin letras de
+>   terceros en el arbol (la regla del 03-10). La HOJA del guion necesita
+>   una de ancho fijo: lo decide el propietario (LE3 de PL18).
+> - **TITAN++ ya no copia lo que solo se lee**: era lo que hacia lenta la
+>   letra (y todo ECCE copiaba su texto en cada llamada).
 
 > ## ★ Al 2026-10-15 -- ECCE ESCRIBE GUIONES, Y LA LENTE HABLA CASTELLANO
 >

@@ -7,8 +7,8 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   878 casillas ABIERTAS en 79 planes
-   667 hechas
+   875 casillas ABIERTAS en 79 planes
+   670 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -72,15 +72,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] IL2 -- LA REJILLA DE VECINOS: cada particula a su celda, ordenadas por celda (un conteo y un ord
 - ... y 33 mas
 
-## [`PLAN_ECCE.md`](PLAN_ECCE.md) -- 32 abiertas, 17 hechas
-
-*PLAN ECCE -- escribir en BMO-X: guiones al nivel de Final Draft, y todo lo demas*
-
-- [ ] PL0 -- las decisiones de la seccion 7, contestadas por el propietario (D1 si: ECCE).
-- [ ] PL2 -- Fountain, leer y escribir. Como se sabe: los ejemplos
-- [ ] la PAGINA DE TITULO (Title:, Credit:, Author:, Draft date:...)
-- ... y 29 mas
-
 ## [`PLAN_LA_LUDOTECA.md`](PLAN_LA_LUDOTECA.md) -- 32 abiertas, 15 hechas
 
 *PLAN LA LUDOTECA -- los juegos que compraste, en BMO-X, y por donde NO*
@@ -98,6 +89,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] TB2 -- CAPAS Y FUSION: N capas con opacidad y los modos normal, multiplicar y pantalla; la fusio
 - [ ] TB3 -- TESELAS E HISTORIAL: capas en teselas de 256 (las vacias no existen) y deshacer/rehacer s
 - ... y 28 mas
+
+## [`PLAN_ECCE.md`](PLAN_ECCE.md) -- 29 abiertas, 20 hechas
+
+*PLAN ECCE -- escribir en BMO-X: guiones al nivel de Final Draft, y todo lo demas*
+
+- [ ] PL0 -- las decisiones de la seccion 7, contestadas por el propietario (D1 si: ECCE).
+- [ ] PL2 -- Fountain, leer y escribir. Como se sabe: los ejemplos
+- [ ] la PAGINA DE TITULO (Title:, Credit:, Author:, Draft date:...)
+- ... y 26 mas
 
 ## [`PLAN_LA_3060_AFINADA.md`](PLAN_LA_3060_AFINADA.md) -- 25 abiertas, 18 hechas
 
