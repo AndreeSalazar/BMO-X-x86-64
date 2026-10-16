@@ -56,8 +56,9 @@ enum I {
     Mov(V, V),
     /// `d = a op b` con su NO (`seguro`: el divisor se demostro 1 o mas).
     Bin(&'static str, V, V, Opnd, At, bool),
-    /// Una llamada a una fn ligera; su resultado, si lo da y se usa.
-    Call(Option<V>, usize, Vec<Opnd>, At),
+    /// Una llamada a una fn ligera; su resultado, si lo da y se usa; y si
+    /// mira la pila (M1c: no, si ya se miro para la misma fn).
+    Call(Option<V>, usize, Vec<Opnd>, At, bool),
     /// Si `a op b`, salta a la etiqueta; si no, sigue.
     Br(&'static str, V, Opnd, usize),
     Jmp(usize),
@@ -272,7 +273,7 @@ impl Baja<'_> {
                 for a in args {
                     vs.push(self.valor(a)?);
                 }
-                self.code.push(I::Call(Some(d), *func, vs, *at));
+                self.code.push(I::Call(Some(d), *func, vs, *at, true));
             }
             Value::Int(..) | Value::Local(..) | Value::Index(..) | Value::Lib(..) | Value::Len(..) | Value::Byte(..) => match self.valor(v)? {
                 Opnd::K(k) => self.code.push(I::K(d, k)),
@@ -340,7 +341,7 @@ impl Baja<'_> {
                         for a in args {
                             vs.push(self.valor(a)?);
                         }
-                        self.code.push(I::Call(None, *func, vs, *at));
+                        self.code.push(I::Call(None, *func, vs, *at, true));
                     }
                     _ => return None,
                 }
@@ -487,7 +488,7 @@ fn usa_y_define(i: &I) -> (Vec<V>, Option<V>) {
             u.extend(op(b));
             (u, Some(*d))
         }
-        I::Call(d, _, args, _) => (args.iter().flat_map(op).collect(), *d),
+        I::Call(d, _, args, ..) => (args.iter().flat_map(op).collect(), *d),
         I::Carga(v, _) | I::Base(v, _) | I::Largo(v, _) | I::Cap(v, _) => (Vec::new(), Some(*v)),
         I::Push { base, len, cap, v, .. } => {
             let mut u = vec![*base, *len, *cap];
@@ -582,7 +583,7 @@ fn reparte(code: &[I], nv: usize, preservados: &[u8], de_paso: &[u8], scratch: b
     let mut pide: Vec<Option<u8>> = vec![None; nv];
     for i in code {
         match i {
-            I::Call(d, _, args, _) => {
+            I::Call(d, _, args, ..) => {
                 for (k, a) in args.iter().enumerate() {
                     if let Opnd::V(v) = a {
                         pide[*v] = Some(ARGS[k]);
@@ -625,7 +626,20 @@ fn reparte(code: &[I], nv: usize, preservados: &[u8], de_paso: &[u8], scratch: b
     let mut activos: Vec<V> = Vec::new();
     for v in orden {
         let inicio = tramo[v].unwrap().0;
-        activos.retain(|&w| tramo[w].unwrap().1 >= inicio);
+        // M1d: lo que MUERE en la instruccion que define `v` le deja su
+        // registro, si esa instruccion lo lee antes de escribir: una suma, un
+        // producto (`add d, a` con d el de `b`: dan lo mismo al reves) o un
+        // `mov` (que entonces no se emite). `fib(n - 1) + fib(n - 2)`: la
+        // suma, en el `rax` del segundo resultado, y de alli a devolverla
+        let le_deja = |w: V| {
+            tramo[w].unwrap().1 == inicio
+                && match &code[inicio] {
+                    I::Bin("+" | "*", d, a, b, ..) => *d == v && (*a == w || matches!(b, Opnd::V(x) if *x == w)),
+                    I::Mov(d, x) => *d == v && *x == w,
+                    _ => false,
+                }
+        };
+        activos.retain(|&w| tramo[w].unwrap().1 >= inicio && !le_deja(w));
         let ocupados: Vec<u8> = activos.iter().map(|&w| reg[w]).collect();
         let libres = |pool: &[u8]| pool.iter().copied().find(|r| !ocupados.contains(r));
         let pedido = pide[v].filter(|&r| !cruza[v] && !ocupados.contains(&r) && !pisa(v, r));
@@ -697,10 +711,14 @@ impl E1<'_> {
                 I::K(v, n) => self.imm(reg[*v], *n),
                 I::Mov(d, s) => self.mov_si(reg[*d], reg[*s]),
                 I::Bin(op, d, a, o, at, seguro) => self.e2_cuenta(op, reg[*d], reg[*a], o.map_reg(reg), *at, *seguro),
-                I::Call(d, func, args, at) => {
+                I::Call(d, func, args, at, mira) => {
                     let movs = args.iter().enumerate().map(|(j, a)| (ARGS[j], a.map_reg(&reg))).collect();
                     self.paralelo(movs);
-                    self.salta_a(*func, *at);
+                    if *mira {
+                        self.salta_a(*func, *at);
+                    } else {
+                        self.llama(*func);
+                    }
                     if let Some(d) = d {
                         self.mov_si(reg[*d], RAX);
                     }

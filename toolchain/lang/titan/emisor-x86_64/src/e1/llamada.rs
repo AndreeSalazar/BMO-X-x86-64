@@ -123,6 +123,12 @@ impl E1<'_> {
         self.code.extend_from_slice(&[0x4D, 0x39, 0xFB]);
         let name = self.m.functions[func].name.clone();
         self.trap(0x82, "T0066", &format!("las llamadas se anidan mas de lo que cabe en la pila (`{}` sin llegar a su caso de parada?)", forma::short(&name)), at);
+        self.llama(func);
+    }
+
+    /// `call` a la fn, sin mirar la pila: solo donde ya se miro para la MISMA
+    /// fn con el mismo `rsp` (M1c, `e2/repetido.rs`).
+    pub(super) fn llama(&mut self, func: usize) {
         self.code.push(0xE8);
         self.calls.push((self.code.len(), func));
         self.code.extend_from_slice(&[0; 4]);

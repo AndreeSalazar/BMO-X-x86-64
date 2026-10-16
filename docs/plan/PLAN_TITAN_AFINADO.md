@@ -262,9 +262,29 @@ y lo que falta esta medido, duelo a duelo:
       llamada, y mas exacto (mira lo que la pila gasta de verdad). El duelo:
       fib 1,06 -> 1,00 x el C de la casa. El banco 29,4 -> 29,3 millones,
       7,1 -> 6,7 millones de accesos; bajan 15, no sube ninguno
-- [ ] **M1 -- `fib` (pierde 1,7 a 1,9 con los veteranos).** Quedan los 3
-      `jo` por llamada y el marco: COPIAR DENTRO (AF8) la fn chica en quien
-      la llama
+- [x] **M1c/M1d -- la pila se mira una vez por fn, y lo que muere presta
+      su registro** (16-10). M1c: en E2 el `rsp` no cambia dentro de la fn,
+      asi que la pila ya mirada para llamar a `f` no se mira otra vez para
+      llamar a `f` de nuevo (B6, `e2/repetido.rs`): `fib(n - 1) + fib(n -
+      2)` mira UNA. M1d: en el reparto, lo que muere en la suma o el `mov`
+      que define otro le deja su registro (la suma, en el `rax` del segundo
+      resultado, y de alli a devolverla: dos `mov` menos). El duelo: fib
+      0,89 -> 0,75 x el C de la casa, y con GCC 1,50 -> 1,26. El banco
+      26,7 -> 26,57 millones, 4,946 -> 4,944 millones de accesos. **Sube
+      UNO, en bytes**: png +9 B (13 692 -> 13 701): un bucle que antes no
+      cabia en registros ahora si (E2 lo toma, con el camino raro del
+      `push` escrito), y corre MENOS (3 365 084 -> 3 362 573). Pruebas:
+      `tests/e1.rs` (`two_calls_to_the_same_fn_check_the_stack_once`,
+      sabotaje: no mirar ninguna -- el emulador revienta en vez del T0066)
+      y `tests/ligera.rs` (`only_what_dies_in_a_sum_lends_its_register`,
+      sabotaje: prestar lo que sigue vivo). Dato honesto: dejar que la
+      resta tambien preste NO rompe nada (`pisa` ya saca a sus dos de
+      `rax`); se queda en suma y producto por prudencia
+- [ ] **M1 -- `fib` (pierde 1,23 a 1,38 con los veteranos).** Quedan el
+      `jo` de la suma (se queda: `fib(93)` desborda de verdad), el marco
+      (`push`/`pop` de dos) y el caso de parada dentro: COPIAR DENTRO (AF8)
+      la fn chica en quien la llama, o lo que hace GCC (desenrollar una
+      de las dos llamadas en un bucle)
 - [x] **M2a -- `push` dentro de un bucle de E2** (16-10). Lo que mide la
       lista y su capacidad, en registros; cada `push` es comparar, escribir
       la celda (`[base + largo]`) y sumar 1. Si no cabe, el camino raro:

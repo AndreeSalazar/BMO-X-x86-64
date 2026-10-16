@@ -16,13 +16,16 @@ use super::{usa_y_define, Opnd, I, V};
 /// `|a| <= 3.037.000.499`, y `a + 1` (o `a - K` chico) cabe: `while d * d
 /// <= k` ... `d = d + 1` no mira el desborde de la suma. Y M1b: lo que un
 /// salto deja saber en cada camino (`if n < 2` ... por el otro, `n >= 2`):
-/// lo menos y lo mas que vale, y `n - 1` no desborda.
+/// lo menos y lo mas que vale, y `n - 1` no desborda. Y M1c: la pila ya
+/// mirada para llamar a una fn (el `rsp` de E2 no cambia dentro de la fn)
+/// no se mira otra vez para llamarla de nuevo: `fib(n - 1) + fib(n - 2)`.
 pub(super) fn quita_lo_repetido(code: &mut [I]) {
     use std::collections::BTreeSet;
     // (indice, largo) miradas; (base, indice, quien la tiene) leidas; los
     // que su cuadrado ya cupo (M4a)
     // y lo menos y lo mas que vale cada uno, por los saltos (M1b)
-    type Sabe = (BTreeSet<(V, V)>, BTreeSet<(V, V, V)>, BTreeSet<V>, std::collections::BTreeMap<V, (i64, i64)>);
+    // y las fn para las que ya se miro la pila (M1c)
+    type Sabe = (BTreeSet<(V, V)>, BTreeSet<(V, V, V)>, BTreeSet<V>, std::collections::BTreeMap<V, (i64, i64)>, BTreeSet<usize>);
     let n = code.len();
     let donde: std::collections::HashMap<usize, usize> = code.iter().enumerate().filter_map(|(k, i)| if let I::Label(l) = i { Some((*l, k)) } else { None }).collect();
     let mut antes: Vec<Vec<usize>> = vec![Vec::new(); n];
@@ -66,6 +69,9 @@ pub(super) fn quita_lo_repetido(code: &mut [I]) {
             I::Bin("*", d, a, Opnd::V(b), _, _) if a == b && d != a => {
                 s.2.insert(*a);
             }
+            I::Call(_, f, ..) => {
+                s.4.insert(*f);
+            }
             _ => {}
         }
         s
@@ -97,7 +103,7 @@ pub(super) fn quita_lo_repetido(code: &mut [I]) {
                             None => sale,
                             Some(a) => {
                                 let r = a.3.iter().filter_map(|(v, x)| sale.3.get(v).map(|y| (*v, (x.0.min(y.0), x.1.max(y.1))))).collect();
-                                (a.0.intersection(&sale.0).copied().collect(), a.1.intersection(&sale.1).copied().collect(), a.2.intersection(&sale.2).copied().collect(), r)
+                                (a.0.intersection(&sale.0).copied().collect(), a.1.intersection(&sale.1).copied().collect(), a.2.intersection(&sale.2).copied().collect(), r, a.4.intersection(&sale.4).copied().collect())
                             }
                         });
                     }
@@ -133,6 +139,7 @@ pub(super) fn quita_lo_repetido(code: &mut [I]) {
                     *seguro = true;
                 }
             }
+            I::Call(_, f, _, _, mira) if s.4.contains(f) => *mira = false,
             // un divisor que vale 1 o mas: ni cero ni -1
             I::Bin("/" | "%", _, _, Opnd::V(b), _, seguro) if s.3.get(b).is_some_and(|r| r.0 >= 1) => *seguro = true,
             _ => {}

@@ -172,6 +172,17 @@ fn a_recursion_as_deep_as_was_typed_stops_at_the_line_of_its_call() {
     assert!(exited && out.starts_with("NO T0066 al correr, linea 16:"), "{out:?}");
 }
 
+/// M1c: la segunda llamada a la misma fn no mira la pila (la primera ya la
+/// miro, con el mismo `rsp`); la primera SI, y el NO sigue en su linea.
+#[test]
+fn two_calls_to_the_same_fn_check_the_stack_once() {
+    let fns = format!("{ENTERO}\nfn dos(n: int) -> int\n    if n <= 0\n        return 0\n    return dos(n - 1) + dos(n - 2) + 1\n");
+    let body = "    print(dos(entero(lee())))\n";
+    assert_eq!(ran(body, &fns, "10\n").0, "143\n");
+    let (out, exited) = ran(body, &fns, "1000000\n");
+    assert!(exited && out.starts_with("NO T0066 al correr, linea 16:"), "{out:?}");
+}
+
 #[test]
 fn a_text_that_does_not_fit_is_a_no_never_a_cut() {
     // joined: 248 bytes is the most a text keeps when running

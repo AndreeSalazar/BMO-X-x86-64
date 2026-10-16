@@ -334,3 +334,20 @@ fn what_a_branch_proves_holds_only_on_its_side() {
         }
     }
 }
+
+/// M1d: lo que MUERE en una suma le deja su registro al resultado
+/// (`fib(n - 1) + fib(n - 2)`, en `rax`); lo que sigue vivo despues, no.
+#[test]
+fn only_what_dies_in_a_sum_lends_its_register() {
+    let programs: &[(&str, &str)] = &[
+        ("fn f(x: int) -> int\n    return x + 1\n\nfn g(a: int, b: int) -> int\n    return a - f(b)\n\nfn main()\n    print(g(10, 3))\n", "6\n"),
+        ("fn f(x: int) -> int\n    return x + 1\n\nfn g(a: int, b: int) -> int\n    return a + f(b) * f(a)\n\nfn main()\n    print(g(10, 3))\n", "54\n"),
+        ("fn f(x: int) -> int\n    return x + 1\n\nfn g(a: int, b: int) -> int\n    let t = f(b)\n    let s = a + t\n    if t == 4\n        return s\n    return 0\n\nfn main()\n    print(g(10, 3))\n", "14\n"),
+    ];
+    for (k, (body, want)) in programs.iter().enumerate() {
+        match same(body) {
+            Ok(out) => assert_eq!(out, *want, "programa {k}"),
+            Err(e) => panic!("programa {k}: {e}"),
+        }
+    }
+}
