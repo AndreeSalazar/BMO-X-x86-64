@@ -217,7 +217,7 @@ impl E1<'_> {
     }
 
     /// Si el asa `h` esta llena, el doble de sitio (4 la primera vez).
-    fn grow(&mut self, h: Place, cell: i32) {
+    pub(super) fn grow(&mut self, h: Place, cell: i32) {
         self.load(h.at(8), RAX);
         // B5: la capacidad, leida por el `cmp` mismo; y en `rcx` solo en el
         // camino que crece (dobla desde ahi)

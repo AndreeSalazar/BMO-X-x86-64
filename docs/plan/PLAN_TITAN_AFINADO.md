@@ -265,7 +265,21 @@ y lo que falta esta medido, duelo a duelo:
 - [ ] **M1 -- `fib` (pierde 1,7 a 1,9 con los veteranos).** Quedan los 3
       `jo` por llamada y el marco: COPIAR DENTRO (AF8) la fn chica en quien
       la llama
-- [ ] **M2 -- `bytes` (pierde 1,45 con Rust, 1,85 con GCC, 6,3 con Clang).**
+- [x] **M2a -- `push` dentro de un bucle de E2** (16-10). Lo que mide la
+      lista y su capacidad, en registros; cada `push` es comparar, escribir
+      la celda (`[base + largo]`) y sumar 1. Si no cabe, el camino raro:
+      lo que pueden pisar el monton y E1 a la pila, lo que mide a su sitio,
+      E1 la crece, y se recargan la base y la capacidad. Al salir del bucle,
+      lo que mide vuelve a su sitio. Y en E2: la vuelta de un `for` es el
+      MISMO registro que su contador, `imul d, a, n` en una, y `byte(x % 256)`
+      de un no negativo no se mira. El duelo: bytes 0,62 -> 0,42 x el C de
+      la casa; **gana a g++ (0,72) y empata con Rust y clang++ (0,98)**.
+      El banco 29,3 -> 28,1 millones de instrucciones, 6,7 -> 5,1 millones
+      de accesos. Sube codigo en png (+99 B), bytes y ordenar: el camino
+      raro del `push`, escrito dentro del bucle. `tests/ligera.rs`
+      (`a_list_grows_inside_a_loop_in_registers`), con sabotaje (no
+      recargar la base tras crecer: escribe en memoria soltada y lo dice)
+- [ ] **M2 -- `bytes` contra Clang y GCC (pierde 4,2 y 1,25).**
       Llenar la lista se lleva el 80 %: cada `push` mira la capacidad en la
       memoria. Que un bucle con `push` vaya por E2 con lo que mide la lista
       EN UN REGISTRO (crecer, por el camino largo de E1), y llenar en

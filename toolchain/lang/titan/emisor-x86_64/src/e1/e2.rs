@@ -65,6 +65,11 @@ enum I {
     /// El puntero y lo que mide la lista `l`, al entrar (no cambian dentro).
     Base(V, usize),
     Largo(V, usize),
+    /// La capacidad de la lista `l` (la de un bucle que hace `push`).
+    Cap(V, usize),
+    /// `push(mut l, v)` (M2): si cabe, a su celda y el largo +1, en
+    /// registros; si no, crece por el camino de E1 y se recargan base y cap.
+    Push { base: V, len: V, cap: V, v: Opnd, l: usize, byte: bool },
     /// `d = l[i]` (de 8 bytes, o de 1); `mira`: si se mira que este dentro.
     Idx { d: V, base: V, len: V, i: V, byte: bool, mira: bool, at: At },
     /// `l[i] = v`; `mira`: si se mira que este dentro.
@@ -74,7 +79,7 @@ enum I {
     /// Sale de la region al bloque `t` de E1: cada local que cambio, a su
     /// sitio (y el que vive en un registro de E1, aunque no cambie: ese
     /// registro se presto dentro).
-    Sale(usize, Vec<(usize, V, bool)>),
+    Sale(usize, Vec<(usize, V, bool)>, Vec<(usize, V)>),
 }
 
 /// Los valores de una llamada ligera (`llamada::ARGS`), en orden.
@@ -91,6 +96,9 @@ struct Baja<'a> {
     etiquetas: usize,
     /// B2: lo menos que vale cada local, si se demostro (`afinado::minimos`).
     minimo: Vec<Option<i64>>,
+    /// AF4: por cada contador de un `for`, la vuelta que vive en su sitio:
+    /// en E2, el MISMO registro virtual (sin copiarlo en cada vuelta).
+    vuelta: Vec<Option<usize>>,
     /// En una REGION: lo que E1 sabe de cada local al entrar, las listas
     /// (base, largo, de bytes), lo que cambia dentro, lo que se carga al
     /// entrar, y si algo no se pudo.
@@ -101,6 +109,8 @@ struct Region {
     known: Vec<Option<Class>>,
     listas: std::collections::HashMap<usize, (V, V, bool)>,
     cambian: std::collections::BTreeSet<usize>,
+    /// Las listas que crecen dentro (`push`): su capacidad.
+    crecen: std::collections::BTreeMap<usize, V>,
     entrada: Vec<I>,
     mal: bool,
 }
@@ -149,6 +159,18 @@ impl Baja<'_> {
         r.entrada.push(I::Largo(len, l));
         r.listas.insert(l, (base, len, byte));
         Some((base, len, byte))
+    }
+
+    /// M2: la capacidad de una lista que crece en la region.
+    fn capacidad(&mut self, l: usize) -> Option<V> {
+        if let Some(c) = self.region.as_ref()?.crecen.get(&l) {
+            return Some(*c);
+        }
+        let c = self.nuevo();
+        let r = self.region.as_mut()?;
+        r.entrada.push(I::Cap(c, l));
+        r.crecen.insert(l, c);
+        Some(c)
     }
 
     /// Un local que cambia dentro de la region.
@@ -204,9 +226,18 @@ impl Baja<'_> {
                 Some(Opnd::V(self.lista(*l)?.1))
             }
             Value::Byte(inner, at) => {
+                // `x % k` (k hasta 256) de un x que se demuestra no negativo
+                // ya cabe: no se mira (B4)
+                let cabe = match &**inner {
+                    Value::Bin("%", a, b, _) => matches!(&**b, Value::Int(k, _) if (1..=256).contains(k)) && super::afinado::cota(a, &self.minimo).is_some_and(|m| m >= 0),
+                    Value::Int(k, _) => (0..=255).contains(k),
+                    _ => false,
+                };
                 let o = self.valor(inner)?;
                 let v = self.en_registro(o);
-                self.code.push(I::MiraByte(v, *at));
+                if !cabe {
+                    self.code.push(I::MiraByte(v, *at));
+                }
                 Some(Opnd::V(v))
             }
             _ => None,
@@ -347,10 +378,22 @@ impl Baja<'_> {
             self.code.push(I::Label(k));
             for op in &blk.ops {
                 match op {
+                    // la vuelta de un `for` ES su contador (AF4): el mismo virtual
+                    Op::Let { local, value: Value::Local(c, _), .. } if self.vuelta.get(*c) == Some(&Some(*local)) => {
+                        let v = self.de_local(*c);
+                        self.local[*local] = Some(v);
+                    }
                     Op::Let { local, value, ty, .. } if ty.as_ref().is_none_or(|t| matches!(t, Ty::Int)) => {
                         let d = self.de_local(*local);
                         self.cambia(*local);
                         self.valor_en(d, value)?;
+                    }
+                    // M2: `push(mut l, v)` de una lista de enteros o de bytes
+                    Op::Set { local, value: Value::Lib(bmo_titan_front::ir::Lib::Push, args, _), .. } if matches!(args.first(), Some(Value::Local(l, _)) if l == local) && args.len() == 2 => {
+                        let (base, len, byte) = self.lista(*local)?;
+                        let cap = self.capacidad(*local)?;
+                        let v = self.valor(&args[1])?;
+                        self.code.push(I::Push { base, len, cap, v, l: *local, byte });
                     }
                     Op::Set { local, value, .. } => {
                         if !matches!(self.region.as_ref()?.known[*local], Some(Class::Int) | None) {
@@ -414,9 +457,11 @@ impl Baja<'_> {
             .filter(|&l| (r.cambian.contains(&l) && r.known[l].is_some()) || cargados.contains(&l))
             .filter_map(|l| self.local[l].map(|v| (l, v, r.cambian.contains(&l))))
             .collect();
+        // y lo que mide cada lista que crecio
+        let largos: Vec<(usize, V)> = r.crecen.keys().filter_map(|l| r.listas.get(l).map(|x| (*l, x.1))).collect();
         for (t, e) in salidas {
             self.code.push(I::Label(e));
-            self.code.push(I::Sale(t, cambian.clone()));
+            self.code.push(I::Sale(t, cambian.clone(), largos.clone()));
         }
         // y lo que se carga al entrar, delante de todo
         let entrada = std::mem::take(&mut self.region.as_mut()?.entrada);
@@ -438,7 +483,12 @@ fn usa_y_define(i: &I) -> (Vec<V>, Option<V>) {
             (u, Some(*d))
         }
         I::Call(d, _, args, _) => (args.iter().flat_map(op).collect(), *d),
-        I::Carga(v, _) | I::Base(v, _) | I::Largo(v, _) => (Vec::new(), Some(*v)),
+        I::Carga(v, _) | I::Base(v, _) | I::Largo(v, _) | I::Cap(v, _) => (Vec::new(), Some(*v)),
+        I::Push { base, len, cap, v, .. } => {
+            let mut u = vec![*base, *len, *cap];
+            u.extend(op(v));
+            (u, Some(*len))
+        }
         I::Idx { d, base, len, i, .. } => (vec![*base, *len, *i], Some(*d)),
         I::Pon { base, len, i, v, .. } => {
             let mut u = vec![*base, *len, *i];
@@ -446,7 +496,7 @@ fn usa_y_define(i: &I) -> (Vec<V>, Option<V>) {
             (u, None)
         }
         I::MiraByte(v, _) => (vec![*v], None),
-        I::Sale(_, cambian) => (cambian.iter().map(|(_, v, _)| *v).collect(), None),
+        I::Sale(_, cambian, largos) => (cambian.iter().map(|(_, v, _)| *v).chain(largos.iter().map(|(_, v)| *v)).collect(), None),
         I::Br(_, a, b, _) => {
             let mut u = vec![*a];
             u.extend(op(b));
@@ -588,7 +638,7 @@ impl E1<'_> {
         if !super::llamada::ligera(self.m, k) {
             return Ok(None);
         }
-        let mut b = Baja { m: self.m, code: Vec::new(), nv: 0, local: vec![None; f.locals.len()], etiquetas: f.blocks.len(), minimo: Vec::new(), region: None };
+        let mut b = Baja { m: self.m, code: Vec::new(), nv: 0, local: vec![None; f.locals.len()], etiquetas: f.blocks.len(), minimo: Vec::new(), vuelta: Vec::new(), region: None };
         if b.funcion(f).is_none() {
             return Ok(None);
         }
@@ -661,16 +711,17 @@ impl E1<'_> {
                         saltos.push((j, *l));
                     }
                 }
-                I::Carga(..) | I::Base(..) | I::Largo(..) => {
+                I::Carga(..) | I::Base(..) | I::Largo(..) | I::Cap(..) => {
                     // lo que entra a la region: primero lo que viene de un
                     // registro (un movimiento paralelo), luego lo de la pila
                     let mut movs = Vec::new();
                     let mut pila = Vec::new();
-                    while let Some(i @ (I::Carga(..) | I::Base(..) | I::Largo(..))) = code.get(k) {
+                    while let Some(i @ (I::Carga(..) | I::Base(..) | I::Largo(..) | I::Cap(..))) = code.get(k) {
                         let (v, p) = match i {
                             I::Carga(v, l) => (*v, self.local(*l)),
                             I::Base(v, l) => (*v, self.local(*l)),
                             I::Largo(v, l) => (*v, self.local(*l).at(8)),
+                            I::Cap(v, l) => (*v, self.local(*l).at(16)),
                             _ => unreachable!(),
                         };
                         match p.base {
@@ -710,7 +761,41 @@ impl E1<'_> {
                     x86::cmp_r64_imm32(&mut self.code, reg[*v], 255);
                     self.trap(0x87, "T0060", "byte(x) no cabe en un byte: va de 0 a 255", *at);
                 }
-                I::Sale(t, cambian) => {
+                I::Push { base, len, cap, v, l, byte } => {
+                    let (rb, rl, rc) = (reg[*base], reg[*len], reg[*cap]);
+                    x86::cmp_r64_r64(&mut self.code, rl, rc);
+                    let rapido = self.jcc(0x82);
+                    // el camino raro: no cabe. Lo que pueden pisar el monton
+                    // y E1, a la pila; lo que mide, a su sitio; E1 la crece
+                    let mut salvar: Vec<u8> = [RSI, RDI, R8, R9, R10, RAX, RCX, RDX].into_iter().filter(|r| reg.contains(r)).collect();
+                    salvar.dedup();
+                    for &r in &salvar {
+                        x86::push_r64(&mut self.code, r);
+                    }
+                    let h = self.local(*l);
+                    self.store(h.at(8), rl);
+                    self.grow(h, if *byte { 1 } else { 8 });
+                    for &r in salvar.iter().rev() {
+                        x86::pop_r64(&mut self.code, r);
+                    }
+                    self.load(h, rb);
+                    self.load(h.at(16), rc);
+                    self.here(rapido);
+                    let rv = match v.map_reg(reg) {
+                        Opnd8::R(r) => r,
+                        Opnd8::K(n) => {
+                            self.imm(R11, n);
+                            R11
+                        }
+                    };
+                    self.celda_sib(rv, rb, rl, *byte, true);
+                    self.suma_inmediata(rl, 1);
+                }
+                I::Sale(t, cambian, largos) => {
+                    for &(l, v) in largos {
+                        let h = self.local(l);
+                        self.store(h.at(8), reg[v]);
+                    }
                     // cada local que cambio, a su sitio: lo de la pila primero
                     // (el contador de un `for` el ultimo: su vuelta vive en el
                     // mismo sitio), luego los registros de E1, en paralelo
@@ -855,6 +940,18 @@ impl E1<'_> {
                         // + y * dan lo mismo al reves
                         self.e2_op(op, d, Opnd8::R(a));
                     }
+                    // `d = a * n`: el numero dentro, de a a d en UNA (imul d, a, n)
+                    Opnd8::K(n) if op == "*" && d != a => {
+                        let rex = 0x48 | ((d >> 3) & 1) << 2 | ((a >> 3) & 1);
+                        let modrm = 0xC0 | (d & 7) << 3 | (a & 7);
+                        match i8::try_from(n) {
+                            Ok(b) => self.code.extend_from_slice(&[rex, 0x6B, modrm, b as u8]),
+                            Err(_) => {
+                                self.code.extend_from_slice(&[rex, 0x69, modrm]);
+                                self.code.extend_from_slice(&(n as i32).to_le_bytes());
+                            }
+                        }
+                    }
                     b => {
                         self.mov_si(d, a);
                         self.e2_op(op, d, b);
@@ -986,8 +1083,8 @@ impl E1<'_> {
                 return Ok(None);
             }
         }
-        let region = Region { known: self.f.known.clone(), listas: Default::default(), cambian: Default::default(), entrada: Vec::new(), mal: false };
-        let mut baja = Baja { m: self.m, code: Vec::new(), nv: 0, local: vec![None; f.locals.len()], etiquetas: f.blocks.len(), minimo: self.f.minimo.clone(), region: Some(region) };
+        let region = Region { known: self.f.known.clone(), listas: Default::default(), cambian: Default::default(), crecen: Default::default(), entrada: Vec::new(), mal: false };
+        let mut baja = Baja { m: self.m, code: Vec::new(), nv: 0, local: vec![None; f.locals.len()], etiquetas: f.blocks.len(), minimo: self.f.minimo.clone(), vuelta: self.f.vuelta.clone(), region: Some(region) };
         if baja.region(f, h, b).is_none() {
             return Ok(None);
         }

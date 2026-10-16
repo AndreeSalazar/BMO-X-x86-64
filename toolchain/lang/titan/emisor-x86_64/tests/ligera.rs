@@ -252,3 +252,29 @@ fn what_was_read_is_reused_only_while_nothing_changed() {
         }
     }
 }
+
+/// ** M2 (16-10): `push` dentro de un bucle de E2, con lo que mide la lista
+/// en un registro; si no cabe, crece por el camino de E1. Crecer muchas
+/// veces, leer lo que mide y sus celdas mientras crece, una lista prestada,
+/// bytes: lo mismo que E0.
+#[test]
+fn a_list_grows_inside_a_loop_in_registers() {
+    let programs: &[(&str, &str)] = &[
+        (
+            "fn main()\n    let mut a: [int] = []\n    let mut s = 0\n    for i in range(1000)\n        push(mut a, i * 3)\n        s = s + len(a) + a[(i - i % 2) / 2]\n    print(len(a), \" \", a[999], \" \", s)\n",
+            "1000 2997 1249000\n",
+        ),
+        (
+            "fn llena(mut b: [byte], n: int)\n    for i in range(n)\n        push(mut b, byte(i % 251))\nfn main()\n    let mut b: [byte] = [byte(7)]\n    llena(mut b, 300)\n    llena(mut b, 5)\n    let mut s = 0\n    for x in b\n        s = s + x\n    print(len(b), \" \", b[0], \" \", b[305], \" \", s)\n",
+            "306 7 4 32568\n",
+        ),
+        // un byte que no cabe, empujado dentro del bucle: el NO en su linea
+        ("fn main()\n    let mut b: [byte] = []\n    for i in range(300)\n        push(mut b, byte(i))\n    print(len(b))\n", "NO T0060 linea 6"),
+    ];
+    for (k, (body, want)) in programs.iter().enumerate() {
+        match same(body) {
+            Ok(out) => assert_eq!(out, *want, "programa {k}"),
+            Err(e) => panic!("programa {k}: {e}"),
+        }
+    }
+}
