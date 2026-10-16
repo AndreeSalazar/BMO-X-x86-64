@@ -748,6 +748,10 @@ impl Machine {
     /// ATRAPA, y eso baja a `add` + `jo`. Sin esto, el emulador contestaba que
     /// nunca desborda -- que es la peor respuesta posible, porque hace pasar el
     /// test que deberia fallar.
+    ///
+    /// ** 2026-10-16: el MISMO hueco seguia en el `add` con INMEDIATO (`83 /0`,
+    /// `81 /0`, `05`). TITAN++ empezo a sumar en sitio (`x = x + 1` -> `add
+    /// [x], 1` + `jo`, AF2b/AF3) y el desborde dejo de atrapar en el emulador.
     fn flags_add(&mut self, a: u64, b: u64) {
         let (m, signo) = self.mascara();
         let (a, b) = (a & m, b & m);
@@ -1163,7 +1167,7 @@ impl Machine {
                 match ext & 7 {
                     0 => {
                         let r = a.wrapping_add(imm);
-                        self.flags_logic(r);
+                        self.flags_add(a, imm);
                         self.store(dst, r, ancho);
                     }
                     // /1 or y /6 xor entraron el 2026-09-18, cuando BMO C
@@ -1216,7 +1220,7 @@ impl Machine {
                 let imm = self.fetch_u32() as i32 as i64 as u64;
                 let a = self.load(Operand::Reg(0), wide);
                 let r = a.wrapping_add(imm);
-                self.flags_logic(r);
+                self.flags_add(a, imm);
                 self.store(Operand::Reg(0), r, ancho);
             }
             // == `and eax, imm32` y `cmp eax, imm32` (LB4, 08-10) ==========
@@ -1247,7 +1251,7 @@ impl Machine {
                 match ext & 7 {
                     0 => {
                         let r = a.wrapping_add(imm);
-                        self.flags_logic(r);
+                        self.flags_add(a, imm);
                         self.store(dst, r, ancho);
                     }
                     // AND. Lo emite `and_r64_imm32`, que usa `read_line` para

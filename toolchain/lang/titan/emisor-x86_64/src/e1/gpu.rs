@@ -470,6 +470,8 @@ mod pruebas {
             not_yet_said: None,
             cuerpos: &cuerpos,
             gpu_calls: Vec::new(),
+            guardado: None,
+            solo_int: Vec::new(),
         };
         let a = e.code.len();
         e.h_dec_a_f32();

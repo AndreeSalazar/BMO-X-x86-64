@@ -274,7 +274,20 @@ en sus cientos de programas) y el metro sin que ninguna salida cambie.
       programa; cada `push` o `soltar` del monton, 3 (guardar y devolver
       `r14`); y la cuenta de la pila, al vivir en memoria, son 3 accesos por
       llamada (`fib`, que solo llama: +17 % de accesos, con menos
-      instrucciones). Doce programas chicos suben unas pocas instrucciones
+      instrucciones). Doce programas chicos suben unas pocas instrucciones.
+      **[!] Las pruebas que NO corrian (16-10, despues de AF3).** Desde AF2
+      las pruebas de dentro del emisor no compilaban (`gpu.rs` construia el
+      E1 sin los campos nuevos) y el filtro con el que se leia el resultado
+      no lo mostraba: el "todo pasa" de AF2 y AF3 no estaba comprobado.
+      Al correrlas de verdad salieron dos NO, y los dos eran del EMULADOR,
+      no de TITAN++: el `add` con inmediato (`83 /0`, `81 /0`, `05`) ponia
+      el desborde siempre a falso -- el mismo hueco que el `add` de
+      registros tuvo hasta el 19-08 --, y como AF2b/AF3 suman EN SU SITIO
+      (`add [x], 1` + `jo`), un `x + 1` que no cabe dejo de atrapar en el
+      emulador (en el silicio si atrapaba). Arreglado alli; y `ritmo` pedia
+      un fotograma TARDE con 500 000 vueltas, que TITAN++ ya hace en ~13 ms:
+      ahora un millon. Desde hoy se lee la linea `test result` de cada
+      prueba, no un filtro de fallos
 - [ ] **AF4 -- `for i in range(...)` como el `for` de C.** Hoy el contador y
       su tope van y vienen de la pila en cada vuelta
 - [ ] **AF5 -- EL PRECIO DE LA SEGURIDAD, medido.** Cuantas instrucciones del

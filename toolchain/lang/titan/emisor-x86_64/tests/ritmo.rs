@@ -55,9 +55,12 @@ fn the_frame_lasts_what_was_asked() {
 
 /// ** Tarde (trabajo de ~20 ms en fotogramas de 16): no duerme -- CEDE el
 /// turno (WAIT de 0) -- y se pone en hora: no amontona fotogramas.
+///
+/// 16-10: eran 500 000 vueltas; con AF3 (la cuenta en registro) TITAN++ las
+/// hace en ~13 ms y el fotograma dejo de llegar tarde. Un millon: ~26 ms.
 #[test]
 fn late_it_yields_and_catches_up() {
-    let m = corre(&fotogramas(500_000, 16));
+    let m = corre(&fotogramas(1_000_000, 16));
     let s = reposos(&m);
     assert_eq!(s.len(), 5);
     assert_eq!(s[0], 16_000_000);
