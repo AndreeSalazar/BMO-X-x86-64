@@ -520,6 +520,22 @@ try {
         @{ src = 'Ultra_userspace\apps\png\src\main.titan'; out = 'png.bex'; dir = 'titan' }
     ) 'bmo-titan-x86-64' 'titan' 'ok:|T00|no se ha' $dataBase $repo -Orden 'build'
 
+    # -- LA LETRA DE ECCE (LE2 de PL18 de docs/plan/PLAN_ECCE.md, 16-10) -----
+    #
+    # El propietario: "que todo el INTERFAZ se vea mucho mas elegante". ECCE
+    # escribe su cabecera y su pie con LA LETRA DE LA CASA (`bmo-letra`, la de
+    # las apps de Rust: proporcional, de borde suave, sin terceros), que
+    # `bmo-atlas` dibuja aqui una vez por medida. Van al lado del nucleo: el
+    # kernel solo mira como pieza lo que es `.bex` o `.ibx` (KA1), y ECCE los
+    # lee con `director.fichero`. Sin ellos, ECCE pinta con la de 8 x 16.
+    $ecceDst = Join-Path $dataBase 'apps\ecce'
+    $atlas = Obrero 'bmo-atlas'
+    foreach ($l in @(@{ out = 'letra.blt'; args = @('--medida', '14') }, @{ out = 'titulo.blt'; args = @('--medida', '26', '--negrita') })) {
+        & $atlas -o (Join-Path $ecceDst $l.out) @($l.args) 2>&1 | ForEach-Object { Write-Host ('    [atlas] ' + $_) -ForegroundColor DarkGray }
+        if ($LASTEXITCODE -ne 0) { Fail ('no salio apps\ecce\' + $l.out) }
+    }
+    Write-Host '    [apps\ecce] letra.blt (14 px) y titulo.blt (26 px, negrita): la letra de la casa' -ForegroundColor DarkGray
+
     # -- Las dos imagenes que `titan/bico.bex` convierte ------------------
     #
     # Se GENERAN y no se copian: un binario en el repo es un fichero que nadie

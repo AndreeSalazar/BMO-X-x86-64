@@ -355,6 +355,10 @@ members = [
     # La CARA de una app desde un PNG, un JPG o un SVG (IC1, 15-10): un BICO
     # de 32 con su alfa entero. Lo usan `titan build` y el empaquetado.
     "toolchain/tools/bmo-icono",
+    # El ATLAS de una letra (LE1 de PLAN_ECCE PL18, 16-10): la letra de la casa
+    # (o un TrueType que elija el propietario) en Latin-1 con el borde suave,
+    # para que una app de TITAN++ la pinte sin saber de curvas.
+    "toolchain/tools/bmo-atlas",
     "toolchain/tools/bmo-enlazar",
     # El metro del emisor de x86-64 (2026-09-18): pasos, bytes y salida de un banco fijo.
     "toolchain/tools/metro",

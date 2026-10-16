@@ -1,0 +1,127 @@
+# LA LETRA DE LA CASA EN ECCE (LE2 de PL18, docs/plan/PLAN_ECCE.md, 16-10).
+# El propietario: "que todo el INTERFAZ se vea mucho mas elegante".
+#
+# Un ATLAS (BLET, de `toolchain/tools/bmo-atlas`): cada letra de Latin-1 ya
+# dibujada con la letra de la casa -- proporcional y con el borde suave -- y
+# su ALFA, de 0 a 255. Aqui se lee del disco y se pinta mezclando cada pixel
+# con el color que va debajo: la tinta del borde es la parte del pixel que la
+# letra cubre.
+#
+#    BLET   "BLET", version, medida; ascenso, descenso, linea; 32 y 224;
+#           por letra 16 bytes (avance en 1/64, x, y, ancho, alto, donde)
+#           y luego el alfa
+#
+# Sin atlas (no esta en el disco, o no es un BLET) la lista va vacia y quien
+# pinta usa la de 8 x 16 de siempre (`director.texto`).
+mod letra "la letra de la casa: el atlas BLET y su borde suave"
+use director
+
+fn div(a: int, d: int) -> int
+    return (a - a % d) / d
+
+fn tabla() -> int
+    return 18 + 16 * 224
+
+# **El atlas de `ruta`**, entero; vacio si no esta o no es un BLET.
+pub fn carga(ruta: text) -> [byte]
+    let mut a: [byte] = []
+    if director.fichero(ruta)
+        for i in range(director.medida())
+            let b = director.byte(i)
+            if b >= 0
+                push(mut a, byte(b))
+    let bueno = len(a) >= tabla() and a[0] == 66 and a[1] == 76 and a[2] == 69 and a[3] == 84 and a[4] == 1
+    if not bueno
+        let nada: [byte] = []
+        return nada
+    return a
+
+pub fn hay(a: [byte]) -> bool
+    return len(a) > 0
+
+fn u16(a: [byte], o: int) -> int
+    return a[o] + 256 * a[o + 1]
+
+fn i16(a: [byte], o: int) -> int
+    let v = u16(a, o)
+    if v >= 32768
+        return v - 65536
+    return v
+
+# Lo que sube la letra sobre la base (el ascenso), en pixeles.
+pub fn ascenso(a: [byte]) -> int
+    return i16(a, 8)
+
+# Los tres canales de un color (rojo, verde, azul), de 0 a 255.
+fn canales(c: int) -> [int]
+    let mut r: [int] = []
+    push(mut r, div(c, 65536) % 256)
+    push(mut r, div(c, 256) % 256)
+    push(mut r, c % 256)
+    return r
+
+fn sitio(c: int) -> int
+    if c < 32
+        return 18 + 16 * 31
+    return 18 + 16 * (c - 32)
+
+# **Una letra** `c` con la pluma en `pluma` (1/64 de pixel) y la base en
+# `base`, en `color` sobre el de debajo (sus canales en `cc` y `cf`); da la
+# pluma de despues. El pixel ENTERO va del color; el del borde, mezclado
+# canal a canal con lo que cubre (`al`, de 0 a 255).
+fn una(a: [byte], pluma: int, base: int, c: int, color: int, cc: [int], cf: [int]) -> int
+    let o = sitio(c)
+    let w = u16(a, o + 6)
+    let h = u16(a, o + 8)
+    let donde = tabla() + u16(a, o + 12) + 65536 * u16(a, o + 14)
+    let x0 = div(pluma, 64) + i16(a, o + 2)
+    let y0 = base - i16(a, o + 4)
+    for fy in range(h)
+        let fila = donde + fy * w
+        for fx in range(w)
+            let al = a[fila + fx]
+            if al == 255
+                director.pixel(x0 + fx, y0 + fy, color)
+            else if al > 0
+                let r = div(cc[0] * al + cf[0] * (255 - al) + 127, 255)
+                let g = div(cc[1] * al + cf[1] * (255 - al) + 127, 255)
+                let b = div(cc[2] * al + cf[2] * (255 - al) + 127, 255)
+                director.pixel(x0 + fx, y0 + fy, r * 65536 + g * 256 + b)
+    return pluma + u16(a, o)
+
+# **El texto `t`** con la letra del atlas, desde `x` y con la base en
+# `base`, en `color` sobre `bajo`. Da la x de detras.
+pub fn texto(a: [byte], x: int, base: int, t: text, color: int, bajo: int) -> int
+    let mut s: [byte] = []
+    push(mut s, t)
+    let cc = canales(color)
+    let cf = canales(bajo)
+    let mut pluma = x * 64
+    for c in s
+        pluma = una(a, pluma, base, c, color, cc, cf)
+    return div(pluma + 63, 64)
+
+# **Un numero** (0 o mas), como `texto`.
+pub fn numero(a: [byte], x: int, base: int, n: int, color: int, bajo: int) -> int
+    let mut potencia = 1
+    while potencia * 10 <= n
+        potencia = potencia * 10
+    let mut resto = n
+    let mut pluma = x * 64
+    let cc = canales(color)
+    let cf = canales(bajo)
+    while potencia >= 1
+        let cifra = div(resto, potencia)
+        pluma = una(a, pluma, base, 48 + cifra, color, cc, cf)
+        resto = resto - cifra * potencia
+        potencia = div(potencia, 10)
+    return div(pluma + 63, 64)
+
+# **Lo que mide** el texto `t`, en pixeles.
+pub fn ancho(a: [byte], t: text) -> int
+    let mut s: [byte] = []
+    push(mut s, t)
+    let mut pluma = 0
+    for c in s
+        pluma = pluma + u16(a, sitio(c))
+    return div(pluma + 63, 64)

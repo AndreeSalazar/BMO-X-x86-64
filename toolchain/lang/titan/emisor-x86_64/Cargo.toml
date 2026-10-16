@@ -72,6 +72,10 @@ bmo-lower = { path = "../../../forge/bmo-lower", features = ["emulator"] }
 # contra el contrato que VERRANO le pide a `cubo.bsf` (su `Vertex`), leido con
 # el lector de BSF de la casa (`tests/cubo.rs`).
 bmo-cubo = { path = "../../../../platform/shared/bmo-cubo" }
+# LE2 de PL18 (16-10): ECCE escribe su cabeza y su pie con la letra de la
+# casa; el banco le da el MISMO atlas que hace el build (`bmo-atlas`).
+bmo-atlas = { path = "../../../tools/bmo-atlas" }
+bmo-letra = { path = "../../../../platform/shared/bmo-letra" }
 bmo-bsf = { path = "../../spirv/bsf" }
 # IC2: un ECCE con su cara sigue pasando por la puerta del kernel.
 bmo-bex-gate = { path = "../../../../platform/abi/bmo-bex-gate" }

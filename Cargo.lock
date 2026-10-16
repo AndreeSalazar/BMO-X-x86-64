@@ -63,6 +63,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "bmo-atlas"
+version = "0.1.0"
+dependencies = [
+ "bmo-letra",
+]
+
+[[package]]
 name = "bmo-audio"
 version = "1.0.0"
 
@@ -948,10 +955,12 @@ name = "bmo-titan-x86-64"
 version = "0.1.0"
 dependencies = [
  "bmo-abi",
+ "bmo-atlas",
  "bmo-bex-gate",
  "bmo-bsf",
  "bmo-cubo",
  "bmo-icono",
+ "bmo-letra",
  "bmo-lower",
  "bmo-prometeo",
  "bmo-tarjeta-cpu",

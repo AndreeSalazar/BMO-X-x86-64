@@ -733,3 +733,68 @@ fn a_long_screenplay_has_its_pages_numbers_more_and_cont() {
     assert!(pdf.contains(" 747 Tm (2.) Tj"), "el numero de la pagina 2");
     assert!(!pdf.contains("(1.) Tj"), "la primera no lleva numero");
 }
+
+// -- LE2 de PL18: LA LETRA DE LA CASA en la cabeza y el pie --
+
+const BARRA: u32 = 0x10_10_16;
+
+/// ECCE con sus dos atlas al lado del nucleo, como los deja el build.
+fn con_letra(nota: &[u8], con: bool) -> Machine {
+    let mut m = cargar_bex(&ecce()).expect("el .bex carga");
+    m.padre = 7;
+    m.buzon_por_vuelta = 32;
+    m.archivos.insert(NOTAS.into(), nota.to_vec());
+    if con {
+        let le = bmo_atlas::atlas_de_casa(14, bmo_letra::Peso::Normal).unwrap().bytes();
+        let ti = bmo_atlas::atlas_de_casa(26, bmo_letra::Peso::Negrita).unwrap().bytes();
+        m.archivos.insert("apps/ecce/letra.blt".into(), le);
+        m.archivos.insert("apps/ecce/titulo.blt".into(), ti);
+    }
+    let (m, _) = run_acotado(m, 120_000_000);
+    assert!(!m.exited, "ECCE se cerro sola: {}", m.console);
+    if let Ok(f) = std::env::var("ECCE_FOTO") {
+        // La ventana en PPM, para VERLA.
+        let (w, h, px) = pantalla(&m);
+        let mut v = format!("P6\n{w} {h}\n255\n").into_bytes();
+        for y in 0..h {
+            for x in 0..w {
+                let c = px(x, y);
+                v.extend_from_slice(&[(c >> 16) as u8, (c >> 8) as u8, c as u8]);
+            }
+        }
+        std::fs::write(format!("{f}-{}.ppm", con as u8), v).unwrap();
+    }
+    m
+}
+
+/// Los colores de la cabeza (sin su raya de oro) y del pie.
+fn colores_de_barras(m: &Machine) -> std::collections::BTreeSet<u32> {
+    let (w, h, px) = pantalla(m);
+    let mut v = std::collections::BTreeSet::new();
+    for y in (0..39).chain(h - 24..h) {
+        for x in 0..w {
+            v.insert(px(x, y));
+        }
+    }
+    v
+}
+
+/// ** Con el atlas, la cabeza y el pie se escriben con la letra de la casa:
+/// salen los TONOS del borde suave (entre la barra y el oro, o la tinta), y
+/// "ECCE" es mas alto que la de 8 x 16 al doble. Sin el, solo los colores
+/// llenos de siempre: nada se rompe si el atlas no esta.
+#[test]
+fn the_house_letter_writes_the_header_and_the_footer() {
+    let sin = colores_de_barras(&con_letra(b"hola", false));
+    assert!(sin.len() <= 6, "sin atlas, colores llenos: {sin:x?}");
+    let m = con_letra(b"hola", true);
+    let con = colores_de_barras(&m);
+    assert!(con.len() > 20, "con atlas, el borde suave: {} colores", con.len());
+    assert!(con.contains(&ORO) && con.contains(&BARRA));
+    // "ECCE" en oro: tinta en la fila 12 (la de 8 x 16 al doble empieza mas abajo
+    // y tambien) y nada por encima de la 6.
+    let (w, _, px) = pantalla(&m);
+    let oro_en = |y: u64| (0..w / 2).any(|x| px(x, y) == ORO);
+    assert!(oro_en(20), "el titulo");
+    assert!(!(0..6).any(oro_en), "nada pegado arriba");
+}
