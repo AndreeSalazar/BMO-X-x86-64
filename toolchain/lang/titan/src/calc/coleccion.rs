@@ -148,7 +148,11 @@ impl Run<'_, '_> {
         let mut next = || rest.next().expect("check: the library fn has its values");
         Ok(match (lib, first) {
             (Lib::Push, Const::List(t, mut items)) => {
-                items.push(fit_into(next(), Some(&t), d, at)?);
+                match next() {
+                    // Un texto en una `[byte]`: sus bytes, uno detras de otro.
+                    Const::Text(s) if t == Ty::Byte => items.extend(s.bytes().map(|b| Const::Int(b as i64))),
+                    v => items.push(fit_into(v, Some(&t), d, at)?),
+                }
                 Const::List(t, items)
             }
             (Lib::Last, Const::List(_, items)) => opcion(d, items.last().cloned()),

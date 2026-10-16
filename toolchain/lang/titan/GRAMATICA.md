@@ -1360,6 +1360,9 @@ de imprenta son 52 millones de pixeles, 420 MB en `[int]` y 52 MB en `[byte]`
                          que quepa. Nunca un corte callado
    [byte] y [int]        dos listas distintas: una [byte] no se mira como
                          [int] (seria otra lista, no otra mirada): T0071
+   push(mut b, "texto")  en una [byte], las letras del texto, una detras de
+                         otra (16-10, PL6 de PLAN_ECCE: un fichero que es
+                         texto y bytes a la vez, como un PDF)
 ```
 
 ```text

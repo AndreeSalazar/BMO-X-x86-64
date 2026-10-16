@@ -258,6 +258,36 @@ impl E1<'_> {
         let vals: Vec<(Place, Class)> = vals.into_iter().map(|(p, c)| (self.mine(p, &c), c)).collect();
         let (cell, _) = self.cells_of(&c);
         match (lib, &c) {
+            (Lib::Push, Class::List(t)) if **t == Class::Byte && vals[0].1 == Class::Text => {
+                // Un texto en una `[byte]` (PL6 de PLAN_ECCE): letra a letra.
+                let (px, _) = vals[0].clone();
+                let k = self.temp(8);
+                self.store_imm(k, 0);
+                let vuelta = self.code.len();
+                self.load(k, RAX);
+                self.load(px, RCX);
+                x86::cmp_r64_r64(&mut self.code, RAX, RCX);
+                let fin = self.jcc(0x8D);
+                self.grow(h, cell);
+                self.addr(px.at(8), RCX);
+                self.load(k, RAX);
+                x86::add_r64_r64(&mut self.code, RCX, RAX);
+                x86::movzx_r32_byte_at_reg(&mut self.code, RAX, RCX);
+                let b = self.temp(8);
+                self.store(b, RAX);
+                let n = h.at(8);
+                let dst = self.cell_at(h, cell, n);
+                self.byte_cell_write(dst, b);
+                self.load(h.at(8), RAX);
+                x86::inc_r64(&mut self.code, RAX);
+                self.store(h.at(8), RAX);
+                self.load(k, RAX);
+                x86::inc_r64(&mut self.code, RAX);
+                self.store(k, RAX);
+                let otra = self.jmp();
+                x86::patch_jump_to(&mut self.code, otra, vuelta);
+                self.here(fin);
+            }
             (Lib::Push, Class::List(t)) => {
                 let t = (**t).clone();
                 self.grow(h, cell);

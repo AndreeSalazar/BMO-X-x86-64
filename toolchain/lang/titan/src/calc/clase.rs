@@ -957,7 +957,12 @@ fn lib_class(lib: Lib, args: &[Value], at: At, known: &[Option<Class>], m: &Modu
             let Class::List(t) = &first else { return Err(not_one("una lista", "push(mut nombres, \"ana\")")) };
             match lib {
                 Lib::Push => {
-                    cell(t, arg(1)?, 1, &format!("la lista es de {}", t.short(types)))?;
+                    // ** (16-10, PL6 de PLAN_ECCE) un TEXTO entra en una
+                    // `[byte]` letra a letra: `push(mut pdf, "BT ")`.
+                    let a1 = arg(1)?;
+                    if !(**t == Class::Byte && a1 == Class::Text) {
+                        cell(t, a1, 1, &format!("la lista es de {}", t.short(types)))?;
+                    }
                     first.clone()
                 }
                 Lib::Last => Class::Opt(t.clone()),

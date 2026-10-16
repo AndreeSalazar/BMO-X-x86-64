@@ -24,6 +24,8 @@
 #    Alt+V            pega (lo seleccionado se reemplaza)    Alt+A  todo
 #    Alt+F            guarda como GUION de Fountain: datos/guion.fou (y sigue
 #                     en ese, en modo guion; el explorador abre un .fou aqui)
+#    Alt+P            el guion en PDF: datos/guion.pdf, con la Courier del
+#                     oficio y sus paginas (pdf.titan, PL6)
 #    Alt+G            NOTAS o GUION (Fountain, guion.titan): las escenas, los
 #                     personajes y el dialogo en su sitio, como Final Draft.
 #                     Se abre en guion si la nota tiene un INT. o un EXT.
@@ -56,6 +58,7 @@ mod medida
 mod mesa
 mod guion
 mod pagina
+mod pdf
 
 # -- Los colores: tinta clara sobre noche, y el oro de la pluma ----------
 
@@ -275,15 +278,17 @@ fn guardar(t: [byte], ruta: text) -> bool
 
 # -- Lo que se ve -----------------------------------------------------------
 
-fn pinta_cabeza(w: int, vista: int, en_guion: bool, ruta: text)
+fn pinta_cabeza(w: int, vista: int, en_guion: bool, ruta: text, dicho: text)
     director.rect(0, 0, w, alto_cabeza(), barra())
     let x = director.texto(margen(), 4, "ECCE", 2, oro())
     if vista == 0 and en_guion
         let y = director.texto(x + 16, 20, "guion", 1, tenue())
         let z = director.texto(y + 16, 20, ruta, 1, tenue())
+        let a = director.texto(z + 16, 20, dicho, 1, oro())
     else if vista == 0
         let y = director.texto(x + 16, 20, "notas", 1, tenue())
         let z = director.texto(y + 16, 20, ruta, 1, tenue())
+        let a = director.texto(z + 16, 20, dicho, 1, oro())
     else if vista == 1
         let y = director.texto(x + 16, 20, "la mesa", 1, tenue())
     else
@@ -662,6 +667,8 @@ fn main()
     # El boton del raton: 0 suelto, 1 arrastrando en la hoja, 2 abajo pero
     # no cuenta (el clic que abrio una hoja desde la mesa); y donde se pulso.
     let mut boton = 0
+    # Lo que dijo el ultimo PDF (en la cabecera).
+    let mut dicho = ""
     let mut arrastre = 0
     while true
         for n in range(64)
@@ -836,6 +843,13 @@ fn main()
                     estado = 0
                 else
                     estado = 2
+                pinta = true
+            # Alt+P (25): EL PDF del guion, en datos/guion.pdf (pdf.titan).
+            if que == 1 and alt and en_hoja and k == 25
+                if guardar(pdf.hoja(t), "datos/guion.pdf")
+                    dicho = "PDF: datos/guion.pdf"
+                else
+                    dicho = "el disco NO guardo el PDF"
                 pinta = true
             # ** EL RATON EN LA HOJA: el clic pone el cursor (con Mayus alarga
             # la seleccion) y arrastrar selecciona. La cabeza y el pie no son
@@ -1035,7 +1049,7 @@ fn main()
                 arriba = fc
             if fc >= arriba + filas
                 arriba = fc - filas + 1
-            pinta_cabeza(w, vista, en_guion, ruta)
+            pinta_cabeza(w, vista, en_guion, ruta, dicho)
             let es = guion.escenas(tl)
             if vista == 0
                 pinta_texto(t, l, ind, tl, vis, co, cols, w, alto, arriba, filas, c, ancla, en_guion)

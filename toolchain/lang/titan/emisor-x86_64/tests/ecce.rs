@@ -663,3 +663,73 @@ fn the_page_break_shows_more_the_rule_and_cont() {
     assert_eq!(col(11), Some(22), "ANA (CONT.)");
     assert_eq!(col(12), Some(10), "la tercera frase, arriba de la pagina 2");
 }
+
+// -- PL6: EL PDF --
+
+/// El PDF que ECCE guarda con Alt+P, revisado por dentro: la cabecera, el
+/// indice (cada objeto empieza en el byte que dice, y `startxref` apunta al
+/// indice), y las paginas que dice `/Count`.
+fn pdf_de(guion: &[u8]) -> Vec<u8> {
+    let m = con(Some(guion), None, &con_alt(25));
+    let pdf = m.archivos.get("datos/guion.pdf").cloned().expect("Alt+P guarda datos/guion.pdf");
+    if let Ok(dir) = std::env::var("ECCE_PDF") {
+        std::fs::write(dir, &pdf).unwrap();
+    }
+    let txt = String::from_utf8_lossy(&pdf).into_owned();
+    assert!(txt.starts_with("%PDF-1.4\n") && txt.ends_with("%%EOF\n"));
+    let sx: usize = txt.rsplit("startxref\n").next().unwrap().lines().next().unwrap().parse().unwrap();
+    assert!(txt[sx..].starts_with("xref\n0 "), "startxref no apunta al indice");
+    let filas: Vec<&str> = txt[sx..].lines().skip(3).take_while(|l| !l.starts_with("trailer")).collect();
+    for (i, f) in filas.iter().enumerate() {
+        assert_eq!(f.len(), 19, "cada fila del indice son 20 bytes con su salto: {f:?}");
+        let off: usize = f[..10].parse().unwrap();
+        assert!(txt[off..].starts_with(&format!("{} 0 obj\n", i + 1)), "el objeto {} no esta en {off}", i + 1);
+    }
+    pdf
+}
+
+fn paginas_pdf(pdf: &str) -> usize {
+    pdf.split("/Count ").nth(1).unwrap().split(' ').next().unwrap().parse().unwrap()
+}
+
+/// ** Alt+P: el guion en PDF con la Courier del oficio. La escena a 1,5
+/// pulgadas (108 puntos) en mayusculas, el personaje a 3,7 (266,4) sin su
+/// @, el dialogo a 2,5 (180), el parentesis a 3,1 (223,2) con sus \( \), la
+/// transicion pegada a 7,5 pulgadas; y los actos no salen.
+#[test]
+fn alt_p_writes_the_screenplay_as_a_pdf() {
+    let guion = format!("{GUION}\n\n@lola\n(fuera)\nVoy.");
+    let pdf = String::from_utf8_lossy(&pdf_de(guion.as_bytes())).into_owned();
+    assert_eq!(paginas_pdf(&pdf), 1);
+    assert!(pdf.contains("/BaseFont /Courier /Encoding /WinAnsiEncoding"));
+    assert!(pdf.contains("1 0 0 1 108.0 710 Tm (INT. CASA - NOCHE) Tj"), "{pdf}");
+    assert!(pdf.contains("1 0 0 1 266.4 ") && pdf.contains(" Tm (ANA) Tj"));
+    assert!(pdf.contains(" Tm (LOLA) Tj"), "sin la @ y en mayusculas");
+    assert!(pdf.contains("1 0 0 1 223.2 ") && pdf.contains(" Tm (\\(bajo\\)) Tj"));
+    assert!(pdf.contains("1 0 0 1 180.0 ") && pdf.contains(" Tm (Hola.) Tj"));
+    // "CORTE A:" (8 letras): en la columna 52, 108 + 52 * 7,2 = 482,4.
+    assert!(pdf.contains("1 0 0 1 482.4 ") && pdf.contains(" Tm (CORTE A:) Tj"));
+    assert!(!pdf.contains("ACTO"), "los actos no se imprimen");
+}
+
+/// ** Un guion largo: tantas paginas como dice el paginado, el numero desde
+/// la segunda ("2." a la derecha), y el dialogo partido con su (MAS) y su
+/// ANA (CONT.).
+#[test]
+fn a_long_screenplay_has_its_pages_numbers_more_and_cont() {
+    let mut s = String::from("INT. A - DIA\n\n");
+    for i in 0..48 {
+        s.push_str(&format!("pasa algo {i}\n"));
+    }
+    s.push_str("\nANA\n");
+    for i in 0..10 {
+        s.push_str(&format!("frase {i}.\n"));
+    }
+    s.pop();
+    let pdf = String::from_utf8_lossy(&pdf_de(s.as_bytes())).into_owned();
+    assert_eq!(paginas_pdf(&pdf), 2);
+    assert!(pdf.contains(" Tm (\\(MAS\\)) Tj"), "el (MAS)");
+    assert!(pdf.contains(" Tm (ANA \\(CONT.\\)) Tj"), "ANA (CONT.)");
+    assert!(pdf.contains(" 747 Tm (2.) Tj"), "el numero de la pagina 2");
+    assert!(!pdf.contains("(1.) Tj"), "la primera no lleva numero");
+}
