@@ -31,6 +31,7 @@
 use super::E1;
 use bmo_lower::x86::{self, RAX, RCX, RDI, RDX, RSI, R10, R11, R8, R9};
 use bmo_titan_front::ir::{End, Function, Op, Value};
+use bmo_titan_front::calc::Class;
 use bmo_titan_front::tree::Ty;
 
 type At = (usize, usize);
@@ -50,14 +51,30 @@ enum I {
     Label(usize),
     K(V, i64),
     Mov(V, V),
-    /// `d = a op b` con su NO.
-    Bin(&'static str, V, V, Opnd, At),
+    /// `d = a op b` con su NO (`seguro`: el divisor se demostro 1 o mas).
+    Bin(&'static str, V, V, Opnd, At, bool),
     /// Una llamada a una fn ligera; su resultado, si lo da y se usa.
     Call(Option<V>, usize, Vec<Opnd>, At),
     /// Si `a op b`, salta a la etiqueta; si no, sigue.
     Br(&'static str, V, Opnd, usize),
     Jmp(usize),
     Ret(Option<Opnd>),
+    // ** LA REGION (B5c): un bucle de una fn de E1, en registros
+    /// El local `l`, de su sitio de E1, al entrar.
+    Carga(V, usize),
+    /// El puntero y lo que mide la lista `l`, al entrar (no cambian dentro).
+    Base(V, usize),
+    Largo(V, usize),
+    /// `d = l[i]` (de 8 bytes, o de 1); `mira`: si se mira que este dentro.
+    Idx { d: V, base: V, len: V, i: V, byte: bool, mira: bool, at: At },
+    /// `l[i] = v`.
+    Pon { base: V, len: V, i: V, v: Opnd, byte: bool, at: At },
+    /// `byte(v)`: v va de 0 a 255, o T0060.
+    MiraByte(V, At),
+    /// Sale de la region al bloque `t` de E1: cada local que cambio, a su
+    /// sitio (y el que vive en un registro de E1, aunque no cambie: ese
+    /// registro se presto dentro).
+    Sale(usize, Vec<(usize, V, bool)>),
 }
 
 /// Los valores de una llamada ligera (`llamada::ARGS`), en orden.
@@ -72,6 +89,20 @@ struct Baja<'a> {
     nv: usize,
     local: Vec<Option<V>>,
     etiquetas: usize,
+    /// B2: lo menos que vale cada local, si se demostro (`afinado::minimos`).
+    minimo: Vec<Option<i64>>,
+    /// En una REGION: lo que E1 sabe de cada local al entrar, las listas
+    /// (base, largo, de bytes), lo que cambia dentro, lo que se carga al
+    /// entrar, y si algo no se pudo.
+    region: Option<Region>,
+}
+
+struct Region {
+    known: Vec<Option<Class>>,
+    listas: std::collections::HashMap<usize, (V, V, bool)>,
+    cambian: std::collections::BTreeSet<usize>,
+    entrada: Vec<I>,
+    mal: bool,
 }
 
 impl Baja<'_> {
@@ -91,7 +122,40 @@ impl Baja<'_> {
         }
         let v = self.nuevo();
         self.local[l] = Some(v);
+        // en una region, el que ya tenia valor al entrar se carga de su sitio
+        if let Some(r) = &mut self.region {
+            match &r.known[l] {
+                Some(Class::Int | Class::Byte) => r.entrada.push(I::Carga(v, l)),
+                None => {}
+                Some(_) => r.mal = true,
+            }
+        }
         v
+    }
+
+    /// La lista `l` de una region: su base, lo que mide y si es de bytes.
+    fn lista(&mut self, l: usize) -> Option<(V, V, bool)> {
+        if let Some(x) = self.region.as_ref()?.listas.get(&l) {
+            return Some(*x);
+        }
+        let byte = match &self.region.as_ref()?.known[l] {
+            Some(Class::List(c)) if **c == Class::Int => false,
+            Some(Class::List(c)) if **c == Class::Byte => true,
+            _ => return None,
+        };
+        let (base, len) = (self.nuevo(), self.nuevo());
+        let r = self.region.as_mut()?;
+        r.entrada.push(I::Base(base, l));
+        r.entrada.push(I::Largo(len, l));
+        r.listas.insert(l, (base, len, byte));
+        Some((base, len, byte))
+    }
+
+    /// Un local que cambia dentro de la region.
+    fn cambia(&mut self, l: usize) {
+        if let Some(r) = &mut self.region {
+            r.cambian.insert(l);
+        }
     }
 
     /// Un registro con el valor (un numero escrito se escribe en uno nuevo).
@@ -116,6 +180,35 @@ impl Baja<'_> {
                 self.valor_en(d, v)?;
                 Some(Opnd::V(d))
             }
+            // ** de la region: una celda, lo que mide, una vuelta de `for`
+            Value::Index(b, i, at) => {
+                let Value::Local(l, _) = &**b else { return None };
+                let (base, len, byte) = self.lista(*l)?;
+                let i = self.valor(i)?;
+                let i = self.en_registro(i);
+                let d = self.nuevo();
+                self.code.push(I::Idx { d, base, len, i, byte, mira: true, at: *at });
+                Some(Opnd::V(d))
+            }
+            Value::Lib(bmo_titan_front::ir::Lib::Turn, args, at) => {
+                let [Value::Local(l, _), i] = &args[..] else { return None };
+                let (base, len, byte) = self.lista(*l)?;
+                let i = self.valor(i)?;
+                let i = self.en_registro(i);
+                let d = self.nuevo();
+                self.code.push(I::Idx { d, base, len, i, byte, mira: false, at: *at });
+                Some(Opnd::V(d))
+            }
+            Value::Len(b, _) => {
+                let Value::Local(l, _) = &**b else { return None };
+                Some(Opnd::V(self.lista(*l)?.1))
+            }
+            Value::Byte(inner, at) => {
+                let o = self.valor(inner)?;
+                let v = self.en_registro(o);
+                self.code.push(I::MiraByte(v, *at));
+                Some(Opnd::V(v))
+            }
             _ => None,
         }
     }
@@ -124,10 +217,19 @@ impl Baja<'_> {
     fn valor_en(&mut self, d: V, v: &Value) -> Option<()> {
         match v {
             Value::Bin(op @ ("+" | "-" | "*" | "/" | "%"), a, b, at) => {
-                let a = self.valor(a)?;
-                let b = self.valor(b)?;
-                let a = self.en_registro(a);
-                self.code.push(I::Bin(op, d, a, b, *at));
+                let cota_a = super::afinado::cota(a, &self.minimo);
+                let seguro = super::afinado::cota(b, &self.minimo).is_some_and(|m| m >= 1);
+                // B2: `x % 2^k` de un x que se demuestra no negativo, un `and`
+                let y = matches!((*op, &**b), ("%", Value::Int(k, _)) if *k > 0 && (*k as u64).is_power_of_two() && *k <= i32::MAX as i64) && cota_a.is_some_and(|m| m >= 0);
+                let av = self.valor(a)?;
+                let bv = self.valor(b)?;
+                let av = self.en_registro(av);
+                if y {
+                    let Opnd::K(k) = bv else { return None };
+                    self.code.push(I::Bin("&", d, av, Opnd::K(k - 1), *at, true));
+                } else {
+                    self.code.push(I::Bin(op, d, av, bv, *at, seguro));
+                }
             }
             Value::Call(func, args, at) if super::llamada::ligera(self.m, *func) && self.m.functions[*func].ret.is_some() => {
                 let mut vs = Vec::with_capacity(args.len());
@@ -136,7 +238,7 @@ impl Baja<'_> {
                 }
                 self.code.push(I::Call(Some(d), *func, vs, *at));
             }
-            Value::Int(..) | Value::Local(..) => match self.valor(v)? {
+            Value::Int(..) | Value::Local(..) | Value::Index(..) | Value::Lib(..) | Value::Len(..) | Value::Byte(..) => match self.valor(v)? {
                 Opnd::K(k) => self.code.push(I::K(d, k)),
                 Opnd::V(s) => self.code.push(I::Mov(d, s)),
             },
@@ -221,6 +323,104 @@ impl Baja<'_> {
         }
         Some(())
     }
+
+    /// ** B5c: LA REGION -- los bloques `h..=b` de una fn de E1 (un bucle:
+    /// `h` su cabeza). Lo que salta fuera SALE: cada local que cambio, a su
+    /// sitio, y al bloque de E1. La vuelta de un bucle de dentro mira su
+    /// condicion abajo (el bucle girado de B3).
+    fn region(&mut self, f: &Function, h: usize, b: usize) -> Option<()> {
+        let dentro = |t: usize| (h..=b).contains(&t);
+        let mut salidas: Vec<(usize, usize)> = Vec::new();
+        let mut a_fuera = |me: &mut Self, t: usize| -> usize {
+            if dentro(t) {
+                return t;
+            }
+            if let Some(&(_, e)) = salidas.iter().find(|(x, _)| *x == t) {
+                return e;
+            }
+            let e = me.etiqueta();
+            salidas.push((t, e));
+            e
+        };
+        for k in h..=b {
+            let blk = &f.blocks[k];
+            self.code.push(I::Label(k));
+            for op in &blk.ops {
+                match op {
+                    Op::Let { local, value, ty, .. } if ty.as_ref().is_none_or(|t| matches!(t, Ty::Int)) => {
+                        let d = self.de_local(*local);
+                        self.cambia(*local);
+                        self.valor_en(d, value)?;
+                    }
+                    Op::Set { local, value, .. } => {
+                        if !matches!(self.region.as_ref()?.known[*local], Some(Class::Int) | None) {
+                            return None;
+                        }
+                        let d = self.de_local(*local);
+                        self.cambia(*local);
+                        self.valor_en(d, value)?;
+                    }
+                    Op::SetAt { local, path, value, at } => {
+                        let [bmo_titan_front::ir::PathStep::Index(i)] = &path[..] else { return None };
+                        let (base, len, byte) = self.lista(*local)?;
+                        let i = self.valor(i)?;
+                        let i = self.en_registro(i);
+                        let v = self.valor(value)?;
+                        self.code.push(I::Pon { base, len, i, v, byte, at: *at });
+                    }
+                    // morir: solo un entero (lo demas se suelta, y eso es de E1)
+                    Op::Drop { local, .. } => {
+                        if !matches!(self.region.as_ref()?.known[*local], Some(Class::Int | Class::Byte) | None) {
+                            return None;
+                        }
+                    }
+                    _ => return None,
+                }
+            }
+            match &blk.end {
+                End::Return(_) => return None,
+                End::Jump(t) if dentro(*t) && *t <= k => {
+                    // la vuelta: la condicion de la cabeza, aqui (B3)
+                    match &f.blocks[*t] {
+                        cab if cab.ops.is_empty() => match &cab.end {
+                            End::Branch { cond, then, other, .. } => {
+                                let (si, no) = (a_fuera(self, *then), a_fuera(self, *other));
+                                self.cond(cond, si, no)?;
+                            }
+                            _ => self.code.push(I::Jmp(*t)),
+                        },
+                        _ => self.code.push(I::Jmp(*t)),
+                    }
+                }
+                End::Jump(t) => {
+                    let e = a_fuera(self, *t);
+                    self.code.push(I::Jmp(e));
+                }
+                End::Branch { cond, then, other, .. } => {
+                    let (si, no) = (a_fuera(self, *then), a_fuera(self, *other));
+                    self.cond(cond, si, no)?;
+                }
+            }
+        }
+        // las salidas, al final: cada una deja lo que cambio en su sitio
+        let r = self.region.as_ref()?;
+        if r.mal {
+            return None;
+        }
+        let cargados: Vec<usize> = r.entrada.iter().filter_map(|i| if let I::Carga(_, l) = i { Some(*l) } else { None }).collect();
+        let cambian: Vec<(usize, V, bool)> = (0..self.local.len())
+            .filter(|l| r.cambian.contains(l) || cargados.contains(l))
+            .filter_map(|l| self.local[l].map(|v| (l, v, r.cambian.contains(&l))))
+            .collect();
+        for (t, e) in salidas {
+            self.code.push(I::Label(e));
+            self.code.push(I::Sale(t, cambian.clone()));
+        }
+        // y lo que se carga al entrar, delante de todo
+        let entrada = std::mem::take(&mut self.region.as_mut()?.entrada);
+        self.code.splice(0..0, entrada);
+        Some(())
+    }
 }
 
 /// Lo que una instruccion usa y lo que define.
@@ -230,12 +430,21 @@ fn usa_y_define(i: &I) -> (Vec<V>, Option<V>) {
         I::Param(v, _) | I::K(v, _) => (Vec::new(), Some(*v)),
         I::Label(_) | I::Jmp(_) | I::Ret(None) => (Vec::new(), None),
         I::Mov(d, s) => (vec![*s], Some(*d)),
-        I::Bin(_, d, a, b, _) => {
+        I::Bin(_, d, a, b, _, _) => {
             let mut u = vec![*a];
             u.extend(op(b));
             (u, Some(*d))
         }
         I::Call(d, _, args, _) => (args.iter().flat_map(op).collect(), *d),
+        I::Carga(v, _) | I::Base(v, _) | I::Largo(v, _) => (Vec::new(), Some(*v)),
+        I::Idx { d, base, len, i, .. } => (vec![*base, *len, *i], Some(*d)),
+        I::Pon { base, len, i, v, .. } => {
+            let mut u = vec![*base, *len, *i];
+            u.extend(op(v));
+            (u, None)
+        }
+        I::MiraByte(v, _) => (vec![*v], None),
+        I::Sale(_, cambian) => (cambian.iter().map(|(_, v, _)| *v).collect(), None),
         I::Br(_, a, b, _) => {
             let mut u = vec![*a];
             u.extend(op(b));
@@ -247,7 +456,7 @@ fn usa_y_define(i: &I) -> (Vec<V>, Option<V>) {
 
 /// 2 y 3. LA VIDA Y EL REPARTO: el registro real de cada virtual, o `None`
 /// si no caben (y la fn la emite E1).
-fn reparte(code: &[I], nv: usize, preservados: &[u8]) -> Option<Vec<u8>> {
+fn reparte(code: &[I], nv: usize, preservados: &[u8], de_paso: &[u8], scratch: bool) -> Option<Vec<u8>> {
     let n = code.len();
     let donde: std::collections::HashMap<usize, usize> = code.iter().enumerate().filter_map(|(k, i)| if let I::Label(l) = i { Some((*l, k)) } else { None }).collect();
     let sucesores: Vec<Vec<usize>> = code
@@ -256,7 +465,7 @@ fn reparte(code: &[I], nv: usize, preservados: &[u8]) -> Option<Vec<u8>> {
         .map(|(k, i)| match i {
             I::Jmp(l) => vec![donde[l]],
             I::Br(_, _, _, l) => vec![donde[l], k + 1],
-            I::Ret(_) => Vec::new(),
+            I::Ret(_) | I::Sale(..) => Vec::new(),
             _ => vec![k + 1],
         })
         .collect();
@@ -356,7 +565,11 @@ fn reparte(code: &[I], nv: usize, preservados: &[u8]) -> Option<Vec<u8>> {
         let r = match pedido {
             Some(r) => r,
             None if cruza[v] => libres(preservados)?,
-            None => libres(&DE_PASO).or_else(|| libres(preservados))?,
+            // en una region, tambien los de la division, si en su tramo no
+            // hay division (ni resta al reves) que los pise
+            None => libres(de_paso)
+                .or_else(|| if scratch { [RCX, RDX, RAX].into_iter().find(|&r| !ocupados.contains(&r) && !pisa(v, r)) } else { None })
+                .or_else(|| libres(preservados))?,
         };
         reg[v] = r;
         activos.push(v);
@@ -373,12 +586,12 @@ impl E1<'_> {
         if !super::llamada::ligera(self.m, k) {
             return Ok(None);
         }
-        let mut b = Baja { m: self.m, code: Vec::new(), nv: 0, local: vec![None; f.locals.len()], etiquetas: f.blocks.len() };
+        let mut b = Baja { m: self.m, code: Vec::new(), nv: 0, local: vec![None; f.locals.len()], etiquetas: f.blocks.len(), minimo: Vec::new(), region: None };
         if b.funcion(f).is_none() {
             return Ok(None);
         }
         let preservados: &[u8] = if self.libres { &[14, 3, 12, 13] } else { &[14] };
-        let Some(reg) = reparte(&b.code, b.nv, preservados) else { return Ok(None) };
+        let Some(reg) = reparte(&b.code, b.nv, preservados, &DE_PASO, false) else { return Ok(None) };
         let mut guardar: Vec<u8> = preservados.iter().copied().filter(|r| reg.iter().enumerate().any(|(v, x)| x == r && usado(&b.code, v))).collect();
         guardar.sort();
         // lo que gasta: los preservados guardados y la vuelta
@@ -388,9 +601,17 @@ impl E1<'_> {
         }
         self.code.extend_from_slice(&[0x49, 0x81, 0x07]); // add qword [r15], imm32
         self.code.extend_from_slice(&coste.to_le_bytes());
+        self.emite(&b.code, &reg, coste, &guardar);
+        self.guardado = None;
+        Ok(Some(coste))
+    }
+
+    /// Las instrucciones repartidas, a x86-64. Da los saltos que SALEN (a
+    /// bloques de E1: `(campo, bloque)`).
+    fn emite(&mut self, code: &[I], reg: &[u8], coste: i32, guardar: &[u8]) -> Vec<(usize, usize)> {
         let mut sitio = std::collections::HashMap::new();
         let mut saltos: Vec<(usize, usize)> = Vec::new();
-        let code = &b.code;
+        let mut fuera: Vec<(usize, usize)> = Vec::new();
         let mut k = 0;
         while k < code.len() {
             match &code[k] {
@@ -409,7 +630,7 @@ impl E1<'_> {
                 }
                 I::K(v, n) => self.imm(reg[*v], *n),
                 I::Mov(d, s) => self.mov_si(reg[*d], reg[*s]),
-                I::Bin(op, d, a, o, at) => self.e2_cuenta(op, reg[*d], reg[*a], o.map_reg(&reg), *at),
+                I::Bin(op, d, a, o, at, seguro) => self.e2_cuenta(op, reg[*d], reg[*a], o.map_reg(reg), *at, *seguro),
                 I::Call(d, func, args, at) => {
                     let movs = args.iter().enumerate().map(|(j, a)| (ARGS[j], a.map_reg(&reg))).collect();
                     self.paralelo(movs);
@@ -439,6 +660,78 @@ impl E1<'_> {
                         saltos.push((j, *l));
                     }
                 }
+                I::Carga(..) | I::Base(..) | I::Largo(..) => {
+                    // lo que entra a la region: primero lo que viene de un
+                    // registro (un movimiento paralelo), luego lo de la pila
+                    let mut movs = Vec::new();
+                    let mut pila = Vec::new();
+                    while let Some(i @ (I::Carga(..) | I::Base(..) | I::Largo(..))) = code.get(k) {
+                        let (v, p) = match i {
+                            I::Carga(v, l) => (*v, self.local(*l)),
+                            I::Base(v, l) => (*v, self.local(*l)),
+                            I::Largo(v, l) => (*v, self.local(*l).at(8)),
+                            _ => unreachable!(),
+                        };
+                        match p.base {
+                            super::Base::Reg(r) => movs.push((reg[v], Opnd8::R(r))),
+                            _ => pila.push((reg[v], p)),
+                        }
+                        k += 1;
+                    }
+                    self.paralelo(movs);
+                    for (r, p) in pila {
+                        self.load(p, r);
+                    }
+                    continue;
+                }
+                I::Idx { d, base, len, i, byte, mira, at } => {
+                    if *mira {
+                        x86::cmp_r64_r64(&mut self.code, reg[*i], reg[*len]);
+                        self.trap(0x83, "T0072", "una celda fuera de la lista", *at);
+                    }
+                    self.celda_sib(reg[*d], reg[*base], reg[*i], *byte, false);
+                }
+                I::Pon { base, len, i, v, byte, at } => {
+                    x86::cmp_r64_r64(&mut self.code, reg[*i], reg[*len]);
+                    self.trap(0x83, "T0072", "una celda fuera de la lista", *at);
+                    let r = match v.map_reg(reg) {
+                        Opnd8::R(r) => r,
+                        Opnd8::K(n) => {
+                            self.imm(R11, n);
+                            R11
+                        }
+                    };
+                    self.celda_sib(r, reg[*base], reg[*i], *byte, true);
+                }
+                I::MiraByte(v, at) => {
+                    x86::cmp_r64_imm32(&mut self.code, reg[*v], 255);
+                    self.trap(0x87, "T0060", "byte(x) no cabe en un byte: va de 0 a 255", *at);
+                }
+                I::Sale(t, cambian) => {
+                    // cada local que cambio, a su sitio: lo de la pila primero
+                    // (el contador de un `for` el ultimo: su vuelta vive en el
+                    // mismo sitio), luego los registros de E1, en paralelo
+                    let mut orden: Vec<&(usize, V, bool)> = cambian.iter().collect();
+                    orden.sort_by_key(|(l, _, _)| self.f.vuelta.get(*l).is_some_and(|x| x.is_some()));
+                    let mut movs: Vec<(u8, Opnd8)> = Vec::new();
+                    for &&(l, v, cambio) in &orden {
+                        let p = self.local(l);
+                        match p.base {
+                            super::Base::Reg(r) => {
+                                movs.retain(|(d, _)| *d != r);
+                                movs.push((r, Opnd8::R(reg[v])));
+                            }
+                            _ if cambio => self.store(p, reg[v]),
+                            _ => {}
+                        }
+                    }
+                    self.paralelo(movs);
+                    for &r in guardar.iter().rev() {
+                        x86::pop_r64(&mut self.code, r);
+                    }
+                    let j = self.jmp();
+                    fuera.push((j, *t));
+                }
                 I::Ret(o) => {
                     match o {
                         Some(Opnd::V(v)) => self.mov_si(RAX, reg[*v]),
@@ -459,7 +752,27 @@ impl E1<'_> {
             x86::patch_jump_to(&mut self.code, j, sitio[&l]);
         }
         self.guardado = None;
-        Ok(Some(coste))
+        fuera
+    }
+
+    /// `d = [base + i*8]` (o el byte, sin signo), o al reves si `pon`.
+    fn celda_sib(&mut self, r: u8, base: u8, i: u8, byte: bool, pon: bool) {
+        let (w, op): (u8, &[u8]) = match (byte, pon) {
+            (false, false) => (0x48, &[0x8B]),
+            (false, true) => (0x48, &[0x89]),
+            (true, false) => (0x40, &[0x0F, 0xB6]),
+            (true, true) => (0x40, &[0x88]),
+        };
+        self.code.push(w | ((r >> 3) & 1) << 2 | ((i >> 3) & 1) << 1 | ((base >> 3) & 1));
+        self.code.extend_from_slice(op);
+        let escala = if byte { 0 } else { 3 };
+        let sib = escala << 6 | (i & 7) << 3 | (base & 7);
+        if base & 7 == 5 {
+            // rbp / r13 de base: con un desplazamiento de 0
+            self.code.extend_from_slice(&[0x44 | (r & 7) << 3, sib, 0]);
+        } else {
+            self.code.extend_from_slice(&[0x04 | (r & 7) << 3, sib]);
+        }
     }
 
     /// ** Un MOVIMIENTO PARALELO: cada destino recibe lo que su fuente tenia
@@ -511,9 +824,15 @@ impl E1<'_> {
     }
 
     /// `d = a op b`, con los NO de E1 (`numero.rs`).
-    fn e2_cuenta(&mut self, op: &str, d: u8, a: u8, b: Opnd8, at: At) {
+    fn e2_cuenta(&mut self, op: &str, d: u8, a: u8, b: Opnd8, at: At, demostrado: bool) {
         const NO_CABE: &str = "el resultado no cabe en 64 bits";
         match op {
+            "&" => {
+                // B2: el resto de una potencia de dos de un no negativo
+                let Opnd8::K(m) = b else { return };
+                self.mov_si(d, a);
+                x86::and_r64_imm32(&mut self.code, d, m as u32);
+            }
             "+" | "-" | "*" => {
                 let b = match b {
                     Opnd8::K(n) if i32::try_from(n).is_err() => {
@@ -545,7 +864,7 @@ impl E1<'_> {
             _ => {
                 // la division: el divisor en un registro que no sea rax ni rdx
                 let (div, seguro) = match b {
-                    Opnd8::R(r) => (r, false),
+                    Opnd8::R(r) => (r, demostrado),
                     Opnd8::K(n) => {
                         self.imm(RCX, n);
                         (RCX, n != 0 && n != -1)
@@ -651,4 +970,44 @@ fn usado(code: &[I], v: V) -> bool {
         let (u, d) = usa_y_define(i);
         d == Some(v) || u.contains(&v)
     })
+}
+
+impl E1<'_> {
+    /// ** B5c: si el bloque `h` es la cabeza de un bucle que E2 sabe hacer
+    /// ENTERO (cuentas, comparaciones, celdas de listas que no crecen), lo
+    /// emite E2 en registros. Da el ultimo bloque del bucle y los saltos que
+    /// salen (a bloques de E1), o `None` y nada emitido.
+    pub(super) fn e2_region(&mut self, f: &Function, h: usize) -> Result<Option<(usize, Vec<(usize, usize)>)>, String> {
+        let Some(b) = (h..f.blocks.len()).filter(|&k| f.blocks[k].end.targets().contains(&h)).max() else { return Ok(None) };
+        // nadie de fuera entra en medio del bucle
+        for (k, blk) in f.blocks.iter().enumerate() {
+            if !(h..=b).contains(&k) && blk.end.targets().iter().any(|&t| t > h && t <= b) {
+                return Ok(None);
+            }
+        }
+        let region = Region { known: self.f.known.clone(), listas: Default::default(), cambian: Default::default(), entrada: Vec::new(), mal: false };
+        let mut baja = Baja { m: self.m, code: Vec::new(), nv: 0, local: vec![None; f.locals.len()], etiquetas: f.blocks.len(), minimo: self.f.minimo.clone(), region: Some(region) };
+        if baja.region(f, h, b).is_none() {
+            return Ok(None);
+        }
+        // los de paso, y los de E1 de esta fn (sus locales se cargan y se
+        // devuelven a la entrada y a la salida)
+        // un registro de E1 se presta solo si su local entra (y vuelve a el
+        // al salir); los demas guardan un local que la region no toca
+        let entran: Vec<usize> = baja.code.iter().filter_map(|i| if let I::Carga(_, l) = i { Some(*l) } else { None }).collect();
+        let mut de_paso = vec![RSI, RDI, R8, R9, R10];
+        de_paso.extend(self.f.registro.iter().filter(|x| entran.iter().any(|&l| matches!(self.local(l).base, super::Base::Reg(r) if r == x.1))).map(|x| x.1));
+        // y los preservados que esta fn no usa: se guardan al entrar al bucle
+        // y se devuelven al salir
+        let suyos: Vec<u8> = self.f.registro.iter().map(|x| x.1).collect();
+        let extra: Vec<u8> = (if self.libres { vec![14u8, 3, 12, 13] } else { vec![14u8] }).into_iter().filter(|r| !suyos.contains(r)).collect();
+        let Some(reg) = reparte(&baja.code, baja.nv, &extra, &de_paso, true) else { return Ok(None) };
+        let mut guardar: Vec<u8> = extra.iter().copied().filter(|r| reg.iter().enumerate().any(|(v, x)| x == r && usado(&baja.code, v))).collect();
+        guardar.sort();
+        for &r in &guardar {
+            x86::push_r64(&mut self.code, r);
+        }
+        let fuera = self.emite(&baja.code, &reg, 0, &guardar);
+        Ok(Some((b, fuera)))
+    }
 }

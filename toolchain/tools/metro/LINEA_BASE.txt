@@ -67,10 +67,10 @@ toolchain/lang/titan/ejemplos/nivel8/pago.titan 46 0 236 ee3c78592e524eaf
 toolchain/lang/titan/ejemplos/nivel9/flota/src/main.titan 45 0 237 0d4377717a0acc5f
 toolchain/lang/titan/ejemplos/nivel9/tienda/src/main.titan 20 0 109 8178bff7e2bedce8
 toolchain/tools/metro/duelo/bytes.c 6000176 2600029 449 07d5070c14cbb7c8
-toolchain/tools/metro/duelo/bytes.titan 3696187 1825664 3281 07d5070c14cbb7c8
+toolchain/tools/metro/duelo/bytes.titan 3696195 1825670 3282 07d5070c14cbb7c8
 toolchain/tools/metro/duelo/fib.c 1031745 372547 387 4e69540efee8c1f6
 toolchain/tools/metro/duelo/fib.titan 1089203 401227 1855 4e69540efee8c1f6
 toolchain/tools/metro/duelo/ordenar.c 2537282 452530 697 3d7b49a1383533d8
-toolchain/tools/metro/duelo/ordenar.titan 2543216 997907 3786 3d7b49a1383533d8
+toolchain/tools/metro/duelo/ordenar.titan 1641225 276190 3665 3d7b49a1383533d8
 toolchain/tools/metro/duelo/primos.c 4752793 20020 455 01108c1d3c22c191
-toolchain/tools/metro/duelo/primos.titan 4185938 60043 1702 01108c1d3c22c191
+toolchain/tools/metro/duelo/primos.titan 4108218 53 1719 01108c1d3c22c191

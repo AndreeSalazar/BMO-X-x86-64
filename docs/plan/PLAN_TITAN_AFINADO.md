@@ -482,6 +482,29 @@ entero, la seguridad demostrada). TITAN++ sigue sin una palabra de CPU.
       9,9 millones de accesos (-7 %), y menos codigo; ninguno subio.
       `tests/ligera.rs` (`e2_gives_the_same_numbers_and_the_same_noes`), con
       sabotaje (las copias en orden en vez del movimiento paralelo: lo dice)
+- [x] **B5c -- LA REGION: un bucle de CUALQUIER fn, en E2** (16-10). Una
+      fn de E1 (con `print`, `lee`, `push`... fuera del bucle) emite por E2
+      cada bucle que E2 sabe hacer entero: cuentas, comparaciones, `break`,
+      celdas de listas que no crecen dentro (`a[i]`, `a[i] = v`, `len`, la
+      vuelta de un `for`), `byte(x)`. Al ENTRAR: los locales a registros, y
+      de cada lista su base y lo que mide UNA vez (lo que no cambia, fuera
+      del bucle: B7 en esta pieza); dentro, la celda es UNA instruccion
+      (`mov r, [base + i*8]`, como Rust) y se mira con un `cmp` sin signo;
+      al SALIR, lo que cambio a su sitio. Los registros: los de paso, los de
+      la division si en su tramo no hay division, los de E1 cuyo local entra
+      (vuelven a el al salir), y los preservados que la fn no usa
+      (guardados al entrar y devueltos al salir). Lo demostrado (B2) sirve
+      tambien aqui. El duelo: ordenar 1,00 -> 0,65 x el C de la casa (3,0 x
+      Rust, era 4,6), primos 0,88 -> 0,86 (0,8 x Rust). El banco 30,6 ->
+      29,6 millones de instrucciones, 7,9 -> 7,1 millones de accesos. Sube,
+      a la vista: `bytes` +8 instrucciones (un preservado guardado y
+      devuelto al entrar y salir de un bucle) y unos bytes de codigo en
+      `bytes` y `primos`. `tests/ligera.rs`
+      (`a_loop_in_registers_gives_the_same_and_leaves_everything_in_its_place`),
+      con sabotaje (prestar un registro de E1 cuyo local no entra: lo dice).
+      **[!] Un fallo cazado por el banco:** la primera version prestaba los
+      registros de E1 sin devolver lo que guardaban; `pixeles.titan`
+      imprimia otra cosa y E0 lo dijo
 - [ ] **B5 -- E2 entero.** Que E2 tome tambien las fn con listas, textos y
       el director (todas las de `main`), con el bucle girado y lo demostrado
       de E1; y lo que no cabe, a la pila (no a E1)

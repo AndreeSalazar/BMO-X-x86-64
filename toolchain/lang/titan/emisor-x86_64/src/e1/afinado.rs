@@ -773,7 +773,7 @@ impl E1<'_> {
 }
 
 /// Lo menos que vale `v`, con lo menos que vale cada local (`m`).
-fn cota(v: &Value, m: &[Option<i64>]) -> Option<i64> {
+pub(super) fn cota(v: &Value, m: &[Option<i64>]) -> Option<i64> {
     match v {
         Value::Int(k, _) => Some(*k),
         Value::Local(l, _) => m.get(*l).copied().flatten(),

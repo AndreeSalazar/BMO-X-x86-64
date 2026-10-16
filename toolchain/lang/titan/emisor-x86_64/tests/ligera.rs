@@ -184,3 +184,48 @@ fn e2_gives_the_same_numbers_and_the_same_noes() {
     }
     assert!(wrong.is_empty(), "{}", wrong.join("\n\n"));
 }
+
+/// ** B5c (16-10): un BUCLE de cualquier fn lo emite E2 en registros si sabe
+/// hacerlo entero: lo que entra se carga al entrar, lo que cambia vuelve a
+/// su sitio al salir, y las listas se leen `[base + i*8]` con lo que miden
+/// cargado una vez. Lo mismo que E0, y cada NO en su linea.
+#[test]
+fn a_loop_in_registers_gives_the_same_and_leaves_everything_in_its_place() {
+    let programs: &[(&str, &str)] = &[
+        // insercion: un while con `and`, celdas leidas y escritas
+        (
+            "fn main()\n    let mut a: [int] = []\n    for i in range(30)\n        push(mut a, (i * 7919) % 100)\n    let n = len(a)\n    for i in range(1, n)\n        let v = a[i]\n        let mut j = i - 1\n        while j >= 0 and a[j] > v\n            a[j + 1] = a[j]\n            j = j - 1\n        a[j + 1] = v\n    print(a[0], \" \", a[29], \" \", a[15])\n",
+            "0 99 51\n",
+        ),
+        // locales que viven en registros de E1 y que el bucle no toca: siguen
+        (
+            "fn main()\n    let mut s = 0\n    let mut t = 0\n    let mut u = 0\n    for i in range(50)\n        s = s + i\n        t = t + 2 * i\n        u = u + 3\n    let mut b: [byte] = [byte(1), byte(2), byte(3)]\n    for k in range(3)\n        b[k] = byte(b[k] * 10)\n    for i in range(50)\n        s = s + 1\n    print(s, \" \", t, \" \", u, \" \", b)\n",
+            "1275 2450 150 [10, 20, 30]\n",
+        ),
+        // un bucle con muchos valores vivos (toma prestados registros de E1)
+        // mientras otros locales viven en ellos sin que el bucle los toque
+        (
+            "fn main()\n    let mut p = 0\n    let mut q = 0\n    for i in range(10)\n        for k in range(10)\n            p = p + i + k\n            q = q + p % 7\n            p = p + q % 3\n    let mut s = 0\n    for i in range(20)\n        let x1 = i + 1\n        let x2 = i + 2\n        let x3 = i + 3\n        let x4 = i + 4\n        let x5 = i + 5\n        s = s + x1 * x2 + x3 * x4 + x5 + x1 + x2 + x3 + x4\n    print(p, \" \", q, \" \", s)\n",
+            "997 327 8370\n",
+        ),
+        // `break`, y una lista prestada (`mut`): su base esta detras de un puntero
+        (
+            "fn llena(mut a: [int], n: int)\n    for i in range(len(a))\n        if i == n\n            break\n        a[i] = i * i\nfn main()\n    let mut a: [int] = [0, 0, 0, 0, 0]\n    llena(mut a, 3)\n    print(a)\n",
+            "[0, 1, 4, 0, 0]\n",
+        ),
+        // fuera de la lista dentro del bucle: el NO en su linea
+        ("fn main()\n    let a: [int] = [1, 2, 3]\n    let mut s = 0\n    for i in range(5)\n        s = s + a[i]\n    print(s)\n", "NO T0072 linea 7"),
+        ("fn main()\n    let mut a: [int] = [1, 2, 3]\n    for i in range(5)\n        a[4 - i] = i\n    print(a)\n", "NO T0072 linea 6"),
+        // un byte que no cabe, dentro del bucle
+        ("fn main()\n    let mut b: [byte] = [byte(100)]\n    for i in range(3)\n        b[0] = byte(b[0] + 100)\n    print(b)\n", "NO T0060 linea 6"),
+    ];
+    let mut wrong = Vec::new();
+    for (k, (body, want)) in programs.iter().enumerate() {
+        match same(body) {
+            Ok(out) if out == *want => {}
+            Ok(out) => wrong.push(format!("programa {k}: escribe {out:?}, y se esperaba {want:?}")),
+            Err(e) => wrong.push(format!("programa {k}: {e}")),
+        }
+    }
+    assert!(wrong.is_empty(), "{}", wrong.join("\n\n"));
+}

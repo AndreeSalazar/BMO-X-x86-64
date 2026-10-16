@@ -736,9 +736,20 @@ impl<'m> E1<'m> {
         let mut jumps: Vec<(usize, usize)> = Vec::new();
         let enters = enters(f);
         let mut left: Vec<Option<(Vec<Option<Class>>, Vec<Option<Ty>>)>> = vec![None; f.blocks.len()];
+        let mut hasta = 0;
         for (i, b) in f.blocks.iter().enumerate() {
+            if i < hasta {
+                continue;
+            }
             starts[i] = self.etiqueta();
             self.enter_block(&enters[i], &left);
+            // B5c: un bucle que E2 sabe hacer entero, en registros
+            if let Some((fin, fuera)) = self.e2_region(f, i)? {
+                jumps.extend(fuera);
+                self.sabe_de(f, i, fin, &enters, &mut left)?;
+                hasta = fin + 1;
+                continue;
+            }
             for op in &b.ops {
                 self.f.temp = 0;
                 self.op(op)?;
@@ -815,6 +826,28 @@ impl<'m> E1<'m> {
             self.code[p..p + 4].copy_from_slice(&cost.to_le_bytes());
         }
         Ok(cost)
+    }
+
+    /// B5c: lo que E1 sabe de cada local tras los bloques `h..=fin` que
+    /// emitio E2 (lo que viene despues entra desde ellos).
+    fn sabe_de(&mut self, f: &Function, h: usize, fin: usize, enters: &[Vec<usize>], left: &mut [Option<(Vec<Option<Class>>, Vec<Option<Ty>>)>]) -> Result<(), String> {
+        for k in h..=fin {
+            if k > h {
+                self.enter_block(&enters[k], left);
+            }
+            for op in &f.blocks[k].ops {
+                match op {
+                    Op::Let { local, ty, .. } => {
+                        self.f.known[*local] = Some(Class::Int);
+                        self.f.decl[*local] = ty.clone();
+                    }
+                    Op::Drop { local, .. } => self.f.known[*local] = None,
+                    _ => {}
+                }
+            }
+            left[k] = Some((self.f.known.clone(), self.f.decl.clone()));
+        }
+        Ok(())
     }
 
     /// Lo que muere al volver: lo calculado y los locales (un `mut`
