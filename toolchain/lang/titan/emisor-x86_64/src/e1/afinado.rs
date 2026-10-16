@@ -14,6 +14,13 @@
 //!          la pila), el `cmp` que lee el otro lado de su sitio, un divisor
 //!          escrito que no se mira, y la vuelta de un `for` en el sitio de
 //!          su contador (sin copiarlo en cada vuelta)
+//!    B1    hasta cuatro locales en registros (`REGISTROS`), y el otro lado
+//!          de una cuenta de su registro o su sitio
+//!    B2    lo MENOS que vale cada local, demostrado (`minimos`): divisores
+//!          que no se miran, `% 2^k` que es un `and`
+//!    B3    el bucle girado (`vuelta_girada`): un salto por vuelta
+//!    B4    `imul` con el numero dentro, `byte(x)` que se demuestra que cabe,
+//!          `a + b` con `b` ya en `rax`
 //! ```
 //! (AF0, los numeros cortos, vive en `E1::imm`.)
 
@@ -305,9 +312,9 @@ const PESO_MINIMO: u64 = 30;
 /// (un puntero a un registro no existe), que no es un parametro `mut`, y el
 /// que mas se usa: cada uso pesa 10 por cada bucle que lo rodea. Una fn que
 /// llama a una `gpu fn` no: su x86-64 nativo no se ha mirado entero.
-pub(super) fn en_registro(f: &Function, solo_int: &[bool], vuelta: &[Option<usize>], m: &Module) -> Option<usize> {
+pub(super) fn en_registro(f: &Function, solo_int: &[bool], vuelta: &[Option<usize>], m: &Module, pool: &[u8], raiz: bool) -> Vec<(usize, u8)> {
     if f.gpu || f.dispatch.is_some() {
-        return None;
+        return Vec::new();
     }
     let n = f.blocks.len();
     let mut hondo = vec![0u32; n];
@@ -322,7 +329,7 @@ pub(super) fn en_registro(f: &Function, solo_int: &[bool], vuelta: &[Option<usiz
     }
     // sin un bucle no hay nada que ganar: el registro solo cobra en vueltas
     if hondo.iter().all(|&h| h == 0) {
-        return None;
+        return Vec::new();
     }
     let mut cuenta = Cuenta::recorre(f, m, &hondo);
     // AF4: la vuelta de un `for` vive en el sitio de su contador
@@ -334,18 +341,30 @@ pub(super) fn en_registro(f: &Function, solo_int: &[bool], vuelta: &[Option<usiz
         }
     }
     if cuenta.gpu {
-        return None;
+        return Vec::new();
     }
-    (0..f.locals.len())
-        .filter(|&l| solo_int.get(l).copied().unwrap_or(false) && !cuenta.fuera[l] && cuenta.peso[l] >= PESO_MINIMO)
-        .max_by_key(|&l| (cuenta.peso[l], std::cmp::Reverse(l)))
+    let mut elegidos: Vec<usize> = (0..f.locals.len()).filter(|&l| solo_int.get(l).copied().unwrap_or(false) && !cuenta.fuera[l] && cuenta.peso[l] >= PESO_MINIMO).collect();
+    elegidos.sort_by_key(|&l| (std::cmp::Reverse(cuenta.peso[l]), l));
+    // B1: el primero (`r14`) basta con PESO_MINIMO; los demas, en una fn que
+    // se llama muchas veces, piden diez veces mas (medido en el metro: un
+    // bucle de pocas vueltas pagaba mas guardando el registro que usandolo).
+    // En `main`, que corre una vez, guardarlos cuesta dos instrucciones: le
+    // basta el doble (un uso de un bucle mas que uno suelto no la paga).
+    elegidos.into_iter().enumerate().filter(|(k, l)| *k == 0 || (!cuenta.pasa[*l] && cuenta.peso[*l] >= if raiz { 2 * PESO_MINIMO } else { 10 * PESO_MINIMO })).map(|(_, l)| l).zip(pool.iter().copied()).collect()
 }
+
+/// ** B1: los registros de los locales, en orden: `r14` siempre; `rbx`,
+/// `r12` y `r13` solo si el programa no habla con el director (alli son lo
+/// tenido, la ventana y la lamina). Los cuatro son PRESERVADOS: quien los
+/// usa los guarda al entrar y los devuelve al volver, y las subrutinas de la
+/// casa (el monton, la letra) los respetan.
+pub(super) const REGISTROS: [u8; 4] = [R14, 3, 12, 13];
 
 impl<'a> Cuenta<'a> {
     /// Cada uso de cada local, pesado por los bucles (`hondo`: cuantos
     /// rodean cada bloque), y los que se prestan o se cambian por partes.
     fn recorre(f: &Function, m: &'a Module, hondo: &[u32]) -> Cuenta<'a> {
-        let mut cuenta = Cuenta { peso: vec![0; f.locals.len()], fuera: vec![false; f.locals.len()], gpu: false, w: 1, m };
+        let mut cuenta = Cuenta { peso: vec![0; f.locals.len()], fuera: vec![false; f.locals.len()], pasa: vec![false; f.locals.len()], gpu: false, w: 1, m };
         for (i, (l, _)) in f.params.iter().enumerate() {
             if f.modes.get(i).copied().unwrap_or(Mode::Copy) != Mode::Copy {
                 cuenta.fuera[*l] = true;
@@ -373,11 +392,10 @@ impl<'a> Cuenta<'a> {
                     }
                     Op::Call { func, args, .. } => {
                         cuenta.gpu |= m.functions[*func].gpu;
-                        for v in args {
-                            cuenta.valor(v);
-                        }
+                        cuenta.pasan(args);
                     }
-                    Op::Write { parts: vs, .. } | Op::Director { args: vs, .. } => {
+                    Op::Director { args: vs, .. } => cuenta.pasan(vs),
+                    Op::Write { parts: vs, .. } => {
                         for v in vs {
                             cuenta.valor(v);
                         }
@@ -426,27 +444,44 @@ pub(super) fn vueltas(f: &Function, m: &Module) -> Vec<Option<usize>> {
 struct Cuenta<'a> {
     peso: Vec<u64>,
     fuera: Vec<bool>,
+    /// B1: va DERECHO de valor a una llamada o al director: se le pide su
+    /// direccion, y en un registro seria una copia.
+    pasa: Vec<bool>,
     gpu: bool,
     w: u64,
     m: &'a Module,
 }
 
 impl Cuenta<'_> {
+    /// Los valores de una llamada: un local que va tal cual, `pasa`.
+    fn pasan(&mut self, items: &[Value]) {
+        for i in items {
+            if let Value::Local(l, _) = i {
+                self.pasa[*l] = true;
+            }
+            self.valor(i);
+        }
+    }
+
     fn valor(&mut self, v: &Value) {
         match v {
             Value::Local(l, _) => self.peso[*l] += self.w,
             Value::Lend(_, l, _) => self.fuera[*l] = true,
             Value::Int(..) | Value::Text(..) | Value::Bool(..) | Value::Dec(..) | Value::F32(..) | Value::Read(..) => {}
-            Value::Table(items, _) | Value::Record(_, items, _) | Value::Variant(_, _, items, _) | Value::Lib(_, items, _) | Value::Director(_, items, _) => {
+            Value::Table(items, _) | Value::Record(_, items, _) | Value::Variant(_, _, items, _) => {
                 for i in items {
                     self.valor(i);
                 }
             }
-            Value::Call(func, items, _) => {
-                self.gpu |= self.m.functions[*func].gpu;
+            Value::Lib(_, items, _) => {
                 for i in items {
                     self.valor(i);
                 }
+            }
+            Value::Director(_, items, _) => self.pasan(items),
+            Value::Call(func, items, _) => {
+                self.gpu |= self.m.functions[*func].gpu;
+                self.pasan(items);
             }
             Value::Map(items, _) => {
                 for (k, w) in items {
@@ -491,6 +526,31 @@ impl E1<'_> {
                 return Ok(true);
             }
         }
+        // B2: `x % 2^k` de un `x` que se DEMUESTRA no negativo: un `and`
+        if let (Some(n), "%") = (escrito, op) {
+            if n > 0 && (n as u64).is_power_of_two() && n <= i32::MAX as i64 && self.cota(a).is_some_and(|m| m >= 0) {
+                self.a_rax(a)?;
+                x86::and_r64_imm32(&mut self.code, RAX, (n - 1) as u32);
+                return Ok(true);
+            }
+        }
+        // B4: por un numero escrito, el numero va DENTRO del `imul`
+        if let (Some(n), "*") = (escrito, op) {
+            if let Ok(n) = i32::try_from(n) {
+                self.a_rax(a)?;
+                // imul rax, rax, imm8 / imm32
+                match i8::try_from(n) {
+                    Ok(b) => self.code.extend_from_slice(&[0x48, 0x6B, 0xC0, b as u8]),
+                    Err(_) => {
+                        self.code.extend_from_slice(&[0x48, 0x69, 0xC0]);
+                        self.code.extend_from_slice(&n.to_le_bytes());
+                    }
+                }
+                self.trap(0x80, "T0060", "el resultado no cabe en 64 bits", at);
+                return Ok(true);
+            }
+        }
+        let mut seguro = escrito.is_some_and(|d| d != 0 && d != -1);
         match (a, b) {
             // `b` se lee sin tocar `rax`: `a` primero, y `b` a `rcx`
             (_, Value::Int(n, _)) => {
@@ -500,6 +560,12 @@ impl E1<'_> {
             (_, Value::Local(l, _)) => {
                 self.a_rax(a)?;
                 let p = self.local(*l);
+                // B2: un divisor que se demuestra 1 o mas no se mira
+                seguro = self.cota(b).is_some_and(|m| m >= 1);
+                // B1: el otro lado, de su registro o de su sitio
+                if self.opera_con_sitio(op, p, seguro, at)? {
+                    return Ok(true);
+                }
                 self.load(p, RCX);
             }
             // un numero escrito no cambia: `b` primero y el numero detras
@@ -513,11 +579,16 @@ impl E1<'_> {
             _ => {
                 let (pa, _) = self.eval(a)?;
                 let (pb, _) = self.eval(b)?;
+                // B4: `+` y `*` dan lo mismo al reves: si `b` acaba de quedar
+                // en `rax`, `a` se le suma (o multiplica) de su sitio
+                if matches!(op, "+" | "*") && self.en_rax(pb) && self.opera_con_sitio(op, pa, false, at)? {
+                    return Ok(true);
+                }
                 self.load(pa, RAX);
                 self.load(pb, RCX);
             }
         }
-        self.opera(op, escrito, at)?;
+        self.opera(op, seguro, at)?;
         Ok(true)
     }
 
@@ -598,5 +669,167 @@ impl E1<'_> {
             x86::cmp_r64_r64(&mut self.code, RAX, RCX);
         }
         self.trap(0x83, "T0072", why, at);
+    }
+}
+
+impl E1<'_> {
+    /// ** B1: `rax op= <sitio>` sin pasar el otro lado por `rcx`: de su
+    /// registro (`add rax, r14`, `idiv r14`) o de la pila (`add rax, [x]`).
+    /// `false`, y nada emitido, si no se puede (un puntero, o una division
+    /// cuyo divisor hay que mirar: eso va por `opera`).
+    fn opera_con_sitio(&mut self, op: &str, p: super::Place, seguro: bool, at: (usize, usize)) -> Result<bool, String> {
+        match (op, p.base) {
+            ("+" | "-" | "*", super::Base::Reg(r)) => match op {
+                "+" => x86::add_r64_r64(&mut self.code, RAX, r),
+                "-" => x86::sub_r64_r64(&mut self.code, RAX, r),
+                _ => x86::imul_r64_r64(&mut self.code, RAX, r),
+            },
+            ("+" | "-" | "*", super::Base::Frame) => {
+                // add / sub / imul rax, qword [rbp + disp32]
+                match op {
+                    "+" => self.code.extend_from_slice(&[0x48, 0x03, 0x85]),
+                    "-" => self.code.extend_from_slice(&[0x48, 0x2B, 0x85]),
+                    _ => self.code.extend_from_slice(&[0x48, 0x0F, 0xAF, 0x85]),
+                }
+                self.code.extend_from_slice(&p.off.to_le_bytes());
+            }
+            ("/" | "%", super::Base::Reg(r)) if seguro => {
+                x86::cqo(&mut self.code);
+                x86::idiv_r64(&mut self.code, r);
+                if op == "/" {
+                    x86::test_r64_r64(&mut self.code, bmo_lower::x86::RDX, bmo_lower::x86::RDX);
+                    self.trap(0x85, "T0062", "una division que no es exacta (entre enteros, 7 / 2 no es 3)", at);
+                } else {
+                    x86::mov_r64_r64(&mut self.code, RAX, bmo_lower::x86::RDX);
+                }
+                return Ok(true);
+            }
+            _ => return Ok(false),
+        }
+        self.trap(0x80, "T0060", "el resultado no cabe en 64 bits", at);
+        Ok(true)
+    }
+
+    /// B4: `byte(v)` cabe sin mirarlo: `x % k` (k de 1 a 256) de un `x` que
+    /// se demuestra no negativo va de 0 a k - 1.
+    pub(super) fn cabe_en_byte(&self, v: &Value) -> bool {
+        match v {
+            Value::Bin("%", a, b, _) => matches!(&**b, Value::Int(k, _) if (1..=256).contains(k)) && self.cota(a).is_some_and(|m| m >= 0),
+            Value::Int(k, _) => (0..=255).contains(k),
+            _ => false,
+        }
+    }
+
+    /// B4: `p` se acaba de guardar desde `rax`, y `rax` lo sigue teniendo.
+    fn en_rax(&self, p: super::Place) -> bool {
+        matches!(self.guardado, Some((fin, q, RAX)) if fin == self.code.len() && q == p && p.base == super::Base::Frame)
+    }
+
+    /// B2: lo MENOS que puede valer `v` al correr, si se demuestra
+    /// (`minimos`).
+    pub(super) fn cota(&self, v: &Value) -> Option<i64> {
+        cota(v, &self.f.minimo)
+    }
+}
+
+/// Lo menos que vale `v`, con lo menos que vale cada local (`m`).
+fn cota(v: &Value, m: &[Option<i64>]) -> Option<i64> {
+    match v {
+        Value::Int(k, _) => Some(*k),
+        Value::Local(l, _) => m.get(*l).copied().flatten(),
+        Value::Len(..) | Value::Byte(..) => Some(0),
+        Value::Bin(op, a, b, _) => {
+            let (ca, cb) = (cota(a, m), cota(b, m));
+            match *op {
+                "+" => ca?.checked_add(cb?),
+                // lo menos de un producto de dos no negativos: el de sus menos
+                "*" if ca? >= 0 && cb? >= 0 => ca?.checked_mul(cb?),
+                "-" => match &**b {
+                    Value::Int(k, _) => ca?.checked_sub(*k),
+                    _ => None,
+                },
+                "%" if ca? >= 0 && matches!(&**b, Value::Int(k, _) if *k > 0) => Some(0),
+                "/" => match &**b {
+                    Value::Int(k, _) if *k > 0 && ca? >= 0 => Some(ca? / *k),
+                    _ => None,
+                },
+                _ => None,
+            }
+        }
+        _ => None,
+    }
+}
+
+/// ** B2: LO MENOS QUE VALE CADA LOCAL ENTERO, demostrado al compilar. Un
+/// local que solo es un entero, que no llega de fuera (un parametro) y que
+/// nunca se presta: lo menos de todo lo que se le da (`let` y `=`). Se
+/// empieza creyendo que nada lo baja y se repite hasta que nada cambia: si
+/// `d = 2` y `d = d + 1` son todo lo que se le da, `d` nunca baja de 2. Lo
+/// que no se asienta en 64 vueltas (`x = x - 1` baja siempre) no se sabe.
+///
+/// Es verdad en TODO momento del programa, no solo en un sitio: cada valor
+/// que el local llega a tener es uno de esos (un desborde ATRAPA antes de
+/// guardarse), y nada se lee antes de darle valor (lo mira `check`).
+pub(super) fn minimos(f: &Function, solo_int: &[bool], m: &Module) -> Vec<Option<i64>> {
+    let n = f.locals.len();
+    let fuera = Cuenta::recorre(f, m, &vec![0; f.blocks.len()]).fuera;
+    let mut es = vec![false; n];
+    for l in 0..n {
+        es[l] = solo_int.get(l).copied().unwrap_or(false) && !fuera[l] && !f.params.iter().any(|(p, _)| *p == l);
+    }
+    let mut cur: Vec<Option<i64>> = (0..n).map(|l| es[l].then_some(i64::MAX)).collect();
+    for _ in 0..64 {
+        let mut cambio = false;
+        for b in f.blocks.iter().filter(|b| !b.dead) {
+            for op in &b.ops {
+                if let Op::Let { local, value, .. } | Op::Set { local, value, .. } = op {
+                    if !es[*local] {
+                        continue;
+                    }
+                    let nuevo = match (cur[*local], cota(value, &cur)) {
+                        (Some(a), Some(b)) => Some(a.min(b)),
+                        _ => None,
+                    };
+                    if nuevo != cur[*local] {
+                        cur[*local] = nuevo;
+                        cambio = true;
+                    }
+                }
+            }
+        }
+        if !cambio {
+            // lo que nadie le dio valor no se sabe
+            return cur.into_iter().map(|c| c.filter(|&c| c != i64::MAX)).collect();
+        }
+    }
+    vec![None; n]
+}
+
+impl E1<'_> {
+    /// ** B3: EL BUCLE GIRADO. La vuelta de un bucle (`i` salta ARRIBA, a `t`)
+    /// saltaba a la cabeza, que miraba la condicion y saltaba otra vez: dos
+    /// saltos por vuelta. Si la cabeza no hace nada mas que mirar una
+    /// comparacion de enteros (`se_funde`, sin `and`), la vuelta la mira
+    /// aqui mismo y salta al cuerpo SOLO si se cumple: un salto por vuelta.
+    /// Da los saltos a parchear (al cuerpo, y a la salida si no va detras), o
+    /// `None` si no se gira (y nada emitido).
+    pub(super) fn vuelta_girada(&mut self, f: &Function, i: usize, t: usize) -> Result<Option<Vec<(usize, usize)>>, String> {
+        if t > i {
+            return Ok(None);
+        }
+        let cabeza = &f.blocks[t];
+        let End::Branch { cond, then, other, .. } = &cabeza.end else { return Ok(None) };
+        if cabeza.dead || !cabeza.ops.is_empty() || matches!(cond, Value::Bin("and", ..)) || !self.se_funde(cond)? {
+            return Ok(None);
+        }
+        let saltos = self.salto_directo(cond)?;
+        let [j] = saltos[..] else { return Err("B3: una comparacion dio mas de un salto (fallo de E1)".into()) };
+        // el salto de cuando NO se cumple, al reves: el de cuando SI
+        self.code[j - 1] ^= 1;
+        let mut out = vec![(j, *then)];
+        if *other != i + 1 {
+            out.push((self.jmp(), *other));
+        }
+        Ok(Some(out))
     }
 }

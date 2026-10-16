@@ -76,3 +76,38 @@ fn a_light_fn_runs_as_the_calculation_says() {
     }
     assert!(wrong.is_empty(), "{}", wrong.join("\n\n"));
 }
+
+/// ** B1 y B2 (16-10): un divisor que se DEMUESTRA 1 o mas no se mira al
+/// correr, y `x % 2^k` de un `x` que se demuestra no negativo es un `and`.
+/// Y donde NO se demuestra, el NO sigue en su linea.
+#[test]
+fn what_is_proven_is_not_checked_and_what_is_not_still_traps() {
+    let programs: &[(&str, &str)] = &[
+        // d empieza en 2 y solo sube: se demuestra, y da lo mismo
+        ("fn main()\n    let mut c = 0\n    for k in range(2, 60)\n        let mut d = 2\n        while d * d <= k\n            if k % d == 0\n                c = c + 1\n            d = d + 1\n    print(c)\n", "69\n"),
+        // d puede llegar a 0: se mira, y atrapa en su linea
+        ("fn main()\n    let mut s = 0\n    let mut d = 3\n    while d > -2\n        s = s + 12 / d\n        d = d - 1\n    print(s)\n", "NO T0061 linea 7"),
+        // d empieza en 0: no se demuestra
+        ("fn main()\n    let mut s = 0\n    for d in range(0, 3)\n        s = s + 6 % d\n    print(s)\n", "NO T0061 linea 6"),
+        // `% 256` de un negativo: no es un `and` (C trunca hacia cero)
+        ("fn main()\n    let mut s = 0\n    let mut x = 5\n    for i in range(10)\n        x = x - 100\n        s = s + x % 256\n    print(s, \" \", x)\n", "-1354 -995\n"),
+        // y de uno que se demuestra no negativo, si
+        ("fn main()\n    let mut s = 0\n    for i in range(600)\n        s = s + (i * 7) % 256\n    print(s)\n", "75436\n"),
+        // B3: el bucle girado mira su condicion LAS MISMAS veces (la llamada
+        // de la condicion escribe cada vez)
+        ("fn mira(x: int) -> int\n    print(\"m\", x)\n    return x\nfn main()\n    let mut i = 0\n    while mira(i) < 3\n        i = i + 1\n    print(\"fin \", i)\n", "m0\nm1\nm2\nm3\nfin 3\n"),
+        // B4: `byte(x % 256)` de un x que puede ser negativo se sigue mirando
+        ("fn main()\n    let mut px: [byte] = []\n    for i in range(10)\n        push(mut px, byte((i - 5) % 256))\n    print(len(px))\n", "NO T0060 linea 6"),
+        // y el numero dentro del `imul` desborda igual
+        ("fn main()\n    let mut x = 1\n    for i in range(10)\n        x = x * 100000\n    print(x)\n", "NO T0060 linea 6"),
+    ];
+    let mut wrong = Vec::new();
+    for (k, (body, want)) in programs.iter().enumerate() {
+        match same(body) {
+            Ok(out) if out == *want => {}
+            Ok(out) => wrong.push(format!("programa {k}: escribe {out:?}, y se esperaba {want:?}")),
+            Err(e) => wrong.push(format!("programa {k}: {e}")),
+        }
+    }
+    assert!(wrong.is_empty(), "{}", wrong.join("\n\n"));
+}

@@ -377,6 +377,70 @@ en sus cientos de programas) y el metro sin que ninguna salida cambie.
 
 ---
 
+# 4b. ★★★ FASE B: A LA ALTURA DE LOS VETERANOS -- emision PRECISA
+
+El propietario, 16-10: *"tomando lo que ellos hicieron pero mi casa BMO-X
+pueda exprimir en emision PRECISA"*. Lo que GCC y LLVM hacen, hecho por el
+emisor de la casa con lo que la casa SABE (una CPU, sin alias, el programa
+entero, la seguridad demostrada). TITAN++ sigue sin una palabra de CPU.
+
+```text
+   B1  mas locales en REGISTROS          r14 siempre; rbx, r12 y r13 si el
+                                         programa no habla con el director.
+                                         El otro lado de una cuenta, de su
+                                         registro o su sitio (add rax, r14)
+   B2  LO MENOS QUE VALE cada local,     d = 2 y d = d + 1: d >= 2 SIEMPRE.
+       demostrado al compilar            Su division no mira el 0 ni el -1;
+                                         x % 256 de un no negativo es un and
+   B3  EL BUCLE GIRADO                   la vuelta mira la condicion abajo y
+                                         salta arriba solo si se cumple: un
+                                         salto por vuelta, no dos
+   B4  instrucciones PRECISAS            imul con el numero dentro, byte(x)
+                                         que se demuestra que cabe, el valor
+                                         de una fn ligera derecho a su
+                                         registro, a + b con b ya en rax
+   B5  LA FORMA INTERMEDIA con           el salto grande que queda: cada
+       registros virtuales               paso a un registro, y el reparto al
+                                         final (lo que GCC y LLVM hacen). Hoy
+                                         cada paso de una cuenta compleja
+                                         pasa por la pila
+   B6  AF5 entero                        la celda que se demuestra dentro
+                                         (`for i in range(len(a))`) no se
+                                         mira en cada vuelta
+   B7  lo que no cambia, FUERA del       `len(a)`, la direccion de la lista:
+       bucle                             una vez, no en cada vuelta
+```
+
+- [x] **B1, B2, B3, B4** (16-10). Medido, el mismo dia:
+
+```text
+   duelo      C casa   gcc C  clang C  g++  clang++  rustc  gcc Zen3  clang Zen3
+   ------------------------------------------------------------------------------
+   primos      0,9 x   1,4 x   1,1 x  1,4 x  1,1 x   0,9 x   1,4 x     1,2 x
+   fib         1,1 x   1,9 x   1,9 x  1,9 x  1,9 x   2,1 x   2,0 x     1,9 x
+   bytes       1,2 x   3,6 x  12,2 x  2,1 x  2,8 x   2,8 x  19,8 x    37,9 x
+   ordenar     1,1 x   4,4 x   3,1 x  3,7 x  3,0 x   5,1 x   4,4 x     3,8 x
+```
+
+  **En `primos` TITAN++ hace MENOS instrucciones que el C de la casa y que
+  Rust** (0,9 x), y esta a 1,1 de Clang, con cada desborde mirado. El banco
+  del metro: 38,9 -> 34,8 millones de instrucciones, 12,3 -> 11,4 millones
+  de accesos, y el codigo de los 72 baja (463.017 -> 462.577 B).
+  **Lo que SUBIO, aceptado a la vista:** el bucle girado escribe la
+  condicion dos veces (arriba, la primera vez, y abajo): cuatro programas
+  crecen de 8 a 57 bytes (png, resolucion, cubo_gira, agenda). Es lo que
+  GCC hace en `-O2`: un salto menos POR VUELTA a cambio de unos bytes una
+  vez. Ninguna instruccion subio.
+  Pruebas: `tests/ligera.rs` (lo demostrado no se mira, lo que no, atrapa en
+  su linea; el bucle girado mira su condicion las mismas veces), con dos
+  sabotajes (la resta ignorada en la cota; el salto sin dar la vuelta).
+- [ ] **B5 -- la forma intermedia con registros virtuales.** Lo que mas
+      falta para `fib` y `ordenar` contra Rust y Clang
+- [ ] **B6 -- AF5 entero**
+- [ ] **B7 -- lo que no cambia, fuera del bucle**
+
+---
+
 # 5. LO QUE ESTE PLAN NO HACE
 
 * **No da palabras de maquina a TITAN++.** Ni `inline`, ni `register`, ni

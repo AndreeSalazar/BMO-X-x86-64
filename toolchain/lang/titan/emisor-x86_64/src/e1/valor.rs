@@ -76,9 +76,11 @@ impl E1<'_> {
                     None
                 };
                 // UN `cmp` sin signo: un negativo, visto sin signo, es enorme
-                // y tambien pasa de 255
-                x86::cmp_r64_imm32(&mut self.code, RAX, 255);
-                self.trap(0x87, "T0060", "byte(x) no cabe en un byte: va de 0 a 255", *at);
+                // y tambien pasa de 255. Y nada si se demuestra que cabe (B4)
+                if !self.cabe_en_byte(inner) {
+                    x86::cmp_r64_imm32(&mut self.code, RAX, 255);
+                    self.trap(0x87, "T0060", "byte(x) no cabe en un byte: va de 0 a 255", *at);
+                }
                 let p = match p {
                     Some(p) => p,
                     None => {

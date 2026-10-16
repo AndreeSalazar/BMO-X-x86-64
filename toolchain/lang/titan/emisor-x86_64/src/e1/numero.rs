@@ -139,16 +139,16 @@ impl E1<'_> {
     fn int_op(&mut self, op: &str, pa: Place, pb: Place, at: (usize, usize)) -> Result<Place, String> {
         self.load(pa, RAX);
         self.load(pb, RCX);
-        self.opera(op, None, at)?;
+        self.opera(op, false, at)?;
         let t = self.temp(8);
         self.store(t, RAX);
         Ok(t)
     }
 
-    /// `rax op= rcx` entre enteros, con sus NO. `escrito`: el divisor, si
-    /// esta escrito en el programa -- uno que no es 0 ni -1 no se mira al
-    /// correr (AF4: se sabe al compilar que no atrapa).
-    pub(super) fn opera(&mut self, op: &str, escrito: Option<i64>, at: (usize, usize)) -> Result<(), String> {
+    /// `rax op= rcx` entre enteros, con sus NO. `seguro`: se sabe al
+    /// compilar que el divisor no es 0 ni -1 (escrito, AF4, o demostrado,
+    /// B2): no se mira al correr.
+    pub(super) fn opera(&mut self, op: &str, seguro: bool, at: (usize, usize)) -> Result<(), String> {
         match op {
             "+" | "-" | "*" => {
                 match op {
@@ -159,7 +159,6 @@ impl E1<'_> {
                 self.trap(0x80, "T0060", "el resultado no cabe en 64 bits", at);
             }
             "/" | "%" => {
-                let seguro = escrito.is_some_and(|d| d != 0 && d != -1);
                 let mut done = None;
                 if !seguro {
                     x86::test_r64_r64(&mut self.code, RCX, RCX);

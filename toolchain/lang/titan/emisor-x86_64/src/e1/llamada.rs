@@ -126,17 +126,26 @@ impl E1<'_> {
     /// (calcular el segundo puede llamar y pisar los registros), y al final
     /// los cuatro registros de una vez. El resultado vuelve en `rax`.
     fn llamada_ligera(&mut self, func: usize, args: &[Value], at: (usize, usize)) -> Result<Option<(Place, Class)>, String> {
+        // B4: un valor detras del cual solo quedan locales y numeros escritos
+        // (que no emiten nada hasta el final) va DERECHO a su registro
+        let simple = |v: &Value| matches!(v, Value::Int(..) | Value::Local(..));
         let mut sitios = Vec::with_capacity(args.len());
-        for a in args {
+        for (k, a) in args.iter().enumerate() {
             sitios.push(match a {
-                Value::Int(n, _) => Err(*n),
-                _ => Ok(self.eval(a)?.0),
+                Value::Int(n, _) => Some(Err(*n)),
+                _ if !simple(a) && args[k + 1..].iter().all(simple) => {
+                    self.a_rax(a)?;
+                    x86::mov_r64_r64(&mut self.code, ARGS[k], RAX);
+                    None
+                }
+                _ => Some(Ok(self.eval(a)?.0)),
             });
         }
         for (k, s) in sitios.into_iter().enumerate() {
             match s {
-                Ok(p) => self.load(p, ARGS[k]),
-                Err(n) => self.imm(ARGS[k], n),
+                Some(Ok(p)) => self.load(p, ARGS[k]),
+                Some(Err(n)) => self.imm(ARGS[k], n),
+                None => {}
             }
         }
         self.salta_a(func, at);

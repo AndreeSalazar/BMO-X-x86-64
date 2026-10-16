@@ -175,10 +175,12 @@ pub(crate) struct Fun {
     pub temp_max: i32,
     /// AF3: el local que vive en `r14`, y donde se guarda el `r14` de quien
     /// llamo.
-    pub registro: Option<(usize, i32)>,
+    pub registro: Vec<(usize, u8, i32)>,
     /// AF4 (`afinado::vueltas`): por cada contador de un `for`, la vuelta en
     /// cuyo sitio vive.
     pub vuelta: Vec<Option<usize>>,
+    /// B2 (`afinado::minimos`): lo menos que vale cada local, si se sabe.
+    pub minimo: Vec<Option<i64>>,
 }
 
 pub(crate) struct E1<'m> {
@@ -215,6 +217,9 @@ pub(crate) struct E1<'m> {
     guardado: Option<(usize, Place, u8)>,
     /// AF3: de `plan`, los locales que son solo un entero.
     solo_int: Vec<bool>,
+    /// B1: el programa no habla con el director, y `rbx`, `r12` y `r13`
+    /// (lo tenido, la ventana, la lamina) quedan para los locales.
+    pub(crate) libres: bool,
 }
 
 /// Lo que E1 no emite: un NO al compilar.
@@ -415,8 +420,8 @@ impl<'m> E1<'m> {
         if let Some(Some(v)) = self.f.vuelta.get(l) {
             return self.local(*v);
         }
-        if matches!(self.f.registro, Some((r, _)) if r == l) {
-            return Place { base: Base::Reg(afinado::R14), off: 0 };
+        if let Some(&(_, r, _)) = self.f.registro.iter().find(|(k, _, _)| *k == l) {
+            return Place { base: Base::Reg(r), off: 0 };
         }
         if self.f.indirect[l] {
             Place { base: Base::Ptr(self.f.slot[l]), off: 0 }
@@ -648,16 +653,20 @@ impl<'m> E1<'m> {
         }
         let sizes = self.plan(f)?;
         let n = f.locals.len();
-        self.f = Fun { known: vec![None; n], decl: vec![None; n], slot: vec![0; n], indirect: vec![false; n], locals_end: 16, temp: 0, temp_max: 0, registro: None, vuelta: Vec::new() };
+        self.f = Fun { known: vec![None; n], decl: vec![None; n], slot: vec![0; n], indirect: vec![false; n], locals_end: 16, temp: 0, temp_max: 0, registro: Vec::new(), vuelta: Vec::new(), minimo: Vec::new() };
         for (l, s) in sizes.iter().enumerate() {
             self.f.locals_end += (s + 7) / 8 * 8;
             self.f.slot[l] = -self.f.locals_end;
         }
-        // AF3: el local de `r14`, y un sitio para el `r14` de quien llamo
+        // AF3: los locales de los registros, y un sitio para lo que traia
+        // cada registro de quien llamo (B1: hasta cuatro, si el programa no
+        // habla con el director)
         self.f.vuelta = afinado::vueltas(f, self.m);
-        if let Some(l) = afinado::en_registro(f, &self.solo_int, &self.f.vuelta, self.m) {
+        self.f.minimo = afinado::minimos(f, &self.solo_int, self.m);
+        let pool: &[u8] = if self.libres { &afinado::REGISTROS } else { &afinado::REGISTROS[..1] };
+        for (l, r) in afinado::en_registro(f, &self.solo_int, &self.f.vuelta, self.m, pool, root) {
             self.f.locals_end += 8;
-            self.f.registro = Some((l, -self.f.locals_end));
+            self.f.registro.push((l, r, -self.f.locals_end));
         }
         // el marco: su medida se sabe al final
         self.code.push(0x55); // push rbp
@@ -673,8 +682,8 @@ impl<'m> E1<'m> {
         if !f.params.is_empty() && !ligera {
             x86::mov_at_reg_disp32_from_r64(&mut self.code, RBP, -16, RDI);
         }
-        if let Some((_, guarda)) = self.f.registro {
-            x86::mov_at_reg_disp32_from_r64(&mut self.code, RBP, guarda, afinado::R14);
+        for &(_, r, guarda) in &self.f.registro {
+            x86::mov_at_reg_disp32_from_r64(&mut self.code, RBP, guarda, r);
         }
         // la pila: cada llamada abierta suma lo que gasta (quien llama ya
         // miro que cabe, `call`). La RAIZ no: la cuenta empieza con ella
@@ -745,15 +754,18 @@ impl<'m> E1<'m> {
                         self.code.extend_from_slice(&[0x49, 0x81, 0x2F, 0, 0, 0, 0]); // sub qword [r15], imm32
                         depth_patches.push(self.code.len() - 4);
                     }
-                    if let Some((_, guarda)) = self.f.registro {
-                        x86::mov_r64_at_reg_disp32(&mut self.code, afinado::R14, RBP, guarda);
+                    for &(_, r, guarda) in &self.f.registro {
+                        x86::mov_r64_at_reg_disp32(&mut self.code, r, RBP, guarda);
                     }
                     self.code.extend_from_slice(&[0x48, 0x89, 0xEC]); // mov rsp, rbp
                     self.code.push(0x5D); // pop rbp
                     self.code.push(0xC3); // ret
                 }
                 End::Jump(t) => {
-                    if *t != i + 1 {
+                    // B3: la vuelta de un bucle mira su condicion AQUI
+                    if let Some(js) = self.vuelta_girada(f, i, *t)? {
+                        jumps.extend(js);
+                    } else if *t != i + 1 {
                         let j = self.jmp();
                         jumps.push((j, *t));
                     }
@@ -996,7 +1008,7 @@ pub fn emit<'m>(m: &'m Module, cuerpos: &'m Cuerpos) -> Result<Emitted, NoE1> {
         status_traps: Vec::new(),
         helper_calls: Vec::new(),
         depth_checks: Vec::new(),
-        f: Fun { known: Vec::new(), decl: Vec::new(), slot: Vec::new(), indirect: Vec::new(), locals_end: 16, temp: 0, temp_max: 0, registro: None, vuelta: Vec::new() },
+        f: Fun { known: Vec::new(), decl: Vec::new(), slot: Vec::new(), indirect: Vec::new(), locals_end: 16, temp: 0, temp_max: 0, registro: Vec::new(), vuelta: Vec::new(), minimo: Vec::new() },
         lenient: 0,
         owned: Vec::new(),
         kinds: Vec::new(),
@@ -1005,6 +1017,7 @@ pub fn emit<'m>(m: &'m Module, cuerpos: &'m Cuerpos) -> Result<Emitted, NoE1> {
         gpu_calls: Vec::new(),
         guardado: None,
         solo_int: Vec::new(),
+        libres: false,
     };
     // Un NO de E1 sube por los `?` como texto; si fue un "todavia no", E1 lo
     // apunto con su sitio, y es el NO del PROGRAMA (LB1).
@@ -1023,6 +1036,7 @@ fn emit_all<'m>(e: &mut E1<'m>, m: &'m Module) -> Result<Emitted, String> {
     // segundo, el estado del MONTON (antes `r14`, cero hasta el primer
     // bloque). Asi `r14` queda libre para los locales de los bucles.
     let heap = uses_heap(m);
+    e.libres = !uses_director(m);
     e.code.extend_from_slice(&[0x48, 0x83, 0xEC, 0x10]); // sub rsp, 16
     e.code.extend_from_slice(&[0x49, 0x89, 0xE7]); // mov r15, rsp
     if heap {
