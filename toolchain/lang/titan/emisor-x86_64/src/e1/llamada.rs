@@ -110,13 +110,19 @@ impl E1<'_> {
     }
 
     /// La pila que queda y el `call`. T0066 AQUI, en la linea de la llamada
-    /// (donde lo dice el calculo): [r15] + lo que gasta la fn > la pila. Lo
-    /// que gasta se sabe al final.
+    /// (donde lo dice el calculo): si `rsp` menos lo que gasta la fn baja del
+    /// fondo de la pila de las llamadas (`r15` menos lo que pueden gastar). Lo que gasta se sabe al
+    /// final. (M1, 16-10: antes cada fn sumaba y restaba su gasto en `[r15]`
+    /// al entrar y al volver; `rsp` ya lo sabe.)
     pub(super) fn salta_a(&mut self, func: usize, at: (usize, usize)) {
-        self.code.extend_from_slice(&[0x49, 0x81, 0x3F, 0, 0, 0, 0]); // cmp qword [r15], imm32
+        // M1: `rsp - lo que gasta la fn` no puede bajar del fondo, que es
+        // `r15 - la pila de las llamadas`. Sin memoria:
+        // lea r11, [rsp + pila - coste] ; cmp r11, r15 ; jb NO
+        self.code.extend_from_slice(&[0x4C, 0x8D, 0x9C, 0x24, 0, 0, 0, 0]);
         self.depth_checks.push((self.code.len() - 4, func));
+        self.code.extend_from_slice(&[0x4D, 0x39, 0xFB]);
         let name = self.m.functions[func].name.clone();
-        self.trap(0x8F, "T0066", &format!("las llamadas se anidan mas de lo que cabe en la pila (`{}` sin llegar a su caso de parada?)", forma::short(&name)), at);
+        self.trap(0x82, "T0066", &format!("las llamadas se anidan mas de lo que cabe en la pila (`{}` sin llegar a su caso de parada?)", forma::short(&name)), at);
         self.code.push(0xE8);
         self.calls.push((self.code.len(), func));
         self.code.extend_from_slice(&[0; 4]);

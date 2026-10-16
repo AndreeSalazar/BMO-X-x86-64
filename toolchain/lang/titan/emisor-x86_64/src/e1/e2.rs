@@ -602,16 +602,14 @@ impl E1<'_> {
         for &r in &guardar {
             x86::push_r64(&mut self.code, r);
         }
-        self.code.extend_from_slice(&[0x49, 0x81, 0x07]); // add qword [r15], imm32
-        self.code.extend_from_slice(&coste.to_le_bytes());
-        self.emite(&b.code, &reg, coste, &guardar);
+        self.emite(&b.code, &reg, &guardar);
         self.guardado = None;
         Ok(Some(coste))
     }
 
     /// Las instrucciones repartidas, a x86-64. Da los saltos que SALEN (a
     /// bloques de E1: `(campo, bloque)`).
-    fn emite(&mut self, code: &[I], reg: &[u8], coste: i32, guardar: &[u8]) -> Vec<(usize, usize)> {
+    fn emite(&mut self, code: &[I], reg: &[u8], guardar: &[u8]) -> Vec<(usize, usize)> {
         let mut sitio = std::collections::HashMap::new();
         let mut saltos: Vec<(usize, usize)> = Vec::new();
         let mut fuera: Vec<(usize, usize)> = Vec::new();
@@ -743,8 +741,6 @@ impl E1<'_> {
                         Some(Opnd::K(n)) => self.imm(RAX, *n),
                         None => {}
                     }
-                    self.code.extend_from_slice(&[0x49, 0x81, 0x2F]); // sub qword [r15], imm32
-                    self.code.extend_from_slice(&coste.to_le_bytes());
                     for &r in guardar.iter().rev() {
                         x86::pop_r64(&mut self.code, r);
                     }
@@ -1013,7 +1009,7 @@ impl E1<'_> {
         for &r in &guardar {
             x86::push_r64(&mut self.code, r);
         }
-        let fuera = self.emite(&baja.code, &reg, 0, &guardar);
+        let fuera = self.emite(&baja.code, &reg, &guardar);
         Ok(Some((b, fuera)))
     }
 }

@@ -693,14 +693,9 @@ impl<'m> E1<'m> {
         for &(_, r, guarda) in &self.f.registro {
             x86::mov_at_reg_disp32_from_r64(&mut self.code, RBP, guarda, r);
         }
-        // la pila: cada llamada abierta suma lo que gasta (quien llama ya
-        // miro que cabe, `call`). La RAIZ no: la cuenta empieza con ella
-        // (`emit`)
-        let mut depth_patches = Vec::new();
-        if !root {
-            self.code.extend_from_slice(&[0x49, 0x81, 0x07, 0, 0, 0, 0]); // add qword [r15], imm32
-            depth_patches.push(self.code.len() - 4);
-        }
+        // M1: la pila de las llamadas la mira quien llama, con `rsp` mismo
+        // (`llamada::salta_a`): la fn no suma ni resta nada
+        let _ = root;
         // los valores que llegan
         if ligera {
             self.llegan_ligeros(f);
@@ -769,10 +764,6 @@ impl<'m> E1<'m> {
                         }
                         _ => self.muere_al_volver(),
                     }
-                    if !root {
-                        self.code.extend_from_slice(&[0x49, 0x81, 0x2F, 0, 0, 0, 0]); // sub qword [r15], imm32
-                        depth_patches.push(self.code.len() - 4);
-                    }
                     for &(_, r, guarda) in &self.f.registro {
                         x86::mov_r64_at_reg_disp32(&mut self.code, r, RBP, guarda);
                     }
@@ -821,11 +812,7 @@ impl<'m> E1<'m> {
         }
         let frame = (self.f.locals_end + self.f.temp_max + 15) / 16 * 16;
         self.code[frame_patch..frame_patch + 4].copy_from_slice(&frame.to_le_bytes());
-        let cost = frame + 16;
-        for p in depth_patches {
-            self.code[p..p + 4].copy_from_slice(&cost.to_le_bytes());
-        }
-        Ok(cost)
+        Ok(frame + 16)
     }
 
     /// B5c: lo que E1 sabe de cada local tras los bloques `h..=fin` que
@@ -1088,9 +1075,10 @@ fn emit_all<'m>(e: &mut E1<'m>, m: &'m Module) -> Result<Emitted, String> {
         // F2: `rbx`, el bloque de lo tenido; cero hasta el primero.
         x86::zero_r32(&mut e.code, entrada::RBX);
     }
-    // [r15]: la pila que gastan las llamadas abiertas, empezando por la raiz
-    e.code.extend_from_slice(&[0x49, 0xC7, 0x07, 0, 0, 0, 0]); // mov qword [r15], imm32
-    let root_cost = e.code.len() - 4;
+    // ** M1 (16-10): `r15` es `rsp` justo antes de llamar a `main` (nada se
+    // empuja hasta el `call`): el fondo de la pila de las llamadas es `r15`
+    // menos lo que pueden gastar, y quien llama lo mira con `rsp` mismo
+    // (`llamada::salta_a`). Nada que preparar.
     x86::zero_r32(&mut e.code, RDI);
     x86::zero_r32(&mut e.code, RSI);
     e.code.push(0xE8);
@@ -1122,8 +1110,6 @@ fn emit_all<'m>(e: &mut E1<'m>, m: &'m Module) -> Result<Emitted, String> {
         starts[k] = e.etiqueta();
         cost[k] = e.function(f, root && k == m.entry)?;
     }
-    let start = if root { cost[m.entry] } else { 0 };
-    e.code[root_cost..root_cost + 4].copy_from_slice(&start.to_le_bytes());
     // la fn de un trait gasta lo que la mas cara de sus tipos
     for (k, f) in m.functions.iter().enumerate() {
         if let Some(table) = &f.dispatch {

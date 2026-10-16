@@ -252,11 +252,19 @@ encima). El 16-10, al cerrar la fase B:
 los 32, de 2,3 a 95 veces. Hoy gana 4 y pierde el resto por 1,06 a 19,5 --
 y lo que falta esta medido, duelo a duelo:
 
-- [ ] **M1 -- `fib` (pierde 1,7 a 1,9 con todos).** Cada llamada paga 4
-      instrucciones por la pila de las llamadas (`[r15]`: sumar, restar,
-      comparar, saltar) y 3 `jo`. Que la mire `rsp` mismo (3 instrucciones
-      en quien llama, ninguna en la fn), y COPIAR DENTRO (AF8) la fn chica
-      en quien la llama
+- [x] **M1a -- la pila de las llamadas la mira `rsp`** (16-10). Cada
+      llamada pagaba 4 instrucciones y dos lecturas-escrituras de memoria
+      (la fn sumaba y restaba su gasto en `[r15]`, quien llama lo
+      comparaba). Ahora `r15` es `rsp` antes de llamar a `main`, y el fondo
+      de la pila es `r15` menos lo que pueden gastar: quien llama hace `lea
+      r11, [rsp + pila - gasto] ; cmp r11, r15 ; jb NO` -- tres, sin
+      memoria y sin nada que preparar. El mismo T0066 en la linea de la
+      llamada, y mas exacto (mira lo que la pila gasta de verdad). El duelo:
+      fib 1,06 -> 1,00 x el C de la casa. El banco 29,4 -> 29,3 millones,
+      7,1 -> 6,7 millones de accesos; bajan 15, no sube ninguno
+- [ ] **M1 -- `fib` (pierde 1,7 a 1,9 con los veteranos).** Quedan los 3
+      `jo` por llamada y el marco: COPIAR DENTRO (AF8) la fn chica en quien
+      la llama
 - [ ] **M2 -- `bytes` (pierde 1,45 con Rust, 1,85 con GCC, 6,3 con Clang).**
       Llenar la lista se lleva el 80 %: cada `push` mira la capacidad en la
       memoria. Que un bucle con `push` vaya por E2 con lo que mide la lista

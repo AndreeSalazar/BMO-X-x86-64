@@ -8,7 +8,7 @@
 
 ```text
    887 casillas ABIERTAS en 80 planes
-   686 hechas
+   687 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -243,11 +243,11 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] E2 -- (C,T) DECLARADOS Y EL AFORO. Cada tarea trae su compas; el kernel
 - ... y 9 mas
 
-## [`PLAN_TITAN_AFINADO.md`](PLAN_TITAN_AFINADO.md) -- 12 abiertas, 16 hechas
+## [`PLAN_TITAN_AFINADO.md`](PLAN_TITAN_AFINADO.md) -- 12 abiertas, 17 hechas
 
 *PLAN TITAN AFINADO -- TITAN++ a la altura de C, sin aprender de CPU*
 
-- [ ] M1 -- fib (pierde 1,7 a 1,9 con todos). Cada llamada paga 4
+- [ ] M1 -- fib (pierde 1,7 a 1,9 con los veteranos). Quedan los 3
 - [ ] M2 -- bytes (pierde 1,45 con Rust, 1,85 con GCC, 6,3 con Clang).
 - [ ] M3 -- ordenar (pierde 2,6 con Rust, 1,6 con Clang). El bucle de
 - ... y 9 mas
