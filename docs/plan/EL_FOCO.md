@@ -1,5 +1,12 @@
 # EL FOCO -- una cosa a la vez, hasta el final (10-10; el orden nuevo, 14-10)
 
+> **Tercera tanda 16-10, 17:06:** GPU despierta y lienzo correcto; MUNDO
+> usa CPU porque VRN1 rechazaba 640x360 con Z antes del kernel. Correccion
+> en anfitrion: region de las superficies fijas y copia de su medida real.
+> Foco siguiente: probar MUNDO, `gpu laminas` y `save` con kernel/DIRECTOR
+> reconstruidos; cerrar C1/Q0a3 solo con evidencia. G0 sigue abierto.
+> [Causa, prueba y limites](../metal/METAL_2026-10-16.md).
+
 > **Segunda tanda 16-10:** MUNDO funciona con respaldo CPU mientras el booter
 > falla con 0x15 pese a llegada fria registrada. Aviso CALIENTE corregido;
 > G0 sigue abierto. Guardado confirmado por el propietario, MC5 cerrado.

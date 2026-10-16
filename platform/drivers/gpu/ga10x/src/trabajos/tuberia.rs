@@ -622,8 +622,8 @@ pub(crate) fn dibujo_de_campos(cabecera: &[u8], n: usize, datos: usize) -> Optio
 }
 
 /// ** Q0a1 (EL_FOCO, 10-10): un destino de CUALQUIER medida que quepa
-/// (`Destino::valido`), salvo con Z: la sombra en bloque (`sombra`) y el
-/// bufer de Z (`profundidad`) miden 1280x720.
+/// (`Destino::valido`), con Z hasta 1280x720: se usa una region de la
+/// sombra y la Z fijas; solo esa region se copia al destino.
 pub const fn cabe(d: &Dibujo) -> bool {
     // LI2d-HDR: un destino de float, hoy sin Z (la sombra en bloque es de 8
     // bits por canal), sin limpieza (`color` es un pixel de 8 bits) y fuera
@@ -666,7 +666,7 @@ pub const fn cabe(d: &Dibujo) -> bool {
         }
     }
     match (d.z, d.destino) {
-        (Some(_), Some((_, dst))) => dst.es_la_de_verrano(),
+        (Some(_), Some((_, dst))) => dst.valido() && dst.ancho <= cu::ANCHO && dst.alto <= cu::ALTO,
         _ => true,
     }
 }
@@ -1378,13 +1378,13 @@ mod pruebas {
         for malo in [Destino { ancho: 0, ..dst }, Destino { fila: 5124, ..dst }] {
             assert_eq!(escribir_paquete_dibujo(&mut caja, 7, &vs, &ps, 3, &datos, Dibujo { destino: Some((0x1234_5000, malo)), ..d }), None);
         }
-        // ** Q0a1: otra medida, SI (sin Z); con Z, solo la de VERRANO.
+        // Q0a1: otra medida, SI; con Z hasta el limite de la sombra fija.
         let otra = Destino { ancho: 640, alto: 360, ..dst };
         let con_otra = Dibujo { destino: Some((0x1234_5000, otra)), ..d };
         let n2 = escribir_paquete_dibujo(&mut caja, 7, &vs, &ps, 3, &datos, con_otra).unwrap();
         assert_eq!(leer(&caja[..n2]).unwrap().dibujo, con_otra);
         let z = Some(crate::profundidad::Z { funcion: 2, escribir: true, limpiar: Some(crate::profundidad::UNO) });
-        assert_eq!(escribir_paquete_dibujo(&mut caja, 7, &vs, &ps, 3, &datos, Dibujo { z, ..con_otra }), None, "Z en otra medida, no");
+        assert!(escribir_paquete_dibujo(&mut caja, 7, &vs, &ps, 3, &datos, Dibujo { z, ..con_otra }).is_some(), "Z en una region de la sombra, si");
         assert!(escribir_paquete_dibujo(&mut caja, 7, &vs, &ps, 3, &datos, Dibujo { z, ..d }).is_some(), "Z en la de VERRANO, si");
         assert_eq!(escribir_paquete_dibujo(&mut caja, 7, &vs, &ps, 3, &datos, Dibujo { destino: Some((0x1234_5010, dst)), ..d }), None, "sin alinear a pagina");
         let gop = crate::pantalla::Pantalla { vram: 0x100_0000, pitch: 1920, ancho: 1920, alto: 1080, rgb: false };

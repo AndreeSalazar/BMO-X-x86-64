@@ -171,6 +171,10 @@ pide Cyberpunk por PROTON-X --.
 - [ ] MC3: teclas mantenidas, gravedad, salto y colision del cuerpo por ejes.
 - [ ] GPU: recuperar el error concreto de MUNDO y cerrar C1/Q0a3 por causa;
       seguir distinguiendo GPU de CPU. El respaldo no cierra esa meta.
+      **Tercera tanda 16-10:** GSP listo; rechazo local `Vertices` en ambas
+      rutas. Reproducido: VRN1 no admitia Z a 640x360. Corregido en anfitrion
+      junto con la copia de sombra (solo el rectangulo del destino).
+      Falta el metal con kernel/DIRECTOR nuevos: `gpu laminas`, juez y `save`.
 - [ ] Despues MC4: vertices fuera de la pila y trozos; luego texturas,
       luz y transparencia. No aumentar el mundo sobre el limite de 80 caras.
 

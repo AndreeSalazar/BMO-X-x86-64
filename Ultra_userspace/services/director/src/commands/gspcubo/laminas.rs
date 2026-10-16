@@ -61,7 +61,7 @@ struct Estado {
     hoja_z: Option<bmo::Memoria>,
     dibujados: u32,
     dicho_distinto: bool,
-    /// ** C1: el kernel no tomo la lamina PRESTADA una vez: se dijo, y se
+    /// ** C1: la ruta PRESTADA fallo una vez: se dijo, y se
     /// vuelve a copiar (lo de antes del 15-10) sin reintentar.
     sin_prestar: bool,
     /// Cuantos fotogramas fueron prestados y cuantos copiados: lo que el
@@ -246,13 +246,13 @@ pub(crate) fn vuelta(dsk: &mut Desktop, p: &bmo::Pantalla) -> bool {
             true
         }
         Err(error) if prestada => {
-            // El kernel no la tomo (un kernel de antes, o `Porque` 29/30):
+            // La ruta fallo, tambien puede ser validacion local del paquete:
             // se dice UNA vez y se copia desde el proximo fotograma.
             e.sin_prestar = true;
             e.secuencia = 0;
             draw_error(&mut dsk.out.grid, error);
-            bmo::consola("[C1] la 3060 no tomo la lamina prestada: se copia (lo de antes)\n");
-            dsk.out.grid.text(b"  [C1] la 3060 no tomo la lamina prestada: se copia (lo de antes)\n");
+            bmo::consola("[C1] fallo la ruta prestada: se prueba con vertices copiados\n");
+            dsk.out.grid.text(b"  [C1] fallo la ruta prestada: se prueba con vertices copiados\n");
             dsk.tick.repaint_field = true;
             false
         }

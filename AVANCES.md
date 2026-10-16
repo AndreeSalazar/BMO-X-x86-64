@@ -1,5 +1,12 @@
 # AVANCES -- estado de BMO-X (recuperacion de contexto)
 
+> **16-10, tercera tanda 17:06-17:09:** GSP despierto y lienzo correcto,
+> MUNDO por CPU. Causa reproducida: VRN1 exigia 1280x720 para Z y rechazaba
+> 640x360 antes del kernel. Ahora permite region menor y copia solo sus
+> pixeles; superficies fisicas fijas. Pruebas del driver pasan; falta
+> comprobar el dibujo de MUNDO en RTX. C1/Q0a3 y G0 siguen abiertos.
+> [Parte y siguiente corrida](docs/metal/METAL_2026-10-16.md).
+
 > **16-10, segunda tanda 11:07-11:08:** booter 0x15 en FRIO registrado;
 > MUNDO visible por VERRANO CPU, confirmado en capturas y consola. Se arregla
 > el falso aviso CALIENTE (0x15 no basta), no el arranque del firmware.

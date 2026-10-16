@@ -157,7 +157,9 @@ pub(crate) fn al_color(e: &mut Ordenes, v: &Ventana) {
 
 /// **La copia** entre la sombra y la ventana `v` (pitch): `a_la_sombra` =
 /// de la ventana a la sombra (antes del dibujo); si no, de la sombra a la
-/// ventana (despues). 1280x720 pixeles de 4 bytes, y el semaforo.
+/// ventana (despues). Solo `v.ancho * v.alto` pixeles de 4 bytes y el
+/// semaforo. El lado en bloque conserva su paso fisico de 1280 pixeles:
+/// cambiar WIDTH junto con el rectangulo cambiaria donde vive cada GOB.
 pub fn copia(v: &Ventana, a_la_sombra: bool) -> [u32; ORDENES] {
     let (origen, destino, paga, layout, bloque) = if a_la_sombra {
         (v.va, VA, PAGA_A_LA_SOMBRA, ORIGEN_PITCH, SET_DST_BLOCK_SIZE)
@@ -178,8 +180,8 @@ pub fn copia(v: &Ventana, a_la_sombra: bool) -> [u32; ORDENES] {
         destino as u32,
         paso_in,
         paso_out,
-        FILA, // LINE_LENGTH_IN, en bytes
-        ALTO, // LINE_COUNT
+        4 * v.ancho, // LINE_LENGTH_IN: solo el rectangulo visible
+        v.alto, // LINE_COUNT: nunca las filas fuera del destino prestado
         // El lado en bloque: BLOCK_SIZE, WIDTH (bytes), HEIGHT, DEPTH, LAYER.
         cabecera(bloque, 5),
         BLOQUE_COPIA,
@@ -312,5 +314,21 @@ mod pruebas {
         assert_eq!(o[23], PAGA_A_LA_SOMBRA);
         let l = o[ORDENES - 1];
         assert_eq!((l & ORIGEN_PITCH, l & DESTINO_PITCH), (ORIGEN_PITCH, 0));
+    }
+
+    #[test]
+    fn una_ventana_chica_no_copia_fuera_de_su_memoria() {
+        for (ancho, alto, fila) in [(640, 360, 2560), (1, 1, 128), (1280, 720, 5248)] {
+            let dst = crate::destino::Destino { ancho, alto, fila, rgb: false, flotante: crate::destino::Flotante::No };
+            let v = dst.ventana();
+            for cargar in [false, true] {
+                let o = copia(&v, cargar);
+                assert_eq!((o[9], o[10]), (4 * ancho, alto), "rectangulo, sin padding");
+                assert_eq!((o[13], o[14]), (FILA, ALTO), "la superficie en bloque conserva su medida");
+                let paso_app = if cargar { o[7] } else { o[8] };
+                let ultimo = (o[10] - 1) as u64 * paso_app as u64 + o[9] as u64;
+                assert!(ultimo <= dst.bytes(), "ninguna lectura/escritura fuera del prestamo");
+            }
+        }
     }
 }

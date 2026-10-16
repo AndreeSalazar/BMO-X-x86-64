@@ -1,5 +1,13 @@
 # Despertar fiable de la RTX 3060 12G -- investigacion del 16-10
 
+**Tercera tanda, 17:06:** GSP activo, INIT_DONE y lienzo 16.384/16.384.
+MUNDO cae a CPU por otro fallo: VRN1 rechazaba su destino 640x360 con Z
+antes del kernel. Corregido y probado en anfitrion, pendiente de metal.
+La copia de sombra ahora limita el rectangulo sin cambiar su paso fisico.
+Los 532 ms FRTS->booter y un aviso de disco aparecen tambien en este buen
+arranque: no distinguen por si solos el 0x15. G0 sigue abierto.
+[Parte y prueba siguiente](../../../../docs/metal/METAL_2026-10-16.md).
+
 **Actualizacion 16-10, 11:07:** ya hay un parte malo concreto: llegada FRIA
 registrada, FRTS correcto, booter SEC2 MAILBOX0=0x15, sin GSP activo. IOMMU
 sin eventos nuevos y RAM del firmware intacta. MUNDO funciona por VERRANO
