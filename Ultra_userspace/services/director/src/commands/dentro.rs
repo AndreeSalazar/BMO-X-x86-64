@@ -118,7 +118,7 @@ pub(crate) fn dentro(dsk: &mut Desktop, _p: &bmo::Pantalla, ruta: &[u8]) -> Afte
     s.byte(b'\n');
     if let Some(c) = r.regiones[0] {
         s.text(b"  codigo crudo: dentro bits 0x");
-        s.hex(c.file_offset, 1);
+        s.hex(c.file_offset, 16);
         s.byte(b' ');
         s.text(ruta);
         s.byte(b'\n');

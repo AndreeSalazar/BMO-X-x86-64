@@ -2,6 +2,13 @@
 
 16-10-2026. Trabajo en el anfitrion; el cambio de la autopsia espera al Ryzen.
 
+**Resultado posterior del Ryzen:** la consulta muestra paginas 0x0 y 0x40
+con 128 bytes consecutivos verificados (hex = bits). Se encontro que los
+rotulos y la orden siguiente recortaban sus offsets al imprimir un solo
+digito; corregido a 16 digitos, aun sin observar esa correccion en el metal.
+La autopsia sigue pendiente: no hubo fallo Ring 3. Detalle y datos:
+[`METAL_2026-10-16.md`](../../../docs/metal/METAL_2026-10-16.md).
+
 ## Lo medido de M3a
 
 | ordenar (600 elementos) | Antes | Ahora |

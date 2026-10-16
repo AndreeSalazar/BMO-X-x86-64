@@ -2727,6 +2727,13 @@ siendo lo que nunca fallo; "Reiniciar" no corta la corriente de la tarjeta.
   29-09 + el inicio rapido), y H2/H4 se aparcan con ese motivo.
 
 
+**Revision del 16-10:**
+[`DESPERTAR_FIABLE.md`](../../platform/drivers/gpu/ga10x/DESPERTAR_FIABLE.md)
+reune los commits hasta el 15-10, diferencia energia/GSP/canal GR y localiza
+el aviso del escritorio que todavia clasifica 0x15 como tarjeta caliente.
+Es investigacion sin nueva corrida del metal; no cierra G0. Antes de pedir
+mas reinicios, leer el informe ya guardado de un solo arranque malo.
+
 ### La electricidad de la 3060, a voluntad (pedido 03-10, para refinar)
 
 El propietario, con Cyberpunk ya creando PSO: *"mejora un poco mas mi GPU,

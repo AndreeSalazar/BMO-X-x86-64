@@ -1,7 +1,10 @@
 # Lente cruda -- tanda pendiente del 16-10
 
-**Estado: SIN CORRER EN EL RYZEN.** Solo la nueva salida cruda y su consulta;
-no retoma Cyberpunk. La autopsia y el DIRECTOR necesitan el build nuevo.
+**Estado actualizado: CONSULTA VISTA en el Ryzen el 16-10; un fallo de
+rotulo encontrado.** Evidencia y resultado completo en
+[`METAL_2026-10-16.md`](METAL_2026-10-16.md). La nueva autopsia sigue sin
+observarse porque no hubo fallo de Ring 3. La lista de abajo conserva lo
+que se pidio antes de la corrida.
 
 ## Consulta, solo lectura
 
@@ -31,7 +34,9 @@ bits de la MISMA fila y guardar el informe con `save`.
 
 ## Resultado
 
-- Consulta y avance: PENDIENTE.
+- Consulta y avance: VISTO 16-10: paginas 0x0 y 0x40, 128 bytes consecutivos,
+  hex y bits iguales. El rotulo y `siguiente` recortaban sus offsets a un
+  digito; CORREGIDO EN EL ANFITRION, falta observar el rotulo corregido.
 - EOF y ultima pagina parcial: PENDIENTE.
 - Coincidencia con el MISMO binario del anfitrion: PENDIENTE.
 - Autopsia, direcciones y ocho bits por byte: PENDIENTE.

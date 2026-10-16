@@ -39,8 +39,10 @@ pub(crate) fn mostrar(s: &mut Output, args: &[u8]) {
     s.text(b"  == BYTES DEL FICHERO: "); s.text(ruta); s.byte(b'\n');
     s.with_ink(INK_PLAIN);
     s.text(b"  offsets de fichero, hex y bits 7..0; no son direcciones de RAM\n");
-    s.text(b"  total "); s.dec(total); s.text(b" B; desde 0x"); s.hex(desde, 1);
-    s.text(b" hasta 0x"); s.hex(p.hasta, 1); s.text(b" (fin excluido)\n");
+    // Output::hex escribe EXACTAMENTE ese ancho: 1 recortaba 0x40 a 0.
+    // El informe del Ryzen del 16-10 lo cazo; conservar los 64 bits del offset.
+    s.text(b"  total "); s.dec(total); s.text(b" B; desde 0x"); s.hex(desde, 16);
+    s.text(b" hasta 0x"); s.hex(p.hasta, 16); s.text(b" (fin excluido)\n");
     if p.bytes == 0 {
         s.text(b"  fin del fichero; no hay bytes en esta posicion\n");
         return;
@@ -72,7 +74,7 @@ pub(crate) fn mostrar(s: &mut Output, args: &[u8]) {
         return;
     }
     if let Some(sig) = p.siguiente {
-        s.text(b"  siguiente: dentro bits 0x"); s.hex(sig, 1); s.byte(b' ');
+        s.text(b"  siguiente: dentro bits 0x"); s.hex(sig, 16); s.byte(b' ');
         s.text(ruta); s.byte(b'\n');
     } else {
         s.text(b"  fin del fichero; pagina completa\n");
