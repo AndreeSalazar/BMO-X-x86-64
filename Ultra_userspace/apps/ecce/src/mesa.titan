@@ -44,15 +44,10 @@ fn noche() -> int
 fn div(a: int, d: int) -> int
     return (a - a % d) / d
 
-# Las lineas que SE VEN de una hoja: las de un guion (una pagina, un minuto).
+# Las lineas que SE VEN de una hoja de NOTAS (las del guion las dice
+# pagina.titan, con las reglas del oficio).
 pub fn por_hoja() -> int
     return 54
-
-# Cuantas hojas hay, con `cuantas` lineas que se ven (siempre una).
-pub fn hojas(cuantas: int) -> int
-    if cuantas <= 0
-        return 1
-    return div(cuantas - 1, por_hoja()) + 1
 
 # -- La rejilla: el mismo reparto para pintar y para saber donde se pulso --
 
@@ -159,18 +154,18 @@ fn numero(x: int, y: int, n: int, color: int) -> int
     return px
 
 # Cuantos nodos: las escenas en modo guion (si hay), si no las hojas.
-pub fn cuantos(l: [int], es: [int], en_guion: bool, vista: int) -> int
+pub fn cuantos(ih: [int], es: [int], en_guion: bool, vista: int) -> int
     if vista == 2 and en_guion and len(es) > 0
         return len(es)
-    return hojas(div(len(l), 2))
+    return len(ih)
 
 # **La mesa y los nodos**: lo que cabe entre la cabeza y el pie. `ind` es la
 # sangria de cada linea (modo guion); `es`, `actos` y `titulos`, las escenas,
 # su acto y la linea del titulo de cada acto (guion.titan).
-pub fn pinta(t: [byte], l: [int], ind: [int], es: [int], actos: [int], titulos: [int], en_guion: bool, cols: int, sel: int, w: int, alto: int, cabeza: int, pie: int, vista: int)
+pub fn pinta(t: [byte], l: [int], ind: [int], ih: [int], es: [int], actos: [int], titulos: [int], en_guion: bool, cols: int, sel: int, w: int, alto: int, cabeza: int, pie: int, vista: int)
     director.rect(0, cabeza, w, alto - cabeza - pie, noche())
     let escenas = vista == 2 and en_guion and len(es) > 0
-    let n = cuantos(l, es, en_guion, vista)
+    let n = cuantos(ih, es, en_guion, vista)
     let mut por_acto: [int] = []
     if escenas
         por_acto = actos
@@ -182,13 +177,13 @@ pub fn pinta(t: [byte], l: [int], ind: [int], es: [int], actos: [int], titulos: 
         let y = y_rj(rj, k, primera, cabeza, vista)
         if y >= arriba(cabeza) - 4 and y + alto_celda(vista) <= ultima_y
             if vista == 1
-                hoja_chica(t, l, ind, cols, k, x, y, k == sel)
+                hoja_chica(t, l, ind, ih, cols, k, x, y, k == sel)
             else if escenas
                 nodo_escena(t, l, es[k], k, x, y, k == sel)
                 if k == 0 or actos[k] != actos[k - 1]
                     titulo_de_acto(t, l, titulos, actos[k], x, y - 18)
             else
-                nodo(t, l, k, x, y, k == sel)
+                nodo(t, l, ih, k, x, y, k == sel)
             if vista == 2 and k + 1 < n
                 let x2 = x_rj(rj, k + 1, vista)
                 let y2 = y_rj(rj, k + 1, primera, cabeza, vista)
@@ -196,15 +191,19 @@ pub fn pinta(t: [byte], l: [int], ind: [int], es: [int], actos: [int], titulos: 
 
 # Una hoja en chico: el papel, una raya por linea (tan larga como la
 # linea), su numero debajo; la elegida, con marco de oro.
-fn hoja_chica(t: [byte], l: [int], ind: [int], cols: int, k: int, x: int, y: int, elegida: bool)
+fn hoja_chica(t: [byte], l: [int], ind: [int], ih: [int], cols: int, k: int, x: int, y: int, elegida: bool)
     if elegida
         director.rect(x - 3, y - 3, ancho_celda(1) + 6, alto_celda(1) + 6, oro())
     director.rect(x, y, ancho_celda(1), alto_celda(1), papel())
     let cuantas = div(len(l), 2)
     let ancho_util = ancho_celda(1) - 16
-    for r in range(por_hoja())
-        let m = k * por_hoja() + r
-        if m < cuantas
+    let desde = ih[k]
+    let mut hasta = cuantas
+    if k + 1 < len(ih)
+        hasta = ih[k + 1]
+    for r in range(hasta - desde)
+        let m = desde + r
+        if m < cuantas and r < 56
             let largo = l[2 * m + 1]
             if largo > 0
                 let mut ancho = div(largo * ancho_util, cols)
@@ -220,7 +219,7 @@ fn hoja_chica(t: [byte], l: [int], ind: [int], cols: int, k: int, x: int, y: int
 
 # Un nodo: la tarjeta, una franja arriba (oro si es la elegida), "pag N" y
 # lo primero que dice la hoja.
-fn nodo(t: [byte], l: [int], k: int, x: int, y: int, elegida: bool)
+fn nodo(t: [byte], l: [int], ih: [int], k: int, x: int, y: int, elegida: bool)
     if elegida
         director.rect(x - 2, y - 2, ancho_celda(2) + 4, alto_celda(2) + 4, oro())
     director.rect(x, y, ancho_celda(2), alto_celda(2), tarjeta())
@@ -232,8 +231,10 @@ fn nodo(t: [byte], l: [int], k: int, x: int, y: int, elegida: bool)
     px = numero(px, y + 10, k + 1, tinta())
     # La primera linea con algo, hasta 18 letras.
     let cuantas = div(len(l), 2)
-    let mut m = k * por_hoja()
-    let fin = m + por_hoja()
+    let mut m = ih[k]
+    let mut fin = cuantas
+    if k + 1 < len(ih)
+        fin = ih[k + 1]
     while m < cuantas and m < fin and l[2 * m + 1] == 0
         m = m + 1
     if m < cuantas and m < fin

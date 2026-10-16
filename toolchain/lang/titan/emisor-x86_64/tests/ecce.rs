@@ -636,3 +636,30 @@ fn a_click_places_the_cursor_and_a_drag_selects() {
     let m = con(Some(b"abc\ndef"), None, &[clic(40, 10), suelta(40, 10), letra(b'X')]);
     assert_eq!(nota(&m).as_deref(), Some("abc\ndefX"));
 }
+
+// -- PL4: LAS PAGINAS DEL OFICIO, en la ventana --
+
+/// ** Donde acaba una pagina, ECCE pinta lo que imprimiria: "(MAS)" en la
+/// columna del nombre, la raya con "pag 2", y "ANA (CONT.)". Con el cursor
+/// al final (la linea 61) se ven las filas 45..64: el MAS es la fila 9.
+#[test]
+fn the_page_break_shows_more_the_rule_and_cont() {
+    let mut s = String::from("INT. A - DIA\n\n");
+    for i in 0..48 {
+        s.push_str(&format!("pasa algo {i}\n"));
+    }
+    s.push_str("\nANA\n");
+    for i in 0..10 {
+        s.push_str(&format!("frase {i}.\n"));
+    }
+    s.pop();
+    let m = abierta(s.as_bytes(), &[]);
+    let (_, _, px) = pantalla(&m);
+    let col = |k: u64| primera_tinta(&px, k).map(|x| (x - 28) / 8);
+    assert_eq!(col(6), Some(22), "ANA");
+    assert_eq!(col(8), Some(10), "la segunda frase, en su dialogo");
+    assert_eq!(col(9), Some(22), "el (MAS), donde iria el nombre");
+    assert_eq!(col(10), Some(0), "la raya del final de la pagina");
+    assert_eq!(col(11), Some(22), "ANA (CONT.)");
+    assert_eq!(col(12), Some(10), "la tercera frase, arriba de la pagina 2");
+}

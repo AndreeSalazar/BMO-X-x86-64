@@ -27,6 +27,9 @@
 #    Alt+G            NOTAS o GUION (Fountain, guion.titan): las escenas, los
 #                     personajes y el dialogo en su sitio, como Final Draft.
 #                     Se abre en guion si la nota tiene un INT. o un EXT.
+#    las paginas      en GUION, las del oficio (pagina.titan, PL4): 55
+#                     lineas, una raya y su numero donde acaba cada una, y
+#                     el dialogo partido con su (MAS) y su (CONT.)
 #    rueda            mueve el cursor tres lineas
 #    Alt + rueda      ALEJA la hoja: la mesa (las hojas en chico) y los nodos
 #                     (una tarjeta por hoja); acercando, se vuelve a la hoja
@@ -52,6 +55,7 @@ use director
 mod medida
 mod mesa
 mod guion
+mod pagina
 
 # -- Los colores: tinta clara sobre noche, y el oro de la pluma ----------
 
@@ -311,7 +315,7 @@ fn pon_elemento(x: int, y: int, que: int) -> int
     return director.texto(x, y, "accion", 1, tinta())
 
 # El pie del GUION: la escena de cuantas, la pagina y el elemento.
-fn pinta_pie_guion(w: int, alto: int, escena: int, escenas: int, hoja: int, que: int, estado: int)
+fn pinta_pie_guion(w: int, alto: int, escena: int, escenas: int, hoja: int, hojas: int, que: int, estado: int)
     let y = alto - alto_pie()
     director.rect(0, y, w, alto_pie(), barra())
     let mut x = director.texto(margen(), y + 4, "escena ", 1, tenue())
@@ -320,6 +324,8 @@ fn pinta_pie_guion(w: int, alto: int, escena: int, escenas: int, hoja: int, que:
     x = pon_numero(x, y + 4, escenas, tenue())
     x = director.texto(x, y + 4, "   pag ", 1, tenue())
     x = pon_numero(x, y + 4, hoja, tinta())
+    x = director.texto(x, y + 4, " de ", 1, tenue())
+    x = pon_numero(x, y + 4, hojas, tenue())
     x = director.texto(x, y + 4, "   ", 1, tenue())
     x = pon_elemento(x, y + 4, que)
     if estado == 0
@@ -331,9 +337,11 @@ fn pinta_pie_guion(w: int, alto: int, escena: int, escenas: int, hoja: int, que:
 
 # **Las lineas que se ven**, segun el modo: en guion, con su sangria y su
 # tipo (`ind`, `tl`); en notas, todas a la izquierda y de accion.
-fn rehaz(t: [byte], cols: int, en_guion: bool, mut ind: [int], mut tl: [int]) -> [int]
+fn rehaz(t: [byte], cols: int, en_guion: bool, mut ind: [int], mut tl: [int], mut ih: [int], mut co: [int]) -> [int]
     if en_guion
-        return guion.lineas(t, cols, mut ind, mut tl)
+        let lg = guion.lineas(t, cols, mut ind, mut tl)
+        pagina.pagina(tl, mut ih, mut co)
+        return lg
     let l = lineas(t, cols)
     while len(ind) > 0
         pop(mut ind)
@@ -342,6 +350,7 @@ fn rehaz(t: [byte], cols: int, en_guion: bool, mut ind: [int], mut tl: [int]) ->
     for k in range(div(len(l), 2))
         push(mut ind, 0)
         push(mut tl, 0)
+    pagina.de_notas(div(len(l), 2), mesa.por_hoja(), mut ih, mut co)
     return l
 
 # Quita [ini, fin) del texto apuntando cada byte en el grupo `grupo` (el
@@ -397,16 +406,23 @@ fn sin_blanco(que: int) -> bool
 
 # ** EL RATON EN LA HOJA: el sitio del texto bajo (x, y) -- la linea que se
 # ve en esa fila (o la primera o la ultima), y la letra mas cercana --.
-fn sitio_en(l: [int], ind: [int], arriba: int, filas: int, x: int, y: int) -> int
-    let cuantas = div(len(l), 2)
+fn sitio_en(l: [int], ind: [int], vis: [int], arriba: int, filas: int, x: int, y: int) -> int
     let mut fila = 0
     if y > arriba_texto() - 2
         fila = div(y - arriba_texto() + 2, alto_linea())
     if fila > filas - 1
         fila = filas - 1
-    let mut k = arriba + fila
-    if k > cuantas - 1
-        k = cuantas - 1
+    let mut fi = arriba + fila
+    if fi > len(vis) - 1
+        fi = len(vis) - 1
+    # Una fila que no es texto (la raya, el MAS): la linea de despues.
+    let mut k = vis[fi]
+    while k < 0 and fi + 1 < len(vis)
+        fi = fi + 1
+        k = vis[fi]
+    while k < 0 and fi > 0
+        fi = fi - 1
+        k = vis[fi]
     let mut col = 0
     let x0 = margen() + ind[k] * 8
     if x > x0
@@ -429,11 +445,68 @@ fn pinta_pie_mesa(w: int, alto: int, hojas: int, sel: int, escenas: bool)
         x = director.texto(x, y + 4, "   Alt+rueda acerca  Enter abre  Esc vuelve", 1, tenue())
 
 # El principio de la hoja `k` en el texto.
-fn principio_de_hoja(l: [int], k: int) -> int
-    let m = k * mesa.por_hoja()
-    if m >= div(len(l), 2)
+fn principio_de_hoja(l: [int], ih: [int], k: int) -> int
+    if k >= len(ih)
         return 0
-    return l[2 * m]
+    return l[2 * ih[k]]
+
+# ** LAS FILAS QUE SE VEN: cada linea (su indice) y, en guion, delante de
+# cada pagina, su RAYA; si la pagina sigue un dialogo, el (MAS) antes y el
+# NOMBRE (CONT.) despues. Esas van en negativo: -(4 * pagina + que + 1),
+# que 0 la raya, 1 el (MAS), 2 el (CONT.).
+fn filas_vistas(cuantas: int, ih: [int], co: [int], en_guion: bool) -> [int]
+    let mut r: [int] = []
+    let mut p = 1
+    for k in range(cuantas)
+        if en_guion and p < len(ih) and ih[p] == k
+            if co[p] >= 0
+                push(mut r, 0 - (4 * p + 2))
+            push(mut r, 0 - (4 * p + 1))
+            if co[p] >= 0
+                push(mut r, 0 - (4 * p + 3))
+            p = p + 1
+        push(mut r, k)
+    return r
+
+# La fila que se ve de la linea `k`.
+fn fila_vista(vis: [int], k: int) -> int
+    for i in range(len(vis))
+        if vis[i] == k
+            return i
+    return 0
+
+fn menor(a: int, b: int) -> int
+    if a < b
+        return a
+    return b
+
+# Una fila que no es texto: la raya del final de la pagina con el numero de
+# la siguiente, el (MAS) donde iria el nombre, o NOMBRE (CONT.).
+fn pinta_virtual(t: [byte], l: [int], co: [int], v: int, y: int, cols: int)
+    let u = 0 - v - 1
+    let que = u % 4
+    let pg = div(u - que, 4)
+    let ancho = menor(cols, 60)
+    let mut sx = margen() + 22 * 8
+    if cols < 40
+        sx = margen()
+    if que == 0
+        director.rect(margen(), y + 7, ancho * 8 - 72, 1, tenue())
+        let x = director.texto(margen() + ancho * 8 - 64, y, "pag ", 1, tenue())
+        let z = pon_numero(x, y, pg + 1, tenue())
+    else if que == 1
+        let x = director.texto(sx, y, "(MAS)", 1, tinta())
+    else
+        let k = co[pg]
+        let s = l[2 * k]
+        let mut x = sx
+        for i in range(l[2 * k + 1])
+            let b = t[s + i]
+            if b == 32
+                x = x + 8
+            else if i > 0 or b != 64
+                x = director.letra(x, y, guion.a_mayuscula(b), 1, tinta())
+        x = director.texto(x, y, " (CONT.)", 1, tinta())
 
 fn seleccion() -> int
     return 3622488
@@ -443,7 +516,7 @@ fn seleccion() -> int
 # guion: las cabeceras de escena en oro y en mayusculas; personajes y
 # transiciones en mayusculas; secciones y sinopsis en tenue). Lo que esta
 # entre `ancla` y `c`, con fondo de seleccion.
-fn pinta_texto(t: [byte], l: [int], ind: [int], tl: [int], w: int, alto: int, arriba: int, filas: int, c: int, ancla: int, en_guion: bool)
+fn pinta_texto(t: [byte], l: [int], ind: [int], tl: [int], vis: [int], co: [int], cols: int, w: int, alto: int, arriba: int, filas: int, c: int, ancla: int, en_guion: bool)
     director.rect(0, alto_cabeza(), w, alto - alto_cabeza() - alto_pie(), fondo())
     let cuantas = div(len(l), 2)
     let kc = fila_de(l, c)
@@ -454,8 +527,13 @@ fn pinta_texto(t: [byte], l: [int], ind: [int], tl: [int], w: int, alto: int, ar
     if ancla > c
         s1 = ancla
     for r in range(filas)
-        let k = arriba + r
-        if k < cuantas
+        let fi = arriba + r
+        let mut k = -1
+        if fi < len(vis)
+            k = vis[fi]
+        if fi < len(vis) and k < 0
+            pinta_virtual(t, l, co, k, arriba_texto() + r * alto_linea(), cols)
+        if k >= 0 and k < cuantas
             let s = l[2 * k]
             let y = arriba_texto() + r * alto_linea()
             let x0 = margen() + ind[k] * 8
@@ -554,7 +632,13 @@ fn main()
             en_guion = true
     let mut ind: [int] = []
     let mut tl: [int] = []
-    let mut l = rehaz(t, cols, en_guion, mut ind, mut tl)
+    # Las PAGINAS: la primera linea de cada una, y la del personaje cuyo
+    # dialogo sigue en ella (-1 si ninguno); y las filas que se VEN (las
+    # lineas y, en guion, la raya de cada pagina, el (MAS) y el (CONT.)).
+    let mut ih: [int] = []
+    let mut co: [int] = []
+    let mut vis: [int] = []
+    let mut l = rehaz(t, cols, en_guion, mut ind, mut tl, mut ih, mut co)
     let mut c = len(t)
     let mut arriba = 0
     let mut estado = 0
@@ -606,20 +690,20 @@ fn main()
                 let es = guion.escenas(tl)
                 if alt and muescas < 0 and vista < 2
                     if vista == 0
-                        sel = div(fila_de(l, c), mesa.por_hoja())
+                        sel = pagina.de(ih, fila_de(l, c))
                     else if en_guion and len(es) > 0
-                        sel = guion.escena_de(es, sel * mesa.por_hoja())
+                        sel = guion.escena_de(es, ih[sel])
                         if sel < 0
                             sel = 0
                     vista = vista + 1
                     pinta = true
                 else if alt and muescas > 0 and vista > 0
                     if vista == 2 and en_guion and len(es) > 0
-                        sel = div(es[sel], mesa.por_hoja())
+                        sel = pagina.de(ih, es[sel])
                     vista = vista - 1
                     if vista == 0
-                        if sel != div(fila_de(l, c), mesa.por_hoja())
-                            c = principio_de_hoja(l, sel)
+                        if sel != pagina.de(ih, fila_de(l, c))
+                            c = principio_de_hoja(l, ih, sel)
                         ancla = -1
                     pinta = true
                 else if not alt and vista == 0 and muescas != 0
@@ -638,7 +722,7 @@ fn main()
             if not en_hoja
                 let es = guion.escenas(tl)
                 let escenas = vista == 2 and en_guion and len(es) > 0
-                let n_nodos = mesa.cuantos(l, es, en_guion, vista)
+                let n_nodos = mesa.cuantos(ih, es, en_guion, vista)
                 let mut acs: [int] = []
                 if escenas
                     acs = guion.actos(tl, es)
@@ -672,7 +756,7 @@ fn main()
                     if escenas
                         c = l[2 * es[sel]]
                     else
-                        c = principio_de_hoja(l, sel)
+                        c = principio_de_hoja(l, ih, sel)
                     vista = 0
                     ancla = -1
                     pinta = true
@@ -688,7 +772,7 @@ fn main()
                 if nc >= 0
                     c = nc
                     ancla = -1
-                    l = rehaz(t, cols, en_guion, mut ind, mut tl)
+                    l = rehaz(t, cols, en_guion, mut ind, mut tl, mut ih, mut co)
                     sucio = true
                     estado = 1
                     ultimo = director.ms()
@@ -739,14 +823,14 @@ fn main()
                 pinta = true
             if que == 1 and alt and en_hoja and k == 34
                 en_guion = not en_guion
-                l = rehaz(t, cols, en_guion, mut ind, mut tl)
+                l = rehaz(t, cols, en_guion, mut ind, mut tl, mut ih, mut co)
                 pinta = true
             # Alt+F (33): GUARDAR COMO GUION. El documento pasa a ser
             # datos/guion.fou, en modo guion, y se guarda ya.
             if que == 1 and alt and en_hoja and k == 33
                 ruta = "datos/guion.fou"
                 en_guion = true
-                l = rehaz(t, cols, en_guion, mut ind, mut tl)
+                l = rehaz(t, cols, en_guion, mut ind, mut tl, mut ih, mut co)
                 if guardar(t, ruta)
                     sucio = false
                     estado = 0
@@ -759,7 +843,7 @@ fn main()
             if que == 4 and en_hoja and director.botones() % 2 == 1 and boton != 2
                 let rx = director.raton_x()
                 let ry = director.raton_y()
-                let p = sitio_en(l, ind, arriba, filas, rx, ry)
+                let p = sitio_en(l, ind, vis, arriba, filas, rx, ry)
                 if boton == 0
                     if ry >= alto_cabeza() and ry < alto - alto_pie()
                         if mayus
@@ -924,7 +1008,7 @@ fn main()
                 # Lo deshecho se pierde al cambiar otra cosa (como en todos).
                 while len(deshecho) > 0
                     pop(mut deshecho)
-                l = rehaz(t, cols, en_guion, mut ind, mut tl)
+                l = rehaz(t, cols, en_guion, mut ind, mut tl, mut ih, mut co)
                 sucio = true
                 estado = 1
                 ultimo = director.ms()
@@ -945,23 +1029,25 @@ fn main()
         if pinta
             # Que el cursor se vea: la pagina sigue a su linea.
             let kc = fila_de(l, c)
-            if kc < arriba
-                arriba = kc
-            if kc >= arriba + filas
-                arriba = kc - filas + 1
+            vis = filas_vistas(div(len(l), 2), ih, co, en_guion)
+            let fc = fila_vista(vis, kc)
+            if fc < arriba
+                arriba = fc
+            if fc >= arriba + filas
+                arriba = fc - filas + 1
             pinta_cabeza(w, vista, en_guion, ruta)
             let es = guion.escenas(tl)
             if vista == 0
-                pinta_texto(t, l, ind, tl, w, alto, arriba, filas, c, ancla, en_guion)
+                pinta_texto(t, l, ind, tl, vis, co, cols, w, alto, arriba, filas, c, ancla, en_guion)
                 if en_guion
-                    pinta_pie_guion(w, alto, guion.escena_de(es, kc) + 1, len(es), div(kc, mesa.por_hoja()) + 1, tl[kc], estado)
+                    pinta_pie_guion(w, alto, guion.escena_de(es, kc) + 1, len(es), pagina.de(ih, kc) + 1, len(ih), tl[kc], estado)
                 else
                     pinta_pie(t, w, alto, kc + 1, estado)
             else
                 let acs = guion.actos(tl, es)
                 let tis = guion.titulos(tl, es)
-                mesa.pinta(t, l, ind, es, acs, tis, en_guion, cols, sel, w, alto, alto_cabeza(), alto_pie(), vista)
-                pinta_pie_mesa(w, alto, mesa.cuantos(l, es, en_guion, vista), sel, vista == 2 and en_guion and len(es) > 0)
+                mesa.pinta(t, l, ind, ih, es, acs, tis, en_guion, cols, sel, w, alto, alto_cabeza(), alto_pie(), vista)
+                pinta_pie_mesa(w, alto, mesa.cuantos(ih, es, en_guion, vista), sel, vista == 2 and en_guion and len(es) > 0)
             director.presenta()
             pinta = false
         director.espera(16)
