@@ -463,13 +463,16 @@ mod pruebas {
             status_traps: Vec::new(),
             helper_calls: Vec::new(),
             depth_checks: Vec::new(),
-            f: super::super::Fun { known: Vec::new(), decl: Vec::new(), slot: Vec::new(), indirect: Vec::new(), locals_end: 16, temp: 0, temp_max: 0 },
+            f: super::super::Fun { known: Vec::new(), decl: Vec::new(), slot: Vec::new(), indirect: Vec::new(), locals_end: 16, temp: 0, temp_max: 0, registro: Vec::new(), vuelta: Vec::new(), minimo: Vec::new() },
             lenient: 0,
             owned: Vec::new(),
             kinds: Vec::new(),
             not_yet_said: None,
             cuerpos: &cuerpos,
             gpu_calls: Vec::new(),
+            libres: false,
+            guardado: None,
+            solo_int: Vec::new(),
         };
         let a = e.code.len();
         e.h_dec_a_f32();

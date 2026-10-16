@@ -46,18 +46,12 @@ impl E1<'_> {
             self.here(done);
             return Ok((t, Class::Bool));
         }
-        // ** AF2b (PLAN_TITAN_AFINADO): `x + 1`, `x - 1` con el numero
-        // escrito DENTRO de la instruccion, sin hacerlo un valor aparte
-        if let (Value::Int(v, _), "+" | "-") = (b, op) {
-            if i32::try_from(*v).is_ok() && self.class_of(a)? == Class::Int {
-                let (pa, _) = self.eval(a)?;
-                self.load(pa, RAX);
-                self.suma_inmediata(RAX, if op == "+" { *v } else { -*v });
-                self.trap(0x80, "T0060", "el resultado no cabe en 64 bits", at);
-                let t = self.temp(8);
-                self.store(t, RAX);
-                return Ok((t, Class::Int));
-            }
+        // ** AF2b y AF4 (PLAN_TITAN_AFINADO): una cuenta de enteros, derecha
+        // en `rax` (`afinado::cuenta_a_rax`), y a la pila solo al final
+        if self.cuenta_a_rax(op, a, b, at)? {
+            let t = self.temp(8);
+            self.store(t, RAX);
+            return Ok((t, Class::Int));
         }
         let (pa, ca) = self.eval(a)?;
         let (pb, cb) = self.eval(b)?;
@@ -145,6 +139,16 @@ impl E1<'_> {
     fn int_op(&mut self, op: &str, pa: Place, pb: Place, at: (usize, usize)) -> Result<Place, String> {
         self.load(pa, RAX);
         self.load(pb, RCX);
+        self.opera(op, false, at)?;
+        let t = self.temp(8);
+        self.store(t, RAX);
+        Ok(t)
+    }
+
+    /// `rax op= rcx` entre enteros, con sus NO. `seguro`: se sabe al
+    /// compilar que el divisor no es 0 ni -1 (escrito, AF4, o demostrado,
+    /// B2): no se mira al correr.
+    pub(super) fn opera(&mut self, op: &str, seguro: bool, at: (usize, usize)) -> Result<(), String> {
         match op {
             "+" | "-" | "*" => {
                 match op {
@@ -155,21 +159,24 @@ impl E1<'_> {
                 self.trap(0x80, "T0060", "el resultado no cabe en 64 bits", at);
             }
             "/" | "%" => {
-                x86::test_r64_r64(&mut self.code, RCX, RCX);
-                self.trap(0x84, "T0061", "una division por cero", at);
-                // -1 a mano: MIN / -1 no cabe, y el resto es 0
-                x86::cmp_r64_imm8(&mut self.code, RCX, -1);
-                let normal = self.jcc(0x85);
-                if op == "/" {
-                    self.imm(RDX, i64::MIN);
-                    x86::cmp_r64_r64(&mut self.code, RAX, RDX);
-                    self.trap(0x84, "T0060", "el resultado no cabe en 64 bits", at);
-                    x86::neg_r64(&mut self.code, RAX);
-                } else {
-                    x86::zero_r32(&mut self.code, RAX);
+                let mut done = None;
+                if !seguro {
+                    x86::test_r64_r64(&mut self.code, RCX, RCX);
+                    self.trap(0x84, "T0061", "una division por cero", at);
+                    // -1 a mano: MIN / -1 no cabe, y el resto es 0
+                    x86::cmp_r64_imm8(&mut self.code, RCX, -1);
+                    let normal = self.jcc(0x85);
+                    if op == "/" {
+                        self.imm(RDX, i64::MIN);
+                        x86::cmp_r64_r64(&mut self.code, RAX, RDX);
+                        self.trap(0x84, "T0060", "el resultado no cabe en 64 bits", at);
+                        x86::neg_r64(&mut self.code, RAX);
+                    } else {
+                        x86::zero_r32(&mut self.code, RAX);
+                    }
+                    done = Some(self.jmp());
+                    self.here(normal);
                 }
-                let done = self.jmp();
-                self.here(normal);
                 x86::cqo(&mut self.code);
                 x86::idiv_r64(&mut self.code, RCX);
                 if op == "/" {
@@ -178,16 +185,16 @@ impl E1<'_> {
                 } else {
                     x86::mov_r64_r64(&mut self.code, RAX, RDX);
                 }
-                self.here(done);
+                if let Some(done) = done {
+                    self.here(done);
+                }
             }
             other => {
                 let what = format!("`{}` entre enteros", other);
                 return Err(self.not_yet(&what, super::E1_WHY, super::E1_HOW, at));
             }
         }
-        let t = self.temp(8);
-        self.store(t, RAX);
-        Ok(t)
+        Ok(())
     }
 
     /// `-x`: MIN no tiene opuesto que quepa (T0060).

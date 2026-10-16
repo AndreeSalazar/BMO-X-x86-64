@@ -7,8 +7,8 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   884 casillas ABIERTAS en 80 planes
-   674 hechas
+   887 casillas ABIERTAS en 80 planes
+   691 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -243,6 +243,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] E2 -- (C,T) DECLARADOS Y EL AFORO. Cada tarea trae su compas; el kernel
 - ... y 9 mas
 
+## [`PLAN_TITAN_AFINADO.md`](PLAN_TITAN_AFINADO.md) -- 12 abiertas, 21 hechas
+
+*PLAN TITAN AFINADO -- TITAN++ a la altura de C, sin aprender de CPU*
+
+- [ ] M1 -- fib (pierde 1,23 a 1,38 con los veteranos). Quedan el
+- [ ] M2 -- bytes contra Clang y GCC (pierde 4,2 y 1,25).
+- [ ] M3 -- ordenar (pierde 2,6 con Rust, 1,6 con Clang). El bucle de
+- ... y 9 mas
+
 ## [`PLAN_LA_PUERTA_SE_PARTE.md`](PLAN_LA_PUERTA_SE_PARTE.md) -- 11 abiertas, 8 hechas
 
 *PLAN LA PUERTA SE PARTE -- dividir lo que no se puede abaratar*
@@ -313,15 +322,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] P3 -- el cubo D3D12. Partido en tres el 27-09, porque el .exe
 - [ ] P3b -- el cubo con sus sombreadores. Root signature, PSO,
 - [ ] P3c -- el BMOX-12 de EPICX-FRAMEWORK, sin tocar. [VISTO EN EL
-- ... y 6 mas
-
-## [`PLAN_TITAN_AFINADO.md`](PLAN_TITAN_AFINADO.md) -- 9 abiertas, 4 hechas
-
-*PLAN TITAN AFINADO -- TITAN++ a la altura de C, sin aprender de CPU*
-
-- [ ] AF2 -- el valor que ya esta en el registro. No guardar en la pila
-- [ ] AF3 -- los locales enteros en REGISTROS. Los contadores de un
-- [ ] AF4 -- for i in range(...) como el for de C. Hoy el contador y
 - ... y 6 mas
 
 ## [`PLAN_VATIOS.md`](PLAN_VATIOS.md) -- 9 abiertas, 4 hechas

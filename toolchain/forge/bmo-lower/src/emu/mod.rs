@@ -748,6 +748,11 @@ impl Machine {
     /// ATRAPA, y eso baja a `add` + `jo`. Sin esto, el emulador contestaba que
     /// nunca desborda -- que es la peor respuesta posible, porque hace pasar el
     /// test que deberia fallar.
+    ///
+    /// ** 2026-10-16: el MISMO hueco seguia en el `add` con INMEDIATO (`83 /0`,
+    /// `81 /0`, `05`) y en el `add reg, [mem]` (`03`). TITAN++ empezo a sumar
+    /// en sitio (`x = x + 1` -> `add [x], 1` + `jo`, AF2b/AF3) y el desborde
+    /// dejo de atrapar en el emulador.
     fn flags_add(&mut self, a: u64, b: u64) {
         let (m, signo) = self.mascara();
         let (a, b) = (a & m, b & m);
@@ -1103,7 +1108,7 @@ impl Machine {
                     }
                     0x03 => {
                         let r = a.wrapping_add(b);
-                        self.flags_logic(r);
+                        self.flags_add(a, b);
                         self.write_reg(reg, r, wide);
                     }
                     0x2B => {
@@ -1163,7 +1168,7 @@ impl Machine {
                 match ext & 7 {
                     0 => {
                         let r = a.wrapping_add(imm);
-                        self.flags_logic(r);
+                        self.flags_add(a, imm);
                         self.store(dst, r, ancho);
                     }
                     // /1 or y /6 xor entraron el 2026-09-18, cuando BMO C
@@ -1216,7 +1221,7 @@ impl Machine {
                 let imm = self.fetch_u32() as i32 as i64 as u64;
                 let a = self.load(Operand::Reg(0), wide);
                 let r = a.wrapping_add(imm);
-                self.flags_logic(r);
+                self.flags_add(a, imm);
                 self.store(Operand::Reg(0), r, ancho);
             }
             // == `and eax, imm32` y `cmp eax, imm32` (LB4, 08-10) ==========
@@ -1247,7 +1252,7 @@ impl Machine {
                 match ext & 7 {
                     0 => {
                         let r = a.wrapping_add(imm);
-                        self.flags_logic(r);
+                        self.flags_add(a, imm);
                         self.store(dst, r, ancho);
                     }
                     // AND. Lo emite `and_r64_imm32`, que usa `read_line` para
@@ -1432,12 +1437,21 @@ impl Machine {
                     self.push(v);
                     return;
                 }
+                // `inc`/`dec` ponen el desborde como una suma o una resta de
+                // 1 y NO tocan `cf` (16-10: antes `of` iba siempre a falso)
+                let cf = self.cf;
                 let r = match ext & 7 {
-                    0 => a.wrapping_add(1),
-                    1 => a.wrapping_sub(1),
+                    0 => {
+                        self.flags_add(a, 1);
+                        a.wrapping_add(1)
+                    }
+                    1 => {
+                        self.flags_sub(a, 1);
+                        a.wrapping_sub(1)
+                    }
                     other => panic!("grupo FF /{other} no emitido por BMO"),
                 };
-                self.flags_logic(r);
+                self.cf = cf;
                 self.store(dst, r, ancho);
             }
             // cqo -- extiende el signo de rax a rdx
@@ -1542,7 +1556,7 @@ impl Machine {
                     }
 
                     // == SSE ESCALAR: doble Y simple, en `sse.rs` (2026-09-23) ==
-                    0x10 | 0x11 | 0x2A | 0x2C | 0x2E | 0x2F | 0x51 | 0x54..=0x5F | 0x6E | 0x7E | 0xC2 | 0xC6 => {
+                    0x10 | 0x11 | 0x2A | 0x2C | 0x2E | 0x2F | 0x51 | 0x54..=0x5F | 0x6E | 0x6F | 0x70 | 0x7E | 0xC2 | 0xC6 | 0xD4 | 0xEF | 0xF6 => {
                         self.sse(second, sse::Prefijos { f2, f3, op16, wide, rex_r, rex_x, rex_b })
                     }
                     // movsx reg, r/m8 -- carga un char CON signo

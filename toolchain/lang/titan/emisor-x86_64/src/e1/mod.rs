@@ -42,6 +42,7 @@ mod ancho;
 mod coleccion;
 mod director;
 mod disco;
+mod e2;
 mod escribe;
 mod forma;
 mod gpu;
@@ -53,7 +54,9 @@ mod lamina;
 mod sonido;
 mod entrada;
 mod letra;
+mod llamada;
 mod valor;
+mod vector;
 mod ventana;
 
 use crate::{Cuerpos, Emitted};
@@ -79,6 +82,8 @@ const STACK_FOR_CALLS: i32 = 48 * 1024;
 pub(crate) enum Base {
     Frame,
     Ptr(i32),
+    /// ** AF3: un local entero que vive en un REGISTRO (`afinado::en_registro`).
+    Reg(u8),
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -170,6 +175,14 @@ pub(crate) struct Fun {
     pub locals_end: i32,
     pub temp: i32,
     pub temp_max: i32,
+    /// AF3: el local que vive en `r14`, y donde se guarda el `r14` de quien
+    /// llamo.
+    pub registro: Vec<(usize, u8, i32)>,
+    /// AF4 (`afinado::vueltas`): por cada contador de un `for`, la vuelta en
+    /// cuyo sitio vive.
+    pub vuelta: Vec<Option<usize>>,
+    /// B2 (`afinado::minimos`): lo menos que vale cada local, si se sabe.
+    pub minimo: Vec<Option<i64>>,
 }
 
 pub(crate) struct E1<'m> {
@@ -204,6 +217,11 @@ pub(crate) struct E1<'m> {
     /// Cualquier sitio al que pueda llegar un salto (`etiqueta`, `here`) lo
     /// borra: alli el registro puede traer otra cosa.
     guardado: Option<(usize, Place, u8)>,
+    /// AF3: de `plan`, los locales que son solo un entero.
+    solo_int: Vec<bool>,
+    /// B1: el programa no habla con el director, y `rbx`, `r12` y `r13`
+    /// (lo tenido, la ventana, la lamina) quedan para los locales.
+    pub(crate) libres: bool,
 }
 
 /// Lo que E1 no emite: un NO al compilar.
@@ -289,27 +307,24 @@ impl<'m> E1<'m> {
     }
 
     pub fn imm(&mut self, reg: u8, v: i64) {
-        // AF0: lo corto que cabe (sin tocar las banderas: nada de `xor`,
-        // que alguien puede tener un `cmp` pendiente). `mov r32` pone a cero
-        // lo de arriba; uno negativo de 32 bits, `mov r64` con signo.
-        if (0..=u32::MAX as i64).contains(&v) {
-            x86::mov_r32_imm32(&mut self.code, reg, v as u32);
-        } else if (i32::MIN as i64..0).contains(&v) {
-            self.code.push(0x48 | ((reg >> 3) & 1));
-            self.code.push(0xC7);
-            self.code.push(0xC0 | (reg & 7));
-            self.code.extend_from_slice(&(v as i32).to_le_bytes());
-        } else {
-            x86::mov_r64_imm64(&mut self.code, reg, v as u64);
-        }
+        self.imm_corto(reg, v);
     }
 
     /// La direccion de un sitio, a `reg`.
     pub fn addr(&mut self, p: Place, reg: u8) {
         match p.base {
+            // AF3: un registro no tiene direccion; se deja una COPIA en el
+            // marco (solo se pide para leer: `en_registro` no elige un local
+            // que se preste)
+            Base::Reg(r) => {
+                let t = self.temp(8);
+                x86::mov_at_reg_disp32_from_r64(&mut self.code, RBP, t.off, r);
+                self.guardado = None;
+                self.lea(reg, RBP, t.off);
+            }
             Base::Frame => self.lea(reg, RBP, p.off),
             Base::Ptr(slot) => {
-                x86::mov_r64_at_reg_disp32(&mut self.code, reg, RBP, slot);
+                self.load(Place::frame(slot), reg);
                 if p.off != 0 {
                     self.lea(reg, reg, p.off);
                 }
@@ -329,9 +344,14 @@ impl<'m> E1<'m> {
             }
         }
         match p.base {
+            Base::Reg(r) => {
+                if r != reg {
+                    x86::mov_r64_r64(&mut self.code, reg, r);
+                }
+            }
             Base::Frame => x86::mov_r64_at_reg_disp32(&mut self.code, reg, RBP, p.off),
             Base::Ptr(slot) => {
-                x86::mov_r64_at_reg_disp32(&mut self.code, reg, RBP, slot);
+                self.load(Place::frame(slot), reg);
                 x86::mov_r64_at_reg_disp32(&mut self.code, reg, reg, p.off);
             }
         }
@@ -340,6 +360,12 @@ impl<'m> E1<'m> {
     /// `reg` a los 8 bytes de un sitio. Usa `r11` si el sitio es un puntero.
     pub fn store(&mut self, p: Place, reg: u8) {
         match p.base {
+            Base::Reg(r) => {
+                if r != reg {
+                    x86::mov_r64_r64(&mut self.code, r, reg);
+                }
+                self.guardado = None;
+            }
             Base::Frame => {
                 x86::mov_at_reg_disp32_from_r64(&mut self.code, RBP, p.off, reg);
                 self.guardado = Some((self.code.len(), p, reg));
@@ -393,6 +419,12 @@ impl<'m> E1<'m> {
     }
 
     pub fn local(&self, l: usize) -> Place {
+        if let Some(Some(v)) = self.f.vuelta.get(l) {
+            return self.local(*v);
+        }
+        if let Some(&(_, r, _)) = self.f.registro.iter().find(|(k, _, _)| *k == l) {
+            return Place { base: Base::Reg(r), off: 0 };
+        }
         if self.f.indirect[l] {
             Place { base: Base::Ptr(self.f.slot[l]), off: 0 }
         } else {
@@ -541,6 +573,8 @@ impl<'m> E1<'m> {
     fn plan(&mut self, f: &Function) -> Result<Vec<i32>, String> {
         let mut sizes = vec![8; f.locals.len()];
         self.f.known = vec![None; f.locals.len()];
+        // AF3: los locales que en toda la fn son un ENTERO y nada mas
+        self.solo_int = vec![true; f.locals.len()];
         for (i, (l, t)) in f.params.iter().enumerate() {
             let c = self.forms.class(t);
             // un `mut` prestado es un PUNTERO al del que llama (`indirect`):
@@ -548,6 +582,9 @@ impl<'m> E1<'m> {
             // 1920 prestadas gastaban 30 KiB de pila por nada)
             if f.modes.get(i) != Some(&Mode::Mut) && !afinado::solo_se_lee(f, i, &c) {
                 sizes[*l] = sizes[*l].max(self.forms.size(&c));
+            }
+            if c != Class::Int {
+                self.solo_int[*l] = false;
             }
             self.f.known[*l] = Some(c);
         }
@@ -563,6 +600,9 @@ impl<'m> E1<'m> {
                             None => self.class_of(value)?,
                         };
                         sizes[*local] = sizes[*local].max(self.forms.size(&c));
+                        if c != Class::Int {
+                            self.solo_int[*local] = false;
+                        }
                         self.f.known[*local] = Some(c);
                     }
                     Op::Drop { local, .. } => self.f.known[*local] = None,
@@ -613,35 +653,54 @@ impl<'m> E1<'m> {
         if f.gpu {
             return Ok(0);
         }
+        // B5: la fn que E2 sabe emitir (con registros virtuales), la emite E2
+        if !root {
+            if let Some(coste) = self.e2(f)? {
+                return Ok(coste);
+            }
+        }
         let sizes = self.plan(f)?;
         let n = f.locals.len();
-        self.f = Fun { known: vec![None; n], decl: vec![None; n], slot: vec![0; n], indirect: vec![false; n], locals_end: 16, temp: 0, temp_max: 0 };
+        self.f = Fun { known: vec![None; n], decl: vec![None; n], slot: vec![0; n], indirect: vec![false; n], locals_end: 16, temp: 0, temp_max: 0, registro: Vec::new(), vuelta: Vec::new(), minimo: Vec::new() };
         for (l, s) in sizes.iter().enumerate() {
             self.f.locals_end += (s + 7) / 8 * 8;
             self.f.slot[l] = -self.f.locals_end;
+        }
+        // AF3: los locales de los registros, y un sitio para lo que traia
+        // cada registro de quien llamo (B1: hasta cuatro, si el programa no
+        // habla con el director)
+        self.f.vuelta = afinado::vueltas(f, self.m);
+        self.f.minimo = afinado::minimos(f, &self.solo_int, self.m);
+        let pool: &[u8] = if self.libres { &afinado::REGISTROS } else { &afinado::REGISTROS[..1] };
+        for (l, r) in afinado::en_registro(f, &self.solo_int, &self.f.vuelta, self.m, pool, root) {
+            self.f.locals_end += 8;
+            self.f.registro.push((l, r, -self.f.locals_end));
         }
         // el marco: su medida se sabe al final
         self.code.push(0x55); // push rbp
         self.code.extend_from_slice(&[0x48, 0x89, 0xE5]); // mov rbp, rsp
         self.code.extend_from_slice(&[0x48, 0x81, 0xEC, 0, 0, 0, 0]); // sub rsp, imm32
         let frame_patch = self.code.len() - 4;
-        // el sitio del resultado y los valores: solo si los hay
-        if f.ret.is_some() {
+        // el sitio del resultado y los valores: solo si los hay (AF7: una fn
+        // ligera los trae en registros)
+        let ligera = self.m.functions.iter().position(|g| std::ptr::eq(g, f)).is_some_and(|k| llamada::ligera(self.m, k));
+        if f.ret.is_some() && !ligera {
             x86::mov_at_reg_disp32_from_r64(&mut self.code, RBP, -8, RSI);
         }
-        if !f.params.is_empty() {
+        if !f.params.is_empty() && !ligera {
             x86::mov_at_reg_disp32_from_r64(&mut self.code, RBP, -16, RDI);
         }
-        // la pila: cada llamada abierta suma lo que gasta (quien llama ya
-        // miro que cabe, `call`). La RAIZ no: la cuenta empieza con ella
-        // (`emit`)
-        let mut depth_patches = Vec::new();
-        if !root {
-            self.code.extend_from_slice(&[0x49, 0x81, 0xC7, 0, 0, 0, 0]); // add r15, imm32
-            depth_patches.push(self.code.len() - 4);
+        for &(_, r, guarda) in &self.f.registro {
+            x86::mov_at_reg_disp32_from_r64(&mut self.code, RBP, guarda, r);
         }
+        // M1: la pila de las llamadas la mira quien llama, con `rsp` mismo
+        // (`llamada::salta_a`): la fn no suma ni resta nada
+        let _ = root;
         // los valores que llegan
-        for (i, (l, t)) in f.params.iter().enumerate() {
+        if ligera {
+            self.llegan_ligeros(f);
+        }
+        for (i, (l, t)) in f.params.iter().enumerate().filter(|_| !ligera) {
             let c = self.forms.class(t);
             x86::mov_r64_at_reg_disp32(&mut self.code, R11, RBP, -16);
             x86::mov_r64_at_reg_disp32(&mut self.code, RAX, R11, 8 * i as i32);
@@ -672,9 +731,20 @@ impl<'m> E1<'m> {
         let mut jumps: Vec<(usize, usize)> = Vec::new();
         let enters = enters(f);
         let mut left: Vec<Option<(Vec<Option<Class>>, Vec<Option<Ty>>)>> = vec![None; f.blocks.len()];
+        let mut hasta = 0;
         for (i, b) in f.blocks.iter().enumerate() {
+            if i < hasta {
+                continue;
+            }
             starts[i] = self.etiqueta();
             self.enter_block(&enters[i], &left);
+            // B5c: un bucle que E2 sabe hacer entero, en registros
+            if let Some((fin, fuera)) = self.e2_region(f, i)? {
+                jumps.extend(fuera);
+                self.sabe_de(f, i, fin, &enters, &mut left)?;
+                hasta = fin + 1;
+                continue;
+            }
             for op in &b.ops {
                 self.f.temp = 0;
                 self.op(op)?;
@@ -683,30 +753,33 @@ impl<'m> E1<'m> {
             self.f.temp = 0;
             match &b.end {
                 End::Return(v) => {
-                    if let (Some(v), Some(rc)) = (v, &ret_class) {
-                        let (p, c) = self.eval(v)?;
-                        let dst = Place { base: Base::Ptr(-8), off: 0 };
-                        self.convert(dst, p, &c, rc, f.ret.as_ref(), v.at())?;
-                    }
-                    // lo que muere al volver: lo calculado y los locales (un
-                    // `mut` prestado es del que llama)
-                    self.drop_owned_from(0);
-                    for l in 0..self.f.known.len() {
-                        if let (Some(c), false) = (self.f.known[l].clone(), self.f.indirect[l]) {
-                            let p = self.local(l);
-                            self.drop_at(p, &c);
+                    match (v, &ret_class) {
+                        // AF7: el resultado de una fn ligera vuelve en `rax`
+                        (Some(v), Some(_)) if ligera => self.vuelve_ligero(v, &mut |e| e.muere_al_volver())?,
+                        (Some(v), Some(rc)) => {
+                            let (p, c) = self.eval(v)?;
+                            let dst = Place { base: Base::Ptr(-8), off: 0 };
+                            self.convert(dst, p, &c, rc, f.ret.as_ref(), v.at())?;
+                            self.muere_al_volver();
                         }
+                        _ => self.muere_al_volver(),
                     }
-                    if !root {
-                        self.code.extend_from_slice(&[0x49, 0x81, 0xEF, 0, 0, 0, 0]); // sub r15, imm32
-                        depth_patches.push(self.code.len() - 4);
+                    for &(_, r, guarda) in &self.f.registro {
+                        x86::mov_r64_at_reg_disp32(&mut self.code, r, RBP, guarda);
                     }
                     self.code.extend_from_slice(&[0x48, 0x89, 0xEC]); // mov rsp, rbp
                     self.code.push(0x5D); // pop rbp
                     self.code.push(0xC3); // ret
                 }
                 End::Jump(t) => {
-                    if *t != i + 1 {
+                    // AF9: la entrada de un bucle de datos, en vectores
+                    if *t > i {
+                        self.suma_en_vectores(f, *t)?;
+                    }
+                    // B3: la vuelta de un bucle mira su condicion AQUI
+                    if let Some(js) = self.vuelta_girada(f, i, *t)? {
+                        jumps.extend(js);
+                    } else if *t != i + 1 {
                         let j = self.jmp();
                         jumps.push((j, *t));
                     }
@@ -739,107 +812,41 @@ impl<'m> E1<'m> {
         }
         let frame = (self.f.locals_end + self.f.temp_max + 15) / 16 * 16;
         self.code[frame_patch..frame_patch + 4].copy_from_slice(&frame.to_le_bytes());
-        let cost = frame + 16;
-        for p in depth_patches {
-            self.code[p..p + 4].copy_from_slice(&cost.to_le_bytes());
-        }
-        Ok(cost)
+        Ok(frame + 16)
     }
 
-    /// La fn de un trait: mira el TIPO del primer valor y salta a la fn de
-    /// ese tipo, con el puntero ya en el valor (sin su tipo delante).
-    fn dispatcher(&mut self, table: &[(String, usize)], line: usize) -> Result<(), String> {
-        x86::mov_r64_at_reg_disp32(&mut self.code, R11, RDI, 0);
-        x86::mov_r64_at_reg_disp32(&mut self.code, RAX, R11, 0);
-        for (ty, target) in table {
-            let id = self.forms.type_id(ty);
-            self.imm(bmo_lower::x86::RCX, id);
-            x86::cmp_r64_r64(&mut self.code, RAX, bmo_lower::x86::RCX);
-            let next = self.jcc(0x85);
-            self.lea(R11, R11, 8);
-            x86::mov_at_reg_disp32_from_r64(&mut self.code, RDI, 0, R11);
-            let j = self.jmp();
-            self.calls.push((j, *target));
-            self.here(next);
+    /// B5c: lo que E1 sabe de cada local tras los bloques `h..=fin` que
+    /// emitio E2 (lo que viene despues entra desde ellos).
+    fn sabe_de(&mut self, f: &Function, h: usize, fin: usize, enters: &[Vec<usize>], left: &mut [Option<(Vec<Option<Class>>, Vec<Option<Ty>>)>]) -> Result<(), String> {
+        for k in h..=fin {
+            if k > h {
+                self.enter_block(&enters[k], left);
+            }
+            for op in &f.blocks[k].ops {
+                match op {
+                    Op::Let { local, ty, .. } => {
+                        self.f.known[*local] = Some(Class::Int);
+                        self.f.decl[*local] = ty.clone();
+                    }
+                    Op::Drop { local, .. } => self.f.known[*local] = None,
+                    _ => {}
+                }
+            }
+            left[k] = Some((self.f.known.clone(), self.f.decl.clone()));
         }
-        let j = self.jmp();
-        self.traps.push(Trap { field: j, head: "NO al correr, linea ".into(), line, why: "un trait sin la fn de este tipo (fallo del compilador: avisa)".into() });
         Ok(())
     }
 
-    /// Una llamada: los punteros a sus valores, el sitio de su resultado.
-    pub fn call(&mut self, func: usize, args: &[Value], at: (usize, usize)) -> Result<Option<(Place, Class)>, String> {
-        let f = &self.m.functions[func];
-        if f.gpu {
-            return self.gpu_call(func, args, at);
-        }
-        let params: Vec<(Class, Ty, Mode)> = f.params.iter().enumerate().map(|(i, (_, t))| (self.forms.class(t), t.clone(), f.modes.get(i).copied().unwrap_or(Mode::Copy))).collect();
-        let ret = f.ret.as_ref().map(|t| self.forms.class(t));
-        let block = self.temp(8 * args.len().max(1) as i32);
-        let mut back: Vec<(Place, Place, i32)> = Vec::new();
-        for (i, a) in args.iter().enumerate() {
-            let (pc, pt, _) = &params[i];
-            let ptr = match a {
-                Value::Lend(Mode::Mut, l, _) => {
-                    let lc = self.f.known[*l].clone().ok_or("un local sin valor")?;
-                    let lp = self.local(*l);
-                    if matches!(pc, Class::Trait(_)) && !matches!(lc, Class::Trait(_)) {
-                        // un `mut` hacia un trait: va con su tipo, y vuelve
-                        // se MUEVE al sitio del trait y vuelve movido
-                        let t = self.temp(self.forms.size(pc));
-                        self.conv(t, lp, &lc, pc, true, a.at())?;
-                        back.push((lp, t.at(8), self.forms.size(&lc)));
-                        t
-                    } else {
-                        lp
-                    }
-                }
-                _ => {
-                    let (p, c) = self.eval(a)?;
-                    if &c == pc {
-                        p
-                    } else {
-                        let t = self.temp(self.forms.size(pc));
-                        self.convert(t, p, &c, pc, Some(pt), a.at())?;
-                        self.own(t, pc);
-                        t
-                    }
-                }
-            };
-            self.addr(ptr, RAX);
-            self.store(block.at(8 * i as i32), RAX);
-        }
-        let out = ret.map(|c| (self.temp(self.forms.size(&c)), c));
-        self.addr(block, RDI);
-        match &out {
-            Some((p, _)) => self.addr(*p, RSI),
-            None => x86::zero_r32(&mut self.code, RSI),
-        }
-        // T0066 AQUI, en la linea de la llamada (donde lo dice el calculo):
-        // r15 + lo que gasta la fn > la pila. Lo que gasta se sabe al final.
-        self.code.extend_from_slice(&[0x49, 0x81, 0xFF, 0, 0, 0, 0]); // cmp r15, imm32
-        self.depth_checks.push((self.code.len() - 4, func));
-        let name = self.m.functions[func].name.clone();
-        self.trap(0x8F, "T0066", &format!("las llamadas se anidan mas de lo que cabe en la pila (`{}` sin llegar a su caso de parada?)", forma::short(&name)), at);
-        self.code.push(0xE8);
-        self.calls.push((self.code.len(), func));
-        self.code.extend_from_slice(&[0; 4]);
-        for (to, from, size) in back {
-            self.copy(to, from, size);
-        }
-        // A4b: la lamina ENTREGADA ya es de la fn: aqui no queda nada que soltar.
-        for a in args {
-            if let Value::Lend(Mode::Take, l, _) = a {
-                if self.f.known[*l] == Some(Class::Lamina) {
-                    let p = self.local(*l);
-                    self.olvida_lamina(p);
-                }
+    /// Lo que muere al volver: lo calculado y los locales (un `mut`
+    /// prestado es del que llama).
+    fn muere_al_volver(&mut self) {
+        self.drop_owned_from(0);
+        for l in 0..self.f.known.len() {
+            if let (Some(c), false) = (self.f.known[l].clone(), self.f.indirect[l]) {
+                let p = self.local(l);
+                self.drop_at(p, &c);
             }
         }
-        if let Some((p, c)) = &out {
-            self.own(*p, c);
-        }
-        Ok(out)
     }
 
     /// Si `[item; n]` ya es lo que su `let` declara (o no declara nada): la
@@ -852,6 +859,11 @@ impl<'m> E1<'m> {
 
     fn op(&mut self, op: &Op) -> Result<(), String> {
         match op {
+            // AF4: la vuelta de un `for` ya esta en su sitio: el del contador
+            Op::Let { local, value: Value::Local(c, _), .. } if self.f.vuelta.get(*c) == Some(&Some(*local)) => {
+                self.f.known[*local] = Some(Class::Int);
+                self.f.decl[*local] = None;
+            }
             // lo tecleado va derecho a su local: sin pasar por un temporal
             Op::Let { local, value: Value::Read(at), .. } | Op::Set { local, value: Value::Read(at), .. } => {
                 let dst = self.local(*local);
@@ -890,9 +902,23 @@ impl<'m> E1<'m> {
                 self.f.known[*local] = Some(Class::Int);
                 self.f.decl[*local] = None;
             }
+            // AF3: `x = x + 1` en su sitio, una instruccion (y su `jo`)
+            Op::Set { local, value, .. } if self.suma_propia(*local, value) => {}
             Op::Set { local, value: Value::Int(v, _), .. } if self.f.known[*local] == Some(Class::Int) && self.f.decl[*local].as_ref().is_none_or(|t| matches!(t, Ty::Int)) => {
                 let dst = self.local(*local);
                 self.store_imm(dst, *v);
+            }
+            // AF4: `let x = a * b + 1`, `x = x % d` de enteros: la cuenta en
+            // `rax` y DERECHO al local, sin pasar por un sitio de paso
+            Op::Let { local, value, ty: None, .. } if self.entero_a_rax(value)? => {
+                let dst = self.local(*local);
+                self.store(dst, RAX);
+                self.f.known[*local] = Some(Class::Int);
+                self.f.decl[*local] = None;
+            }
+            Op::Set { local, value, .. } if self.f.known[*local] == Some(Class::Int) && self.f.decl[*local].as_ref().is_none_or(|t| matches!(t, Ty::Int)) && self.entero_a_rax(value)? => {
+                let dst = self.local(*local);
+                self.store(dst, RAX);
             }
             Op::Let { local, value, ty, at, .. } => {
                 let (p, c) = self.eval(value)?;
@@ -921,18 +947,7 @@ impl<'m> E1<'m> {
                     self.convert(dst, p, &c, &want, decl.as_ref(), *at)?;
                 }
             }
-            Op::SetAt { local, path, value, at } => {
-                let (dst, cell, ty, byte_cell) = self.path(*local, path, *at)?;
-                let (p, c) = self.eval(value)?;
-                if byte_cell {
-                    // TA1: `l[i] = v` en una `[byte]`: UN byte de la lista
-                    self.byte_cell_write(dst, p);
-                } else {
-                    let p = self.ensure_owned(p, &c);
-                    self.drop_at(dst, &cell);
-                    self.convert(dst, p, &c, &cell, ty.as_ref(), *at)?;
-                }
-            }
+            Op::SetAt { local, path, value, at } => self.pon_en_parte(*local, path, value, *at)?,
             // LB7b: el director, en su propia linea (`director.rs`).
             Op::Director { what, args, at } => {
                 self.director(*what, args, *at)?;
@@ -1014,7 +1029,7 @@ pub fn emit<'m>(m: &'m Module, cuerpos: &'m Cuerpos) -> Result<Emitted, NoE1> {
         status_traps: Vec::new(),
         helper_calls: Vec::new(),
         depth_checks: Vec::new(),
-        f: Fun { known: Vec::new(), decl: Vec::new(), slot: Vec::new(), indirect: Vec::new(), locals_end: 16, temp: 0, temp_max: 0 },
+        f: Fun { known: Vec::new(), decl: Vec::new(), slot: Vec::new(), indirect: Vec::new(), locals_end: 16, temp: 0, temp_max: 0, registro: Vec::new(), vuelta: Vec::new(), minimo: Vec::new() },
         lenient: 0,
         owned: Vec::new(),
         kinds: Vec::new(),
@@ -1022,6 +1037,8 @@ pub fn emit<'m>(m: &'m Module, cuerpos: &'m Cuerpos) -> Result<Emitted, NoE1> {
         cuerpos,
         gpu_calls: Vec::new(),
         guardado: None,
+        solo_int: Vec::new(),
+        libres: false,
     };
     // Un NO de E1 sube por los `?` como texto; si fue un "todavia no", E1 lo
     // apunto con su sitio, y es el NO del PROGRAMA (LB1).
@@ -1034,12 +1051,17 @@ pub fn emit<'m>(m: &'m Module, cuerpos: &'m Cuerpos) -> Result<Emitted, NoE1> {
 
 /// `emit`, sobre su E1 ya armado.
 fn emit_all<'m>(e: &mut E1<'m>, m: &'m Module) -> Result<Emitted, String> {
-    // ** EL MONTON (nivel 13): `r14` es su estado; cero hasta el primer
-    // bloque. Solo si el programa tiene listas o mapas: los demas no pagan
-    // ni una instruccion.
+    // ** EL BLOQUE DEL PROGRAMA (AF3, PLAN_TITAN_AFINADO, 16-10): 16 bytes
+    // en su propia pila, apuntados por `r15` todo el programa. En el primero,
+    // la pila que gastan las llamadas abiertas (antes era `r15` mismo); en el
+    // segundo, el estado del MONTON (antes `r14`, cero hasta el primer
+    // bloque). Asi `r14` queda libre para los locales de los bucles.
     let heap = uses_heap(m);
+    e.libres = !uses_director(m);
+    e.code.extend_from_slice(&[0x48, 0x83, 0xEC, 0x10]); // sub rsp, 16
+    e.code.extend_from_slice(&[0x49, 0x89, 0xE7]); // mov r15, rsp
     if heap {
-        x86::zero_r32(&mut e.code, monton::R14);
+        e.code.extend_from_slice(&[0x49, 0xC7, 0x47, monton::MONTON as u8, 0, 0, 0, 0]); // mov qword [r15 + 8], 0
     }
     // ** LA LAMINA (LB7b): `r13`, cero hasta que el director la tome. Solo si
     // el programa habla con el director.
@@ -1053,9 +1075,10 @@ fn emit_all<'m>(e: &mut E1<'m>, m: &'m Module) -> Result<Emitted, String> {
         // F2: `rbx`, el bloque de lo tenido; cero hasta el primero.
         x86::zero_r32(&mut e.code, entrada::RBX);
     }
-    // r15: la pila que gastan las llamadas abiertas, empezando por la raiz
-    e.code.extend_from_slice(&[0x41, 0xBF, 0, 0, 0, 0]); // mov r15d, imm32
-    let root_cost = e.code.len() - 4;
+    // ** M1 (16-10): `r15` es `rsp` justo antes de llamar a `main` (nada se
+    // empuja hasta el `call`): el fondo de la pila de las llamadas es `r15`
+    // menos lo que pueden gastar, y quien llama lo mira con `rsp` mismo
+    // (`llamada::salta_a`). Nada que preparar.
     x86::zero_r32(&mut e.code, RDI);
     x86::zero_r32(&mut e.code, RSI);
     e.code.push(0xE8);
@@ -1063,9 +1086,10 @@ fn emit_all<'m>(e: &mut E1<'m>, m: &'m Module) -> Result<Emitted, String> {
     e.code.extend_from_slice(&[0; 4]);
     if heap {
         // al acabar NO queda nada pedido: si quedara, se dice
-        x86::test_r64_r64(&mut e.code, monton::R14, monton::R14);
+        x86::mov_r64_at_reg_disp32(&mut e.code, RAX, monton::R15, monton::MONTON);
+        x86::test_r64_r64(&mut e.code, RAX, RAX);
         let none = e.jcc(0x84);
-        x86::mov_r64_at_reg_disp32(&mut e.code, RAX, monton::R14, monton::LIVE);
+        x86::mov_r64_at_reg_disp32(&mut e.code, RAX, RAX, monton::LIVE);
         x86::test_r64_r64(&mut e.code, RAX, RAX);
         let clean = e.jcc(0x84);
         console::write_const(&mut e.code, b"NO al correr: quedo memoria del monton sin soltar (fallo del compilador: avisa)\n");
@@ -1086,8 +1110,6 @@ fn emit_all<'m>(e: &mut E1<'m>, m: &'m Module) -> Result<Emitted, String> {
         starts[k] = e.etiqueta();
         cost[k] = e.function(f, root && k == m.entry)?;
     }
-    let start = if root { cost[m.entry] } else { 0 };
-    e.code[root_cost..root_cost + 4].copy_from_slice(&start.to_le_bytes());
     // la fn de un trait gasta lo que la mas cara de sus tipos
     for (k, f) in m.functions.iter().enumerate() {
         if let Some(table) = &f.dispatch {

@@ -64,24 +64,37 @@ impl E1<'_> {
     /// La celda `i` (un sitio con un int) de lo que apunta el asa `h`.
     pub(super) fn cell_at(&mut self, h: Place, cell: i32, i: Place) -> Place {
         self.load(i, RAX);
-        self.imm(RCX, cell as i64);
-        x86::imul_r64_r64(&mut self.code, RAX, RCX);
-        self.load(h, RCX);
-        x86::add_r64_r64(&mut self.code, RAX, RCX);
+        self.celda_rax(h, cell)
+    }
+
+    /// La celda cuyo numero esta en `rax`.
+    pub(super) fn celda_rax(&mut self, h: Place, cell: i32) -> Place {
+        self.direccion_rax(h, cell);
         self.pointer_from(RAX)
+    }
+
+    /// La DIRECCION de la celda cuyo numero esta en `rax`, en `rax`.
+    pub(super) fn direccion_rax(&mut self, h: Place, cell: i32) {
+        // AF6: una celda de 1 byte no se multiplica, y una de 2, 4, 8... se
+        // corre (`shl`)
+        if cell > 1 && (cell as u32).is_power_of_two() {
+            x86::shl_r64_imm8(&mut self.code, RAX, cell.trailing_zeros() as u8);
+        } else if cell != 1 {
+            self.imm(RCX, cell as i64);
+            x86::imul_r64_r64(&mut self.code, RAX, RCX);
+        }
+        if !self.suma_de_sitio(RAX, h) {
+            self.load(h, RCX);
+            x86::add_r64_r64(&mut self.code, RAX, RCX);
+        }
     }
 
     /// `l[i]` de una lista: dentro, o T0072.
     pub fn list_index(&mut self, h: Place, t: &Class, idx: &Value, at: (usize, usize)) -> Result<Place, String> {
-        let (pi, _) = self.eval(idx)?;
-        self.load(pi, RAX);
-        x86::cmp_r64_imm8(&mut self.code, RAX, 0);
-        self.trap(0x8C, "T0072", "una celda fuera de la lista", at);
-        self.load(h.at(8), RCX);
-        x86::cmp_r64_r64(&mut self.code, RAX, RCX);
-        self.trap(0x8D, "T0072", "una celda fuera de la lista", at);
+        self.a_rax(idx)?;
+        self.dentro_de(h.at(8), "una celda fuera de la lista", at);
         let cell = self.list_cell(t);
-        Ok(self.cell_at(h, cell, pi))
+        Ok(self.celda_rax(h, cell))
     }
 
     /// Lo que dan `get`, `has`, `pop` (su ultimo) y una vuelta de `for`.
@@ -204,11 +217,21 @@ impl E1<'_> {
     }
 
     /// Si el asa `h` esta llena, el doble de sitio (4 la primera vez).
-    fn grow(&mut self, h: Place, cell: i32) {
+    pub(super) fn grow(&mut self, h: Place, cell: i32) {
         self.load(h.at(8), RAX);
-        self.load(h.at(16), RCX);
-        x86::cmp_r64_r64(&mut self.code, RAX, RCX);
-        let room = self.jcc(0x8C);
+        // B5: la capacidad, leida por el `cmp` mismo; y en `rcx` solo en el
+        // camino que crece (dobla desde ahi)
+        let room = if self.cmp_con_sitio(RAX, h.at(16)) {
+            let room = self.jcc(0x8C);
+            // si no cabe, lo que mide ES su capacidad: crecer la dobla
+            // desde ahi, sin leerla otra vez
+            x86::mov_r64_r64(&mut self.code, RCX, RAX);
+            room
+        } else {
+            self.load(h.at(16), RCX);
+            x86::cmp_r64_r64(&mut self.code, RAX, RCX);
+            self.jcc(0x8C)
+        };
         let cap = self.temp(8);
         x86::shl_r64_imm8(&mut self.code, RCX, 1);
         x86::cmp_r64_imm8(&mut self.code, RCX, 4);
@@ -288,6 +311,22 @@ impl E1<'_> {
                 x86::patch_jump_to(&mut self.code, otra, vuelta);
                 self.here(fin);
             }
+            // B5: un numero (o un byte) a la lista: su celda en `rcx`, sin
+            // dejar la direccion en la pila
+            (Lib::Push, Class::List(t)) if matches!(**t, Class::Int | Class::Byte) && matches!(vals[0].1, Class::Int | Class::Byte) && decl.as_ref().is_none_or(|d| !matches!(d, Ty::List(it) if self.forms.has_decp(it))) => {
+                let byte = **t == Class::Byte;
+                self.grow(h, cell);
+                self.load(h.at(8), RAX);
+                self.direccion_rax(h, cell);
+                x86::mov_r64_r64(&mut self.code, RCX, RAX);
+                self.load(vals[0].0, RAX);
+                if byte {
+                    x86::mov_byte_at_reg_from_low(&mut self.code, RCX, RAX);
+                } else {
+                    x86::mov_at_reg_disp32_from_r64(&mut self.code, RCX, 0, RAX);
+                }
+                self.uno_mas(h.at(8));
+            }
             (Lib::Push, Class::List(t)) => {
                 let t = (**t).clone();
                 self.grow(h, cell);
@@ -304,9 +343,7 @@ impl E1<'_> {
                         self.fit(dst, it, at)?;
                     }
                 }
-                self.load(h.at(8), RAX);
-                x86::inc_r64(&mut self.code, RAX);
-                self.store(h.at(8), RAX);
+                self.uno_mas(h.at(8));
             }
             (Lib::DropLast, Class::List(t)) => {
                 let t = (**t).clone();
@@ -410,6 +447,11 @@ impl E1<'_> {
     /// copia en uno nuevo. Quien lo pide lo mueve o lo suelta.
     pub fn mine(&mut self, p: Place, c: &Class) -> Place {
         if self.take_owned(p) {
+            return p;
+        }
+        // AF6: un numero en el marco no se mueve aunque la lista crezca: no
+        // hace falta copiarlo (solo una CELDA, detras de un puntero, se mueve)
+        if !self.forms.has_heap(c) && !matches!(p.base, super::Base::Ptr(_)) {
             return p;
         }
         let t = self.temp(self.forms.size(c));

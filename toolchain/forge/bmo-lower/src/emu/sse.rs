@@ -441,6 +441,39 @@ impl Machine {
                 });
                 self.escribir128(reg, r);
             }
+            // == LOS ENTEROS EN 128 BITS (AF9 de PLAN_TITAN_AFINADO, 16-10):
+            // la suma de una lista de bytes de TITAN++, de 16 en 16, como la
+            // hace Clang. SSE2: lo tiene toda CPU de x86-64.
+            //
+            //    F3 0F 6F /r     movdqu xmm, xmm/m128
+            //    66 0F 70 /r ib  pshufd xmm, xmm/m128, imm8
+            //    66 0F D4 /r     paddq  (dos carriles de 64)
+            //    66 0F EF /r     pxor
+            //    66 0F F6 /r     psadbw (por cada mitad: la suma de |a - b|
+            //                    de sus 8 bytes, en sus 16 bits bajos)
+            0x6F if f3 => {
+                let (reg, src) = self.modrm(rex_r, rex_x, rex_b);
+                let v = self.leer128(src);
+                self.escribir128(reg, v);
+            }
+            0x70 if op16 => {
+                let (reg, src) = self.modrm(rex_r, rex_x, rex_b);
+                let orden = self.fetch_u8();
+                let v = self.leer128(src);
+                let r = core::array::from_fn(|k| v[((orden >> (2 * k)) & 3) as usize]);
+                self.escribir128(reg, r);
+            }
+            0xD4 | 0xEF | 0xF6 if op16 => {
+                let (reg, src) = self.modrm(rex_r, rex_x, rex_b);
+                let a = mitades(self.leer128(Operand::Reg(reg)));
+                let b = mitades(self.leer128(src));
+                let r: [u64; 2] = core::array::from_fn(|k| match second {
+                    0xD4 => a[k].wrapping_add(b[k]),
+                    0xEF => a[k] ^ b[k],
+                    _ => (0..8).map(|j| ((a[k] >> (8 * j)) as u8).abs_diff((b[k] >> (8 * j)) as u8) as u64).sum(),
+                });
+                self.escribir128(reg, [r[0] as u32, (r[0] >> 32) as u32, r[1] as u32, (r[1] >> 32) as u32]);
+            }
             other => panic!("opcode 0F {other:#04X} no emitido por BMO"),
         }
     }
@@ -474,4 +507,40 @@ impl Machine {
 /// de doble a simple no puede fallar (53 >= 2*24 + 2). Es lo que da `sqrtss`.
 fn sqrt_f32_ieee(x: f32) -> f32 {
     (x as f64).sqrt() as f32
+}
+
+/// Los dos carriles de 64 bits de cuatro de 32.
+fn mitades(v: [u32; 4]) -> [u64; 2] {
+    [v[0] as u64 | (v[1] as u64) << 32, v[2] as u64 | (v[3] as u64) << 32]
+}
+
+#[cfg(test)]
+mod pruebas {
+    use super::*;
+
+    /// ** AF9: la suma de 16 bytes como la hace Clang -- `movdqu`, `psadbw`
+    /// contra cero, `paddq` y las dos mitades fuera (`movq`, `pshufd`) --
+    /// da lo que da sumarlos uno a uno.
+    #[test]
+    fn sixteen_bytes_summed_as_clang_does() {
+        let mut m = Machine::new(Vec::new());
+        let datos: Vec<u8> = (1..=16).map(|k| k * 15).collect();
+        let a = m.load_data(&datos);
+        let mut c = vec![0x48, 0xB8];
+        c.extend_from_slice(&a.to_le_bytes()); // mov rax, datos
+        c.extend_from_slice(&[0xF3, 0x0F, 0x6F, 0x00]); // movdqu xmm0, [rax]
+        c.extend_from_slice(&[0x66, 0x0F, 0xEF, 0xD2]); // pxor xmm2, xmm2
+        c.extend_from_slice(&[0x66, 0x0F, 0xF6, 0xC2]); // psadbw xmm0, xmm2
+        c.extend_from_slice(&[0x66, 0x0F, 0xEF, 0xC9]); // pxor xmm1, xmm1
+        c.extend_from_slice(&[0x66, 0x0F, 0xD4, 0xC8]); // paddq xmm1, xmm0
+        c.extend_from_slice(&[0x66, 0x0F, 0xD4, 0xC8]); // paddq xmm1, xmm0
+        c.extend_from_slice(&[0x66, 0x48, 0x0F, 0x7E, 0xC8]); // movq rax, xmm1
+        c.extend_from_slice(&[0x66, 0x0F, 0x70, 0xC1, 0xEE]); // pshufd xmm0, xmm1, 0xEE
+        c.extend_from_slice(&[0x66, 0x48, 0x0F, 0x7E, 0xC1]); // movq rcx, xmm0
+        m.code = c;
+        let m = run(m, 100);
+        let bajos: u64 = datos[..8].iter().map(|&b| b as u64).sum();
+        let altos: u64 = datos[8..].iter().map(|&b| b as u64).sum();
+        assert_eq!((m.regs[RAX], m.regs[RCX]), (2 * bajos, 2 * altos));
+    }
 }

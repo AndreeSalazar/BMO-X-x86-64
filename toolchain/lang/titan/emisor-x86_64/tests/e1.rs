@@ -109,6 +109,18 @@ fn a_typed_number_chooses_the_cell_and_leaving_the_table_is_a_no() {
     assert!(ran(body, ENTERO, "9\n").0.starts_with("NO T0072 al correr, linea 5:"));
 }
 
+/// ** AF5 (16-10): la celda de una LISTA se mira con UN `cmp` sin signo: un
+/// negativo, visto sin signo, es enorme y se sale igual que uno de mas.
+#[test]
+fn a_typed_list_cell_below_zero_or_past_the_end_is_a_no() {
+    let body = "    let mut l: [int] = []\n    push(mut l, 4)\n    push(mut l, 5)\n    let i = entero(lee())\n    print(l[i], \" \", l[i - 1])\n";
+    assert_eq!(ran(body, ENTERO, "1\n").0, "5 4\n");
+    for typed in ["2\n", "-1\n", "0\n", "-9223372036854775807\n"] {
+        let (out, exited) = ran(body, ENTERO, typed);
+        assert!(exited && out.starts_with("NO T0072 al correr, linea 8:"), "typed {typed:?}: {out:?}");
+    }
+}
+
 #[test]
 fn the_pic_is_looked_at_when_the_number_comes_from_outside() {
     let body = "    let mut saldo: dec(7, 2) = 900.00\n    saldo = saldo * entero(lee())\n    print(saldo)\n";
@@ -156,6 +168,17 @@ fn a_recursion_as_deep_as_was_typed_stops_at_the_line_of_its_call() {
     let fns = format!("{ENTERO}\nfn baja(n: int) -> int\n    if n == 0\n        return 0\n    return 1 + baja(n - 1)\n");
     let body = "    print(baja(entero(lee())))\n";
     assert_eq!(ran(body, &fns, "300\n").0, "300\n");
+    let (out, exited) = ran(body, &fns, "1000000\n");
+    assert!(exited && out.starts_with("NO T0066 al correr, linea 16:"), "{out:?}");
+}
+
+/// M1c: la segunda llamada a la misma fn no mira la pila (la primera ya la
+/// miro, con el mismo `rsp`); la primera SI, y el NO sigue en su linea.
+#[test]
+fn two_calls_to_the_same_fn_check_the_stack_once() {
+    let fns = format!("{ENTERO}\nfn dos(n: int) -> int\n    if n <= 0\n        return 0\n    return dos(n - 1) + dos(n - 2) + 1\n");
+    let body = "    print(dos(entero(lee())))\n";
+    assert_eq!(ran(body, &fns, "10\n").0, "143\n");
     let (out, exited) = ran(body, &fns, "1000000\n");
     assert!(exited && out.starts_with("NO T0066 al correr, linea 16:"), "{out:?}");
 }

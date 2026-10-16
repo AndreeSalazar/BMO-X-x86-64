@@ -77,14 +77,16 @@ maquina). Lo que imprimen es identico, o el duelo no vale.
 asi que sus pasos son TRINQUETE: solo pueden bajar.
 
 ```text
-   duelo      que mide                         16-10 al    16-10 tras
-                                               empezar     AF0 + AF1
-   ---------------------------------------------------------------------
-   primos     bucles, `%`, `break`              3,0 x C     2,33 x C
-   fib        llamadas (fib 22 recursivo)       2,6 x C     2,31 x C
-   bytes      llenar y sumar 200000 bytes       3,4 x C     3,03 x C
-   ordenar    indices y un while con `and`      2,9 x C     2,43 x C
+   duelo      que mide                         16-10 al    tras        tras AF3,
+                                               empezar     AF0 + AF1   AF4 y AF6
+   ---------------------------------------------------------------------------
+   primos     bucles, `%`, `break`              3,0 x C     2,33 x C    1,33 x C
+   fib        llamadas (fib 22 recursivo)       2,6 x C     2,31 x C    1,25 x C *
+   bytes      llenar y sumar 200000 bytes       3,4 x C     3,03 x C    1,50 x C
+   ordenar    indices y un while con `and`      2,9 x C     2,43 x C    1,11 x C *
 ```
+(* tras AF7, la fn ligera (`fib`), y AF5a, la celda con una comparacion
+(`ordenar`). **Los cuatro en la meta de la fase A.**)
 
 **La meta: 1,5 x C o menos en los cuatro**, con las comprobaciones de
 seguridad puestas (C no las tiene: igualarlo del todo seria quitarlas).
@@ -138,7 +140,29 @@ Como se lee, sin adornarlo:
   los bucles enteros (AF3, los registros, es el salto grande), y el SIMD
   como trabajo del emisor, no del que escribe.
 
-Y los veteranos A TOPE (`-O3 -march=znver3`, la CPU de BMO-X), el mismo dia:
+**Tras AF7 y AF5a** (el versus, otra vez el 16-10): fib 1,3 x el C de la
+casa y 2,3 x Rust; ordenar 1,1 x el C de la casa y 5,1 x Rust (Rust no
+llama a nada en su bucle y sus indices ya los demuestra LLVM: es la fase
+B). primos y bytes, como abajo.
+
+**El mismo dia, tras AF3, AF4 y AF6** (el versus vuelto a correr):
+
+```text
+   duelo       TITAN++   C casa   gcc C  clang C  g++  clang++  rustc  gcc Zen3  clang Zen3
+   ----------------------------------------------------------------------------------------
+   primos    6.339.380   1,3 x    2,1 x   1,7 x  2,1 x  1,7 x   1,3 x   2,2 x     1,7 x
+   fib       1.891.583   1,8 x    3,1 x   3,0 x  3,1 x  3,0 x   3,4 x   3,2 x     3,0 x
+   bytes     9.002.405   1,5 x    4,5 x  15,3 x  2,6 x  3,5 x   3,5 x  24,7 x    47,4 x
+   ordenar   3.989.054   1,6 x    6,2 x   4,4 x  5,3 x  4,3 x   7,2 x   6,3 x     5,3 x
+```
+
+En `primos` TITAN++ hace ya las mismas instrucciones que Rust de mas
+(1,3 x) y le queda 1,7 x a Clang. `bytes` y `primos` estan en la meta de
+la fase A (1,5 x el C de la casa); `fib` (las llamadas, AF7) y `ordenar`
+(los indices, AF5) son lo que falta.
+
+Y los veteranos A TOPE (`-O3 -march=znver3`, la CPU de BMO-X), el mismo dia
+(antes de AF2):
 
 ```text
    duelo      gcc Zen3    clang Zen3    TITAN++ es
@@ -203,6 +227,161 @@ les puede ganar -- sin que TITAN++ aprenda de CPU: lo sabe el emisor.
 
 ---
 
+# 2d. ★★★ EL MARCADOR: lo que ya gana, lo que pierde y lo que falta
+
+El propietario, 16-10: *"mi bmo-X que es mi casa ya supera? sino faltarian
+mejorar y poner eso en datos y documentos que decir que faltan [...] me
+gustaria que [...] lo aplaste"*.
+
+**>> DONDE ESTAMOS (16-10, al pausar)** -- el propietario: *"commitea y
+poner en datos [...] donde estamos nada mas"*. EL MARCADOR: **8 gana, 3
+empata, 21 pierde** de 32. Contra el C de la casa, los 4 GANAN: primos
+0,74, fib 0,75, bytes 0,42, ordenar 0,47. primos GANA a Clang (0,95) y a
+Rust (0,72); bytes gana a g++ (0,72). Pierden: fib con todos (1,23-1,38),
+ordenar con todos (1,29-2,14), bytes con Clang y GCC (SIMD), primos con
+GCC (1,17). Banco: 26,57 millones de instrucciones, 4,944 millones de
+accesos. 5453 pruebas pasan, 0 fallan.
+
+**EL SIGUIENTE PASO, a medias: M3a** (`ordenar`). El bucle de dentro hace
+13 instrucciones por vuelta; dos miradas de celda sobran: `a[j + 1]` (`j +
+1` es el `j` de la vuelta anterior, ya mirado) y `a[j]` (con `j >= 0` del
+salto y `j + 1` mirado, esta dentro). La idea: en B6 (`e2/repetido.rs`) lo
+mirado pasa de `(i, largo)` a `(i, off, largo)` = "`i + off` ya mirada",
+y viaja por `d = a +- K` (off - K). El cambio esta ESCRITO pero **SIN
+COMPILAR NI PROBAR** en `docs/plan/M3a_SIN_PROBAR.diff` (`git apply`).
+Falta: compilarlo, medir, una prueba con sabotaje (p. ej. que `j + 1`
+fuera de la lista siga siendo NO), y el metro. Despues: M1 (fib: AF8 o
+desenrollar), M2 (bytes: llenar en vectores; AVX2 lo decide el
+propietario), M4 (primos: `k + 1` del bucle de fuera), M5 (ciclos en el
+Ryzen).
+
+**Los datos no se escriben a mano**: `python toolchain/tools/metro/versus.py
+--escribe` reescribe `toolchain/tools/metro/MARCADOR.md` con cada duelo
+contra cada rival (GANA por debajo de 0,95, EMPATA hasta 1,05, pierde por
+encima). El 16-10, al cerrar la fase B:
+
+```text
+   la cuenta: 4 GANA, 0 empata, 28 pierde -- de 32 (4 duelos x 8 rivales)
+
+   gana:    primos al C de la casa (0,86) y a Rust (0,84)
+            bytes al C de la casa (0,62), ordenar al C de la casa (0,58)
+   cerca:   primos a Clang (1,11), bytes a g++ (1,06), fib al C casa (1,06)
+   lejos:   bytes a Clang (6,3; a tope 19,5), ordenar a Rust (2,6),
+            fib a todos (1,7 a 1,9)
+```
+
+**Respuesta corta: no, todavia no los aplasta.** Al empezar el dia perdia
+los 32, de 2,3 a 95 veces. Hoy gana 4 y pierde el resto por 1,06 a 19,5 --
+y lo que falta esta medido, duelo a duelo:
+
+- [x] **M1a -- la pila de las llamadas la mira `rsp`** (16-10). Cada
+      llamada pagaba 4 instrucciones y dos lecturas-escrituras de memoria
+      (la fn sumaba y restaba su gasto en `[r15]`, quien llama lo
+      comparaba). Ahora `r15` es `rsp` antes de llamar a `main`, y el fondo
+      de la pila es `r15` menos lo que pueden gastar: quien llama hace `lea
+      r11, [rsp + pila - gasto] ; cmp r11, r15 ; jb NO` -- tres, sin
+      memoria y sin nada que preparar. El mismo T0066 en la linea de la
+      llamada, y mas exacto (mira lo que la pila gasta de verdad). El duelo:
+      fib 1,06 -> 1,00 x el C de la casa. El banco 29,4 -> 29,3 millones,
+      7,1 -> 6,7 millones de accesos; bajan 15, no sube ninguno
+- [x] **M1c/M1d -- la pila se mira una vez por fn, y lo que muere presta
+      su registro** (16-10). M1c: en E2 el `rsp` no cambia dentro de la fn,
+      asi que la pila ya mirada para llamar a `f` no se mira otra vez para
+      llamar a `f` de nuevo (B6, `e2/repetido.rs`): `fib(n - 1) + fib(n -
+      2)` mira UNA. M1d: en el reparto, lo que muere en la suma o el `mov`
+      que define otro le deja su registro (la suma, en el `rax` del segundo
+      resultado, y de alli a devolverla: dos `mov` menos). El duelo: fib
+      0,89 -> 0,75 x el C de la casa, y con GCC 1,50 -> 1,26. El banco
+      26,7 -> 26,57 millones, 4,946 -> 4,944 millones de accesos. **Sube
+      UNO, en bytes**: png +9 B (13 692 -> 13 701): un bucle que antes no
+      cabia en registros ahora si (E2 lo toma, con el camino raro del
+      `push` escrito), y corre MENOS (3 365 084 -> 3 362 573). Pruebas:
+      `tests/e1.rs` (`two_calls_to_the_same_fn_check_the_stack_once`,
+      sabotaje: no mirar ninguna -- el emulador revienta en vez del T0066)
+      y `tests/ligera.rs` (`only_what_dies_in_a_sum_lends_its_register`,
+      sabotaje: prestar lo que sigue vivo). Dato honesto: dejar que la
+      resta tambien preste NO rompe nada (`pisa` ya saca a sus dos de
+      `rax`); se queda en suma y producto por prudencia
+- [ ] **M1 -- `fib` (pierde 1,23 a 1,38 con los veteranos).** Quedan el
+      `jo` de la suma (se queda: `fib(93)` desborda de verdad), el marco
+      (`push`/`pop` de dos) y el caso de parada dentro: COPIAR DENTRO (AF8)
+      la fn chica en quien la llama, o lo que hace GCC (desenrollar una
+      de las dos llamadas en un bucle)
+- [x] **M2a -- `push` dentro de un bucle de E2** (16-10). Lo que mide la
+      lista y su capacidad, en registros; cada `push` es comparar, escribir
+      la celda (`[base + largo]`) y sumar 1. Si no cabe, el camino raro:
+      lo que pueden pisar el monton y E1 a la pila, lo que mide a su sitio,
+      E1 la crece, y se recargan la base y la capacidad. Al salir del bucle,
+      lo que mide vuelve a su sitio. Y en E2: la vuelta de un `for` es el
+      MISMO registro que su contador, `imul d, a, n` en una, y `byte(x % 256)`
+      de un no negativo no se mira. El duelo: bytes 0,62 -> 0,42 x el C de
+      la casa; **gana a g++ (0,72) y empata con Rust y clang++ (0,98)**.
+      El banco 29,3 -> 28,1 millones de instrucciones, 6,7 -> 5,1 millones
+      de accesos. Sube codigo en png (+99 B), bytes y ordenar: el camino
+      raro del `push`, escrito dentro del bucle. `tests/ligera.rs`
+      (`a_list_grows_inside_a_loop_in_registers`), con sabotaje (no
+      recargar la base tras crecer: escribe en memoria soltada y lo dice)
+- [x] **M3a/M4a -- la division da su resultado donde cae, y `i + 1` de un
+      indice ya mirado es `lea`** (16-10). En E2, el resto de `/` y `%` se
+      pide en RDX y el cociente en RAX (donde `idiv` los deja: sin mover), y
+      la regla de B6 sabe que si `i` ya paso por `i < largo`, `i + 1` no
+      desborda (largo <= 2^63 - 1): `lea`, sin `jo`. El duelo: primos
+      0,86 -> 0,80 y ordenar 0,58 -> 0,50 x el C de la casa. El banco
+      28,1 -> 27,2 millones de instrucciones, 5,10 -> 4,95 millones de
+      accesos. Sube UNO: `ordenar` +16 accesos (271 512 -> 271 528) mientras
+      baja 1,46 -> 1,28 millones de instrucciones: el reparto de registros
+      cambia y un valor mas va a la pila fuera del bucle. **Un fallo cazado
+      por las pruebas antes de subir**: el "seguro" de la division se ponia
+      tambien a `x + K` y quitaba el `jo` (primos 0,80 y bytes 0,38 eran
+      FALSOS). `tests/ligera.rs`
+      (`a_proven_positive_still_overflows_where_it_overflows`), con sabotaje.
+      EL MARCADOR: 5 gana, 6 empata, 21 pierde -- primos EMPATA con Clang
+      (1,03) y gana a Rust (0,77)
+- [x] **M4a/M1b -- lo que un cuadrado y un salto demuestran** (16-10). En
+      B6 (`e2/repetido.rs`), dos cosas mas que se saben por cada camino:
+      si `a * a` ya cupo en 64 bits, `|a| <= 3.037.000.499` y `a + 1` cabe
+      (`while d * d <= k` ... `d = d + 1`: sin `jo`); y lo que un salto
+      deja saber en CADA lado (`if n < 2 return` -- por el otro, `n >= 2`:
+      `n - 1` y `n - 2` son `lea`, sin `jo` ni `mov`; un divisor que vale 1
+      o mas, sin mirar cero ni -1). El `d * d` SE SIGUE MIRANDO: con `k`
+      cerca del mayor, `(d + 1)^2` no cabe y el NO es el mismo. El duelo:
+      primos 0,80 -> 0,74 y fib 1,00 -> 0,89 x el C de la casa; **primos
+      GANA a Clang (0,95) y a Rust (0,72)**. El banco 27,2 -> 26,7 millones,
+      no sube ninguno. `tests/ligera.rs`
+      (`what_a_branch_proves_holds_only_on_its_side`), con dos sabotajes
+      (el hecho en el camino de enfrente; el `no` sin negar) y uno al
+      cuadrado (cualquier producto, no solo `a * a`): los tres los caza.
+      EL MARCADOR: 8 gana, 3 empata, 21 pierde
+- [ ] **M2 -- `bytes` contra Clang y GCC (pierde 4,2 y 1,25).**
+      Llenar la lista se lleva el 80 %: cada `push` mira la capacidad en la
+      memoria. Que un bucle con `push` vaya por E2 con lo que mide la lista
+      EN UN REGISTRO (crecer, por el camino largo de E1), y llenar en
+      vectores como Clang. Y AVX2, 32 bytes por instruccion: **lo decide el
+      propietario** en `PERFIL/CPU.txt`
+- [ ] **M3 -- `ordenar` (pierde 2,6 con Rust, 1,6 con Clang).** El bucle de
+      dentro hace 12 instrucciones por vuelta; Rust, unas 5: no mira el
+      indice (lo demuestra) ni el desborde de `j - 1`. Demostrar el indice
+      (`j` entre 0 y `i`, y `i < n`) con la cota de B2 extendida a lo MAS
+      que vale cada local, y que E2 guarde en la pila lo que no le cabe en
+      vez de dejar el bucle entero a E1
+- [ ] **M4 -- `primos` (GANA a Clang 0,95; pierde 1,17 con GCC).** Queda
+      el `jo` de `d * d`, que NO se quita (se puede pasar de verdad), y el
+      `idiv`: GCC hace lo mismo con menos movimientos. Lo que falta: que
+      el bucle de fuera sepa `k < n` en su camino (`k + 1` sin `jo`)
+- [ ] **M5 -- los CICLOS (AF10).** El marcador cuenta instrucciones; el
+      Ryzen cuenta ciclos. El dia que gane, que lo diga el metal
+
+**Las subidas del metro, redefinidas** (16-10, al cerrar la fase B). Medido
+programa a programa contra la linea base de ANTES de la fase B (AF7, commit
+`28202211a`): de los 72 programas, **ninguno sube en instrucciones ni en
+accesos**. Solo dos suben en BYTES de codigo, por el bucle girado (la
+condicion escrita arriba y abajo): `cubo_gira` +57 B (+0,04 %) y `agenda`
++8 B. Lo demas que se habia aceptado a la vista en los commits de la fase B
+ya no sube: el `push` que crece lee la capacidad de lo que mide (son lo
+mismo cuando no cabe), y lo demas lo bajaron los pasos de despues.
+
+---
+
 # 3. DONDE SE VAN LAS INSTRUCCIONES (el bucle de `primos`, desensamblado)
 
 ```text
@@ -244,35 +423,261 @@ en sus cientos de programas) y el metro sin que ninguna salida cambie.
 - [x] **AF-V -- EL VERSUS** (16-10): `metro/versus.py` contra GCC, Clang y
       rustc, con la tabla de la seccion 2b. Se vuelve a correr tras cada
       peldanio y la tabla se reescribe aqui
-- [ ] **AF2 -- el valor que ya esta en el registro.** No guardar en la pila
-      lo que se va a leer en la instruccion siguiente, ni releer lo que se
-      acaba de escribir: E1 recuerda que hay en RAX hasta que algo lo pisa
-- [ ] **AF3 -- los locales enteros en REGISTROS.** Los contadores de un
-      bucle (`k`, `d`, `j`, `i`) viven en un registro mientras el bucle
-      corre, como hizo INTI en I1 (`PLAN_EL_TROQUEL.md`: -34 % de accesos).
-      El que mas promete, y el mas delicado: las llamadas y los `mut`
-      prestados lo obligan a guardarlos
-- [ ] **AF4 -- `for i in range(...)` como el `for` de C.** Hoy el contador y
-      su tope van y vienen de la pila en cada vuelta
+- [x] **AF2 -- el valor que ya esta en el registro.** Un `load` justo
+      detras del `store` del mismo sitio usa el registro; cada sitio al que
+      puede llegar un salto pasa por `etiqueta()` y lo olvida. Y **AF2b**:
+      `x + 1`, `x - 1` e `if x < 10` con el numero DENTRO de la instruccion;
+      `let x = 0` y `x = 1` derechos a su sitio. **16-10:** contra el C de la
+      casa, primos 2,33 -> 1,73, fib 2,31 -> 1,94, bytes 3,03 -> 2,67,
+      ordenar 2,43 -> 2,04; el banco del metro, 60,5 -> 53,6 millones de
+      instrucciones y -19 % de accesos a memoria
+- [x] **AF3 -- los locales enteros en REGISTROS** (16-10, el segundo
+      intento). El primero se deshizo: `r14` era del MONTON y `bytes` dio
+      otra suma. Ahora, en tres pasos:
+      - **un registro libre**: `r15` apunta a un bloque de 16 bytes en la
+        pila del programa -- `[r15]` la pila de las llamadas abiertas,
+        `[r15 + 8]` el estado del monton --, y las subrutinas del monton
+        cargan `r14` de alli al entrar y lo devuelven al salir
+      - **el local que mas pesa** (cada uso, 10 por cada bucle que lo
+        rodea; solo enteros, nunca prestados ni `mut`, y no en una fn que
+        llama a una `gpu fn`) vive en `r14`, guardado al entrar y devuelto
+        al volver
+      - **operar EN su sitio**: `x = x + 1` es un `add` al registro o a la
+        pila (con su `jo`), e `if x < 10` un `cmp` alli mismo
+      **El duelo contra el C de la casa:** primos 1,73 -> 1,54, fib 1,94 ->
+      1,89, bytes 2,67 -> 2,43, ordenar 2,04 -> 1,90. El banco del metro:
+      53,6 -> 50,7 millones de instrucciones y 22,4 -> 18,6 millones de
+      accesos (-17 %).
+      **Lo que SUBIO, y se acepto a la vista** (el trinquete se rehizo con
+      este motivo): el bloque cuesta 2 a 4 instrucciones al arrancar cada
+      programa; cada `push` o `soltar` del monton, 3 (guardar y devolver
+      `r14`); y la cuenta de la pila, al vivir en memoria, son 3 accesos por
+      llamada (`fib`, que solo llama: +17 % de accesos, con menos
+      instrucciones). Doce programas chicos suben unas pocas instrucciones.
+      **[!] Las pruebas que NO corrian (16-10, despues de AF3).** Desde AF2
+      las pruebas de dentro del emisor no compilaban (`gpu.rs` construia el
+      E1 sin los campos nuevos) y el filtro con el que se leia el resultado
+      no lo mostraba: el "todo pasa" de AF2 y AF3 no estaba comprobado.
+      Al correrlas de verdad salieron dos NO, y los dos eran del EMULADOR,
+      no de TITAN++: el `add` con inmediato (`83 /0`, `81 /0`, `05`) ponia
+      el desborde siempre a falso -- el mismo hueco que el `add` de
+      registros tuvo hasta el 19-08 --, y como AF2b/AF3 suman EN SU SITIO
+      (`add [x], 1` + `jo`), un `x + 1` que no cabe dejo de atrapar en el
+      emulador (en el silicio si atrapaba). Arreglado alli; y `ritmo` pedia
+      un fotograma TARDE con 500 000 vueltas, que TITAN++ ya hace en ~13 ms:
+      ahora un millon. Desde hoy se lee la linea `test result` de cada
+      prueba, no un filtro de fallos
+- [x] **AF4 -- `for i in range(...)` como el `for` de C, y las cuentas en
+      el registro** (16-10). Cuatro cosas del emisor:
+      - **la vuelta ES su contador**: `i` y el contador escondido viven en
+        el mismo sitio (`i` no se puede cambiar y el contador solo cambia
+        cuando `i` ya murio): la copia de cada vuelta sobra
+      - **las cuentas de enteros DERECHO en `rax`**: `(i * 7) % 256` ya no
+        deja cada paso en la pila para leerlo otra vez, y `let x = ...` /
+        `x = ...` lo guardan una vez, en `x`
+      - **el `cmp` lee el otro lado de su sitio** (`cmp r14, [fin]`), sin
+        cargarlo antes
+      - **un divisor escrito** (`% 256`) que no es 0 ni -1 no se mira al
+        correr: se sabe al compilar que no atrapa
+      El duelo: primos 1,54 -> 1,33, bytes 2,43 -> 1,93; el banco del metro
+      50,7 -> 45,7 millones de instrucciones, y ninguno de los 72 subio
+- [x] **AF5a -- la celda mirada con UNA comparacion** (16-10). `a[i]`
+      miraba `i >= 0` y `i < len` (cinco instrucciones); ahora un `cmp` sin
+      signo y un `jae`: un negativo, visto sin signo, es enorme y se sale
+      igual. La MISMA seguridad (T0072, la misma linea), en listas, tablas y
+      laminas; y el indice se calcula derecho en `rax`. El duelo: ordenar
+      1,57 -> 1,11. El banco 40,1 -> 38,9 millones. `tests/e1.rs`
+      (`a_typed_list_cell_below_zero_or_past_the_end_is_a_no`), con su
+      sabotaje (el salto con signo: un -1 pasaria y lo dice)
 - [ ] **AF5 -- EL PRECIO DE LA SEGURIDAD, medido.** Cuantas instrucciones del
       duelo son desbordes, indices y divisiones mirados. Y quitar SOLO los
       que se pueden DEMOSTRAR imposibles al compilar (`for i in range(len(a))`
       ya sabe que `a[i]` esta dentro): la seguridad se queda, la repeticion
       no
-- [ ] **AF6 -- las listas de bytes.** `push` y la celda de una `[byte]` sin
-      llamar a crecer en cada byte cuando ya cabe (`bytes` es el duelo peor)
-- [ ] **AF7 -- las llamadas.** El marco de una fn pequenia sin lo que no usa
-      (`fib`)
+- [x] **AF6 -- las listas** (16-10). `push` y la celda de una lista:
+      - la celda de 1 byte no se multiplica por 1, y la de 8 se corre
+        (`shl`); la direccion se suma de su sitio (`add rax, [lista]`)
+      - el valor que entra no se copia aparte si es un numero del marco
+        (solo una CELDA se mueve al crecer la lista)
+      - lo que mide la lista sube EN su sitio (`add [n], 1`)
+      - `byte(x)` mira con UN `cmp` sin signo (un negativo, sin signo, es
+        enorme): dos instrucciones en vez de cinco
+      El duelo: bytes 1,93 -> 1,50, ordenar 1,86 -> 1,57; el banco 45,7 ->
+      42,2 millones de instrucciones y 15,6 -> 14,2 millones de accesos.
+      **[!] Un paso intermedio perdio la capacidad** (crecer la doblaba
+      desde `rcx`, y el `cmp` nuevo ya no la dejaba alli): el monton se
+      acababa al quinto `push`. Lo vio el duelo (no acababa); ahora una
+      prueba lo dice (`tests/bytes.rs`)
+- [x] **AF7 -- las llamadas: la fn LIGERA** (16-10). Una fn de 1 a 4 `int`
+      copiados que da un `int` (o nada) recibe sus valores en `rdx`, `rcx`,
+      `r8` y `r9` y devuelve el resultado en `rax`: sin el bloque de
+      punteros, sin el sitio del resultado y sin copiar cada valor de un
+      puntero al entrar. Lo decide el emisor (`e1/llamada.rs`, `ligera`):
+      ni la de un trait ni una fn a la que salta un trait (su salto lleva el
+      bloque), ni `main`. Si al volver muere algo que soltar, el resultado
+      espera aparte; si no, ni se guarda.
+      El duelo: fib 1,83 -> 1,25. El banco 42,2 -> 40,1 millones de
+      instrucciones y 14,2 -> 12,5 millones de accesos. `tests/ligera.rs`,
+      con su sabotaje (los registros cruzados al llegar: lo dice)
 - [ ] **AF8 -- COPIAR DENTRO (fase C, ventaja 3).** Una fn chica de un
       paquete se emite dentro de quien la llama: sin `call`, sin marco
-- [ ] **AF9 -- EL BUCLE DE DATOS EN VECTORES (fase C, ventajas 1 y 2).** Un
-      `for` que recorre una lista sin alias y sin llamadas se emite en SSE
-      (16 bytes) -- `mano: si` hoy solo para SSE4.1 --, y en AVX2 (32) el dia
-      que el propietario lo decida en PERFIL. **Lo decide el propietario**
+- [x] **AF9a -- LA SUMA DE UNA LISTA DE BYTES EN VECTORES** (16-10,
+      `e1/vector.rs`). El propietario: *"sobre simd eso usa aprende de
+      clang y superarlo"*. Lo que hace Clang: `psadbw` contra cero suma 8
+      bytes, y un `xmm` hace dos a la vez. El emisor reconoce `for b in a`
+      sobre una `[byte]` cuyo cuerpo es solo `s = s + b`, y ANTES del
+      bucle suma de 32 en 32 (`movdqu`, `psadbw`, `paddq`); el bucle de
+      siempre hace lo que queda. El mismo NO en la misma linea (los bytes
+      solo suben la suma). SSE2: toda CPU de x86-64. El emulador aprendio
+      `movdqu`, `pshufd`, `paddq`, `pxor` y `psadbw` (con su prueba contra
+      la suma uno a uno). El duelo: bytes 1,03 -> 0,62 x el C de la casa,
+      1,5 x Rust y 1,1 x g++. El banco 33,1 -> 30,6 millones de
+      instrucciones y 9,9 -> 7,9 millones de accesos. Sube el codigo de
+      `bytes` (+127 B: la parte en vectores), a la vista. `tests/bytes.rs`
+      (largos 0, 1, 31, 32, 33 y 1000; el desborde en su linea), con
+      sabotaje (el segundo bloque de 16 leyendo el primero: lo dice)
+- [ ] **AF9 -- el resto del bucle de DATOS en vectores.** Llenar una lista
+      (`push` de una cuenta), otras reducciones (`[int]`, max, min) y, con
+      la decision del propietario en PERFIL, AVX2 (32 bytes por
+      instruccion). Clang a tope (`-O3 -march=znver3`) sigue 10 x por
+      delante en `bytes`: llena la lista en vectores. **Lo decide el
+      propietario** (AVX2)
 - [ ] **AF10 -- MEDIR EN EL RYZEN (fase C, ventaja 5).** El duelo corrido en
       el metal con `director.contar`: ciclos de verdad, no instrucciones,
       para TITAN++ y para el C de la casa. Y el dia que gane, que lo diga el
       Ryzen y no el emulador
+
+---
+
+# 4b. ★★★ FASE B: A LA ALTURA DE LOS VETERANOS -- emision PRECISA
+
+El propietario, 16-10: *"tomando lo que ellos hicieron pero mi casa BMO-X
+pueda exprimir en emision PRECISA"*. Lo que GCC y LLVM hacen, hecho por el
+emisor de la casa con lo que la casa SABE (una CPU, sin alias, el programa
+entero, la seguridad demostrada). TITAN++ sigue sin una palabra de CPU.
+
+```text
+   B1  mas locales en REGISTROS          r14 siempre; rbx, r12 y r13 si el
+                                         programa no habla con el director.
+                                         El otro lado de una cuenta, de su
+                                         registro o su sitio (add rax, r14)
+   B2  LO MENOS QUE VALE cada local,     d = 2 y d = d + 1: d >= 2 SIEMPRE.
+       demostrado al compilar            Su division no mira el 0 ni el -1;
+                                         x % 256 de un no negativo es un and
+   B3  EL BUCLE GIRADO                   la vuelta mira la condicion abajo y
+                                         salta arriba solo si se cumple: un
+                                         salto por vuelta, no dos
+   B4  instrucciones PRECISAS            imul con el numero dentro, byte(x)
+                                         que se demuestra que cabe, el valor
+                                         de una fn ligera derecho a su
+                                         registro, a + b con b ya en rax
+   B5  LA FORMA INTERMEDIA con           el salto grande que queda: cada
+       registros virtuales               paso a un registro, y el reparto al
+                                         final (lo que GCC y LLVM hacen). Hoy
+                                         cada paso de una cuenta compleja
+                                         pasa por la pila
+   B6  AF5 entero                        la celda que se demuestra dentro
+                                         (`for i in range(len(a))`) no se
+                                         mira en cada vuelta
+   B7  lo que no cambia, FUERA del       `len(a)`, la direccion de la lista:
+       bucle                             una vez, no en cada vuelta
+```
+
+- [x] **B1, B2, B3, B4** (16-10). Medido, el mismo dia (y tras B5a, mas
+  abajo: bytes 1,0 x el C de la casa y 2,4 x Rust, ordenar 1,0 x y 4,6 x):
+
+```text
+   duelo      C casa   gcc C  clang C  g++  clang++  rustc  gcc Zen3  clang Zen3
+   ------------------------------------------------------------------------------
+   primos      0,9 x   1,4 x   1,1 x  1,4 x  1,1 x   0,9 x   1,4 x     1,2 x
+   fib         1,1 x   1,9 x   1,9 x  1,9 x  1,9 x   2,1 x   2,0 x     1,9 x
+   bytes       1,2 x   3,6 x  12,2 x  2,1 x  2,8 x   2,8 x  19,8 x    37,9 x
+   ordenar     1,1 x   4,4 x   3,1 x  3,7 x  3,0 x   5,1 x   4,4 x     3,8 x
+```
+
+  **En `primos` TITAN++ hace MENOS instrucciones que el C de la casa y que
+  Rust** (0,9 x), y esta a 1,1 de Clang, con cada desborde mirado. El banco
+  del metro: 38,9 -> 34,8 millones de instrucciones, 12,3 -> 11,4 millones
+  de accesos, y el codigo de los 72 baja (463.017 -> 462.577 B).
+  **Lo que SUBIO, aceptado a la vista:** el bucle girado escribe la
+  condicion dos veces (arriba, la primera vez, y abajo): cuatro programas
+  crecen de 8 a 57 bytes (png, resolucion, cubo_gira, agenda). Es lo que
+  GCC hace en `-O2`: un salto menos POR VUELTA a cambio de unos bytes una
+  vez. Ninguna instruccion subio.
+  Pruebas: `tests/ligera.rs` (lo demostrado no se mira, lo que no, atrapa en
+  su linea; el bucle girado mira su condicion las mismas veces), con dos
+  sabotajes (la resta ignorada en la cota; el salto sin dar la vuelta).
+- [x] **B5a -- la CELDA derecha** (16-10). Leer `a[i]` de una lista de
+      enteros o de bytes deja su direccion en `rax` y el valor encima, sin
+      guardar la direccion en la pila; `a[i] = v` calcula `v` derecho y lo
+      guarda una vez; `push` escribe en su celda desde `rcx`; la vuelta de
+      `for x in lista` se lee igual. Y el bucle girado (B3) ya gira con
+      `and` (`while j >= 0 and a[j] > v`). El duelo: ordenar 1,11 -> 1,00,
+      bytes 1,20 -> 1,03. El banco 34,8 -> 33,5 millones, 11,4 -> 10,7
+      millones de accesos. **Lo que subio, a la vista:** `agenda` +2
+      accesos (al CRECER una lista la capacidad se lee dos veces; cada
+      `push` que no crece ahorra una instruccion) y unos bytes de codigo en
+      `ordenar` y `agenda` (la condicion con `and`, escrita dos veces).
+      `tests/ligera.rs`, con sabotaje (la lectura derecha sin mirar el
+      limite: lo dice)
+- [x] **B5b -- E2, EL EMISOR CON REGISTROS VIRTUALES** (16-10, la primera
+      pieza; `e1/e2.rs`). El propietario: *"no es siempre parche, siempre
+      cambiar piezas"*. Una fn se baja a instrucciones de tres direcciones
+      sobre registros VIRTUALES; se calcula cuales viven en cada sitio (con
+      los bucles) y cuales cruzan una llamada; un barrido lineal los reparte
+      (los que cruzan, a preservados; los demas, a los de paso) y cada uno
+      pide el registro que necesita (el valor de una llamada, el suyo; el
+      resultado, `rax`) si nada lo pisa. Los valores de una llamada van con
+      un MOVIMIENTO PARALELO (`g(b, a)` cruza dos registros). Los NO, los de
+      E1. Hoy toma las fn LIGERAS de enteros (cuentas, comparaciones con
+      `and`/`or`, bucles, llamadas a otras ligeras); lo que no sabe, o lo
+      que no cabe en los registros, sigue por E1, fn a fn.
+      El duelo: fib 1,14 -> 1,06 (y su pila: sin marco, dos registros
+      guardados). El banco 33,5 -> 33,1 millones de instrucciones, 10,7 ->
+      9,9 millones de accesos (-7 %), y menos codigo; ninguno subio.
+      `tests/ligera.rs` (`e2_gives_the_same_numbers_and_the_same_noes`), con
+      sabotaje (las copias en orden en vez del movimiento paralelo: lo dice)
+- [x] **B5c -- LA REGION: un bucle de CUALQUIER fn, en E2** (16-10). Una
+      fn de E1 (con `print`, `lee`, `push`... fuera del bucle) emite por E2
+      cada bucle que E2 sabe hacer entero: cuentas, comparaciones, `break`,
+      celdas de listas que no crecen dentro (`a[i]`, `a[i] = v`, `len`, la
+      vuelta de un `for`), `byte(x)`. Al ENTRAR: los locales a registros, y
+      de cada lista su base y lo que mide UNA vez (lo que no cambia, fuera
+      del bucle: B7 en esta pieza); dentro, la celda es UNA instruccion
+      (`mov r, [base + i*8]`, como Rust) y se mira con un `cmp` sin signo;
+      al SALIR, lo que cambio a su sitio. Los registros: los de paso, los de
+      la division si en su tramo no hay division, los de E1 cuyo local entra
+      (vuelven a el al salir), y los preservados que la fn no usa
+      (guardados al entrar y devueltos al salir). Lo demostrado (B2) sirve
+      tambien aqui. El duelo: ordenar 1,00 -> 0,65 x el C de la casa (3,0 x
+      Rust, era 4,6), primos 0,88 -> 0,86 (0,8 x Rust). El banco 30,6 ->
+      29,6 millones de instrucciones, 7,9 -> 7,1 millones de accesos. Sube,
+      a la vista: `bytes` +8 instrucciones (un preservado guardado y
+      devuelto al entrar y salir de un bucle) y unos bytes de codigo en
+      `bytes` y `primos`. `tests/ligera.rs`
+      (`a_loop_in_registers_gives_the_same_and_leaves_everything_in_its_place`),
+      con sabotaje (prestar un registro de E1 cuyo local no entra: lo dice).
+      **[!] Un fallo cazado por el banco:** la primera version prestaba los
+      registros de E1 sin devolver lo que guardaban; `pixeles.titan`
+      imprimia otra cosa y E0 lo dijo
+- [x] **B6 -- LO QUE YA SE HIZO NO SE REPITE** (16-10, `quita_lo_repetido`
+      de `e1/e2.rs`). Las "expresiones disponibles" de GCC y LLVM: por cada
+      sitio, que celdas ya se miraron (`i < largo`) y que registro tiene ya
+      el valor de `l[i]`, venga de donde venga el camino. Se olvida cuando
+      cambian el indice, el largo o quien la tiene, o cuando se escribe en
+      esa lista (en cualquier celda). Asi `while j >= 0 and a[j] > v` y el
+      `a[j]` del cuerpo son UNA lectura y UNA mirada. Y al salir de una
+      region solo vuelve a su sitio lo que vivia antes del bucle (lo que
+      nace en la vuelta muere en ella): caben mas bucles en registros. El
+      duelo: ordenar 0,65 -> 0,58 x el C de la casa (2,6 x Rust, 1,6 x
+      Clang). El banco 29,6 -> 29,4 millones; ninguno subio.
+      `tests/ligera.rs` (`what_was_read_is_reused_only_while_nothing_changed`),
+      con sabotaje (escribir en la lista sin olvidar lo leido: lo dice)
+- [ ] **B5 -- E2 entero.** Que E2 tome tambien las fn con listas, textos y
+      el director (todas las de `main`), con el bucle girado y lo demostrado
+      de E1; y lo que no cabe, a la pila (no a E1)
+- [ ] **B6 -- AF5 entero**
+- [ ] **B7 -- lo que no cambia, fuera del bucle**
 
 ---
 
