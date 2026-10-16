@@ -94,7 +94,7 @@ impl E1<'_> {
 
     /// w *= 10, `k` veces (k en el sitio K: se gasta).
     fn w_mul10_times(&mut self, w: i32) {
-        let top = self.code.len();
+        let top = self.etiqueta();
         self.get(RAX, K);
         x86::test_r64_r64(&mut self.code, RAX, RAX);
         let done = self.jcc(0x8E);
@@ -208,7 +208,7 @@ impl E1<'_> {
         }
         self.imm(RAX, 127);
         self.put(K, RAX);
-        let top = self.code.len();
+        let top = self.etiqueta();
         // r = r << 1 | el bit k de n
         self.get(RAX, r + 8);
         x86::shl_r64_imm8(&mut self.code, RAX, 1);
@@ -417,7 +417,7 @@ impl E1<'_> {
         x86::mov_r64_r64(&mut self.code, RAX, RCX);
         self.here(keep);
         self.put(S0, RAX);
-        let top = self.code.len();
+        let top = self.etiqueta();
         self.get(RAX, S);
         self.get(RCX, S0);
         x86::cmp_r64_r64(&mut self.code, RAX, RCX);
@@ -486,7 +486,7 @@ impl E1<'_> {
         x86::zero_r32(&mut self.code, RAX);
         self.put(S, RAX);
         let mut ovf = Vec::new();
-        let top = self.code.len();
+        let top = self.etiqueta();
         self.get(RAX, S);
         self.get(RCX, S0);
         x86::cmp_r64_r64(&mut self.code, RAX, RCX);
@@ -518,7 +518,7 @@ impl E1<'_> {
         self.put(S, RAX);
         self.w_mul10(C);
         self.w_mul10(D);
-        let sub_top = self.code.len();
+        let sub_top = self.etiqueta();
         self.w_cmp(D, B);
         x86::test_r64_r64(&mut self.code, RAX, RAX);
         let digit_done = self.jcc(0x88);

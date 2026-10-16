@@ -88,7 +88,7 @@ impl E1<'_> {
             x86::cmp_r64_r64(&mut self.code, desde, medida);
             fin.push(self.jcc(0x8D));
         }
-        let fila = self.code.len();
+        let fila = self.etiqueta();
         x86::mov_r64_r64(&mut self.code, RSI, R9);
         x86::imul_r64_r64(&mut self.code, RSI, RAX);
         x86::add_r64_r64(&mut self.code, RSI, R8);
@@ -97,7 +97,7 @@ impl E1<'_> {
         self.lea(RSI, RSI, 32);
         x86::mov_r64_r64(&mut self.code, RCX, R10);
         x86::sub_r64_r64(&mut self.code, RCX, R8);
-        let celda = self.code.len();
+        let celda = self.etiqueta();
         x86::mov_at_reg_from_r32(&mut self.code, RSI, RDX);
         x86::add_r64_imm8(&mut self.code, RSI, 4);
         x86::dec_r64(&mut self.code, RCX);
@@ -128,7 +128,7 @@ impl E1<'_> {
         self.here(alto);
         let extras = lea_rip(&mut self.code, RSI);
         x86::zero_r32(&mut self.code, RCX);
-        let busca = self.code.len();
+        let busca = self.etiqueta();
         x86::cmp_r64_imm32(&mut self.code, RCX, EXTRAS.len() as i32);
         let hueco = self.jcc(0x8D);
         x86::movzx_r32_byte_base_index(&mut self.code, RDI, RSI, RCX);
@@ -154,12 +154,12 @@ impl E1<'_> {
         x86::add_r64_r64(&mut self.code, RBX, RAX);
         x86::zero_r32(&mut self.code, R13);
         // Fila a fila (r13), columna a columna (r15); los bits, en r14.
-        let fila = self.code.len();
+        let fila = self.etiqueta();
         x86::movzx_r32_byte_base_index(&mut self.code, R14, RBX, R13);
         x86::test_r64_r64(&mut self.code, R14, R14);
         let vacia = self.jcc(0x84);
         x86::zero_r32(&mut self.code, R15);
-        let col = self.code.len();
+        let col = self.etiqueta();
         x86::mov_r64_r64(&mut self.code, RCX, R15);
         self.imm(RAX, 128);
         x86::shr_r64_cl(&mut self.code, RAX);
@@ -192,10 +192,10 @@ impl E1<'_> {
         }
         self.code.push(0xC3);
         // Los datos, detras: la fuente y sus extras.
-        let a = self.code.len();
+        let a = self.etiqueta();
         self.code.extend(FUENTE.iter().flatten());
         apunta(&mut self.code, fuente, a);
-        let b = self.code.len();
+        let b = self.etiqueta();
         self.code.extend_from_slice(&EXTRAS);
         apunta(&mut self.code, extras, b);
     }
@@ -270,7 +270,7 @@ impl E1<'_> {
         let mut nada = Vec::new();
         self.escala_vale(e, &mut nada);
         self.store_imm(i, 0);
-        let vuelta = self.code.len();
+        let vuelta = self.etiqueta();
         self.load(i, RCX);
         self.load(t, RAX);
         x86::cmp_r64_r64(&mut self.code, RCX, RAX);

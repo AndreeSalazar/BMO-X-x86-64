@@ -187,7 +187,7 @@ impl E1<'_> {
         let k = self.temp(8);
         self.store_imm(t, 0);
         self.store_imm(k, 0);
-        let vuelta = self.code.len();
+        let vuelta = self.etiqueta();
         self.load(k, RAX);
         x86::cmp_r64_imm32(&mut self.code, RAX, (TEXT_CAP / 8) as i32);
         let lleno = self.jcc(0x8D);
@@ -201,7 +201,7 @@ impl E1<'_> {
         let fallo = self.jcc(0x85);
         // RDX: ocho bytes; se copian hasta el primer cero.
         x86::zero_r32(&mut self.code, RCX);
-        let byte = self.code.len();
+        let byte = self.etiqueta();
         x86::cmp_r64_imm32(&mut self.code, RCX, 8);
         let entero = self.jcc(0x8D);
         x86::mov_r64_r64(&mut self.code, RAX, RDX);
@@ -239,7 +239,7 @@ impl E1<'_> {
         self.store_imm(out, 0);
         let mut no = Vec::new();
         self.store_imm(intentos, INTENTOS);
-        let vuelta = self.code.len();
+        let vuelta = self.etiqueta();
         self.invoke_solo(None, CURRENT_TASK, TASK_OP_TOMAR);
         x86::test_r64_r64(&mut self.code, RAX, RAX);
         let fallo = self.jcc(0x85);
@@ -280,7 +280,7 @@ impl E1<'_> {
     pub(super) fn ruta(&mut self, t: Place) {
         let k = self.temp(8);
         self.store_imm(k, 0);
-        let ruta_vuelta = self.code.len();
+        let ruta_vuelta = self.etiqueta();
         self.load(k, RAX);
         self.load(t, RCX);
         x86::cmp_r64_r64(&mut self.code, RAX, RCX);
@@ -342,7 +342,7 @@ impl E1<'_> {
         self.store(base, RDX);
         // Leer hasta el final: (bloque, desde, cuantos) -> leidos.
         self.store_imm(hechos, 0);
-        let leer = self.code.len();
+        let leer = self.etiqueta();
         self.load(hechos, RAX);
         self.load(medida, RCX);
         x86::cmp_r64_r64(&mut self.code, RAX, RCX);

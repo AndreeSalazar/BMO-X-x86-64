@@ -216,7 +216,7 @@ impl E1<'_> {
         // De 7 en 7: los de detras del largo, a cero.
         let mut mal = Vec::new();
         self.store_imm(k, 0);
-        let vuelta = self.code.len();
+        let vuelta = self.etiqueta();
         self.load(k, RAX);
         self.load(s, RCX);
         x86::cmp_r64_r64(&mut self.code, RAX, RCX);

@@ -57,6 +57,22 @@ impl<'a> E1<'a> {
             "==" => 0x85,
             _ => 0x84,
         };
+        // AF2b: contra un numero escrito, el numero va DENTRO del `cmp`
+        if let Value::Int(v, _) = &**b {
+            if let Ok(v) = i32::try_from(*v) {
+                let (mut pa, _) = self.eval(a)?;
+                if !self.owned.is_empty() {
+                    let t = self.temp(8);
+                    self.load(pa, RAX);
+                    self.store(t, RAX);
+                    pa = t;
+                    self.drop_owned_from(0);
+                }
+                self.load(pa, RAX);
+                x86::cmp_r64_imm32(&mut self.code, RAX, v);
+                return Ok(vec![self.jcc(no_se_cumple)]);
+            }
+        }
         // `a` se guarda aparte solo si calcular `b` puede tocar lo que
         // leyo (una llamada); un local o un numero escrito, no
         let simple = |v: &Value| matches!(v, Value::Local(..) | Value::Int(..) | Value::Bool(..));

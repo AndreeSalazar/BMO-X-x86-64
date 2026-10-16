@@ -179,7 +179,7 @@ impl E1<'_> {
         let found = self.temp(8);
         self.store_imm(i, 0);
         self.store_imm(found, -1);
-        let top = self.code.len();
+        let top = self.etiqueta();
         self.load(i, RAX);
         self.load(h.at(8), RCX);
         x86::cmp_r64_r64(&mut self.code, RAX, RCX);
@@ -263,7 +263,7 @@ impl E1<'_> {
                 let (px, _) = vals[0].clone();
                 let k = self.temp(8);
                 self.store_imm(k, 0);
-                let vuelta = self.code.len();
+                let vuelta = self.etiqueta();
                 self.load(k, RAX);
                 self.load(px, RCX);
                 x86::cmp_r64_r64(&mut self.code, RAX, RCX);

@@ -292,7 +292,7 @@ impl E1<'_> {
         let sin_ventana = self.jcc(0x84);
         let intentos = self.temp(8);
         self.store_imm(intentos, ESPERAS_TOMA);
-        let mira = self.code.len();
+        let mira = self.etiqueta();
         x86::mov_r64_r64(&mut self.code, RDI, R12);
         self.lea(RSI, RDI, 4 * SUP_CAMPO_BUZON as i32);
         x86::mov_r32_at_reg(&mut self.code, RSI, RSI);
@@ -409,7 +409,7 @@ impl E1<'_> {
         self.addr(c, RDX);
         x86::test_r64_r64(&mut self.code, RCX, RCX);
         let vacio = self.jcc(0x84);
-        let vuelta = self.code.len();
+        let vuelta = self.etiqueta();
         for tabla in [RSI, RDX] {
             for k in 0..4 {
                 x86::mov_r64_at_reg_disp32(&mut self.code, RAX, tabla, 8 * k);

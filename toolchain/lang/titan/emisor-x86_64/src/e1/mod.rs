@@ -198,6 +198,12 @@ pub(crate) struct E1<'m> {
     /// que lo llaman: (campo rel32, la gpu fn). Va al final, una vez cada uno.
     pub cuerpos: &'m Cuerpos,
     pub gpu_calls: Vec<(usize, usize)>,
+    /// ** AF2 (PLAN_TITAN_AFINADO): el ultimo `store` a un sitio del marco
+    /// -- donde acabo, el sitio y el registro --. Un `load` del mismo sitio
+    /// JUSTO detras no va a la memoria: el valor ya esta en el registro.
+    /// Cualquier sitio al que pueda llegar un salto (`etiqueta`, `here`) lo
+    /// borra: alli el registro puede traer otra cosa.
+    guardado: Option<(usize, Place, u8)>,
 }
 
 /// Lo que E1 no emite: un NO al compilar.
@@ -271,7 +277,15 @@ impl<'m> E1<'m> {
 
     /// Aterriza aqui el salto de `field`.
     pub fn here(&mut self, field: usize) {
+        self.guardado = None;
         x86::patch_jump(&mut self.code, field);
+    }
+
+    /// ** AF2: un sitio al que puede llegar un salto (o una llamada): da
+    /// donde esta, y E1 olvida lo que creia tener en los registros.
+    pub fn etiqueta(&mut self) -> usize {
+        self.guardado = None;
+        self.code.len()
     }
 
     pub fn imm(&mut self, reg: u8, v: i64) {
@@ -305,6 +319,15 @@ impl<'m> E1<'m> {
 
     /// Los 8 bytes de un sitio, a `reg`. No toca otro registro.
     pub fn load(&mut self, p: Place, reg: u8) {
+        // AF2: lo que se acaba de guardar ya esta en un registro
+        if let Some((fin, q, r)) = self.guardado {
+            if fin == self.code.len() && q == p && matches!(p.base, Base::Frame) {
+                if r != reg {
+                    x86::mov_r64_r64(&mut self.code, reg, r);
+                }
+                return;
+            }
+        }
         match p.base {
             Base::Frame => x86::mov_r64_at_reg_disp32(&mut self.code, reg, RBP, p.off),
             Base::Ptr(slot) => {
@@ -317,7 +340,10 @@ impl<'m> E1<'m> {
     /// `reg` a los 8 bytes de un sitio. Usa `r11` si el sitio es un puntero.
     pub fn store(&mut self, p: Place, reg: u8) {
         match p.base {
-            Base::Frame => x86::mov_at_reg_disp32_from_r64(&mut self.code, RBP, p.off, reg),
+            Base::Frame => {
+                x86::mov_at_reg_disp32_from_r64(&mut self.code, RBP, p.off, reg);
+                self.guardado = Some((self.code.len(), p, reg));
+            }
             Base::Ptr(slot) => {
                 debug_assert_ne!(reg, R11);
                 x86::mov_r64_at_reg_disp32(&mut self.code, R11, RBP, slot);
@@ -443,7 +469,8 @@ impl<'m> E1<'m> {
         let mut shared: BTreeMap<Key, usize> = BTreeMap::new();
         for (key, at) in &lines {
             if worth > printer as i64 && gain(key, at) > 0 {
-                shared.insert(key.clone(), self.code.len());
+                let e = self.etiqueta();
+                shared.insert(key.clone(), e);
                 console::write_const(&mut self.code, key.0.as_bytes());
                 x86::mov_r64_r64(&mut self.code, RAX, RBX);
                 self.call_helper(Helper::WriteInt);
@@ -482,7 +509,7 @@ impl<'m> E1<'m> {
                 Some(&d) => d,
                 None => {
                     let ends: Vec<usize> = STATUS.iter().map(|(_, id, why)| target(self, status_key(&t.file, id, why), t.line)).collect();
-                    let d = self.code.len();
+                    let d = self.etiqueta();
                     for ((k, _, _), end) in STATUS.iter().zip(ends) {
                         x86::cmp_r64_imm8(&mut self.code, R10, *k as i8);
                         let j = self.jcc(0x84);
@@ -646,7 +673,7 @@ impl<'m> E1<'m> {
         let enters = enters(f);
         let mut left: Vec<Option<(Vec<Option<Class>>, Vec<Option<Ty>>)>> = vec![None; f.blocks.len()];
         for (i, b) in f.blocks.iter().enumerate() {
-            starts[i] = self.code.len();
+            starts[i] = self.etiqueta();
             self.enter_block(&enters[i], &left);
             for op in &b.ops {
                 self.f.temp = 0;
@@ -856,6 +883,17 @@ impl<'m> E1<'m> {
                 self.f.known[*local] = Some(Class::Table(Box::new(ic), *n));
                 self.f.decl[*local] = ty.clone();
             }
+            // AF2b: `let x = 0` y `x = 1`: el numero derecho a su sitio
+            Op::Let { local, value: Value::Int(v, _), ty: None, .. } => {
+                let dst = self.local(*local);
+                self.store_imm(dst, *v);
+                self.f.known[*local] = Some(Class::Int);
+                self.f.decl[*local] = None;
+            }
+            Op::Set { local, value: Value::Int(v, _), .. } if self.f.known[*local] == Some(Class::Int) && self.f.decl[*local].as_ref().is_none_or(|t| matches!(t, Ty::Int)) => {
+                let dst = self.local(*local);
+                self.store_imm(dst, *v);
+            }
             Op::Let { local, value, ty, at, .. } => {
                 let (p, c) = self.eval(value)?;
                 let want = match ty {
@@ -983,6 +1021,7 @@ pub fn emit<'m>(m: &'m Module, cuerpos: &'m Cuerpos) -> Result<Emitted, NoE1> {
         not_yet_said: None,
         cuerpos,
         gpu_calls: Vec::new(),
+        guardado: None,
     };
     // Un NO de E1 sube por los `?` como texto; si fue un "todavia no", E1 lo
     // apunto con su sitio, y es el NO del PROGRAMA (LB1).
@@ -1044,7 +1083,7 @@ fn emit_all<'m>(e: &mut E1<'m>, m: &'m Module) -> Result<Emitted, String> {
         if !reach[k] {
             continue;
         }
-        starts[k] = e.code.len();
+        starts[k] = e.etiqueta();
         cost[k] = e.function(f, root && k == m.entry)?;
     }
     let start = if root { cost[m.entry] } else { 0 };
@@ -1064,7 +1103,8 @@ fn emit_all<'m>(e: &mut E1<'m>, m: &'m Module) -> Result<Emitted, String> {
     loop {
         let missing: Vec<Helper> = e.helper_calls.iter().map(|(_, h)| *h).filter(|h| !at.contains_key(h)).collect();
         let Some(&h) = missing.first() else { break };
-        at.insert(h, e.code.len());
+        let aqui = e.etiqueta();
+        at.insert(h, aqui);
         e.helper(h);
     }
     for (field, h) in std::mem::take(&mut e.helper_calls) {
