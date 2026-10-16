@@ -463,7 +463,7 @@ mod pruebas {
             status_traps: Vec::new(),
             helper_calls: Vec::new(),
             depth_checks: Vec::new(),
-            f: super::super::Fun { known: Vec::new(), decl: Vec::new(), slot: Vec::new(), indirect: Vec::new(), locals_end: 16, temp: 0, temp_max: 0 },
+            f: super::super::Fun { known: Vec::new(), decl: Vec::new(), slot: Vec::new(), indirect: Vec::new(), locals_end: 16, temp: 0, temp_max: 0, registro: None },
             lenient: 0,
             owned: Vec::new(),
             kinds: Vec::new(),

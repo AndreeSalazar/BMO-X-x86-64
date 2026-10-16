@@ -28,8 +28,15 @@ use bmo_lower::x86::{self, RAX, RCX, RDI, RDX, RSI, R10, R8, R9};
 use bmo_lower::{console, memoria, task};
 use bmo_titan_front::calc::Class;
 
-/// El estado del monton, todo el programa.
+/// El estado del monton, DENTRO de sus subrutinas (`h_alloc`, `h_free`): al
+/// entrar lo cargan de `[r15 + MONTON]` y al salir lo dejan alli, y el `r14`
+/// de quien las llamo vuelve como estaba (AF3: fuera, `r14` es de los
+/// bucles).
 pub(crate) const R14: u8 = 14;
+/// El bloque del programa (`emit_all`): `[r15]` la pila de las llamadas,
+/// `[r15 + MONTON]` el estado del monton.
+pub(crate) const R15: u8 = 15;
+pub(crate) const MONTON: i32 = 8;
 const STATE: i32 = 512;
 /// Las cabezas de las listas de libres: `[r14 + HEADS + 8 * medida]`.
 const HEADS: i32 = 24;
@@ -140,7 +147,7 @@ impl E1<'_> {
         let patch = self.code.len() - 4;
         x86::mov_at_reg_disp32_from_r64(&mut self.code, super::RBP, -8, RDI);
         x86::mov_at_reg_disp32_from_r64(&mut self.code, super::RBP, -16, RSI);
-        self.f = Fun { known: Vec::new(), decl: Vec::new(), slot: Vec::new(), indirect: Vec::new(), locals_end: 16, temp: 0, temp_max: 0 };
+        self.f = Fun { known: Vec::new(), decl: Vec::new(), slot: Vec::new(), indirect: Vec::new(), locals_end: 16, temp: 0, temp_max: 0, registro: None };
         patch
     }
 
@@ -369,8 +376,22 @@ impl E1<'_> {
         Ok(())
     }
 
+    /// Al entrar en una subrutina del monton: `r14` a la pila, y su estado.
+    fn monton_entra(&mut self) {
+        x86::push_r64(&mut self.code, R14);
+        x86::mov_r64_at_reg_disp32(&mut self.code, R14, R15, MONTON);
+    }
+
+    /// Al salir: `r14` el de antes, y `ret`. El estado no se escribe aqui:
+    /// su sitio solo cambia con el PRIMER trozo, y alli se escribe.
+    fn monton_sale(&mut self) {
+        x86::pop_r64(&mut self.code, R14);
+        self.code.push(0xC3);
+    }
+
     /// Alloc: `rdi` bytes, a `rax`. Toca rax, rcx, rdx, rsi, rdi, r8-r11.
     pub fn h_alloc(&mut self) {
+        self.monton_entra();
         // la medida: 16 de cabecera, a potencia de 2 desde 32
         self.lea(RDX, RDI, 16);
         self.imm(RCX, 5);
@@ -430,8 +451,9 @@ impl E1<'_> {
         x86::pop_r64(&mut self.code, RCX); // los bytes del trozo
         x86::test_r64_r64(&mut self.code, R14, R14);
         let not_first = self.jcc(0x85);
-        // el primero: el estado delante, a cero
+        // el primero: el estado delante, a cero (y su sitio, al bloque)
         x86::mov_r64_r64(&mut self.code, R14, RDX);
+        x86::mov_at_reg_disp32_from_r64(&mut self.code, R15, MONTON, R14);
         x86::push_r64(&mut self.code, RCX);
         x86::mov_r64_r64(&mut self.code, RDI, RDX);
         self.imm(RCX, STATE as i64);
@@ -463,11 +485,12 @@ impl E1<'_> {
         x86::inc_r64(&mut self.code, RAX);
         x86::mov_at_reg_disp32_from_r64(&mut self.code, R14, LIVE, RAX);
         self.lea(RAX, R8, 16);
-        self.code.push(0xC3);
+        self.monton_sale();
     }
 
     /// Free: el bloque de `rdi` (cero: nada) a la lista de libres de su medida.
     pub fn h_free(&mut self) {
+        self.monton_entra();
         x86::test_r64_r64(&mut self.code, RDI, RDI);
         let none = self.jcc(0x84);
         self.lea(R8, RDI, -16);
@@ -482,6 +505,6 @@ impl E1<'_> {
         x86::dec_r64(&mut self.code, RAX);
         x86::mov_at_reg_disp32_from_r64(&mut self.code, R14, LIVE, RAX);
         self.here(none);
-        self.code.push(0xC3);
+        self.monton_sale();
     }
 }

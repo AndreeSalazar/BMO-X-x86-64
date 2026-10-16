@@ -7,8 +7,8 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   883 casillas ABIERTAS en 80 planes
-   675 hechas
+   882 casillas ABIERTAS en 80 planes
+   676 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -342,15 +342,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] MC3 -- la fisica. Gravedad, saltar, y el jugador como una CAJA
 - ... y 5 mas
 
-## [`PLAN_TITAN_AFINADO.md`](PLAN_TITAN_AFINADO.md) -- 8 abiertas, 5 hechas
-
-*PLAN TITAN AFINADO -- TITAN++ a la altura de C, sin aprender de CPU*
-
-- [ ] AF3 -- los locales enteros en REGISTROS. Los contadores de un
-- [ ] AF4 -- for i in range(...) como el for de C. Hoy el contador y
-- [ ] AF5 -- EL PRECIO DE LA SEGURIDAD, medido. Cuantas instrucciones del
-- ... y 5 mas
-
 ## [`PLAN_COBOL_MAESTRO.md`](PLAN_COBOL_MAESTRO.md) -- 7 abiertas, 1 hechas
 
 *PLAN COBOL MAESTRO -- un FRONTEND bien hecho, y el x86-64 aparte*
@@ -430,6 +421,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] 2b la ventana con REJILLA scroll como modulo reutilizable, de la
 - [ ] 5 los comandos que la ls, cat, escribir. Y los que la
 - [ ] 6 compilar hola.ada el frontend de Ada dentro del mismo
+- ... y 4 mas
+
+## [`PLAN_TITAN_AFINADO.md`](PLAN_TITAN_AFINADO.md) -- 7 abiertas, 6 hechas
+
+*PLAN TITAN AFINADO -- TITAN++ a la altura de C, sin aprender de CPU*
+
+- [ ] AF4 -- for i in range(...) como el for de C. Hoy el contador y
+- [ ] AF5 -- EL PRECIO DE LA SEGURIDAD, medido. Cuantas instrucciones del
+- [ ] AF6 -- las listas de bytes. push y la celda de una [byte] sin
 - ... y 4 mas
 
 ## [`PLAN_EL_ENLAZADOR.md`](PLAN_EL_ENLAZADOR.md) -- 6 abiertas, 10 hechas

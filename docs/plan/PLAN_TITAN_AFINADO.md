@@ -252,23 +252,29 @@ en sus cientos de programas) y el metro sin que ninguna salida cambie.
       casa, primos 2,33 -> 1,73, fib 2,31 -> 1,94, bytes 3,03 -> 2,67,
       ordenar 2,43 -> 2,04; el banco del metro, 60,5 -> 53,6 millones de
       instrucciones y -19 % de accesos a memoria
-- [ ] **AF3 -- los locales enteros en REGISTROS.** Los contadores de un
-      bucle (`k`, `d`, `j`, `i`) viven en un registro mientras el bucle
-      corre, como hizo INTI en I1 (`PLAN_EL_TROQUEL.md`: -34 % de accesos).
-      **Intentado el 16-10 y DESHECHO, con lo que mostro:**
-      - **No hay registro libre.** E1 ya tiene repartidos los preservados:
-        `rbx` el estado del programa, `r12` la ventana, `r13` la lamina,
-        `r14` el MONTON (`monton.rs`: cursor, final y listas de libres) y
-        `r15` la pila. Se probo con `r14` creyendolo libre y `bytes` dio
-        otra suma: el duelo lo cazo (lo que imprimen tiene que ser igual)
-      - **Liberar uno es el primer paso**: el monton solo se toca dentro de
-        sus subrutinas (crecer, soltar), asi que su base puede vivir en la
-        memoria del programa (`[rbx + ...]`) y cargarse alli dentro: unas
-        instrucciones por `push`, y un registro entero para los bucles
-      - **Y operar EN el registro**: cambiar `mov rax, [pila]` por
-        `mov rax, r14` no quita instrucciones (es una por una), solo accesos
-        a memoria. Para bajar el duelo hay que comparar y sumar sobre el
-        registro mismo (`cmp r14, n`, `add r14, 1`)
+- [x] **AF3 -- los locales enteros en REGISTROS** (16-10, el segundo
+      intento). El primero se deshizo: `r14` era del MONTON y `bytes` dio
+      otra suma. Ahora, en tres pasos:
+      - **un registro libre**: `r15` apunta a un bloque de 16 bytes en la
+        pila del programa -- `[r15]` la pila de las llamadas abiertas,
+        `[r15 + 8]` el estado del monton --, y las subrutinas del monton
+        cargan `r14` de alli al entrar y lo devuelven al salir
+      - **el local que mas pesa** (cada uso, 10 por cada bucle que lo
+        rodea; solo enteros, nunca prestados ni `mut`, y no en una fn que
+        llama a una `gpu fn`) vive en `r14`, guardado al entrar y devuelto
+        al volver
+      - **operar EN su sitio**: `x = x + 1` es un `add` al registro o a la
+        pila (con su `jo`), e `if x < 10` un `cmp` alli mismo
+      **El duelo contra el C de la casa:** primos 1,73 -> 1,54, fib 1,94 ->
+      1,89, bytes 2,67 -> 2,43, ordenar 2,04 -> 1,90. El banco del metro:
+      53,6 -> 50,7 millones de instrucciones y 22,4 -> 18,6 millones de
+      accesos (-17 %).
+      **Lo que SUBIO, y se acepto a la vista** (el trinquete se rehizo con
+      este motivo): el bloque cuesta 2 a 4 instrucciones al arrancar cada
+      programa; cada `push` o `soltar` del monton, 3 (guardar y devolver
+      `r14`); y la cuenta de la pila, al vivir en memoria, son 3 accesos por
+      llamada (`fib`, que solo llama: +17 % de accesos, con menos
+      instrucciones). Doce programas chicos suben unas pocas instrucciones
 - [ ] **AF4 -- `for i in range(...)` como el `for` de C.** Hoy el contador y
       su tope van y vienen de la pila en cada vuelta
 - [ ] **AF5 -- EL PRECIO DE LA SEGURIDAD, medido.** Cuantas instrucciones del
