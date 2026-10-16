@@ -244,14 +244,31 @@ en sus cientos de programas) y el metro sin que ninguna salida cambie.
 - [x] **AF-V -- EL VERSUS** (16-10): `metro/versus.py` contra GCC, Clang y
       rustc, con la tabla de la seccion 2b. Se vuelve a correr tras cada
       peldanio y la tabla se reescribe aqui
-- [ ] **AF2 -- el valor que ya esta en el registro.** No guardar en la pila
-      lo que se va a leer en la instruccion siguiente, ni releer lo que se
-      acaba de escribir: E1 recuerda que hay en RAX hasta que algo lo pisa
+- [x] **AF2 -- el valor que ya esta en el registro.** Un `load` justo
+      detras del `store` del mismo sitio usa el registro; cada sitio al que
+      puede llegar un salto pasa por `etiqueta()` y lo olvida. Y **AF2b**:
+      `x + 1`, `x - 1` e `if x < 10` con el numero DENTRO de la instruccion;
+      `let x = 0` y `x = 1` derechos a su sitio. **16-10:** contra el C de la
+      casa, primos 2,33 -> 1,73, fib 2,31 -> 1,94, bytes 3,03 -> 2,67,
+      ordenar 2,43 -> 2,04; el banco del metro, 60,5 -> 53,6 millones de
+      instrucciones y -19 % de accesos a memoria
 - [ ] **AF3 -- los locales enteros en REGISTROS.** Los contadores de un
       bucle (`k`, `d`, `j`, `i`) viven en un registro mientras el bucle
       corre, como hizo INTI en I1 (`PLAN_EL_TROQUEL.md`: -34 % de accesos).
-      El que mas promete, y el mas delicado: las llamadas y los `mut`
-      prestados lo obligan a guardarlos
+      **Intentado el 16-10 y DESHECHO, con lo que enseno:**
+      - **No hay registro libre.** E1 ya tiene repartidos los preservados:
+        `rbx` el estado del programa, `r12` la ventana, `r13` la lamina,
+        `r14` el MONTON (`monton.rs`: cursor, final y listas de libres) y
+        `r15` la pila. Se probo con `r14` creyendolo libre y `bytes` dio
+        otra suma: el duelo lo cazo (lo que imprimen tiene que ser igual)
+      - **Liberar uno es el primer paso**: el monton solo se toca dentro de
+        sus subrutinas (crecer, soltar), asi que su base puede vivir en la
+        memoria del programa (`[rbx + ...]`) y cargarse alli dentro: unas
+        instrucciones por `push`, y un registro entero para los bucles
+      - **Y operar EN el registro**: cambiar `mov rax, [pila]` por
+        `mov rax, r14` no quita instrucciones (es una por una), solo accesos
+        a memoria. Para bajar el duelo hay que comparar y sumar sobre el
+        registro mismo (`cmp r14, n`, `add r14, 1`)
 - [ ] **AF4 -- `for i in range(...)` como el `for` de C.** Hoy el contador y
       su tope van y vienen de la pila en cada vuelta
 - [ ] **AF5 -- EL PRECIO DE LA SEGURIDAD, medido.** Cuantas instrucciones del

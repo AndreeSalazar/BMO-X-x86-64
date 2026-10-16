@@ -7,8 +7,8 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   884 casillas ABIERTAS en 80 planes
-   674 hechas
+   883 casillas ABIERTAS en 80 planes
+   675 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -315,15 +315,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] P3c -- el BMOX-12 de EPICX-FRAMEWORK, sin tocar. [VISTO EN EL
 - ... y 6 mas
 
-## [`PLAN_TITAN_AFINADO.md`](PLAN_TITAN_AFINADO.md) -- 9 abiertas, 4 hechas
-
-*PLAN TITAN AFINADO -- TITAN++ a la altura de C, sin aprender de CPU*
-
-- [ ] AF2 -- el valor que ya esta en el registro. No guardar en la pila
-- [ ] AF3 -- los locales enteros en REGISTROS. Los contadores de un
-- [ ] AF4 -- for i in range(...) como el for de C. Hoy el contador y
-- ... y 6 mas
-
 ## [`PLAN_VATIOS.md`](PLAN_VATIOS.md) -- 9 abiertas, 4 hechas
 
 *PLAN_VATIOS -- lo que gasta el CPU en reposo, y por que*
@@ -349,6 +340,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] MC1 -- el mundo de bloques, la camara y picar. Un mundo de
 - [ ] MC2 -- mirar arriba y abajo, y la mira. El cabeceo de la camara
 - [ ] MC3 -- la fisica. Gravedad, saltar, y el jugador como una CAJA
+- ... y 5 mas
+
+## [`PLAN_TITAN_AFINADO.md`](PLAN_TITAN_AFINADO.md) -- 8 abiertas, 5 hechas
+
+*PLAN TITAN AFINADO -- TITAN++ a la altura de C, sin aprender de CPU*
+
+- [ ] AF3 -- los locales enteros en REGISTROS. Los contadores de un
+- [ ] AF4 -- for i in range(...) como el for de C. Hoy el contador y
+- [ ] AF5 -- EL PRECIO DE LA SEGURIDAD, medido. Cuantas instrucciones del
 - ... y 5 mas
 
 ## [`PLAN_COBOL_MAESTRO.md`](PLAN_COBOL_MAESTRO.md) -- 7 abiertas, 1 hechas
