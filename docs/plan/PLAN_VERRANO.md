@@ -1,5 +1,13 @@
 # PLAN VERRANO -- la API de dibujo de BMO-X, con el BSF debajo
 
+> **16-10, diagnostico del dibujo:** `gpu laminas` ya tiene ruta de orden,
+> sugerencia y resumen automatico en `save`. Separa fotogramas GPU/CPU y
+> conserva etapa y motivo original del rechazo; no vuelve a leer un motivo
+> global posterior. La puerta distingue validacion local de envio al kernel
+> y escalera GPU incompleta. Se corrige tambien el desbordamiento de medida
+> en `check`. [Uso y limites](../../platform/shared/verrano/DIAGNOSTICO.md).
+> La correccion 640x360/Z pasa en anfitrion y espera RTX; C1/Q0a3 siguen abiertos.
+
 > El propietario (2026-09-25), despues de ver el cubo IGUAL sin Windows:
 > *"vamos con VERRANO pero no olvides con BSF = ese mismo BMO shader format
 > para que la GPU no pierda el tiempo"*. El nombre lo puso el 23-09

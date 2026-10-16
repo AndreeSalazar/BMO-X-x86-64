@@ -29,6 +29,7 @@ mod lente;
 /// Q0a3 (EL_FOCO, 10-10): la lamina de una app, dibujada en su ventana.
 mod laminas;
 pub(crate) use laminas::vuelta as laminas_en_su_ventana;
+pub(crate) use laminas::report as report_laminas;
 pub(crate) use verrano::orden as orden_verrano;
 pub(crate) use verrano::{palabras as palabras_verrano, vale as vale_verrano};
 

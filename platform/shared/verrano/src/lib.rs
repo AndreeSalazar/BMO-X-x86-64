@@ -271,8 +271,27 @@ pub fn check(frame: &Frame, out: &Image, max_vertices: usize) -> Result<(), Erro
         return Err(Error::Vertices);
     }
     let (w, h) = (frame.viewport.width, frame.viewport.height);
-    if w == 0 || h == 0 || w != out.width || h != out.height || out.pixels.len() < (w * h) as usize {
+    // Medidas externas no pueden desbordar antes de comprobar el bufer.
+    let pixels = w.checked_mul(h).ok_or(Error::Image)? as usize;
+    if w == 0 || h == 0 || w != out.width || h != out.height || out.pixels.len() < pixels {
         return Err(Error::Image);
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod validation_tests {
+    use super::*;
+
+    #[test]
+    fn hostile_dimensions_return_an_error_without_overflow() {
+        let vertices = [Vertex::default(); 3];
+        for (width, height) in [(0, 1), (u32::MAX, 2), (u32::MAX, u32::MAX)] {
+            let frame = Frame { vertices: &vertices, clear: [0.0; 4], viewport: Viewport { width, height }, depth: false, cull: Cull::None };
+            let mut pixels = [0xDEAD_BEEF; 4];
+            let out = Image { width, height, pixels: &mut pixels, depth: None };
+            assert_eq!(check(&frame, &out, 3), Err(Error::Image));
+            assert_eq!(pixels, [0xDEAD_BEEF; 4]);
+        }
+    }
 }

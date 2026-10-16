@@ -70,6 +70,14 @@ struct Estado {
     copiados: u32,
     /// Respaldo VERRANO CPU: la app sigue visible si el aparato no acepta.
     cpu_frames: u32,
+    last_tid: u32,
+    width: u32,
+    height: u32,
+    last_error: Option<bmo_verrano::Error>,
+    // Texto capturado al fallar: INFO_GPU_PORQUE puede cambiar despues.
+    last_reason: Option<super::Texto>,
+    last_stage: &'static str,
+    cpu_reason: &'static str,
 }
 
 static mut ESTADO: Estado = Estado {
@@ -87,6 +95,13 @@ static mut ESTADO: Estado = Estado {
     prestados: 0,
     copiados: 0,
     cpu_frames: 0,
+    last_tid: 0,
+    width: 0,
+    height: 0,
+    last_error: None,
+    last_reason: None,
+    last_stage: "sin rechazo",
+    cpu_reason: "sin respaldo CPU",
 };
 
 fn estado() -> &'static mut Estado {
@@ -97,8 +112,9 @@ fn estado() -> &'static mut Estado {
 /// ** 11-10: se dice TAMBIEN en la caja de Ejecutar (`g`), donde mira el
 /// propietario -- no solo en el panel del kernel (F11) --. MUNDO, en el
 /// metal, salio con su ventana vacia y sin una linea que dijera por que.
-fn decir(e: &mut Estado, g: &mut Output, que: &str) {
+fn decir(e: &mut Estado, g: &mut Output, que: &'static str) {
     e.imposible = true;
+    e.cpu_reason = que;
     e.secuencia = 0; // la CPU necesita dibujar tambien la publicacion rechazada
     bmo::consola("[Q0a3] la lamina NO va a su ventana: ");
     bmo::consola(que);
@@ -130,15 +146,34 @@ pub(crate) fn vuelta(dsk: &mut Desktop, p: &bmo::Pantalla) -> bool {
         e.imposible = false;
         e.sin_prestar = false;
         e.cpu_frames = 0;
+        e.prestados = 0;
+        e.copiados = 0;
+        e.last_tid = t.tid;
+        e.last_error = None;
+        e.last_reason = None;
+        e.last_stage = "sin rechazo";
+        e.cpu_reason = "sin respaldo CPU";
     }
-    if e.imposible || crate::commands::gspcomputo::la_3060_lista().is_none() || w % 32 != 0 {
+    e.width = w;
+    e.height = h;
+    if !e.imposible && crate::commands::gspcomputo::la_3060_lista().is_none() {
+        e.cpu_reason = "motor GPU no listo; no se envio el dibujo";
+        return cpu_window(e, dsk, t, i, w, h);
+    }
+    if !e.imposible && w % 32 != 0 {
+        e.cpu_reason = "ancho no multiplo de 32; no se envio el dibujo";
+        return cpu_window(e, dsk, t, i, w, h);
+    }
+    if e.imposible {
         return cpu_window(e, dsk, t, i, w, h);
     }
     // SAFETY: `tomar_prestado_de` mapeo `bytes` desde `base` en este proceso y
     // la lamina vive hasta que su app muere (`reap_dead`, en este hilo). Se
     // ve como palabras ATOMICAS: la app las escribe a la vez.
     let palabras = unsafe { core::slice::from_raw_parts(t.base as *const core::sync::atomic::AtomicU32, (t.bytes / 4) as usize) };
-    let Ok(l) = Lamina::abrir(palabras) else { return false };
+    let Ok(l) = Lamina::abrir(palabras) else {
+        return local_failure(e, dsk, bmo_verrano::Error::Vertices, "antes del kernel: cabecera de lamina invalida");
+    };
     // Sin publicacion nueva, UNA palabra y fuera (antes de reservar nada).
     if l.secuencia() == e.secuencia {
         return false;
@@ -203,7 +238,10 @@ pub(crate) fn vuelta(dsk: &mut Desktop, p: &bmo::Pantalla) -> bool {
         }
         None => {
             let (s, leido) = l.leer_si_nueva(e.secuencia, &mut e.v);
-            let Leido::Fotograma { vertices: n, .. } = leido else { return false };
+            let Leido::Fotograma { vertices: n, .. } = leido else {
+                if leido == Leido::Mentira { return local_failure(e, dsk, bmo_verrano::Error::Vertices, "antes del kernel: lamina invalida o mas de 768 vertices"); }
+                return false;
+            };
             (s, &e.v[..n])
         }
     };
@@ -219,7 +257,12 @@ pub(crate) fn vuelta(dsk: &mut Desktop, p: &bmo::Pantalla) -> bool {
     let frame = Frame { clear: bmo_cubo::FONDO_F, vertices, viewport: Viewport { width: w, height: h }, depth, cull };
     a.prestar = prestada;
     let dibujo = a.draw(&frame, &mut Image { pixels: pixeles, width: w, height: h , depth: None });
+    let stage = a.stage;
     a.prestar = false;
+    if let Err(error) = dibujo {
+        e.last_error = Some(error);
+        e.last_stage = stage;
+    }
     // El juez lee los mismos vertices: con la ranura aun reservada.
     let dicho = match dibujo {
         Ok(_) if e.dibujados % JUZGAR_CADA == 0 => juzgar(&mut e.hoja, &mut e.hoja_z, &mut e.dicho_distinto, e.dibujados == 0, &frame, pixeles, &mut dsk.out.grid),
@@ -250,14 +293,15 @@ pub(crate) fn vuelta(dsk: &mut Desktop, p: &bmo::Pantalla) -> bool {
             // se dice UNA vez y se copia desde el proximo fotograma.
             e.sin_prestar = true;
             e.secuencia = 0;
-            draw_error(&mut dsk.out.grid, error);
+            e.last_reason = Some(draw_error(&mut dsk.out.grid, error, stage));
             bmo::consola("[C1] fallo la ruta prestada: se prueba con vertices copiados\n");
             dsk.out.grid.text(b"  [C1] fallo la ruta prestada: se prueba con vertices copiados\n");
             dsk.tick.repaint_field = true;
             false
         }
         Err(error) => {
-            draw_error(&mut dsk.out.grid, error);
+            e.last_reason = Some(draw_error(&mut dsk.out.grid, error, stage));
+            e.cpu_reason = "dibujo GPU rechazado; ver ultimo rechazo";
             decir(e, &mut dsk.out.grid, "se usa VERRANO CPU para que la app siga visible"); dsk.tick.repaint_field = true;
             false
         }
@@ -265,7 +309,9 @@ pub(crate) fn vuelta(dsk: &mut Desktop, p: &bmo::Pantalla) -> bool {
 }
 
 /// El error real, incluido el numero del kernel; no se atribuye todo a C1.
-fn draw_error(g: &mut Output, error: bmo_verrano::Error) {
+fn draw_error(g: &mut Output, error: bmo_verrano::Error, stage: &str) -> super::Texto {
+    g.text(b"  [VERRANO] "); g.text(stage.as_bytes()); g.text(b"\n");
+    bmo::consola("[VERRANO] "); bmo::consola(stage); bmo::consola("\n");
     let mut text = super::Texto::nuevo();
     let _ = core::fmt::write(&mut text, format_args!("  [VERRANO] dibujo rechazado: {error:?}; "));
     match error {
@@ -278,27 +324,39 @@ fn draw_error(g: &mut Output, error: bmo_verrano::Error) {
     let _ = core::fmt::Write::write_str(&mut text, "\n");
     g.text(text.s());
     bmo::consola(core::str::from_utf8(text.s()).unwrap_or("[VERRANO] error\n"));
+    text
 }
 
 /// Respaldo de la MISMA API, sin depender de que el GSP haya arrancado.
 /// Se copian solo vertices publicados enteros; nunca se presenta como GPU.
 fn cpu_window(e: &mut Estado, dsk: &mut Desktop, t: crate::scene::surface::LaminaTomada, window: usize, width: u32, height: u32) -> bool {
-    let Some(count) = width.checked_mul(height).map(|n| n as usize).filter(|&n| n > 0 && n <= PIXELES_MAX) else { return false };
+    let Some(count) = width.checked_mul(height).map(|n| n as usize).filter(|&n| n > 0 && n <= PIXELES_MAX) else {
+        return local_failure(e, dsk, bmo_verrano::Error::Image, "respaldo CPU: medida vacia o fuera de la reserva de pixeles");
+    };
     // SAFETY: el prestamo vive mientras la app vive, en este mismo hilo.
     let words = unsafe { core::slice::from_raw_parts(t.base as *const core::sync::atomic::AtomicU32, (t.bytes / 4) as usize) };
-    let Ok(lamina) = Lamina::abrir(words) else { return false };
+    let Ok(lamina) = Lamina::abrir(words) else {
+        return local_failure(e, dsk, bmo_verrano::Error::Vertices, "respaldo CPU: cabecera de lamina invalida");
+    };
     if lamina.secuencia() == e.secuencia { return false; }
     if e.bloque.is_none() { e.bloque = bmo::Memoria::residente(4 * PIXELES_MAX as u64); }
     let (depth, cull) = lamina.estado();
     if depth && e.hoja_z.is_none() { e.hoja_z = bmo::Memoria::residente(4 * PIXELES_MAX as u64); }
-    let Some(block) = e.bloque.as_ref() else { return false };
+    let Some(block) = e.bloque.as_ref() else {
+        return local_failure(e, dsk, bmo_verrano::Error::Image, "respaldo CPU: sin memoria para el color");
+    };
     let z = if depth {
-        let Some(block) = e.hoja_z.as_ref() else { return false };
+        let Some(block) = e.hoja_z.as_ref() else {
+            return local_failure(e, dsk, bmo_verrano::Error::Image, "respaldo CPU: sin memoria para profundidad");
+        };
         // SAFETY: bloque propio residente, al menos count f32, solo este hilo.
         Some(unsafe { core::slice::from_raw_parts_mut(block.base() as *mut f32, count) })
     } else { None };
     let (sequence, read) = lamina.leer_si_nueva(e.secuencia, &mut e.v);
-    let Leido::Fotograma { vertices, .. } = read else { return false };
+    let Leido::Fotograma { vertices, .. } = read else {
+        if read == Leido::Mentira { return local_failure(e, dsk, bmo_verrano::Error::Vertices, "respaldo CPU: lamina invalida o mas de 768 vertices"); }
+        return false;
+    };
     let frame = Frame { clear: bmo_cubo::FONDO_F, vertices: &e.v[..vertices as usize], viewport: Viewport { width, height }, depth, cull };
     let address = block.base() as u64;
     // SAFETY: bloque propio residente de PIXELES_MAX; count cabe y la ventana
@@ -306,12 +364,15 @@ fn cpu_window(e: &mut Estado, dsk: &mut Desktop, t: crate::scene::surface::Lamin
     let pixels = unsafe { core::slice::from_raw_parts_mut(address as *mut u32, count) };
     let mut cpu = bmo_verrano::cpu::Cpu { max_vertices: MAX_VERTICES, ..bmo_verrano::cpu::Cpu::LA_3060 };
     if let Err(error) = cpu.draw(&frame, &mut Image { pixels, width, height, depth: z }) {
-        if e.cpu_frames == 0 { draw_error(&mut dsk.out.grid, error); }
+        local_failure(e, dsk, error, "respaldo CPU: validacion o memoria de la imagen");
         e.secuencia = sequence;
         return false;
     }
     e.secuencia = sequence;
     if e.cpu_frames == 0 {
+        dsk.out.grid.text(b"  [VERRANO CPU] motivo: ");
+        dsk.out.grid.text(e.cpu_reason.as_bytes()); dsk.out.grid.text(b"\n");
+        bmo::consola("[VERRANO CPU] motivo: "); bmo::consola(e.cpu_reason); bmo::consola("\n");
         let message = "  [VERRANO CPU] la lamina se dibuja en su ventana con profundidad y descarte; respaldo, no GPU\n";
         bmo::consola(message);
         dsk.out.grid.text(message.as_bytes());
@@ -320,6 +381,44 @@ fn cpu_window(e: &mut Estado, dsk: &mut Desktop, t: crate::scene::surface::Lamin
     e.cpu_frames = e.cpu_frames.wrapping_add(1);
     dsk.table.poner_fuente(window, address, sequence);
     true
+}
+
+/// Un fallo repetido no llena la consola; un motivo nuevo SI se dice.
+fn local_failure(e: &mut Estado, dsk: &mut Desktop, error: bmo_verrano::Error, stage: &'static str) -> bool {
+    if e.last_error != Some(error) || e.last_stage != stage {
+        e.last_error = Some(error);
+        e.last_stage = stage;
+        e.last_reason = Some(draw_error(&mut dsk.out.grid, error, stage));
+        dsk.tick.repaint_field = true;
+    }
+    false
+}
+
+/// Solo consulta: ni abre la puerta, ni dibuja, ni reinicia el aparato.
+/// Se incluye tambien en `save`: los contadores solos no prueban igualdad.
+pub(crate) fn report(g: &mut Output) {
+    let e = estado();
+    g.text(b"  VERRANO -- ultima app con lamina\n");
+    if e.last_tid == 0 {
+        g.text(b"  Sin lamina observada por el escritorio en esta sesion.\n");
+        return;
+    }
+    g.text(b"  tid "); g.dec(e.last_tid as u64);
+    g.text(if e.tid == 0 { b" (cerrada), " } else { b" (activa), " });
+    g.dec(e.width as u64); g.text(b"x"); g.dec(e.height as u64); g.text(b"\n");
+    g.text(b"  GPU: "); g.dec(e.dibujados as u64);
+    g.text(b" fotogramas; prestados "); g.dec(e.prestados as u64);
+    g.text(b", copiados "); g.dec(e.copiados as u64);
+    g.text(b"; CPU de respaldo: "); g.dec(e.cpu_frames as u64); g.text(b"\n");
+    if e.cpu_frames > 0 {
+        g.text(b"  Motivo CPU: "); g.text(e.cpu_reason.as_bytes()); g.text(b"\n");
+    }
+    if e.last_error.is_some() {
+        g.text(b"  Ultimo rechazo (conservado aunque despues funcione):\n");
+        g.text(b"  [VERRANO] "); g.text(e.last_stage.as_bytes()); g.text(b"\n");
+        if let Some(reason) = e.last_reason.as_ref() { g.text(reason.s()); }
+    }
+    g.text(if e.dicho_distinto { b"  Juez: se detectaron diferencias GPU/CPU; revisar consola.\n" } else { b"  Igualdad GPU/CPU: consultar el juicio Q0a3, no estos contadores.\n" });
 }
 
 /// **El juez**: el fotograma, otra vez por la CPU de VERRANO, contra lo que

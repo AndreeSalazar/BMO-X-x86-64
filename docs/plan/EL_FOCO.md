@@ -1,5 +1,11 @@
 # EL FOCO -- una cosa a la vez, hasta el final (10-10; el orden nuevo, 14-10)
 
+> **Diagnostico listo en anfitrion:** `gpu laminas` se conecta a la orden y
+> a `save`: contadores GPU/CPU por app, etapa y motivo capturado al fallar.
+> No dar por acelerado un juego solo porque sea visible. La corrida sigue
+> siendo MUNDO + consulta + `save`, con kernel y DIRECTOR reconstruidos.
+> [Uso](../../platform/shared/verrano/DIAGNOSTICO.md).
+
 > **Tercera tanda 16-10, 17:06:** GPU despierta y lienzo correcto; MUNDO
 > usa CPU porque VRN1 rechazaba 640x360 con Z antes del kernel. Correccion
 > en anfitrion: region de las superficies fijas y copia de su medida real.

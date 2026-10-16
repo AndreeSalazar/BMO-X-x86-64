@@ -221,6 +221,8 @@ pub(super) struct Abierto {
 /// **El backend**: el paquete (programas del BSF + vertices) al kernel, y la
 /// ventana leida de vuelta si se pide.
 pub(super) struct Aparato<'a> {
+    /// Ultima fase de draw: si devuelve error, dice DONDE, sin inferir GPU.
+    pub(super) stage: &'static str,
     ficha: u64,
     paquete: &'a mut [u8],
     vs: &'static [u8],
@@ -395,7 +397,7 @@ pub(super) fn abrir<'a>(dsk: &mut Desktop, p: &bmo::Pantalla, caja: &'a mut [u8]
     let ficha = super::super::gspcomputo::ficha_del_gr().map_err(|m| motivo(dsk, m))?;
     let origen: &'static [u8] = if op.bmox12 { b"de BMOX-12 por PROTON-X" } else { b"del BSF" };
     let abierto = Abierto { instrucciones, bytes_vs: vs.len(), bytes_ps: ps.len(), origen };
-    Ok((Aparato { ficha, paquete: caja, vs, ps, propio, propio_n, ligero: op.ligero, anillo: op.anillo, coopera: op.coopera, antes: None, limpiados: 0, dibujos: 0, gobierno: Gobierno { activo: op.anillo && !op.reposo, ..Gobierno::default() }, fases: Fases::default(), bmox12: op.bmox12.then_some(op.fotograma), antihorario: op.antihorario, z: op.z, ambas: op.ambas, enram, vertice: modulo, leer: true, leer_ms: 0, en_la_imagen: op.en_la_imagen, prestar: false }, abierto))
+    Ok((Aparato { stage: "sin dibujo", ficha, paquete: caja, vs, ps, propio, propio_n, ligero: op.ligero, anillo: op.anillo, coopera: op.coopera, antes: None, limpiados: 0, dibujos: 0, gobierno: Gobierno { activo: op.anillo && !op.reposo, ..Gobierno::default() }, fases: Fases::default(), bmox12: op.bmox12.then_some(op.fotograma), antihorario: op.antihorario, z: op.z, ambas: op.ambas, enram, vertice: modulo, leer: true, leer_ms: 0, en_la_imagen: op.en_la_imagen, prestar: false }, abierto))
 }
 
 /// Un color de VERRANO (`[r, g, b, a]` de 0 a 1) como pixel de la memoria,
@@ -411,7 +413,8 @@ impl Aparato<'_> {
     /// si no cabe o sus filas no son de 128 bytes (la 3060 lo pide).
     fn destino_en_ram(&self, frame: &Frame, out: &Image) -> Result<Option<(u64, bmo_gpu_ga10x::destino::Destino)>, Error> {
         let (ancho, alto) = (frame.viewport.width, frame.viewport.height);
-        let d = bmo_gpu_ga10x::destino::Destino { fila: 4 * ancho, ancho, alto, flotante: bmo_gpu_ga10x::destino::Flotante::No, rgb: false };
+        let fila = ancho.checked_mul(4).ok_or(Error::Image)?;
+        let d = bmo_gpu_ga10x::destino::Destino { fila, ancho, alto, flotante: bmo_gpu_ga10x::destino::Flotante::No, rgb: false };
         // ** Q0a3: la `Image` ES el destino (la ventana de la app).
         if self.en_la_imagen {
             let va = out.pixels.as_ptr() as u64;
@@ -434,22 +437,27 @@ impl Backend for Aparato<'_> {
         // V2 (11-10): EN RAM va por VRN1 (`tuberia`), que toma miles de
         // vertices; el anillo del cubo de V0, sus 24.
         let tope = if self.en_la_imagen || self.enram.is_some() { tu::MAX_VERTICES } else { V0_MAX };
+        self.stage = "antes del kernel: cantidad de vertices o medida de imagen";
         check(frame, out, tope)?;
         // Lo que se le da al programa, contra lo que el programa dice leer.
         let dado = Given { set: 0, binding: 0, addr: frame.vertices.as_ptr() as u64, bytes: (frame.vertices.len() * VERTEX_BYTES) as u64, writable: false };
+        self.stage = "antes del kernel: contrato de buffers del BSF";
         self.vertice.check(&[dado]).map_err(|_| Error::Vertices)?;
         // En la PANTALLA, la ventana del cubo y su FONDO son los de las
         // ordenes de X5. ** Q0a2: EN RAM, la medida del fotograma (la que
         // quepa en el bloque, con filas de 128 bytes) y su fondo lo limpia la
         // 3060 (`destino_en_ram`).
+        self.stage = "antes del kernel: destino, memoria o alineacion de filas/base";
         let en_ram = self.destino_en_ram(frame, out)?;
         if en_ram.is_none() && ((frame.viewport.width, frame.viewport.height) != (cu::ANCHO, cu::ALTO) || frame.clear.map(f32::to_bits) != cu::FONDO) {
+            self.stage = "antes del kernel: pantalla directa exige medida y fondo del banco";
             return Err(Error::Image);
         }
         let limpiar = if self.coopera { self.recorte(frame) } else { None };
         let t1 = bmo::ciclos();
         let vs = if self.propio_n > 0 { &self.propio[..self.propio_n] } else { self.vs };
         if let Some(f) = self.bmox12 {
+            self.stage = "antes del kernel: paquete indexado de BMOX-12";
             // P3b4b: el cbuffer, los 24 vertices SIN transformar y sus 36
             // INDICES; que caras miran a la camara lo decide la 3060 (el
             // descarte de las traseras), no la CPU. `frame` (la tanda) es
@@ -484,16 +492,24 @@ impl Backend for Aparato<'_> {
             let z = frame.depth.then_some(bmo_gpu_ga10x::profundidad::Z { funcion: 2, escribir: true, limpiar: Some(bmo_gpu_ga10x::profundidad::UNO) });
             let descarte = if frame.cull == bmo_verrano::Cull::Back { tu::Descarte::Traseras } else { tu::Descarte::Ninguna };
             let dibujo = tu::Dibujo { vertices: frame.vertices.len() as u32, destino: Some(destino), color: Some(pixel_de(frame.clear)), z, descarte, antihorario: false, ..tu::Dibujo::default() };
+            self.stage = "antes del kernel: profundidad admite hasta 1280x720";
+            if frame.depth && (destino.1.ancho > cu::ANCHO || destino.1.alto > cu::ALTO) {
+                return Err(Error::Image);
+            }
             if self.prestar {
+                self.stage = "antes del kernel: paquete VRN1 con vertices prestados";
                 // C1: 16 B de descriptor; la 3060 los lee de la lamina misma.
                 tu::escribir_paquete_prestado(self.paquete, self.ficha as u32, vs, self.ps, frame.vertices.as_ptr() as u64, frame.vertices.len(), dibujo).ok_or(Error::Vertices)?;
             } else {
+                self.stage = "antes del kernel: paquete VRN1 con vertices copiados";
                 tu::escribir_paquete_dibujo_de(self.paquete, self.ficha as u32, vs, self.ps, v, dibujo).ok_or(Error::Vertices)?;
             }
         } else if frame.depth || frame.cull != bmo_verrano::Cull::None {
+            self.stage = "antes del kernel: pantalla directa sin profundidad ni descarte";
             // V2: a la pantalla (V0) no hay z-buffer ni descarte: EN RAM si.
             return Err(Error::Image);
         } else {
+            self.stage = "antes del kernel: paquete de pantalla directa";
             let v = frame.vertices.iter().map(|s| tu::Vertice { posicion: s.position.map(f32::to_bits), color: s.color.map(f32::to_bits) });
             tu::escribir_paquete_de(self.paquete, self.ficha as u32, vs, self.ps, v, limpiar.map(|r| (r.x0 | r.x1 << 16, r.y0 | r.y1 << 16))).ok_or(Error::Vertices)?;
         }
@@ -507,6 +523,7 @@ impl Backend for Aparato<'_> {
         } else {
             0
         };
+        self.stage = "kernel: envio del dibujo; consultar codigo y motivo";
         let r = bmo::iommu_orden_con(bmo::IOMMU_OP_GPU_CUBO, bmo::CUBO_VERRANO | modo | self.paquete.as_ptr() as u64).map_err(Error::Device)?;
         let t3 = bmo::ciclos();
         let f = &mut self.fases;
@@ -517,6 +534,7 @@ impl Backend for Aparato<'_> {
         f.preparar_us += cu::preparado(r).1 as u64;
         let (us, tris, etapas, _) = cu::desempaquetar(r);
         if !cu::sano(r) {
+            self.stage = "GPU: escalera de finalizacion incompleta";
             return Err(Error::Device(ESCALERA | etapas));
         }
         let (warm, prepare_us) = cu::preparado(r);
@@ -546,6 +564,7 @@ impl Backend for Aparato<'_> {
             return Ok(st);
         }
         for k in 0..n / 2 {
+            self.stage = "kernel: lectura del resultado de pantalla";
             let d = bmo::iommu_orden_con(bmo::IOMMU_OP_GPU_CUBO, bmo::CUBO_LEER | k as u64).map_err(Error::Device)?;
             out.pixels[2 * k] = 0xFF00_0000 | d as u32;
             out.pixels[2 * k + 1] = 0xFF00_0000 | (d >> 32) as u32;

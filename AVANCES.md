@@ -1,5 +1,11 @@
 # AVANCES -- estado de BMO-X (recuperacion de contexto)
 
+> **16-10, VERRANO habla:** `gpu laminas` conectado (antes solo figuraba en
+> un comentario), con contadores por app y ultimo rechazo conservado; entra
+> en `save`. Etapas locales/kernel/GPU y motivo CPU visibles, sin atribuir
+> todo a la tarjeta. `check` evita desbordar la medida de imagen. No cambia
+> la API publica ni el ABI de TITAN++. [Detalle](platform/shared/verrano/DIAGNOSTICO.md).
+
 > **16-10, tercera tanda 17:06-17:09:** GSP despierto y lienzo correcto,
 > MUNDO por CPU. Causa reproducida: VRN1 exigia 1280x720 para Z y rechazaba
 > 640x360 antes del kernel. Ahora permite region menor y copia solo sus
