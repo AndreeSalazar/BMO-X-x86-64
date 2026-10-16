@@ -15,6 +15,18 @@ una escuela de esquema; la ponen las piezas que hay dentro de la caja.
 Toolchain propio (C / COBOL / **Ada** / C++ -> BEF -> BEX nativo), y los
 tres primeros **ya han ejecutado en el Ryzen**.
 
+> ## ★ Al 2026-10-16 -- LAS PAGINAS DEL OFICIO EN ECCE
+>
+> - **PL4, el paginado** (`apps/ecce/src/pagina.titan`): 55 lineas por
+>   pagina con las reglas de Final Draft -- la escena nunca sola al final,
+>   el dialogo partido con "(MAS)" y "NOMBRE (CONT.)", "===" salta --. La
+>   ventana pinta donde acaba cada pagina y la mesa muestra las paginas de
+>   verdad. Falta el juez contra Final Draft y el Ryzen (6b: PAG).
+> - **La letra elegante** la pidio el propietario (*"que todo el INTERFAZ
+>   se vea mucho mas elegante"*): plan PL18 de `docs/plan/PLAN_ECCE.md`,
+>   leer `.ttf` y rasterizar con borde suave, primero ECCE y luego el
+>   escritorio entero.
+
 > ## ★ Al 2026-10-15 -- ECCE ESCRIBE GUIONES, Y LA LENTE HABLA CASTELLANO
 >
 > Lo pedido y POR QUE (las palabras del propietario):

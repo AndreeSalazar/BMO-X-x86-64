@@ -1219,6 +1219,12 @@ pieza entera en la 0b, y su fila de la tabla de estado pasa a `VISTO dd-mm`.
                                        cursor ahi; arrastrar selecciona; linea (la de arriba o
                                        Alt+X corta lo arrastrado         abajo), o arrastrar no
                                                                          selecciona
+   PAG    las paginas del oficio       un guion de mas de una pagina en  sin raya, o el (MAS) y el  (sin probar)
+          (PL4 de PLAN_ECCE)           ECCE: donde acaba la pagina, la    (CONT.) no salen al partir
+                                       raya con "pag 2"; un dialogo       un dialogo, o el pie no
+                                       partido lleva "(MAS)" y "NOMBRE   dice "pag N de M"
+                                       (CONT.)"; Alt + rueda: la mesa
+                                       muestra esas paginas
    IC     la cara ELEGANTE de ECCE     el icono de ECCE en el escritorio sale el cuadro con la E,  (sin probar)
           (32 px, borde suave, de      a 32 con el borde suave (la hoja  o con bordes en escalera,
           su `icono.svg`)              y la pluma de oro), sobre la foto o un halo oscuro alrededor

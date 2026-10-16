@@ -223,9 +223,22 @@ guardadas como ESTRATOS (como la `.obra` de
       prueba paginados en Final Draft dan las MISMAS paginas y los mismos
       cortes aqui.
       - [x] los margenes del oficio, en columnas (15-10)
-      - [ ] la pagina de 55 lineas con sus reglas: no dejar un personaje
-        solo al final, (MAS) y (CONT.) en el dialogo partido, "===" salta
-      - [ ] el juez contra Final Draft
+      - [x] la pagina de 55 lineas con sus reglas (16-10, `pagina.titan`):
+        el blanco de arriba no cuenta, acto y sinopsis no ocupan, "==="
+        salta, la escena nunca sola al final (con dos lineas mas), el
+        dialogo se parte con el nombre y dos lineas arriba y dos abajo --
+        "(MAS)" abajo y "NOMBRE (CONT.)" arriba de la siguiente, nunca un
+        parentesis al final --, la accion se parte dejando dos a cada lado,
+        la transicion no se parte; un dialogo de mas de una pagina se parte
+        las veces que haga falta. En la ventana, donde acaba cada pagina:
+        el (MAS), la raya con "pag N" y el (CONT.); el pie dice "pag N de
+        M" y la mesa del guion muestra las paginas DE VERDAD (pruebas
+        `tests/ecce_pagina.rs`, 7, y
+        `the_page_break_shows_more_the_rule_and_cont`)
+      - [ ] partir la accion y el dialogo por el final de una FRASE (hoy
+        por la linea que cabe)
+      - [ ] el juez contra Final Draft (pide guiones paginados en Final
+        Draft: los da el propietario, en PDF o `.fdx`, PL7)
 - [ ] **PL5 -- SmartType:** completar personajes, lugares y momentos.
 - [ ] **PL6 -- el PDF:** el guion entregable. **Como se sabe:** abre en
       cualquier lector de PDF y se ve igual que en pantalla.
@@ -305,6 +318,30 @@ guardadas como ESTRATOS (como la `.obra` de
       construyen letra a letra (un `[byte]` a `text`), o el dialogo del
       director.
 
+- [ ] **PL18 -- LA LETRA ELEGANTE** (el propietario, 16-10: *"ECCE puede
+      tener letras elegantes? [...] que todo el INTERFAZ se vea mucho mas
+      elegante"*). Hoy todo BMO-X escribe con UNA letra de mapa de bits,
+      8x16 y sin grises (`fontgen`). Una letra de verdad es un fichero
+      `.ttf` / `.otf`: contornos (curvas) que se RASTERIZAN a la medida que
+      se pida, con el borde suave. La escalera:
+      - [ ] LE1 -- `bmo-letra` (Rust, en el anfitrion, como `bmo-icono`, y
+        con su mismo rasterizador de contornos): lee un TrueType (`glyf`,
+        curvas cuadraticas) y saca un ATLAS de Latin-1 a las medidas pedidas,
+        con alfa de 8 bits. El juez: sus glifos contra FreeType, pixel a
+        pixel con tolerancia
+      - [ ] LE2 -- TITAN++: `letra = "CourierPrime.ttf"` en el Titan.toml
+        (como el icono) va al paquete de la app, y `director.letra` /
+        `director.texto` aprenden la letra y la medida, mezclando el alfa
+      - [ ] LE3 -- ECCE con la letra del oficio: Courier Prime (libre, OFL,
+        hecha para guiones) en la hoja; una letra de interfaz (Inter o Lora,
+        OFL) en la cabecera, el pie y la mesa
+      - [ ] LE4 -- EL ESCRITORIO entero con la misma letra: el director lee
+        el atlas; la de 8x16 queda para el kernel y la caja negra
+      - [ ] LE5 -- OpenType con CFF (curvas cubicas), el kerning y las
+        ligaduras
+      Las letras vienen de Google Fonts (ficheros `.ttf` con su licencia OFL,
+      que deja meterlas en el arbol con su `OFL.txt`); NO de un video: una
+      letra es un fichero, no una imagen.
 ---
 
 ## 5. Que hace cada lado
