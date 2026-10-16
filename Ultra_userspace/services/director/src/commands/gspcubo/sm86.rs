@@ -729,6 +729,17 @@ fn exigir(t: &mut Texto) {
 /// `Error::Device(ESCALERA | etapas)`: se lanzo y no se pago entero.
 const ESCALERA: u32 = 0x5E00;
 
+/// Consultar inmediatamente despues del NO; el registro es global y guarda
+/// el ultimo rechazo, que otra peticion posterior podria reemplazar.
+pub(super) fn rejection_reason(code: u32, out: &mut impl core::fmt::Write) {
+    if code & 0xFF00 == ESCALERA {
+        let _ = write!(out, "envio sin completar: etapas {:#x}; consultar gpu y gpu aviso", code & 0xFF);
+        return;
+    }
+    let _ = write!(out, "codigo {code:#x}; ultimo motivo registrado: ");
+    let _ = bmo_gpu_ga10x::porque::decir(bmo::info(bmo::INFO_GPU_PORQUE), out);
+}
+
 /// **Decir por que la 3060 no dibujo**, con lo que ESTA tarjeta sabe contar:
 /// la escalera de T1c y los avisos del GSP. `en` = el fotograma del banco.
 pub(super) fn fallo(dsk: &mut Desktop, e: Error, en: Option<u32>, op: Opciones) -> After {

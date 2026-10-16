@@ -34,7 +34,7 @@ pide Cyberpunk por PROTON-X --.
 
 # 1. LA ESCALERA
 
-- [ ] **MC1 -- el mundo de bloques, la camara y picar.** Un mundo de
+- [x] **MC1 -- el mundo de bloques, la camara y picar.** Un mundo de
       16 x 8 x 16 en una `[byte]` (TA1): piedra, hierba, una torre, un arbol
       y una loma. Sus caras JUNTADAS en rectangulos (*greedy meshing*: un
       suelo de 16 x 16 es una cara, no 256) y, cada fotograma, solo las que
@@ -60,7 +60,15 @@ pide Cyberpunk por PROTON-X --.
       - El juez de TITAN++, **T0057**: un `mut` que cambia en UN camino y
         vuelve pronto por otro (`return false`) ya no es "no cambia nunca"
         (`ejemplos/nivel7/cambia_en_un_camino.titan`).
-      **Falta el metal** (seccion 3).
+      **16-10:** el metal rechazo el prestamo C1 y despues el dibujo copiado.
+      Se agrega el error de VERRANO y el ultimo motivo del kernel a la salida;
+      si la GPU no acepta, el escritorio usa VERRANO CPU con profundidad y
+      descarte. Tambien usa CPU si no hay GPU lista o el ancho no es multiplo
+      de 32. Compilado; el dibujo del mundo pasa en el juez del anfitrion.
+      **METAL 16-10, confirmado por el propietario:** probo jugar y verlo
+      funcionar: "FUNCIONO MUY BIEN". Se cierra la base funcional de MC1.
+      No se identifica el backend utilizado ni se acredita una comparacion
+      GPU/CPU nueva: el prestamo C1 y su causa siguen abiertos.
 - [ ] **MC2 -- mirar arriba y abajo, y la mira.** El cabeceo de la camara
       (otra rotacion en las gpu fn), el bloque apuntado RESALTADO (sus
       aristas en otro color) y el rayo de picar en 3D, no solo a la altura
@@ -82,8 +90,16 @@ pide Cyberpunk por PROTON-X --.
       solo la camara por fotograma --, que es lo que hace un juego de
       verdad. Y el tope de la lamina en el DIRECTOR (`laminas.rs`, 768
       vertices) sube con el.
-- [ ] **MC5 -- guardar el mundo.** `datos/mundo.bin`: los bytes del mundo
-      con `director.crea/escribe/cierra` (4e), y se carga al abrir.
+- [ ] **MC5 -- guardar el mundo.** `datos/mundo.bmv`: cabecera BMW1 de ocho
+      bytes (magia, medidas 16 x 8 x 16, reservado), seguida de 2048 bloques.
+      **16-10, HECHO en el anfitrion:** carga validando longitud, cabecera
+      y todos los tipos antes de usar los bloques; G guarda, Esc guarda los
+      cambios y cierra. Si el disco falla al salir, conserva el juego abierto.
+      Seis pruebas de MUNDO pasan: dibujo, movimiento, picar, persistencia,
+      guardados corruptos y fallo de escritura. No guarda la camara.
+      **Falta el metal del guardado:** el propietario aclara el 16-10 que
+      solo probo jugar y verlo funcionar, sin cerrar/recargar los cambios.
+      Uso: [README de la app](../../Ultra_userspace/apps/mundo/README.md).
 - [ ] **MC6 -- texturas.** Cada tipo de bloque con su dibujo de 16 x 16, de
       un atlas. **Necesita:** M3 de VERRANO (la textura en la VRAM y su
       muestreador; Ring 0, la tarea de las texturas con mips).
@@ -123,11 +139,31 @@ pide Cyberpunk por PROTON-X --.
    QUE                        APROBADO   HECHO EN EL ANFITRION   EN EL METAL
    el orden (TINTA, MUNDO,    si (10-10) --                      --
    ILLAPA)
-   MC1 bloques, camara,       si         si (tests/mundo.rs)     POR PROBAR
-   picar
-   V2b el recorte de cerca    con MC1    si (juez de la CPU)     POR PROBAR
-   MC2..MC8                   no         --                      --
+   MC1 bloques, camara,       si         si (tests/mundo.rs)     SI, PROPIETARIO 16-10
+   picar                     (juego funcional confirmado 16-10; backend sin identificar)
+   V2b el recorte de cerca    con MC1    si (juez de la CPU)     GPU POR PROBAR
+   MC5 guardar                si (16-10) si (tests/mundo.rs)     POR PROBAR
+   MC2..MC4, MC6..MC8         por cerrar --                      --
 ```
+
+## 4. SIGUIENTE TANDA -- control de la camara, antes de ampliar el mundo
+
+- [x] MC1 funcional en metal, por confirmacion del propietario (16-10).
+- [x] MC5 implementado y probado en el anfitrion, incluidos corrupcion y fallo de disco.
+- [ ] MC5 metal: quitar/poner, guardar, cerrar y volver a abrir; conservar los cambios.
+- [ ] MC2a: mirar arriba y abajo por teclado, mira central y rayo de picar
+      que siga la inclinacion. Probar arriba/abajo, alcance y bloque colocado.
+- [ ] MC2b: resaltar el bloque apuntado y movimiento relativo del raton;
+      capturar al jugar y liberar al salir o perder el foco.
+- [ ] MC3: teclas mantenidas, gravedad, salto y colision del cuerpo por ejes.
+- [ ] GPU: recuperar el error concreto de MUNDO y cerrar C1/Q0a3 por causa;
+      seguir distinguiendo GPU de CPU. El respaldo no cierra esa meta.
+- [ ] Despues MC4: vertices fuera de la pila y trozos; luego texturas,
+      luz y transparencia. No aumentar el mundo sobre el limite de 80 caras.
+
+La tanda siguiente es MC2a, con pruebas del anfitrion antes del metal.
+El guardado requiere solo una reapertura para su validacion; no pide
+reinicios repetidos. Cyberpunk mantiene su plan independiente.
 
 **Lo que se prueba en el metal** (y que seria un NO):
 
@@ -142,4 +178,9 @@ pide Cyberpunk por PROTON-X --.
    4  la consola: `[Q0a3] el juez ... la 3060 da lo MISMO` (o un recuento
       pequenio de pixeles). Si dice DISTINTO con muchos pixeles abajo de la
       pantalla, es el recorte de cerca de la 3060 (V2b de PLAN_VERRANO)
+      Si rechaza, conservar la linea `[VERRANO] dibujo rechazado` con su
+      motivo. `[VERRANO CPU]` acredita el respaldo, no el render por GPU.
+   5  quitar un bloque, G, Esc y volver a abrir: el hueco sigue. Poner tablas,
+      Esc y volver a abrir: siguen las tablas. NO: reaparece el mundo inicial
+      tras un mensaje que dice guardado correcto.
 ```

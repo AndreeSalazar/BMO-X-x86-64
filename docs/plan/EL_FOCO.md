@@ -1,5 +1,18 @@
 # EL FOCO -- una cosa a la vez, hasta el final (10-10; el orden nuevo, 14-10)
 
+> **Foco actual, 16-10: MUNDO nativo en TITAN++ y VERRANO.** El propietario
+> confirma jugar y verlo funcionar en el metal: MC1 funcional cerrado.
+> MC5 (guardar) pasa en el anfitrion; no se ha probado cerrar y recargar en
+> metal. Siguiente: MC2a, inclinacion por teclado, mira y rayo en 3D;
+> despues raton relativo y fisica. C1/Q0a3 GPU conserva su meta propia:
+> el respaldo CPU no acredita render GPU. [Metas](PLAN_MUNDO.md).
+
+> **Resultado del metal, 16-10:** GSP listo, init repetido correcto, VERRANO
+> IGUAL a CPU/D3D12 y consulta de bits vista. El informe cazo offsets
+> truncados solo en los rotulos: corregidos en el anfitrion. MUNDO informa
+> C1 y Q0a3 sin completar, pese a la GPU despierta. Evidencia y limites:
+> [`METAL_2026-10-16.md`](../metal/METAL_2026-10-16.md).
+
 > **16-10, foco pedido ahora: M3a y la lente precisa de bytes.** M3a queda
 > cerrado en el anfitrion (-30,54 % de instrucciones en ordenar, sin
 > regresiones del banco). La vista cruda de la autopsia (hex y bits, hasta

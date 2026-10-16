@@ -170,3 +170,66 @@ fn picking_takes_a_block_away_and_putting_one_shows_planks() {
     let (_, _, tablas, _) = cuenta(&c);
     assert!(tablas > 1_000, "las tablas puestas se ven: {tablas}");
 }
+
+fn close_world(code: &[u8], keys: &str, saved: Option<&[u8]>) -> bmo_lower::emu::Machine {
+    let mut m = cargar_bex(code).unwrap();
+    m.padre = 7;
+    if let Some(bytes) = saved {
+        m.archivos.insert("datos/mundo.bmv".into(), bytes.to_vec());
+    }
+    for c in keys.bytes().chain([27]) {
+        m.buzon_pendiente.push_back(letra(c));
+    }
+    let m = bmo_lower::emu::run(m, 100_000_000);
+    assert!(m.exited, "MUNDO no cerro: {}", m.console);
+    m
+}
+
+#[test]
+fn edited_blocks_survive_closing_and_loading() {
+    let code = bex();
+    let untouched = close_world(&code, "", None);
+    assert!(!untouched.archivos.contains_key("datos/mundo.bmv"));
+    let initial = close_world(&code, "g", None);
+    let baseline = &initial.archivos["datos/mundo.bmv"];
+    let edited = close_world(&code, "wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwx", None);
+    let saved = &edited.archivos["datos/mundo.bmv"];
+    assert_eq!(saved.len(), 2056);
+    assert_eq!(&saved[..8], &[66, 77, 87, 49, 16, 8, 16, 0]);
+    assert!(saved[8..].iter().all(|b| *b <= 6));
+    assert_ne!(saved, baseline, "el bloque quitado se guarda");
+    let loaded = close_world(&code, "g", Some(saved));
+    assert!(loaded.console.contains("mundo cargado"), "{}", loaded.console);
+    assert_eq!(&loaded.archivos["datos/mundo.bmv"], saved);
+}
+
+#[test]
+fn malformed_worlds_are_refused_and_preserved_on_clean_exit() {
+    let code = bex();
+    let initial = close_world(&code, "g", None);
+    let valid = &initial.archivos["datos/mundo.bmv"];
+    let mut bad_header = valid.clone();
+    bad_header[0] = 0;
+    let mut bad_block = valid.clone();
+    bad_block[100] = 255;
+    for bad in [&valid[..100], &bad_header[..], &bad_block[..]] {
+        let m = close_world(&code, "", Some(bad));
+        assert!(m.console.contains("se abre el mundo inicial"), "{}", m.console);
+        assert!(!m.console.contains("mundo cargado"));
+        assert_eq!(&m.archivos["datos/mundo.bmv"][..], bad);
+    }
+}
+
+#[test]
+fn failed_save_keeps_the_edited_world_open() {
+    let mut m = cargar_bex(&bex()).unwrap();
+    m.padre = 7;
+    m.fallar_al_guardar("datos/mundo.bmv");
+    for c in b"wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwx\x1b" {
+        m.buzon_pendiente.push_back(letra(*c));
+    }
+    let (m, stopped) = run_acotado(m, 30_000_000);
+    assert!(!stopped && !m.exited, "el fallo no debe cerrar: {}", m.console);
+    assert!(m.console.contains("el disco NO guardo; sigue abierto"), "{}", m.console);
+    assert!(!m.archivos.contains_key("datos/mundo.bmv"));
+}

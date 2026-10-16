@@ -1,0 +1,44 @@
+# MC5: los bloques de MUNDO sobreviven al cerrar. Formato de la casa BMW1:
+# ocho bytes de cabecera (magia y medidas), despues un byte por bloque.
+# Se valida TODO antes de usarlo o abrir el fichero para escribir.
+mod guardado "MUNDO: cargar y guardar los bloques, con formato comprobado"
+use director
+
+fn header() -> [int; 8]
+    return [66, 77, 87, 49, 16, 8, 16, 0]
+
+pub fn load(original: [byte]) -> [byte]
+    if not director.fichero("datos/mundo.bmv")
+        return original
+    if director.medida() != 8 + len(original)
+        print("MUNDO: guardado de otra medida; se abre el mundo inicial")
+        return original
+    let h = header()
+    for i in range(8)
+        let expected: int = h[i]
+        if director.byte(i) != expected
+            print("MUNDO: cabecera del guardado no reconocida; se abre el mundo inicial")
+            return original
+    let mut world: [byte] = []
+    for i in range(len(original))
+        let b = director.byte(8 + i)
+        if b < 0 or b > 6
+            print("MUNDO: tipo de bloque no reconocido; se abre el mundo inicial")
+            return original
+        push(mut world, byte(b))
+    print("MUNDO: mundo cargado de datos/mundo.bmv")
+    return world
+
+pub fn save(world: [byte]) -> bool
+    if len(world) != 2048
+        return false
+    for b in world
+        if b > 6
+            return false
+    if not director.crea("datos/mundo.bmv")
+        return false
+    for b in header()
+        director.escribe(b)
+    for b in world
+        director.escribe(b)
+    return director.cierra()

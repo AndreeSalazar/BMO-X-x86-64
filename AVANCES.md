@@ -1,5 +1,26 @@
 # AVANCES -- estado de BMO-X (recuperacion de contexto)
 
+> **16-10, decision del propietario: continuar MUNDO nativo en TITAN++ y
+> VERRANO.** Guardado BMW1 (G y Esc), validacion de ficheros y seis pruebas
+> del anfitrion pasan. El DIRECTOR informa el error de dibujo y el ultimo
+> motivo registrado por el kernel, y ofrece respaldo VERRANO CPU cuando
+> la GPU no acepta. **Metal confirmado por el propietario:** jugar y verlo
+> funcionar; MC1 cerrado como base funcional, backend sin identificar.
+> No probo aun cerrar/recargar: MC5 metal pendiente. Siguiente MC2a:
+> inclinacion por teclado, mira y rayo en 3D. No se atribuye aun una causa
+> al rechazo C1/Q0a3 del informe ni se declara reparado el prestamo GPU.
+> [Uso y limites de MUNDO](Ultra_userspace/apps/mundo/README.md).
+
+> **METAL 16-10, 09:41-09:44:** GSP arriba en esta sesion (booter cero,
+> INIT_DONE 185 ms); repetir gpu init conserva el resumen. VERRANO IGUAL a
+> CPU/D3D12. Consulta de bits vista: 128 bytes consecutivos verificados.
+> El metal cazo un recorte de offsets en los rotulos (hex con ancho 1):
+> corregido a 16, pendiente de volver a verlo. C1/Q0a3 de MUNDO aun caen
+> al camino anterior. No hubo fallo Ring 3: autopsia cruda no comprobada.
+> [`METAL_2026-10-16.md`](docs/metal/METAL_2026-10-16.md) resume esta sesion;
+> los informes y capturas quedan fuera del repo en A:, por pedido del propietario.
+> G0 sigue abierto; un bueno no prueba fiabilidad.
+
 > **16-10, foco actual del propietario: M3a y la lente PRECISA.** M3a ya
 > aplicado y probado: ordenar 1.186.491 -> 824.134 instrucciones (-30,54 %),
 > 72 programas sin regresiones del metro. La lente comparte una vista cruda

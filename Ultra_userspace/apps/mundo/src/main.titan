@@ -11,7 +11,8 @@
 #    r f               sube, baja
 #    x                 quita el bloque que miras (a la altura de los ojos)
 #    c                 pone uno de tablas delante de el
-#    Esc               cierra
+#    g                 guarda los bloques en datos/mundo.bmv
+#    Esc               guarda los cambios y cierra
 #
 # ** LO QUE HACE CADA UNO. La CPU (E1) lleva el mundo, la camara en enteros
 # (diezmilesimas de bloque) y ELIGE las caras que miran a la camara -- una
@@ -30,6 +31,7 @@
 mod main "MUNDO: bloques en 3D -- el primer peldanio del Minecraft propio, por VERRANO"
 use director
 mod malla
+mod guardado
 
 # Las caras por fotograma, y los vertices: 6 por cara.
 fn caras_max() -> int
@@ -177,14 +179,16 @@ fn main()
         print("MUNDO es una ventana: abrelo desde el escritorio")
         return
     director.rect(0, 0, 640, 360, 1052696)
-    director.texto(16, 16, "MUNDO: bloques en 3D, los dibuja la 3060", 1, 13421772)
+    director.texto(16, 16, "MUNDO: bloques en 3D por VERRANO", 1, 13421772)
     director.presenta()
     if not director.lamina(vertices_max())
         print("nadie compone: la lamina no se ofrece a nadie")
         return
     director.profundidad(true)
     let tonos = colores()
-    let mut mundo = malla.nuevo()
+    let mut mundo = guardado.load(malla.nuevo())
+    let mut dirty = false
+    print("MUNDO: WASD anda, Q/E gira, R/F sube y baja, X quita, C pone, G guarda, Esc guarda y cierra")
     let mut caras = malla.caras(mundo)
     # la camara: x, y, z en diezmilesimas de bloque, y su giro (de 15 en 15)
     let mut cam: [int; 4] = [80000, 36000, 15000, 0]
@@ -201,7 +205,18 @@ fn main()
             if que == 3
                 let c = director.codigo()
                 if c == 27
-                    return
+                    if not dirty
+                        return
+                    if guardado.save(mundo)
+                        print("MUNDO: guardado; hasta luego")
+                        return
+                    print("MUNDO: el disco NO guardo; sigue abierto. G reintenta")
+                if c == 103
+                    if guardado.save(mundo)
+                        dirty = false
+                        print("MUNDO: bloques guardados en datos/mundo.bmv")
+                    else
+                        print("MUNDO: el disco NO guardo; los bloques siguen en memoria")
                 let s = seno(cam[3])
                 let co = coseno(cam[3])
                 let mut nx = cam[0]
@@ -242,6 +257,7 @@ fn main()
                     if pico
                         caras = malla.caras(mundo)
                         cambio = true
+                        dirty = true
         if cambio
             let elegidas = elige(caras, cam)
             let nv = 6 * len(elegidas)

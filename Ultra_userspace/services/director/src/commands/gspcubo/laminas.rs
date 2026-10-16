@@ -6,8 +6,7 @@
 //! su ventana, como cualquier app.
 //!
 //! [carril]  AMARILLO  manda dibujos a la 3060 por VERRANO; si algo falla, se
-//!                     dice UNA vez y la ventana se queda con lo que pinte la
-//!                     app (nada se cuelga)
+//!                     dice y VERRANO CPU toma el dibujo de esa app
 //! [consumo] LATE      un dibujo por publicacion de la app; sin publicacion
 //!                     nueva se mira UNA palabra (`Lamina::leer_si_nueva`)
 //!
@@ -17,8 +16,8 @@
 //! se compone (`Opciones::en_la_imagen`): la 3060 escribe ahi, y nada se
 //! copia de vuelta.
 //!
-//! [!] Una ventana de ancho que no sea multiplo de 32 (filas de 128 bytes) o
-//! de mas de 1280x720 no se dibuja aqui: se dice y la app sigue con lo suyo.
+//! [!] Un ancho que no sea multiplo de 32 usa CPU. El bloque admite hasta
+//! 1280x720 pixeles; las ventanas mayores no se dibujan aqui.
 //!
 //! ** EL JUEZ, A CUALQUIER MEDIDA (10-10): la huella de D3D12 solo existe a
 //! 1280x720, y una ventana casi nunca mide eso. El juez es el backend CPU de
@@ -69,6 +68,8 @@ struct Estado {
     /// metal mira para saber que C1 corre (`gpu laminas`).
     prestados: u32,
     copiados: u32,
+    /// Respaldo VERRANO CPU: la app sigue visible si el aparato no acepta.
+    cpu_frames: u32,
 }
 
 static mut ESTADO: Estado = Estado {
@@ -85,6 +86,7 @@ static mut ESTADO: Estado = Estado {
     sin_prestar: false,
     prestados: 0,
     copiados: 0,
+    cpu_frames: 0,
 };
 
 fn estado() -> &'static mut Estado {
@@ -97,6 +99,7 @@ fn estado() -> &'static mut Estado {
 /// metal, salio con su ventana vacia y sin una linea que dijera por que.
 fn decir(e: &mut Estado, g: &mut Output, que: &str) {
     e.imposible = true;
+    e.secuencia = 0; // la CPU necesita dibujar tambien la publicacion rechazada
     bmo::consola("[Q0a3] la lamina NO va a su ventana: ");
     bmo::consola(que);
     bmo::consola("\n");
@@ -110,15 +113,12 @@ fn decir(e: &mut Estado, g: &mut Output, que: &str) {
 /// componerse de ahi. `true` si dibujo (hay que pintar).
 pub(crate) fn vuelta(dsk: &mut Desktop, p: &bmo::Pantalla) -> bool {
     let e = estado();
-    if e.imposible {
-        return false;
-    }
     let Some(t) = dsk.table.lamina() else {
         e.tid = 0;
         return false;
     };
     let Some(i) = dsk.table.ventana_de(t.tid) else { return false };
-    if dsk.table.minimizada(i) || crate::commands::gspcomputo::la_3060_lista().is_none() {
+    if dsk.table.minimizada(i) {
         return false;
     }
     let Some((w, h)) = dsk.table.medida_de(i) else { return false };
@@ -127,6 +127,12 @@ pub(crate) fn vuelta(dsk: &mut Desktop, p: &bmo::Pantalla) -> bool {
         e.secuencia = 0;
         e.dibujados = 0;
         e.dicho_distinto = false;
+        e.imposible = false;
+        e.sin_prestar = false;
+        e.cpu_frames = 0;
+    }
+    if e.imposible || crate::commands::gspcomputo::la_3060_lista().is_none() || w % 32 != 0 {
+        return cpu_window(e, dsk, t, i, w, h);
     }
     // SAFETY: `tomar_prestado_de` mapeo `bytes` desde `base` en este proceso y
     // la lamina vive hasta que su app muere (`reap_dead`, en este hilo). Se
@@ -239,21 +245,81 @@ pub(crate) fn vuelta(dsk: &mut Desktop, p: &bmo::Pantalla) -> bool {
             dsk.table.poner_fuente(i, va, s);
             true
         }
-        Err(_) if prestada => {
+        Err(error) if prestada => {
             // El kernel no la tomo (un kernel de antes, o `Porque` 29/30):
             // se dice UNA vez y se copia desde el proximo fotograma.
             e.sin_prestar = true;
             e.secuencia = 0;
+            draw_error(&mut dsk.out.grid, error);
             bmo::consola("[C1] la 3060 no tomo la lamina prestada: se copia (lo de antes)\n");
             dsk.out.grid.text(b"  [C1] la 3060 no tomo la lamina prestada: se copia (lo de antes)\n");
             dsk.tick.repaint_field = true;
             false
         }
-        Err(_) => {
-            decir(e, &mut dsk.out.grid, "la 3060 no dibujo el fotograma (VERRANO dijo que no)"); dsk.tick.repaint_field = true;
+        Err(error) => {
+            draw_error(&mut dsk.out.grid, error);
+            decir(e, &mut dsk.out.grid, "se usa VERRANO CPU para que la app siga visible"); dsk.tick.repaint_field = true;
             false
         }
     }
+}
+
+/// El error real, incluido el numero del kernel; no se atribuye todo a C1.
+fn draw_error(g: &mut Output, error: bmo_verrano::Error) {
+    let mut text = super::Texto::nuevo();
+    let _ = core::fmt::write(&mut text, format_args!("  [VERRANO] dibujo rechazado: {error:?}; "));
+    match error {
+        bmo_verrano::Error::Device(code) => destino::rejection_reason(code, &mut text),
+        bmo_verrano::Error::Vertices => { let _ = core::fmt::Write::write_str(&mut text, "vertices o paquete fuera de las condiciones del backend"); }
+        bmo_verrano::Error::Image => { let _ = core::fmt::Write::write_str(&mut text, "destino: revisar medida, alineacion y profundidad"); }
+        bmo_verrano::Error::Shader => { let _ = core::fmt::Write::write_str(&mut text, "programas incompatibles o funcion aun no admitida"); }
+        bmo_verrano::Error::Groups => { let _ = core::fmt::Write::write_str(&mut text, "grupos de computo fuera de limites"); }
+    }
+    let _ = core::fmt::Write::write_str(&mut text, "\n");
+    g.text(text.s());
+    bmo::consola(core::str::from_utf8(text.s()).unwrap_or("[VERRANO] error\n"));
+}
+
+/// Respaldo de la MISMA API, sin depender de que el GSP haya arrancado.
+/// Se copian solo vertices publicados enteros; nunca se presenta como GPU.
+fn cpu_window(e: &mut Estado, dsk: &mut Desktop, t: crate::scene::surface::LaminaTomada, window: usize, width: u32, height: u32) -> bool {
+    let Some(count) = width.checked_mul(height).map(|n| n as usize).filter(|&n| n > 0 && n <= PIXELES_MAX) else { return false };
+    // SAFETY: el prestamo vive mientras la app vive, en este mismo hilo.
+    let words = unsafe { core::slice::from_raw_parts(t.base as *const core::sync::atomic::AtomicU32, (t.bytes / 4) as usize) };
+    let Ok(lamina) = Lamina::abrir(words) else { return false };
+    if lamina.secuencia() == e.secuencia { return false; }
+    if e.bloque.is_none() { e.bloque = bmo::Memoria::residente(4 * PIXELES_MAX as u64); }
+    let (depth, cull) = lamina.estado();
+    if depth && e.hoja_z.is_none() { e.hoja_z = bmo::Memoria::residente(4 * PIXELES_MAX as u64); }
+    let Some(block) = e.bloque.as_ref() else { return false };
+    let z = if depth {
+        let Some(block) = e.hoja_z.as_ref() else { return false };
+        // SAFETY: bloque propio residente, al menos count f32, solo este hilo.
+        Some(unsafe { core::slice::from_raw_parts_mut(block.base() as *mut f32, count) })
+    } else { None };
+    let (sequence, read) = lamina.leer_si_nueva(e.secuencia, &mut e.v);
+    let Leido::Fotograma { vertices, .. } = read else { return false };
+    let frame = Frame { clear: bmo_cubo::FONDO_F, vertices: &e.v[..vertices as usize], viewport: Viewport { width, height }, depth, cull };
+    let address = block.base() as u64;
+    // SAFETY: bloque propio residente de PIXELES_MAX; count cabe y la ventana
+    // lo lee despues, al componer, en este mismo hilo.
+    let pixels = unsafe { core::slice::from_raw_parts_mut(address as *mut u32, count) };
+    let mut cpu = bmo_verrano::cpu::Cpu { max_vertices: MAX_VERTICES, ..bmo_verrano::cpu::Cpu::LA_3060 };
+    if let Err(error) = cpu.draw(&frame, &mut Image { pixels, width, height, depth: z }) {
+        if e.cpu_frames == 0 { draw_error(&mut dsk.out.grid, error); }
+        e.secuencia = sequence;
+        return false;
+    }
+    e.secuencia = sequence;
+    if e.cpu_frames == 0 {
+        let message = "  [VERRANO CPU] la lamina se dibuja en su ventana con profundidad y descarte; respaldo, no GPU\n";
+        bmo::consola(message);
+        dsk.out.grid.text(message.as_bytes());
+        dsk.tick.repaint_field = true;
+    }
+    e.cpu_frames = e.cpu_frames.wrapping_add(1);
+    dsk.table.poner_fuente(window, address, sequence);
+    true
 }
 
 /// **El juez**: el fotograma, otra vez por la CPU de VERRANO, contra lo que
