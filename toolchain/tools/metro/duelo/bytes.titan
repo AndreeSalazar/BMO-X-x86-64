@@ -1,0 +1,20 @@
+# EL DUELO (PLAN_TITAN_AFINADO): llenar 200000 bytes y sumarlos: una lista de bytes.
+# El MISMO programa que bytes.c. El numero entra por la consola: si se
+# escribiera, el calculo (E0) lo resolveria al compilar y no habria duelo.
+# entra: 200000
+mod main "el duelo: bytes"
+
+fn main()
+    let mut n = 0
+    match numero(lee())
+        Es(x)
+            n = x
+        NoEs
+            n = 0
+    let mut a: [byte] = []
+    for i in range(n)
+        push(mut a, byte((i * 7) % 256))
+    let mut s = 0
+    for b in a
+        s = s + b
+    print(s)

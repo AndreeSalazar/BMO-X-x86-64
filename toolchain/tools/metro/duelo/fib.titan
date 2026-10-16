@@ -1,0 +1,19 @@
+# EL DUELO (PLAN_TITAN_AFINADO): fib(22) recursivo: llamadas.
+# El MISMO programa que fib.c. El numero entra por la consola: si se
+# escribiera, el calculo (E0) lo resolveria al compilar y no habria duelo.
+# entra: 22
+mod main "el duelo: fib"
+
+fn fib(n: int) -> int
+    if n < 2
+        return n
+    return fib(n - 1) + fib(n - 2)
+
+fn main()
+    let mut n = 0
+    match numero(lee())
+        Es(x)
+            n = x
+        NoEs
+            n = 0
+    print(fib(n))

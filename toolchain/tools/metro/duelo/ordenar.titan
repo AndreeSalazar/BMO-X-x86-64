@@ -1,0 +1,24 @@
+# EL DUELO (PLAN_TITAN_AFINADO): ordenar 600 por insercion: indices y un while con `and`.
+# El MISMO programa que ordenar.c. El numero entra por la consola: si se
+# escribiera, el calculo (E0) lo resolveria al compilar y no habria duelo.
+# entra: 600
+mod main "el duelo: ordenar"
+
+fn main()
+    let mut n = 0
+    match numero(lee())
+        Es(x)
+            n = x
+        NoEs
+            n = 0
+    let mut a: [int] = []
+    for i in range(n)
+        push(mut a, (i * 7919) % 1000)
+    for i in range(1, n)
+        let v = a[i]
+        let mut j = i - 1
+        while j >= 0 and a[j] > v
+            a[j + 1] = a[j]
+            j = j - 1
+        a[j + 1] = v
+    print(a[0], " ", a[n - 1])
