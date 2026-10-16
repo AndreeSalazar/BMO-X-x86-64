@@ -255,7 +255,7 @@ en sus cientos de programas) y el metro sin que ninguna salida cambie.
 - [ ] **AF3 -- los locales enteros en REGISTROS.** Los contadores de un
       bucle (`k`, `d`, `j`, `i`) viven en un registro mientras el bucle
       corre, como hizo INTI en I1 (`PLAN_EL_TROQUEL.md`: -34 % de accesos).
-      **Intentado el 16-10 y DESHECHO, con lo que enseno:**
+      **Intentado el 16-10 y DESHECHO, con lo que mostro:**
       - **No hay registro libre.** E1 ya tiene repartidos los preservados:
         `rbx` el estado del programa, `r12` la ventana, `r13` la lamina,
         `r14` el MONTON (`monton.rs`: cursor, final y listas de libres) y
