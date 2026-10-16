@@ -291,6 +291,41 @@ fn a_proven_positive_still_overflows_where_it_overflows() {
             "fn main()\n    let a: [int] = [5, 6, 7, 8]\n    let mut s = 0\n    for i in range(3)\n        let v = a[i]\n        s = s + a[i + 1] - v\n    print(s)\n",
             "3\n",
         ),
+        // M4a: el cuadrado que cupo deja sumar 1 sin mirar; el que no cabe, NO
+        (
+            "fn main()\n    let mut c = 0\n    for k in range(2, 50)\n        let mut p = 1\n        let mut d = 2\n        while d * d <= k\n            if k % d == 0\n                p = 0\n                break\n            d = d + 1\n        c = c + p\n    print(c)\n",
+            "15\n",
+        ),
+        ("fn main()\n    let mut d = 3037000498\n    let k = 9223372036854775807\n    let mut c = 0\n    while d * d <= k\n        d = d + 1\n        c = c + 1\n    print(c)\n", "NO T0060 linea 7"),
+        // un producto que NO es un cuadrado no demuestra nada
+        ("fn main()\n    let mut x = 9223372036854775000\n    let mut y = 0\n    for i in range(2000)\n        let z = x * y\n        x = x + 1\n        y = z\n    print(x)\n", "NO T0060 linea 8"),
+    ];
+    for (k, (body, want)) in programs.iter().enumerate() {
+        match same(body) {
+            Ok(out) => assert_eq!(out, *want, "programa {k}"),
+            Err(e) => panic!("programa {k}: {e}"),
+        }
+    }
+}
+
+/// M1b: lo que un salto deja saber vale SOLO en su camino. `n - 1` tras `if
+/// n < 2 return` no desborda; por el otro camino, el mismo `n - 1` si.
+#[test]
+fn what_a_branch_proves_holds_only_on_its_side() {
+    let programs: &[(&str, &str)] = &[
+        ("fn fib(n: int) -> int\n    if n < 2\n        return n\n    return fib(n - 1) + fib(n - 2)\n\nfn main()\n    print(fib(20))\n", "6765\n"),
+        (
+            "fn g(n: int) -> int\n    if n >= -9223372036854775807\n        return n - 1\n    return n - 1\n\nfn main()\n    print(g(5))\n    print(g(-9223372036854775807 - 1))\n",
+            "NO T0060 linea 6",
+        ),
+        (
+            "fn g(n: int) -> int\n    if n < 100\n        return n + 1\n    return n + 1\n\nfn main()\n    print(g(5))\n    print(g(9223372036854775807))\n",
+            "NO T0060 linea 6",
+        ),
+        (
+            "fn h(a: int, b: int) -> int\n    if b >= 1\n        return a / b\n    return a % b\n\nfn main()\n    print(h(8, 2))\n    print(h(7, 0))\n",
+            "NO T0061 linea 6",
+        ),
     ];
     for (k, (body, want)) in programs.iter().enumerate() {
         match same(body) {

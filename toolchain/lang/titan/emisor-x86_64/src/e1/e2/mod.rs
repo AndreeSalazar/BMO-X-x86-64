@@ -935,10 +935,11 @@ impl E1<'_> {
                 x86::and_r64_imm32(&mut self.code, d, m as u32);
             }
             // B6: `i + n` de un indice que ya se miro contra lo que mide una
-            // lista (i < largo): no desborda. Un `lea`, sin `jo`
-            "+" if demostrado && matches!(b, Opnd8::K(n) if i32::try_from(n).is_ok()) => {
+            // lista (i < largo), o `a +- n` de un `a` cuyo cuadrado cupo (M4a):
+            // no desborda. Un `lea`, sin `jo`
+            "+" | "-" if demostrado && matches!(b, Opnd8::K(n) if n.unsigned_abs() < 1 << 31) => {
                 let Opnd8::K(n) = b else { return };
-                self.lea(d, a, n as i32);
+                self.lea(d, a, if op == "-" { -n } else { n } as i32);
             }
             "+" | "-" | "*" => {
                 let b = match b {

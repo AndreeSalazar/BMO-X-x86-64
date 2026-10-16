@@ -295,6 +295,21 @@ y lo que falta esta medido, duelo a duelo:
       (`a_proven_positive_still_overflows_where_it_overflows`), con sabotaje.
       EL MARCADOR: 5 gana, 6 empata, 21 pierde -- primos EMPATA con Clang
       (1,03) y gana a Rust (0,77)
+- [x] **M4a/M1b -- lo que un cuadrado y un salto demuestran** (16-10). En
+      B6 (`e2/repetido.rs`), dos cosas mas que se saben por cada camino:
+      si `a * a` ya cupo en 64 bits, `|a| <= 3.037.000.499` y `a + 1` cabe
+      (`while d * d <= k` ... `d = d + 1`: sin `jo`); y lo que un salto
+      deja saber en CADA lado (`if n < 2 return` -- por el otro, `n >= 2`:
+      `n - 1` y `n - 2` son `lea`, sin `jo` ni `mov`; un divisor que vale 1
+      o mas, sin mirar cero ni -1). El `d * d` SE SIGUE MIRANDO: con `k`
+      cerca del mayor, `(d + 1)^2` no cabe y el NO es el mismo. El duelo:
+      primos 0,80 -> 0,74 y fib 1,00 -> 0,89 x el C de la casa; **primos
+      GANA a Clang (0,95) y a Rust (0,72)**. El banco 27,2 -> 26,7 millones,
+      no sube ninguno. `tests/ligera.rs`
+      (`what_a_branch_proves_holds_only_on_its_side`), con dos sabotajes
+      (el hecho en el camino de enfrente; el `no` sin negar) y uno al
+      cuadrado (cualquier producto, no solo `a * a`): los tres los caza.
+      EL MARCADOR: 8 gana, 3 empata, 21 pierde
 - [ ] **M2 -- `bytes` contra Clang y GCC (pierde 4,2 y 1,25).**
       Llenar la lista se lleva el 80 %: cada `push` mira la capacidad en la
       memoria. Que un bucle con `push` vaya por E2 con lo que mide la lista
@@ -307,9 +322,10 @@ y lo que falta esta medido, duelo a duelo:
       (`j` entre 0 y `i`, y `i < n`) con la cota de B2 extendida a lo MAS
       que vale cada local, y que E2 guarde en la pila lo que no le cabe en
       vez de dejar el bucle entero a E1
-- [ ] **M4 -- `primos` (pierde 1,11 con Clang, 1,38 con GCC).** El bucle de
-      dentro: los dos `jo` de `d * d` y `d + 1`. Demostrar con la cota que
-      `d * d` no desborda mientras `d * d <= k`
+- [ ] **M4 -- `primos` (GANA a Clang 0,95; pierde 1,17 con GCC).** Queda
+      el `jo` de `d * d`, que NO se quita (se puede pasar de verdad), y el
+      `idiv`: GCC hace lo mismo con menos movimientos. Lo que falta: que
+      el bucle de fuera sepa `k < n` en su camino (`k + 1` sin `jo`)
 - [ ] **M5 -- los CICLOS (AF10).** El marcador cuenta instrucciones; el
       Ryzen cuenta ciclos. El dia que gane, que lo diga el metal
 
