@@ -505,6 +505,19 @@ entero, la seguridad demostrada). TITAN++ sigue sin una palabra de CPU.
       **[!] Un fallo cazado por el banco:** la primera version prestaba los
       registros de E1 sin devolver lo que guardaban; `pixeles.titan`
       imprimia otra cosa y E0 lo dijo
+- [x] **B6 -- LO QUE YA SE HIZO NO SE REPITE** (16-10, `quita_lo_repetido`
+      de `e1/e2.rs`). Las "expresiones disponibles" de GCC y LLVM: por cada
+      sitio, que celdas ya se miraron (`i < largo`) y que registro tiene ya
+      el valor de `l[i]`, venga de donde venga el camino. Se olvida cuando
+      cambian el indice, el largo o quien la tiene, o cuando se escribe en
+      esa lista (en cualquier celda). Asi `while j >= 0 and a[j] > v` y el
+      `a[j]` del cuerpo son UNA lectura y UNA mirada. Y al salir de una
+      region solo vuelve a su sitio lo que vivia antes del bucle (lo que
+      nace en la vuelta muere en ella): caben mas bucles en registros. El
+      duelo: ordenar 0,65 -> 0,58 x el C de la casa (2,6 x Rust, 1,6 x
+      Clang). El banco 29,6 -> 29,4 millones; ninguno subio.
+      `tests/ligera.rs` (`what_was_read_is_reused_only_while_nothing_changed`),
+      con sabotaje (escribir en la lista sin olvidar lo leido: lo dice)
 - [ ] **B5 -- E2 entero.** Que E2 tome tambien las fn con listas, textos y
       el director (todas las de `main`), con el bucle girado y lo demostrado
       de E1; y lo que no cabe, a la pila (no a E1)

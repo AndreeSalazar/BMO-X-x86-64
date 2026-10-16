@@ -229,3 +229,26 @@ fn a_loop_in_registers_gives_the_same_and_leaves_everything_in_its_place() {
     }
     assert!(wrong.is_empty(), "{}", wrong.join("\n\n"));
 }
+
+/// ** B6 (16-10): lo que ya se miro o se leyo no se repite... salvo que
+/// algo lo cambie en medio: la celda (por cualquier indice), el indice o la
+/// lista. Cada caso, con su numero.
+#[test]
+fn what_was_read_is_reused_only_while_nothing_changed() {
+    let programs: &[(&str, &str)] = &[
+        (
+            "fn main()\n    let mut a: [int] = [1, 2, 3, 4, 5]\n    let mut s = 0\n    for k in range(3)\n        let i = k + 1\n        let x = a[i]\n        a[i] = x * 10\n        let y = a[i]\n        let j = i\n        a[j] = 99\n        let u = a[i]\n        s = s + x + y + u\n    print(s, \" \", a)\n",
+            "396 [1, 99, 99, 99, 5]\n",
+        ),
+        (
+            "fn main()\n    let mut b: [byte] = [byte(250), byte(5)]\n    let mut s = 0\n    for k in range(2)\n        let x = b[k]\n        b[k] = byte((x + 10) % 256)\n        s = s + b[k] + x\n    print(s, \" \", b)\n",
+            "274 [4, 15]\n",
+        ),
+    ];
+    for (k, (body, want)) in programs.iter().enumerate() {
+        match same(body) {
+            Ok(out) => assert_eq!(out, *want, "programa {k}"),
+            Err(e) => panic!("programa {k}: {e}"),
+        }
+    }
+}

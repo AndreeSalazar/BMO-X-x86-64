@@ -67,8 +67,8 @@ enum I {
     Largo(V, usize),
     /// `d = l[i]` (de 8 bytes, o de 1); `mira`: si se mira que este dentro.
     Idx { d: V, base: V, len: V, i: V, byte: bool, mira: bool, at: At },
-    /// `l[i] = v`.
-    Pon { base: V, len: V, i: V, v: Opnd, byte: bool, at: At },
+    /// `l[i] = v`; `mira`: si se mira que este dentro.
+    Pon { base: V, len: V, i: V, v: Opnd, byte: bool, mira: bool, at: At },
     /// `byte(v)`: v va de 0 a 255, o T0060.
     MiraByte(V, At),
     /// Sale de la region al bloque `t` de E1: cada local que cambio, a su
@@ -366,7 +366,7 @@ impl Baja<'_> {
                         let i = self.valor(i)?;
                         let i = self.en_registro(i);
                         let v = self.valor(value)?;
-                        self.code.push(I::Pon { base, len, i, v, byte, at: *at });
+                        self.code.push(I::Pon { base, len, i, v, byte, mira: true, at: *at });
                     }
                     // morir: solo un entero (lo demas se suelta, y eso es de E1)
                     Op::Drop { local, .. } => {
@@ -408,8 +408,10 @@ impl Baja<'_> {
             return None;
         }
         let cargados: Vec<usize> = r.entrada.iter().filter_map(|i| if let I::Carga(_, l) = i { Some(*l) } else { None }).collect();
+        // lo que nace dentro del bucle muere en el (su `let` es de la vuelta):
+        // solo vuelve a su sitio lo que ya vivia al entrar
         let cambian: Vec<(usize, V, bool)> = (0..self.local.len())
-            .filter(|l| r.cambian.contains(l) || cargados.contains(l))
+            .filter(|&l| (r.cambian.contains(&l) && r.known[l].is_some()) || cargados.contains(&l))
             .filter_map(|l| self.local[l].map(|v| (l, v, r.cambian.contains(&l))))
             .collect();
         for (t, e) in salidas {
@@ -591,6 +593,7 @@ impl E1<'_> {
             return Ok(None);
         }
         let preservados: &[u8] = if self.libres { &[14, 3, 12, 13] } else { &[14] };
+        quita_lo_repetido(&mut b.code);
         let Some(reg) = reparte(&b.code, b.nv, preservados, &DE_PASO, false) else { return Ok(None) };
         let mut guardar: Vec<u8> = preservados.iter().copied().filter(|r| reg.iter().enumerate().any(|(v, x)| x == r && usado(&b.code, v))).collect();
         guardar.sort();
@@ -691,9 +694,11 @@ impl E1<'_> {
                     }
                     self.celda_sib(reg[*d], reg[*base], reg[*i], *byte, false);
                 }
-                I::Pon { base, len, i, v, byte, at } => {
-                    x86::cmp_r64_r64(&mut self.code, reg[*i], reg[*len]);
-                    self.trap(0x83, "T0072", "una celda fuera de la lista", *at);
+                I::Pon { base, len, i, v, byte, mira, at } => {
+                    if *mira {
+                        x86::cmp_r64_r64(&mut self.code, reg[*i], reg[*len]);
+                        self.trap(0x83, "T0072", "una celda fuera de la lista", *at);
+                    }
                     let r = match v.map_reg(reg) {
                         Opnd8::R(r) => r,
                         Opnd8::K(n) => {
@@ -992,6 +997,7 @@ impl E1<'_> {
         }
         // los de paso, y los de E1 de esta fn (sus locales se cargan y se
         // devuelven a la entrada y a la salida)
+        quita_lo_repetido(&mut baja.code);
         // un registro de E1 se presta solo si su local entra (y vuelve a el
         // al salir); los demas guardan un local que la region no toca
         let entran: Vec<usize> = baja.code.iter().filter_map(|i| if let I::Carga(_, l) = i { Some(*l) } else { None }).collect();
@@ -1009,5 +1015,103 @@ impl E1<'_> {
         }
         let fuera = self.emite(&baja.code, &reg, 0, &guardar);
         Ok(Some((b, fuera)))
+    }
+}
+
+/// ** B6: LO QUE YA SE HIZO NO SE REPITE (las "expresiones disponibles" de
+/// GCC y LLVM). Por cada sitio del codigo, lo que se sabe seguro venga de
+/// donde venga: que la celda `i` de una lista ya se miro (`i < largo`), y
+/// que registro tiene ya el valor de `l[i]`. Se sabe al leerla o escribirla,
+/// y se olvida cuando `i`, el largo o quien la tiene cambian, o cuando se
+/// escribe en esa lista (en cualquier celda). Donde se sabe, la celda no se
+/// mira otra vez y no se lee otra vez: `while j >= 0 and a[j] > v` y el
+/// `a[j]` del cuerpo son la misma.
+fn quita_lo_repetido(code: &mut [I]) {
+    use std::collections::BTreeSet;
+    // (indice, largo) miradas; (base, indice, quien la tiene) leidas
+    type Sabe = (BTreeSet<(V, V)>, BTreeSet<(V, V, V)>);
+    let n = code.len();
+    let donde: std::collections::HashMap<usize, usize> = code.iter().enumerate().filter_map(|(k, i)| if let I::Label(l) = i { Some((*l, k)) } else { None }).collect();
+    let mut antes: Vec<Vec<usize>> = vec![Vec::new(); n];
+    for (k, i) in code.iter().enumerate() {
+        let sig: Vec<usize> = match i {
+            I::Jmp(l) => vec![donde[l]],
+            I::Br(_, _, _, l) => vec![donde[l], k + 1],
+            I::Ret(_) | I::Sale(..) => Vec::new(),
+            _ => vec![k + 1],
+        };
+        for t in sig {
+            if t < n {
+                antes[t].push(k);
+            }
+        }
+    }
+    let paso = |i: &I, mut s: Sabe| -> Sabe {
+        if let (_, Some(d)) = usa_y_define(i) {
+            s.0.retain(|&(a, b)| a != d && b != d);
+            s.1.retain(|&(a, b, c)| a != d && b != d && c != d);
+        }
+        match i {
+            I::Idx { d, base, len, i, byte: false, .. } => {
+                s.0.insert((*i, *len));
+                if d != i && d != base {
+                    s.1.insert((*base, *i, *d));
+                }
+            }
+            I::Idx { len, i, .. } => {
+                s.0.insert((*i, *len));
+            }
+            I::Pon { base, len, i, v, byte, .. } => {
+                s.0.insert((*i, *len));
+                s.1.retain(|&(b, _, _)| b != *base);
+                if let (Opnd::V(v), false) = (v, byte) {
+                    s.1.insert((*base, *i, *v));
+                }
+            }
+            _ => {}
+        }
+        s
+    };
+    // hacia delante, hasta que nada cambie: lo que se sabe al entrar en cada
+    // instruccion es lo que se sabe en TODAS las que llevan a ella
+    let mut entra: Vec<Option<Sabe>> = vec![None; n];
+    entra[0] = Some(Default::default());
+    loop {
+        let mut cambio = false;
+        for k in 0..n {
+            let nuevo: Option<Sabe> = if k == 0 {
+                Some(Default::default())
+            } else {
+                let mut acc: Option<Sabe> = None;
+                for &p in &antes[k] {
+                    if let Some(e) = &entra[p] {
+                        let sale = paso(&code[p], e.clone());
+                        acc = Some(match acc {
+                            None => sale,
+                            Some(a) => (a.0.intersection(&sale.0).copied().collect(), a.1.intersection(&sale.1).copied().collect()),
+                        });
+                    }
+                }
+                acc
+            };
+            if nuevo != entra[k] {
+                entra[k] = nuevo;
+                cambio = true;
+            }
+        }
+        if !cambio {
+            break;
+        }
+    }
+    for k in 0..n {
+        let Some(s) = entra[k].clone() else { continue };
+        match &mut code[k] {
+            I::Idx { d, base, len, i, byte: false, .. } if s.1.iter().any(|&(b, x, _)| b == *base && x == *i) && s.0.contains(&(*i, *len)) => {
+                let quien = s.1.iter().find(|&&(b, x, _)| b == *base && x == *i).unwrap().2;
+                code[k] = I::Mov(*d, quien);
+            }
+            I::Idx { len, i, mira, .. } | I::Pon { len, i, mira, .. } if s.0.contains(&(*i, *len)) => *mira = false,
+            _ => {}
+        }
     }
 }
