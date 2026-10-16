@@ -1,14 +1,14 @@
 <!-- GENERADO por toolchain/tools/planes. No se edita a mano. -->
 
-# LO QUE FALTA -- las casillas abiertas de los 88 planes
+# LO QUE FALTA -- las casillas abiertas de los 89 planes
 
 > Generado por `toolchain/tools/planes`. **El build comprueba que
 > este fichero y los planes dicen lo mismo**, asi que no puede
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   875 casillas ABIERTAS en 79 planes
-   670 hechas
+   881 casillas ABIERTAS en 80 planes
+   673 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -502,6 +502,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] S-FIRMA-4 -- EL METAL. Un .bex firmado que arranque en el Ryzen y
 - [ ] S-FIRMA-5 -- exige_firma() = true. Lo ultimo, y **no antes de que
 - [ ] C8e -- EL METAL. Los hallazgos 1, 2, 4, 5 y 6 tocan codigo que corre en
+- ... y 3 mas
+
+## [`PLAN_TITAN_AFINADO.md`](PLAN_TITAN_AFINADO.md) -- 6 abiertas, 3 hechas
+
+*PLAN TITAN AFINADO -- TITAN++ a la altura de C, sin aprender de CPU*
+
+- [ ] AF2 -- el valor que ya esta en el registro. No guardar en la pila
+- [ ] AF3 -- los locales enteros en REGISTROS. Los contadores de un
+- [ ] AF4 -- for i in range(...) como el for de C. Hoy el contador y
 - ... y 3 mas
 
 ## [`PLAN_BMO_ATENTO.md`](PLAN_BMO_ATENTO.md) -- 5 abiertas, 0 hechas
