@@ -107,6 +107,69 @@ Como se lee, sin adornarlo:
   los bucles enteros (AF3, los registros, es el salto grande), y el SIMD
   como trabajo del emisor, no del que escribe.
 
+Y los veteranos A TOPE (`-O3 -march=znver3`, la CPU de BMO-X), el mismo dia:
+
+```text
+   duelo      gcc Zen3    clang Zen3    TITAN++ es
+   ------------------------------------------------
+   primos    2.946.597    3.632.247    3,8 x / 3,1 x
+   fib         598.462      630.590    4,0 x / 3,8 x
+   bytes       364.569      190.018   49,9 x / 95,8 x
+   ordenar     637.753      750.314    9,7 x / 8,2 x
+```
+
+**Lo que dice**: en el codigo de todos los dias (bucles, llamadas,
+indices) `-O3` y conocer la CPU casi no mueven a los veteranos: ahi todo
+es emitir bien (registros, saltos, no mover de mas). Solo el bucle de DATOS
+(`bytes`) se dispara, y es el SIMD (AVX2: 32 bytes por instruccion).
+
+---
+
+# 2c. ★★★ SUPERAR A LOS VETERANOS: donde la casa tiene ventaja de verdad
+
+El propietario, 16-10: *"puedes intentar superar los veteranos [...] en la
+casa mi bmo-X ese mismo, pueda exprimir con brutalidad"*.
+
+Ganarle a GCC y a LLVM EN TODO es trabajo de anios y de miles de personas;
+no se promete. Pero hay seis cosas que la casa SABE y ellos NO, y ahi si se
+les puede ganar -- sin que TITAN++ aprenda de CPU: lo sabe el emisor.
+
+```text
+   1  UNA SOLA CPU        GCC compila para "cualquier x86-64" (SSE2) salvo
+                          que se lo pidan; BMO-X tiene SU Ryzen escrito en
+                          PERFIL/CPU.txt. Pero usar AVX2 lo DECIDE el
+                          propietario: hoy su columna `mano` dice `no`, y su
+                          `visto` espera la foto de `ext` en el Ryzen
+   2  SIN ALIAS           en TITAN++ dos nombres nunca son la misma memoria
+                          (prestar y leer lo mismo es T0076): el emisor puede
+                          tener valores en registros y vectorizar SIN mirar.
+                          C necesita `restrict` (y casi nadie lo escribe)
+   3  EL PROGRAMA ENTERO  `build_package` ve todos los modulos: una fn
+                          chica se copia dentro de quien la llama, y las
+                          llamadas de dentro no pagan la convencion del
+                          sistema (lo que cuesta `fib`)
+   4  LA SEGURIDAD        TITAN++ mira indices como Rust; lo que se puede
+       DEMOSTRADA         DEMOSTRAR dentro (`for i in range(len(a))`) no se
+                          mira dos veces. Ahi se le gana a Rust, que no
+                          siempre lo demuestra
+   5  EL RELOJ DEL METAL  los contadores del Zen 3 ya se leen desde TITAN++
+                          (`director.contar`, C4): el emisor puede medir
+                          ciclos de verdad en el Ryzen y elegir con ellos
+   6  LA 3060             un bucle de datos grande no tiene por que correr
+                          en la CPU: `gpu fn` y VERRANO (el SIMD de verdad
+                          son 3584 nucleos)
+```
+
+**La escalera hacia ellos**, cada fase juzgada por el versus:
+
+```text
+   FASE A  alcanzar el C de la casa (1,5 x)        AF2, AF3, AF4
+   FASE B  alcanzar a Rust y a GCC -O2 (~1 x)      AF3 entero, AF5, AF7
+                                                   (registros, seguridad
+                                                   demostrada, llamadas)
+   FASE C  GANARLES donde la casa sabe mas         AF8 a AF10, abajo
+```
+
 ---
 
 # 3. DONDE SE VAN LAS INSTRUCCIONES (el bucle de `primos`, desensamblado)
@@ -169,6 +232,16 @@ en sus cientos de programas) y el metro sin que ninguna salida cambie.
       llamar a crecer en cada byte cuando ya cabe (`bytes` es el duelo peor)
 - [ ] **AF7 -- las llamadas.** El marco de una fn pequenia sin lo que no usa
       (`fib`)
+- [ ] **AF8 -- COPIAR DENTRO (fase C, ventaja 3).** Una fn chica de un
+      paquete se emite dentro de quien la llama: sin `call`, sin marco
+- [ ] **AF9 -- EL BUCLE DE DATOS EN VECTORES (fase C, ventajas 1 y 2).** Un
+      `for` que recorre una lista sin alias y sin llamadas se emite en SSE
+      (16 bytes) -- `mano: si` hoy solo para SSE4.1 --, y en AVX2 (32) el dia
+      que el propietario lo decida en PERFIL. **Lo decide el propietario**
+- [ ] **AF10 -- MEDIR EN EL RYZEN (fase C, ventaja 5).** El duelo corrido en
+      el metal con `director.contar`: ciclos de verdad, no instrucciones,
+      para TITAN++ y para el C de la casa. Y el dia que gane, que lo diga el
+      Ryzen y no el emulador
 
 ---
 

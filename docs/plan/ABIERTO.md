@@ -7,7 +7,7 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   881 casillas ABIERTAS en 80 planes
+   884 casillas ABIERTAS en 80 planes
    674 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
@@ -315,6 +315,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] P3c -- el BMOX-12 de EPICX-FRAMEWORK, sin tocar. [VISTO EN EL
 - ... y 6 mas
 
+## [`PLAN_TITAN_AFINADO.md`](PLAN_TITAN_AFINADO.md) -- 9 abiertas, 4 hechas
+
+*PLAN TITAN AFINADO -- TITAN++ a la altura de C, sin aprender de CPU*
+
+- [ ] AF2 -- el valor que ya esta en el registro. No guardar en la pila
+- [ ] AF3 -- los locales enteros en REGISTROS. Los contadores de un
+- [ ] AF4 -- for i in range(...) como el for de C. Hoy el contador y
+- ... y 6 mas
+
 ## [`PLAN_VATIOS.md`](PLAN_VATIOS.md) -- 9 abiertas, 4 hechas
 
 *PLAN_VATIOS -- lo que gasta el CPU en reposo, y por que*
@@ -502,15 +511,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] S-FIRMA-4 -- EL METAL. Un .bex firmado que arranque en el Ryzen y
 - [ ] S-FIRMA-5 -- exige_firma() = true. Lo ultimo, y **no antes de que
 - [ ] C8e -- EL METAL. Los hallazgos 1, 2, 4, 5 y 6 tocan codigo que corre en
-- ... y 3 mas
-
-## [`PLAN_TITAN_AFINADO.md`](PLAN_TITAN_AFINADO.md) -- 6 abiertas, 4 hechas
-
-*PLAN TITAN AFINADO -- TITAN++ a la altura de C, sin aprender de CPU*
-
-- [ ] AF2 -- el valor que ya esta en el registro. No guardar en la pila
-- [ ] AF3 -- los locales enteros en REGISTROS. Los contadores de un
-- [ ] AF4 -- for i in range(...) como el for de C. Hoy el contador y
 - ... y 3 mas
 
 ## [`PLAN_BMO_ATENTO.md`](PLAN_BMO_ATENTO.md) -- 5 abiertas, 0 hechas

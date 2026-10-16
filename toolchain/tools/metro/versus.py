@@ -9,7 +9,8 @@ El mismo programa (`duelo/`: primos, fib, bytes, ordenar) en:
 
     BMO-X    TITAN++ y el C de la casa, contados por el METRO (el emulador de
              `bmo-lower`: `metro --duelo`)
-    estandar GCC y Clang a -O2 (C y C++) y rustc -O (`duelo/estandar/`),
+    estandar GCC y Clang a -O2 (C y C++) y rustc -O (`duelo/estandar/`), y
+             GCC y Clang A TOPE: -O3 -march=znver3 (la CPU de BMO-X),
              corridos en el anfitrion y contados por valgrind (cachegrind,
              "I refs")
 
@@ -48,6 +49,9 @@ COMPILADORES = [
     ("g++ C++", "g++", "cpp", ["g++", "-O2", "-o"]),
     ("clang++ C++", "clang++", "cpp", ["clang++", "-O2", "-o"]),
     ("rustc Rust", "rustc", "rs", ["rustc", "-O", "-o"]),
+    # Los veteranos A TOPE: -O3 y la CPU de BMO-X (Zen 3: AVX2, BMI2, FMA).
+    ("gcc Zen3", "gcc", "c", ["gcc", "-O3", "-march=znver3", "-o"]),
+    ("clang Zen3", "clang", "c", ["clang", "-O3", "-march=znver3", "-o"]),
 ]
 
 
