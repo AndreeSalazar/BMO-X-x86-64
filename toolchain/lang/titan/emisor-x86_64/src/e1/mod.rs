@@ -59,7 +59,7 @@ use crate::{Cuerpos, Emitted};
 use bmo_lower::x86::{self, RAX, RSI, RDI, R11};
 use bmo_lower::{console, memoria, task};
 use bmo_titan_front::calc::Class;
-use bmo_titan_front::ir::{End, Function, Lib, Module, Op, Value};
+use bmo_titan_front::ir::{End, Function, Lib, Module, Op, PathStep, Value};
 use bmo_titan_front::tree::{Mode, Ty};
 use forma::Forms;
 use std::collections::BTreeMap;
@@ -506,7 +506,7 @@ impl<'m> E1<'m> {
             // un `mut` prestado es un PUNTERO al del que llama (`indirect`):
             // 8 bytes, no la tabla entera (MC1 de PLAN_MUNDO: dos tablas de
             // 1920 prestadas gastaban 30 KiB de pila por nada)
-            if f.modes.get(i) != Some(&Mode::Mut) {
+            if f.modes.get(i) != Some(&Mode::Mut) && !solo_se_lee(f, i, &c) {
                 sizes[*l] = sizes[*l].max(self.forms.size(&c));
             }
             self.f.known[*l] = Some(c);
@@ -605,7 +605,9 @@ impl<'m> E1<'m> {
             let c = self.forms.class(t);
             x86::mov_r64_at_reg_disp32(&mut self.code, R11, RBP, -16);
             x86::mov_r64_at_reg_disp32(&mut self.code, RAX, R11, 8 * i as i32);
-            if f.modes.get(i) == Some(&Mode::Mut) {
+            if f.modes.get(i) == Some(&Mode::Mut) || solo_se_lee(f, i, &c) {
+                // `mut`, o una lista que la fn SOLO LEE (`solo_se_lee`): un
+                // puntero al del que llama, sin copia
                 x86::mov_at_reg_disp32_from_r64(&mut self.code, RBP, self.f.slot[*l], RAX);
                 self.f.indirect[*l] = true;
             } else if c == Class::Lamina {
@@ -913,6 +915,79 @@ impl<'m> E1<'m> {
             }
         }
         Ok(())
+    }
+}
+
+/// ** PRESTADO PARA LEER (16-10, LE2 de PL18 de PLAN_ECCE). `fn f(n: T)`
+/// es una COPIA (nivel 7), y E1 la hacia entera al entrar: una `[byte]` de
+/// 20 KB pasada a una fn pequenia costaba 200 mil pasos por llamada (medido:
+/// la letra de ECCE tardaba 100 millones en pintar una cabecera). Si la fn
+/// NUNCA puede cambiar lo que le llega ni quedarselo, la copia no se
+/// distingue del original: va un PUNTERO, como con `mut`, y no se suelta al
+/// volver (es del que llama).
+///
+/// Cuando, y solo cuando: llega copiado; es una lista, una tabla o un mapa
+/// (con monton) sin `dec` dentro (su `fit` es la copia misma); y en todo el
+/// cuerpo no se le da otro valor, ni se presta (`mut`) ni se entrega
+/// (`take`), ni se GUARDA entero en otro sitio (un `let`, un `=`, un
+/// `return`, dentro de una tabla, un registro, un caso, un mapa o un
+/// `push`). Leerlo -- una celda, `len`, `for`, compararlo, pasarlo COPIADO a
+/// otra fn -- no lo cambia. Quien llama no puede tocarlo mientras: la fn es
+/// lo unico que corre, y prestar y leer lo mismo en una llamada es T0076.
+fn solo_se_lee(f: &Function, i: usize, c: &Class) -> bool {
+    if f.modes.get(i).copied().unwrap_or(Mode::Copy) != Mode::Copy || f.dispatch.is_some() || f.gpu {
+        return false;
+    }
+    if !matches!(c, Class::List(_) | Class::Map(..) | Class::Table(..)) || format!("{:?}", f.params[i].1).contains("Dec") || format!("{c:?}").contains("Dec") {
+        return false;
+    }
+    let l = f.params[i].0;
+    let toca = |v: &Value| se_queda(v, l, true);
+    let lee = |v: &Value| se_queda(v, l, false);
+    for b in &f.blocks {
+        for op in &b.ops {
+            let mal = match op {
+                Op::Let { local, value, .. } | Op::Set { local, value, .. } => *local == l || toca(value),
+                Op::SetAt { local, path, value, .. } => *local == l || toca(value) || path.iter().any(|p| matches!(p, PathStep::Index(v) if lee(v))),
+                Op::Write { parts: vs, .. } | Op::Call { args: vs, .. } | Op::Director { args: vs, .. } => vs.iter().any(lee),
+                Op::Drop { .. } => false,
+            };
+            if mal {
+                return false;
+            }
+        }
+        let mal = match &b.end {
+            End::Return(Some(v)) => toca(v),
+            End::Branch { cond, .. } => lee(cond),
+            _ => false,
+        };
+        if mal {
+            return false;
+        }
+    }
+    true
+}
+
+/// Si el valor `v` presta o entrega el local `l`, o lo GUARDA entero (`aqui`:
+/// `v` mismo va a un sitio que se queda con el).
+fn se_queda(v: &Value, l: usize, aqui: bool) -> bool {
+    let guarda = |v: &Value| se_queda(v, l, true);
+    let lee = |v: &Value| se_queda(v, l, false);
+    match v {
+        Value::Local(k, _) => aqui && *k == l,
+        Value::Lend(_, k, _) => *k == l,
+        Value::Int(..) | Value::Text(..) | Value::Bool(..) | Value::Dec(..) | Value::F32(..) | Value::Read(..) => false,
+        Value::Table(items, _) | Value::Record(_, items, _) | Value::Variant(_, _, items, _) => items.iter().any(guarda),
+        Value::Map(items, _) => items.iter().any(|(k, w)| guarda(k) || guarda(w)),
+        Value::Repeat(w, _, _) => guarda(w),
+        Value::Lib(lib, args, _) => match lib {
+            // leer: la celda de un `for`, `get`, `has`, el ultimo
+            Lib::Turn | Lib::Get | Lib::Has | Lib::Last => args.iter().any(lee),
+            _ => args.iter().enumerate().any(|(k, a)| if k == 0 { lee(a) } else { guarda(a) }),
+        },
+        Value::Call(_, args, _) | Value::Director(_, args, _) => args.iter().any(lee),
+        Value::Index(b, i, _) | Value::Bin(_, b, i, _) => lee(b) || lee(i),
+        Value::Field(w, _, _) | Value::Len(w, _) | Value::Round(w, _, _) | Value::Is(w, _, _, _) | Value::Payload(w, _, _, _, _) | Value::Number(w, _, _) | Value::Byte(w, _) | Value::Lamina(w, _) | Value::Neg(w, _) | Value::Not(w, _) => lee(w),
     }
 }
 

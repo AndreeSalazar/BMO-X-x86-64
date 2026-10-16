@@ -2,9 +2,9 @@
 # TRINQUETE: `pasos`, `accesos` y `codigo` solo bajan; `salida` no cambia nunca.
 # Se reescribe con `cargo run --release -p bmo-metro -- --fijar`.
 # programa  pasos  accesos  codigo  salida
-Ultra_userspace/apps/bico/src/main.titan 437 124 31811 e333c242be2a9b49
-Ultra_userspace/apps/navegar/src/main.titan 2612 437 57490 e897113c8df4c7be
-Ultra_userspace/apps/png/src/main.titan 7878422 3992285 18171 326cdc9020a51072
+Ultra_userspace/apps/bico/src/main.titan 437 124 31769 e333c242be2a9b49
+Ultra_userspace/apps/navegar/src/main.titan 2612 437 57463 e897113c8df4c7be
+Ultra_userspace/apps/png/src/main.titan 7873058 3989885 18055 326cdc9020a51072
 Ultra_userspace/apps/resolucion/src/main.titan 304 88 32114 085091bc4bc966b3
 toolchain/lang/ada/examples/1-basico/cierre.adb 369 69 1560 ed567b986aa22dd2
 toolchain/lang/c/examples/bits_C.c 872 144 559 582273125d487ce0

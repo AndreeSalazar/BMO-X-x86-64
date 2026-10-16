@@ -483,6 +483,14 @@ cambia en UN camino, cuenta, aunque otro vuelva pronto sin tocarlo
 puntero: una tabla de 2000 prestada hacia dentro no gasta su tamanio en cada
 marco (`emisor-x86_64/tests/pila.rs`).
 
+**Y lo que solo se LEE tampoco se copia** (16-10, E1): `fn f(n: T)` es una
+copia para quien lee el programa, pero si `f` nunca cambia `n` ni se lo
+queda (no lo presta, no lo entrega, no lo guarda entero en un `let`, un `=`,
+un `return`, una tabla, un registro o un `push`), la copia y el original no
+se distinguen, y la maquina pasa un PUNTERO. Es para listas, tablas y mapas
+sin `dec` dentro. Medido: pasar una `[byte]` de 20 KB mil veces costaba 200
+millones de pasos y cuesta lo que leerla (`e1/mod.rs`, `solo_se_lee`).
+
 ### La precision de COBOL (el propietario: "precision fuerte para no generar bug")
 
 ```text
