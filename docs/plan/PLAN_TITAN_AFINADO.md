@@ -60,6 +60,55 @@ seguridad puestas (C no las tiene: igualarlo del todo seria quitarlas).
 
 ---
 
+# 2b. ★★★ EL VERSUS: contra el C, el C++ y el Rust DE SIEMPRE
+
+El propietario, 16-10: *"me gustaria saber [...] en velocidad que traiga en
+mi bmo-X vs C y Cpp y rust el estandar [...] para que tu pruebes luego y eso
+poner como versus"*. Lo corre `python toolchain/tools/metro/versus.py`:
+los mismos cuatro programas (`metro/duelo/estandar/`) por GCC 13 y Clang 18 a
+`-O2` (C y C++) y rustc 1.101 `-O`, contados por valgrind con la MISMA vara
+que el metro de BMO-X -- instrucciones de x86-64 ejecutadas --, y sin lo que
+gasta cada uno en arrancar (su programa vacio se resta). Lo que imprimen es
+identico, o el versus no vale.
+
+```text
+   instrucciones del TRABAJO, 16-10 (tras AF1)
+
+   duelo       TITAN++    C casa     gcc C   clang C   g++ C++  clang++   rustc
+   ---------------------------------------------------------------------------
+   primos   11.096.584  4.752.793  2.986.596 3.691.408 2.987.501 3.692.286 4.894.404
+   fib       2.378.742  1.031.745    611.965   630.590   612.214   630.805   562.635
+   bytes    18.202.302  6.000.176  2.002.020   590.006 3.473.108 2.536.513 2.545.243
+   ordenar   6.172.762  2.537.282    643.202   908.967   758.051   922.848   554.486
+
+   cuantas veces MAS hace TITAN++ (1,0 es empate)
+
+   duelo      C casa   gcc C  clang C  g++ C++  clang++  rustc
+   ------------------------------------------------------------
+   primos       2,3     3,7     3,0      3,7      3,0     2,3
+   fib          2,3     3,9     3,8      3,9      3,8     4,2
+   bytes        3,0     9,1    30,9      5,2      7,2     7,2
+   ordenar      2,4     9,6     6,8      8,1      6,7    11,1
+```
+
+Como se lee, sin adornarlo:
+
+* **Hoy TITAN++ hace de 2,3 a 11 veces las instrucciones del estandar**, y
+  de 2,3 a 3 veces las del C de la casa. Es la distancia de un emisor joven
+  (todo pasa por la pila) a cuarenta anios de GCC y LLVM.
+* **`bytes` contra Clang (30,9)** es el SIMD: Clang suma 16 bytes por
+  instruccion. Eso no lo tendra TITAN++ escribiendo vectores (la ley de este
+  plan), sino el emisor haciendolo solo, o la 3060 por VERRANO.
+* **Rust es la referencia justa**: mira los indices como TITAN++ (C y C++
+  no miran nada). Y es lo que las apps de Rust de BMO-X YA son: se compilan
+  con este mismo rustc (LLVM). En `primos`, TITAN++ ya hace 2,3 veces lo
+  de Rust.
+* **La meta realista, en orden:** el C de la casa (1,5 x), despues Rust en
+  los bucles enteros (AF3, los registros, es el salto grande), y el SIMD
+  como trabajo del emisor, no del que escribe.
+
+---
+
 # 3. DONDE SE VAN LAS INSTRUCCIONES (el bucle de `primos`, desensamblado)
 
 ```text
@@ -98,6 +147,9 @@ en sus cientos de programas) y el metro sin que ninguna salida cambie.
 - [x] **AF-1 (antes de AF0) -- lo que solo se LEE no se copia** (16-10, por
       la letra de ECCE): una lista que una fn solo lee le llega como puntero.
       200 millones de pasos a 1,2 en la prueba (`tests/prestado.rs`)
+- [x] **AF-V -- EL VERSUS** (16-10): `metro/versus.py` contra GCC, Clang y
+      rustc, con la tabla de la seccion 2b. Se vuelve a correr tras cada
+      peldanio y la tabla se reescribe aqui
 - [ ] **AF2 -- el valor que ya esta en el registro.** No guardar en la pila
       lo que se va a leer en la instruccion siguiente, ni releer lo que se
       acaba de escribir: E1 recuerda que hay en RAX hasta que algo lo pisa

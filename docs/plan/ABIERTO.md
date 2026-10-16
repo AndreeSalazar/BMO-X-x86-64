@@ -8,7 +8,7 @@
 
 ```text
    881 casillas ABIERTAS en 80 planes
-   673 hechas
+   674 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -504,7 +504,7 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] C8e -- EL METAL. Los hallazgos 1, 2, 4, 5 y 6 tocan codigo que corre en
 - ... y 3 mas
 
-## [`PLAN_TITAN_AFINADO.md`](PLAN_TITAN_AFINADO.md) -- 6 abiertas, 3 hechas
+## [`PLAN_TITAN_AFINADO.md`](PLAN_TITAN_AFINADO.md) -- 6 abiertas, 4 hechas
 
 *PLAN TITAN AFINADO -- TITAN++ a la altura de C, sin aprender de CPU*
 
