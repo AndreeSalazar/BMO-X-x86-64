@@ -92,9 +92,16 @@ struct Paleta<'a> {
     tipo: u8,
     plte: &'a [u8],
     trns: &'a [u8],
+    /// El alfa ENTERO (los 8 bits), para quien sabe mezclar: los iconos de
+    /// `bmo-icono`. El visor sigue con su bit.
+    entero: bool,
 }
 
 impl Paleta<'_> {
+    fn alfa(&self, a: u32) -> u32 {
+        if self.entero { a << 24 } else { crate::bit_de_alfa(a) }
+    }
+
     fn pixel(&self, f: &[u8], x: usize) -> Result<u32, Error> {
         Ok(match self.tipo {
             0 => {
@@ -122,18 +129,18 @@ impl Paleta<'_> {
                 }
                 let (r, g, b) = (self.plte[i * 3] as u32, self.plte[i * 3 + 1] as u32, self.plte[i * 3 + 2] as u32);
                 let alfa = match self.trns.get(i) {
-                    Some(&a) => crate::bit_de_alfa(a as u32),
+                    Some(&a) => self.alfa(a as u32),
                     None => OPACO,
                 };
                 alfa | (r << 16) | (g << 8) | b
             }
             4 => {
                 let (g, a) = (f[x * 2] as u32, f[x * 2 + 1] as u32);
-                crate::bit_de_alfa(a) | (g << 16) | (g << 8) | g
+                self.alfa(a) | (g << 16) | (g << 8) | g
             }
             _ => {
                 let (r, g, b, a) = (f[x * 4] as u32, f[x * 4 + 1] as u32, f[x * 4 + 2] as u32, f[x * 4 + 3] as u32);
-                crate::bit_de_alfa(a) | (r << 16) | (g << 8) | b
+                self.alfa(a) | (r << 16) | (g << 8) | b
             }
         })
     }
@@ -224,6 +231,12 @@ impl Filas<'_> {
 /// **Decodifica un PNG ya medido en `dst`**, con un `taller` de al menos
 /// [`TALLER`] bytes.
 pub fn decodificar(b: &[u8], m: &Medidas, dst: &mut [u32], taller: &mut [u8]) -> Result<(), Error> {
+    decodificar_alfa(b, m, dst, taller, false)
+}
+
+/// **Lo mismo, con el alfa de 8 bits entero** si `entero` (`0xAARRGGBB`
+/// con `AA` de 0 a 255): para quien mezcla, como un icono.
+pub fn decodificar_alfa(b: &[u8], m: &Medidas, dst: &mut [u32], taller: &mut [u8], entero: bool) -> Result<(), Error> {
     if taller.len() < TALLER {
         return Err(Error::SinTaller);
     }
@@ -283,7 +296,7 @@ pub fn decodificar(b: &[u8], m: &Medidas, dst: &mut [u32], taller: &mut [u8]) ->
         actual: &mut actual[..FILA_MAX],
         previa: &mut previa[..FILA_MAX],
         dst: &mut dst[..ancho * alto],
-        paleta: Paleta { tipo, plte, trns },
+        paleta: Paleta { tipo, plte, trns, entero },
         fallo: None,
     };
     let r = inflate::inflar_zlib(&idat[..cuantos], ventana, &mut |byte| f.byte(byte));

@@ -138,11 +138,11 @@ esta en la HOJA 6b.
    A1     el censo de laminas con juez         HECHO       no hace falta
    A2     el trato uno                         HECHO       no hace falta
    A3     las clases al trato                  HECHO       no hace falta
-   A4     TITAN++ pide RAM solo con laminas    HECHO       falta (6b: A4)
+   A4     TITAN++ pide RAM solo con laminas    HECHO       VISTO 15-10
    A5     la lente lee x86                     HECHO       no hace falta
    A6     el .bex dice que instrucciones usa   HECHO       no hace falta
    B1     verificar una vez y apartarse        HECHO       falta (6b: B1)
-   B2     la autopsia dice la instruccion      HECHO       falta (6b: B2)
+   B2     la autopsia dice la instruccion      HECHO       VISTO 15-10
    B3     el cubo en SU ventana, por la 3060   HECHO       falta (6b: B3)
    B4     el perfil, UNA fuente; LLVM obedece  HECHO       falta (6b: B4)
    C1     la lamina PRESTADA a la 3060         HECHO       falta (6b: C1)
@@ -150,8 +150,8 @@ esta en la HOJA 6b.
           S4: la app en su nucleo              BLOQUEADO   (ver C2)
    C3     el volcado por la 3060, por defecto HECHO     falta (6b: C3)
           las ventanas pegadas por la 3060     DECIDIR     (ver C3)
-   C4     los contadores del Zen 3 (LB4)   HECHO       falta (6b: C4)
-          INTI y TITAN++ se cuentan (LB5)  HECHO       falta (6b: C4)
+   C4     los contadores del Zen 3 (LB4)   HECHO       VISTO 15-10
+          INTI y TITAN++ se cuentan (LB5)  HECHO       sin prueba propia en el metal
    D1     V4: cubo.bsf lo emite la casa    HECHO       falta (6b: D1)
           V3: la matriz en el cbuffer      HECHO (TITAN++, las 2 tarjetas); V3b, el
                                            escritorio dibujandolo, abierto
@@ -209,7 +209,7 @@ esta en la HOJA 6b.
       el userspace entero y ESTUDIO para su objetivo, el kernel con
       `cargo check`, y los guardianes como estaban. **Falta el metal:** la
       ventana, el pase de la 3060 (`gpu pase`) y la red, como siempre.
-- [ ] **A4 -- TITAN++ pide RAM SOLO con laminas.** `director.lamina` deja de
+- [x] **A4 -- TITAN++ pide RAM SOLO con laminas.** `director.lamina` deja de
       ser "la de vertices": una lamina con medida y clase, la que el programa
       tiene en la mano para administrar y llamar. **Como se sabe:** un
       ejemplo de TITAN++ que pide dos laminas, publica en una y lee la otra;
@@ -264,7 +264,7 @@ esta en la HOJA 6b.
         hablen); hasta entonces una lamina es del programa que la pidio, y
         tampoco se devuelve de una fn. **Falta el metal:** un `.bex` del
         nivel 15 corriendo en el Ryzen.
-  - [ ] **en el Ryzen** -- un `.bex` del nivel 15 de TITAN++ corriendo (hoja 6b, fila A4). Cuando se vea bien: se anota en la hoja
+  - [x] **en el Ryzen** -- FUNCIONO el 15-10 (hoja 6b, fila A4). Era: un `.bex` del nivel 15 de TITAN++ corriendo (hoja 6b, fila A4). Cuando se vea bien: se anota en la hoja
         y se tachan esta casilla y la de A4 (A4a y A4b ya lo estan).
 
 - [x] **A5 -- LB3a: la LENTE lee x86** (`PLAN_LA_LENTE_BINARIA.md`, LB3): un
@@ -369,7 +369,7 @@ esta en la HOJA 6b.
   - [ ] **en el Ryzen** -- `run` dos veces del mismo `.bex`: la segunda, `lente: ya leido` (hoja 6b, fila B1). Cuando se vea bien: se anota en la hoja
         y se tachan esta casilla y la de B1.
 
-- [ ] **B2 -- LB3b: la autopsia de Ring 3 dice la instruccion.** El capitulo
+- [x] **B2 -- LB3b: la autopsia de Ring 3 dice la instruccion.** El capitulo
       7 de `save`: los bytes en RIP decodificados y explicados, de que
       programa y que funcion. **Como se sabe:** un programa que falla a
       proposito, y el informe dice su instruccion y su registro malo.
@@ -394,7 +394,7 @@ esta en la HOJA 6b.
       falle a proposito en el Ryzen y leer `instr` en su `datos/fallos.txt`:
       es `c/autopsia.bex` (`toolchain/lang/c/examples/autopsia_C.c`, 15-10).
   - [x] **en el anfitrion** -- HECHO el 14-10 (lo de arriba).
-  - [ ] **en el Ryzen** -- un `.bex` que falle a proposito y su renglon `instr` en `datos/fallos.txt` (hoja 6b, fila B2). Cuando se vea bien: se anota en la hoja
+  - [x] **en el Ryzen** -- FUNCIONO el 15-10 (hoja 6b, fila B2). Era: un `.bex` que falle a proposito y su renglon `instr` en `datos/fallos.txt` (hoja 6b, fila B2). Cuando se vea bien: se anota en la hoja
         y se tachan esta casilla y la de B2.
 
 - [ ] **B3 -- Q0a1..Q0a4: el cubo de TITAN++ en SU ventana, por la 3060**
@@ -570,7 +570,7 @@ esta en la HOJA 6b.
         `pegar_fila`; si es menos de 1 ms (lo que dijo PLAN_EL_PIXEL el 09-09),
         C3b no gana nada que se vea, y la regla 1b se cumple con (b) solo para
         las apps que dibuja VERRANO.
-- [ ] **C4 -- LB4 + LB5: los contadores del Zen 3, y INTI exprime con
+- [x] **C4 -- LB4 + LB5: los contadores del Zen 3, y INTI exprime con
       evidencia.** Primero MEDIR que cuenta cada contador en este Ryzen.
       **HECHO EN EL ANFITRION el 15-10:**
       - **LB4, calibrados:** `bmo-contadores` (puro, 8 pruebas): los MSR,
@@ -594,7 +594,7 @@ esta en la HOJA 6b.
         numeros del metal primero); y que el emisor ELIJA con ellos (LB10,
         la otra mitad).
   - [x] **en el anfitrion** -- HECHO el 15-10 (lo de arriba; banco 5364 verdes).
-  - [ ] **en el Ryzen** -- `cpu contadores`: 8 de 8 filas CUENTAN (hoja 6b, fila C4). Cuando se vea bien: se anota en la hoja
+  - [x] **en el Ryzen** -- FUNCIONO el 15-10 (hoja 6b, fila C4). Era: `cpu contadores`: 8 de 8 filas CUENTAN (hoja 6b, fila C4). Cuando se vea bien: se anota en la hoja
         y se tachan esta casilla y la de C4.
 
 **Escalon 4 -- lo mas duro**
@@ -954,7 +954,7 @@ Cada paso entra con sus pruebas en el anfitrion; el metal, UNA vez, al final
    Q2  HECHA EN EL ANFITRION el 15-10: el sonido en TITAN++ (`use sonido`,
        las voces del orquestador) y el corte 4d de INTI (musica.ibx fuera
        del build y del disco; `apps/musica.bex` es el reproductor). Ver la
-       fila Q2 de la hoja 6b: falta OIRLO en el Ryzen
+       fila Q2 de la hoja 6b: OIDO en el Ryzen el 15-10
    Q2b HECHA el 10-10: TITAN++ escribe byte a byte y el corte 4e de INTI
        (bico.inti y png.inti a TITAN++, seccion 1d)
    Q3  DOOM por la 3060 cerrado (D2c, la linea [perf]) y su paleta (D3)
@@ -1134,7 +1134,7 @@ pieza entera en la 0b, y su fila de la tabla de estado pasa a `VISTO dd-mm`.
 
 ```text
    pieza  QUE SE MIRA                  COMO                              SI SALE MAL                 resultado
-   A4     la lamina del nivel 15       `run titan/suelta.bex`: escribe   la novena lamina dice NO    (sin probar)
+   A4     la lamina del nivel 15       `run titan/suelta.bex`: escribe   la novena lamina dice NO    FUNCIONO 15-10
           (TITAN++ pide RAM por la     `20 laminas de 4096 bytes, una    (no se soltaban), o un
           puerta y la suelta)          por vuelta: 190`; y `run          fallo de pagina
                                        titan/laminas.bex`: `100 50 3 7`,
@@ -1143,7 +1143,7 @@ pieza entera en la 0b, y su fila de la tabla de estado pasa a `VISTO dd-mm`.
           vez                          veces; en la bitacora: la 1a      o la 2a vez la lente lee
                                        `lente: DEMOSTRADO`, la 2a        otra vez (sin `ya leido`)
                                        `lente: ya leido`
-   B2     la autopsia dice la          `run c/autopsia.bex` (lee de      sin renglon `instr`, o una  (sin probar)
+   B2     la autopsia dice la          `run c/autopsia.bex` (lee de      sin renglon `instr`, o una  FUNCIONO 15-10
           instruccion                  0xDEAD0000 a proposito); en       instruccion que no es la
                                        `datos/fallos.txt` el renglon     del `rip`, o la consola
                                        `instr`: la instruccion y su      dice `no fallo`
@@ -1158,12 +1158,104 @@ pieza entera en la 0b, y su fila de la tabla de estado pasa a `VISTO dd-mm`.
           (V4)                         banco`): IGUAL en el 0, el 30 y   que NO al abrir, o DISTINTO
                                        el 60, con el sobre que ya no es  en algun fotograma: se
                                        SASS a mano                       vuelve al de antes con git
-   Q2     el sonido de TITAN++         `run apps/musica.bex`: dice       no suena (el tubo sin      (sin probar)
+   RX     ver un .bex por dentro       F12 > DATOS > apps, clic derecho  no sale "ver por dentro",  (sin probar)
+          (KA-1 de PLAN_EL_KERNEL_     sobre ecce/nucleo.bex > "ver por  o la puerta dice NO a un
+          DE_LA_APP)                   dentro" (o `dentro apps/ecce/     .bex que corre, o la lente
+                                       nucleo.bex`
+                                       en Ejecutar): regiones, anexos,   no DEMOSTRADO
+                                       lente DEMOSTRADO, el manifiesto
+                                       y "el kernel lo ADMITIRIA"; al
+                                       final, las 16 primeras
+                                       instrucciones DICHAS EN
+                                       CASTELLANO (y en un `.ibx` de
+                                       INTI, sus katanas por nombre)
+   B2c    la autopsia lo dice en       `run c/autopsia.bex` y `fallo`:   sin renglon `dice`, o una  (sin probar)
+          castellano                   debajo de `instr`, el renglon     frase que no es lo que
+          (lente en castellano)        `dice  lee 4 bytes de la         hace la instruccion
+                                       memoria en [rax] con signo y lo
+                                       deja en rax`
+   KA1    ECCE es una CARPETA          el escritorio: UN icono `ecce`;   dos ECCE, o ninguno, o la   (sin probar)
+          (PLAN_EL_KERNEL_DE_LA_APP)   abrirlo; la ventana, la barra y   ventana dice `nucleo`, o
+                                       Alt+Tab dicen ECCE. F12 > DATOS > el `ecce.bex` viejo sigue
+                                       apps, clic derecho sobre `ecce` > en `apps\`
+                                       "ver la app por dentro": NUCLEO
+                                       ... ENTRA y "la app ENTERA entra"
+   LX1    un .exe de Windows por       copiar un .exe (el BMOX-12 de     no sale nada, o la lista    (sin probar)
+          dentro (PLAN_PROTON_X, 4d)   EPICX) a DATOS y `dentro X.exe`   no es la de `dumpbin
+                                       (o clic derecho > "ver por        /imports`, o una llamada a
+                                       dentro"): PROTON-X lo correria,   Windows sin su nombre
+                                       lo que pide DLL a DLL, la lente
+                                       y "llama a kernel32.dll!..."
+   LX2    lo que FALTA con el         lanzar un .exe al que la casa le  sin el bloque "DESDE DONDE  (sin probar)
+          binario al lado              falte algo (el censo dice cual):  las pide", o un sitio sin
+          (PLAN_PROTON_X, 4d)          debajo de "no arranca: faltan",   las instrucciones de antes
+                                       por cada una, el sitio, la
+                                       funcion del juego y lo de antes
+                                       en castellano
+   MESA   la mesa de ECCE (PL9b de     ECCE con una nota larga (mas de   Alt+rueda no hace nada, o  (sin probar)
+          PLAN_ECCE)                   una hoja): Alt + rueda abajo: la  el clic abre otra hoja, o
+                                       mesa; otra vez: los nodos; un     Esc en la mesa CIERRA ECCE
+                                       clic en un nodo abre esa hoja con (debe solo volver)
+                                       el cursor al principio
+   GUION  ECCE en modo guion           una nota con "INT. CASA - NOCHE"  todo pegado a la izquierda, (sin probar)
+          (PL2..PL4 de PLAN_ECCE)      y un personaje con su dialogo:    o la escena no sale en oro,
+                                       ECCE abre en GUION (la escena en  o Alt+G no cambia de modo
+                                       oro, el personaje a 22, el
+                                       dialogo a 10); Alt+G a notas
+   COPIA  seleccionar y copiar en      Mayus + flechas, Alt+C, Alt+V;    Alt+C no copia, o Ctrl+C   (sin probar)
+          ECCE                         Alt+X y Alt+Z lo devuelve          (que es del escritorio)
+                                                                          cierra sin querer: es lo
+                                                                          suyo, ver keys/windows.rs
+   FD     escribir un guion como en    ECCE en guion (con un INT.):      Tab no cambia la linea, o  (sin probar)
+          Final Draft (PL3 de          "ana" + Tab = @ANA (la @ tenue);  Enter tras el personaje
+          PLAN_ECCE)                   Enter baja al dialogo (a 10); otro deja una linea en blanco,
+                                       Enter deja el blanco; Tab en el   o Alt+Z no lo deshace
+                                       blanco del dialogo = "(|)"
+   FOU    abrir un .fou y guardar      Alt+F en ECCE: la cabecera dice   el explorador no abre ECCE, (sin probar)
+          como guion (PL3)             datos/guion.fou; F12 > DATOS >    o abre las notas, o guarda
+                                       ese fichero: abre ECCE con el     en datos/notas.txt
+                                       guion, y lo escrito se guarda ahi
+   RATON  el raton en la hoja (PL3)    un clic en una letra pone el      el cursor cae en otra       (sin probar)
+                                       cursor ahi; arrastrar selecciona; linea (la de arriba o
+                                       Alt+X corta lo arrastrado         abajo), o arrastrar no
+                                                                         selecciona
+   PAG    las paginas del oficio       un guion de mas de una pagina en  sin raya, o el (MAS) y el  (sin probar)
+          (PL4 de PLAN_ECCE)           ECCE: donde acaba la pagina, la    (CONT.) no salen al partir
+                                       raya con "pag 2"; un dialogo       un dialogo, o el pie no
+                                       partido lleva "(MAS)" y "NOMBRE   dice "pag N de M"
+                                       (CONT.)"; Alt + rueda: la mesa
+                                       muestra esas paginas
+   PDF    el guion en PDF (PL6 de      ECCE con un guion: Alt+P, la      no sale datos/guion.pdf, o  (sin probar)
+          PLAN_ECCE)                   cabecera dice "PDF: datos/        un lector de PDF no lo
+                                       guion.pdf"; copiarlo al PC y      abre, o las columnas no
+                                       abrirlo: Courier, la escena a     son las de un guion
+                                       1,5", el personaje a 3,7", el
+                                       dialogo a 2,5", "2." arriba
+   LETRA  la cabeza y el pie de ECCE   abrir ECCE: "ECCE" en negrita     la de 8 x 16 de siempre (el (sin probar)
+          con la letra de la casa      con el borde suave, "notas" y la  build no dejo letra.blt), o
+          (LE2 de PL18)                ruta finas, el pie igual; teclear letras cortadas, o ECCE va
+                                       no va mas lento que antes         a tirones al teclear
+   IC     la cara ELEGANTE de ECCE     el icono de ECCE en el escritorio sale el cuadro con la E,  (sin probar)
+          (32 px, borde suave, de      a 32 con el borde suave (la hoja  o con bordes en escalera,
+          su `icono.svg`)              y la pluma de oro), sobre la foto o un halo oscuro alrededor
+                                       de fondo y marcado (la pastilla)
+   EL0    lo que TOCA cada programa    abrir ECCE, TINTA y MUNDO,       la tabla no sale, o todo    (sin probar)
+          (PLAN_EL_TOQUE.md)           usarlos un poco y CERRARLOS;      a cero, o un fallo al
+                                       `save`: capitulo 5, la tabla      cerrar una app (el
+                                       "lo que TOCO de lo que tiene"     enterrador cuenta antes
+                                       (d.bex en vivo, las otras al      de desmontar)
+                                       cerrarse) -- y la foto
+   PL1    ECCE, el bloc de notas        su icono (o `run apps/ecce.bex`): no abre, las letras no    (sin probar)
+          (PLAN_ECCE.md)               escribir con tildes y ene, Enter,  salen, Alt+Z no deshace,
+                                       flechas, Alt+Z y Alt+Y; Esc;      o al volver a abrir la
+                                       abrirlo otra vez: la nota sigue   nota no esta
+                                       ahi (datos/notas.txt)
+   Q2     el sonido de TITAN++         `run apps/musica.bex`: dice       no suena (el tubo sin      FUNCIONO 15-10
                                        `voces   `, cada nota y `fin     armar: mirar `audio` en
                                        0`, y SUENA el tema por el        CABINA), o suena a trozos
                                        audifono USB (la misma melodia    (el banco que se reescribe
                                        que tocaba `inti/musica.ibx`)     antes de acabar)
-   C4     los contadores del Zen 3     `cpu contadores`: cada fila con   una fila `cuenta OTRA       (sin probar)
+   C4     los contadores del Zen 3     `cpu contadores`: cada fila con   una fila `cuenta OTRA       FUNCIONO 15-10
                                        lo contado y `CUENTA lo que dice  cosa` o `no conto NADA`
                                        el PPR`; al final `8 de 8`. Las   (apuntar CUAL: ese evento
                                        dos de la L1D son las que el      o su umask no es el de
@@ -1187,6 +1279,54 @@ pieza entera en la 0b, y su fila de la tabla de estado pasa a `VISTO dd-mm`.
                                        PRESTADA a la 3060: sin copia`,   porque 29/30 en la
                                        el juez `la 3060 da lo MISMO`,    bitacora), un fallo de la
                                        y el cubo gira igual que antes    IOMMU, o el juez DISTINTO
+```
+
+** 15-10, 08:24-08:34 (la primera sesion de la hoja; los informes de `save`
+08:30, 08:32 y 08:34, y cinco capturas):
+
+```text
+   A4  FUNCIONO  `20 laminas de 4096 bytes, una por vuelta: 190`, y
+                 `100 50 3 7`, `200`, `497`, `350`
+   C4  FUNCIONO  `8 de 8 filas cuentan lo que dice el papel`; las dos de la
+                 L1D, CONFIRMADAS: accesos 129195 y fallos 104523 en 100000
+                 vueltas, dentro de lo esperado
+   B2  FUNCIONO  AUTOPSIA: `instr  movsxd rax, dword [rax]  rax=0xdead0190`,
+                 la direccion tocada 0xdead0190 -- exacto como en el
+                 anfitrion; `recursos todo devuelto`
+   Q2  FUNCIONO  `musica.bex` escribio TODAS las notas y el kernel toco
+                 (`tocadas 1`, el medidor con pico 0.0 dB y rms -8.2 dB). El
+                 propietario: *"funciona pero lo corte porque es molesto lo
+                 repetitivo"* -- se OYO; el `^C frenado` fue suyo. Lo que
+                 queda es de gusto, no de cadena: la onda cuadrada suena
+                 a pitido (lo que viene, en PLAN_EL_SONIDO.md)
+   B1  sin ver   `cubogira.bex` corrio dos veces (admitido las dos), pero la
+                 linea `lente: ...` vive en la bitacora (F11), no en `save`
+   B4  sin ver   la linea `cpu: es la CPU del perfil` vive en la bitacora del
+                 arranque (F11)
+   C1 C2 C3 D1 B3  sin probar. El save dijo `GSP_INIT_DONE NO llego en
+                 10 s`, PERO ERA MENTIRA DEL RESUMEN (investigado el 15-10):
+                 `save mode` ya lo habia visto llegar -- por eso la fila de
+                 abajo, `GET_GSP_STATIC_INFO CONTESTADA`, y los objetos NV_OK
+                 --; el `gpu init` tecleado DESPUES no puede volver a correr
+                 el secuenciador (`IOMMU_NO_SEC_YA`) y guardaba su resumen
+                 vacio ENCIMA del bueno (las huellas: `1 tramos`, sin `dijo:`,
+                 BAR1 despues 0). Arreglado en `commands/gspinit.rs`: una vez
+                 por arranque, `gpu init` repetido lo dice y no toca nada.
+                 La proxima sesion: NO teclear `gpu init` si save mode ya lo
+                 hizo (o teclearlo: ahora contesta "ya llego")
+                 Y el "gsp NO desperto" de tantos arranques (el propietario,
+                 15-10: "tengo que repetir muchas veces el reinicio") NO es
+                 la tarjeta caliente: es el 0x15 del booter en arranques
+                 FRIOS, el fallo abierto G0 de PLAN_LA_3060 (sus datos, en
+                 `platform/drivers/gpu/ga10x/EL_0x15.md`: 5 de 7 el 29-09, y
+                 tambien con apagado completo). El `reboot` del escritorio
+                 ya apaga el GSP antes (boot_ul); el de la pantalla de fallo
+                 y el del shell serie, no. Y la fila `al llegar` pintaba
+                 `0x80000000` en el WPR2 de una tarjeta FRIA: era la bandera
+                 de "foto tomada", no el registro (arreglado en
+                 `gspsalud.rs`, 15-10)
+   y ademas      tinta, mundo y resol abrieron su ventana (mundo ofrecio su
+                 lamina); ni un aviso en el anillo salvo la caida buscada
 ```
 
 ## 6b1. LA SESION, EN ORDEN (15-10): que se trae y que foto se saca

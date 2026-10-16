@@ -1,0 +1,7 @@
+[package]
+name = "ecce"
+# Su cara en el escritorio (IC2): `titan build` la pinta y la mete dentro.
+icono = "icono.svg"
+
+[permissions]
+screen = true

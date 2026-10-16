@@ -2,6 +2,10 @@
 //!
 //! ```toml
 //!    [package]        name = "asteroids"      (version, edition: read past)
+//!                     icono = "icono.svg"     its FACE on the desktop: an SVG,
+//!                                             PNG or JPG beside the Titan.toml
+//!                                             (IC2, 15-10: `titan build` makes
+//!                                             it a BICO inside the `.bex`)
 //!    [permissions]    screen = true           true or a "string" = asked for
 //!                     net = false             false = not asked for
 //!    [layout]         main = [380, 150]       where each node sits (the owner:
@@ -13,7 +17,7 @@
 //! understand is refused with its number, never guessed.
 
 use crate::text::{is_name, lines, number, quoted, trim};
-use bmo_titan_contrato::{Name, Permission, Permissions, Text, MAX_NODES};
+use bmo_titan_contrato::{Line, Name, Permission, Permissions, Text, MAX_NODES};
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum ManifestError {
@@ -28,6 +32,9 @@ pub enum ManifestError {
 pub struct Manifest {
     pub name: Name,
     pub permissions: Permissions,
+    /// The `icono` of `[package]`, a path from the package's folder; empty =
+    /// none (the desktop draws its letter).
+    pub icono: Line,
     layout: [(Name, i32, i32); MAX_NODES],
     n_layout: usize,
 }
@@ -51,6 +58,7 @@ pub fn parse(text: &[u8]) -> Result<Manifest, ManifestError> {
     let mut m = Manifest {
         name: Text::new(""),
         permissions: Permissions::NONE,
+        icono: Text::new(""),
         layout: [(Text::new(""), 0, 0); MAX_NODES],
         n_layout: 0,
     };
@@ -74,6 +82,21 @@ pub fn parse(text: &[u8]) -> Result<Manifest, ManifestError> {
             Section::Package if key == b"name" => {
                 let name = quoted(value).filter(|v| is_name(v)).ok_or(ManifestError::NoName)?;
                 m.name = Text::new(core::str::from_utf8(name).map_err(|_| ManifestError::NoName)?);
+            }
+            Section::Package if key == b"icono" => {
+                // A path INSIDE the package: no `..`, not absolute, and whole
+                // (a cut path would name another file).
+                let v = quoted(value).ok_or(ManifestError::BadLine(n))?;
+                let inside = !v.is_empty()
+                    && v.len() <= 72
+                    && v[0] != b'/'
+                    && v[0] != b'\\'
+                    && !v.contains(&b':')
+                    && !v.windows(2).any(|w| w == b"..");
+                if !inside {
+                    return Err(ManifestError::BadLine(n));
+                }
+                m.icono = Text::new(core::str::from_utf8(v).map_err(|_| ManifestError::BadLine(n))?);
             }
             Section::Permissions => {
                 let asked = match value {
@@ -128,6 +151,15 @@ mod tests {
         assert!(!m.permissions.allows(Permission::Net) && !m.permissions.allows(Permission::Disk));
         assert_eq!(m.position(b"main"), Some((380, 150)));
         assert_eq!(m.position(b"ship"), None);
+    }
+
+    #[test]
+    fn the_face_is_a_path_inside_the_package() {
+        let m = parse(b"[package]\nname = \"ecce\"\nicono = \"icono.svg\"\n").unwrap();
+        assert_eq!(m.icono.as_bytes(), b"icono.svg");
+        assert!(parse(TOML).unwrap().icono.is_empty());
+        assert_eq!(parse(b"[package]\nname = \"a\"\nicono = \"../fuera.png\"\n").err(), Some(ManifestError::BadLine(3)));
+        assert_eq!(parse(b"[package]\nname = \"a\"\nicono = \"/etc/x.png\"\n").err(), Some(ManifestError::BadLine(3)));
     }
 
     #[test]

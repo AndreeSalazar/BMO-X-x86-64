@@ -323,6 +323,10 @@ $cRecursos = @(
             '................'
         ) }
     ) }
+    # ** LA CARA DE ECCE ya NO vive aqui (IC2, 15-10): la dice su Titan.toml
+    # (`icono = "icono.svg"`) y `titan build` la pinta a 32 con alfa entero y
+    # la mete en `apps\ecce\nucleo.bex`. Era la rejilla de 16 de abajo de
+    # todo con el oro 'y'; las demas apps pueden seguir el mismo camino.
     # ** LA CARA DE RESOLUCION (R1 de EL_FOCO, 2026-10-10): una pantalla con
     # sus dos flechas de esquina a esquina, la medida que crece.
     @{ bex = 'apps\resol.bex'; recursos = @(
@@ -431,4 +435,6 @@ $BICO_PALETA = @{
     'v' = @(0x30, 0xAA, 0x4C, 0xFF)
     't' = @(0x24, 0x48, 0x72, 0xFF)
     's' = @(0x18, 0x30, 0x4C, 0xFF)
+    # El oro de la pluma de ECCE (el mismo de su cursor: 216, 166, 87).
+    'y' = @(0x57, 0xA6, 0xD8, 0xFF)
 }

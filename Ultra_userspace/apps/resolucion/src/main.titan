@@ -170,10 +170,12 @@ fn main()
                     sel = c - 49
                     repintar = true
             if que == 1
-                if c == 72 and sel > 0
+                # Las flechas: las del teclado USB (`bmo_uhid::SC_UP` 102 y
+                # `SC_DOWN` 103) y las del numerico (72 y 80).
+                if (c == 72 or c == 102) and sel > 0
                     sel = sel - 1
                     repintar = true
-                if c == 80 and sel < cuantas() - 1
+                if (c == 80 or c == 103) and sel < cuantas() - 1
                     sel = sel + 1
                     repintar = true
                 if c == 28

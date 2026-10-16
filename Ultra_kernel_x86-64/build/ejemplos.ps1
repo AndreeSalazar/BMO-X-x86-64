@@ -426,11 +426,17 @@ try {
     # en la carpeta de datos y el escritorio lo seguia ofreciendo: NAVEGAR salia
     # dos veces, el de INTI (muerto el 10-10) y el de TITAN++. Cada programa que
     # sale de INTI con su relevo en TITAN++ se apunta AQUI, y se borra.
-    foreach ($retirado in @('navegar.ibx', 'ventana.ibx', 'cubo.ibx', 'bico.ibx', 'png.ibx', 'musica.ibx')) {
-        $viejo = Join-Path (Join-Path $dataBase 'inti') $retirado
-        if (Test-Path $viejo) {
-            Remove-Item $viejo -Force
-            Write-Host ('    [inti] retirado del disco: inti\' + $retirado + ' (su relevo es de TITAN++)') -ForegroundColor DarkGray
+    # ** Y en `apps\` tambien (15-10, la captura del propietario: SEGUIA saliendo
+    # NAVEGAR dos veces). `navegar.ibx` no vivia en `inti\`: vivia en `apps\`,
+    # que es la carpeta que el escritorio convierte en iconos.
+    # (`ecce.bex` suelto, tambien: desde el 15-10 ECCE es `apps\ecce\`, KA1.)
+    foreach ($retirado in @('navegar.ibx', 'ventana.ibx', 'cubo.ibx', 'bico.ibx', 'png.ibx', 'musica.ibx', 'ecce.bex')) {
+        foreach ($carpeta in @('inti', 'apps')) {
+            $viejo = Join-Path (Join-Path $dataBase $carpeta) $retirado
+            if (Test-Path $viejo) {
+                Remove-Item $viejo -Force
+                Write-Host ('    [inti] retirado del staging: ' + $carpeta + '\' + $retirado + ' (su relevo es de TITAN++)') -ForegroundColor DarkGray
+            }
         }
     }
     Compilar-Ejemplos @(
@@ -490,6 +496,14 @@ try {
         # ventanas de TITAN++ y guardarla en `datos\resol.txt`
         # (`director.guarda`, TA4); `titan/ventana.bex` ya se abre con ella.
         @{ src = 'Ultra_userspace\apps\resolucion\src\main.titan'; out = 'resol.bex'; dir = 'apps' },
+        # ** ECCE (PL1 y PL3 de docs/plan/PLAN_ECCE.md, 15-10): el bloc de
+        # notas, el primer peldanio de la app de escribir del propietario.
+        # Guarda solo en `datos\notas.txt`. Una APP: con su icono.
+        # ** UNA APP CARPETA desde el 15-10 (KA1 de PLAN_EL_KERNEL_DE_LA_APP):
+        # `apps\ecce\nucleo.bex`, el que arranca; sus piezas iran al lado. El
+        # escritorio la ve como UNA app con el nombre de la carpeta, y su cara
+        # (IC2) la mete `titan build` desde el `icono.svg` del Titan.toml.
+        @{ src = 'Ultra_userspace\apps\ecce\src\main.titan'; out = 'nucleo.bex'; dir = 'apps\ecce' },
         # ** TINTA (TB1 de docs/plan/PLAN_LA_TINTA.md, 2026-10-10): el lienzo
         # minimo -- pincel redondo con antialias, goma y PNG --, el primer
         # peldanio del Adobe + Clip Studio Paint propio. Una APP: con su icono.
@@ -505,6 +519,22 @@ try {
         @{ src = 'Ultra_userspace\apps\bico\src\main.titan'; out = 'bico.bex'; dir = 'titan' },
         @{ src = 'Ultra_userspace\apps\png\src\main.titan'; out = 'png.bex'; dir = 'titan' }
     ) 'bmo-titan-x86-64' 'titan' 'ok:|T00|no se ha' $dataBase $repo -Orden 'build'
+
+    # -- LA LETRA DE ECCE (LE2 de PL18 de docs/plan/PLAN_ECCE.md, 16-10) -----
+    #
+    # El propietario: "que todo el INTERFAZ se vea mucho mas elegante". ECCE
+    # escribe su cabecera y su pie con LA LETRA DE LA CASA (`bmo-letra`, la de
+    # las apps de Rust: proporcional, de borde suave, sin terceros), que
+    # `bmo-atlas` dibuja aqui una vez por medida. Van al lado del nucleo: el
+    # kernel solo mira como pieza lo que es `.bex` o `.ibx` (KA1), y ECCE los
+    # lee con `director.fichero`. Sin ellos, ECCE pinta con la de 8 x 16.
+    $ecceDst = Join-Path $dataBase 'apps\ecce'
+    $atlas = Obrero 'bmo-atlas'
+    foreach ($l in @(@{ out = 'letra.blt'; args = @('--medida', '14') }, @{ out = 'titulo.blt'; args = @('--medida', '26', '--negrita') })) {
+        & $atlas -o (Join-Path $ecceDst $l.out) @($l.args) 2>&1 | ForEach-Object { Write-Host ('    [atlas] ' + $_) -ForegroundColor DarkGray }
+        if ($LASTEXITCODE -ne 0) { Fail ('no salio apps\ecce\' + $l.out) }
+    }
+    Write-Host '    [apps\ecce] letra.blt (14 px) y titulo.blt (26 px, negrita): la letra de la casa' -ForegroundColor DarkGray
 
     # -- Las dos imagenes que `titan/bico.bex` convierte ------------------
     #

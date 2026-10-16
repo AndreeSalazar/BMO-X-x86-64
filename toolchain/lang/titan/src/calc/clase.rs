@@ -470,9 +470,11 @@ pub(super) fn director(what: Director, args: &[Value], at: At, known: &[Option<C
             }
         }
         Director::Presenta => Ok(None),
+        // ** PL3 de PLAN_ECCE: lo que iba detras de la ruta al lanzar.
+        Director::Argumento => Ok(Some(Class::Text)),
         // ** F2 y F3 (EL_FOCO, 10-10): lo que se lee y lo que llega.
         Director::Toma | Director::SeVe => Ok(Some(Class::Bool)),
-        Director::Medida | Director::Evento | Director::Codigo | Director::RatonX | Director::RatonY | Director::Botones | Director::Ms => Ok(Some(Class::Int)),
+        Director::Medida | Director::Evento | Director::Codigo | Director::RatonX | Director::RatonY | Director::Botones | Director::Rueda | Director::Ms => Ok(Some(Class::Int)),
         // ** C4 (LB5): contarse a si mismo con los contadores del Zen 3.
         Director::Contar => Ok(Some(Class::Bool)),
         // ** Q2: el sonido.
@@ -955,7 +957,12 @@ fn lib_class(lib: Lib, args: &[Value], at: At, known: &[Option<Class>], m: &Modu
             let Class::List(t) = &first else { return Err(not_one("una lista", "push(mut nombres, \"ana\")")) };
             match lib {
                 Lib::Push => {
-                    cell(t, arg(1)?, 1, &format!("la lista es de {}", t.short(types)))?;
+                    // ** (16-10, PL6 de PLAN_ECCE) un TEXTO entra en una
+                    // `[byte]` letra a letra: `push(mut pdf, "BT ")`.
+                    let a1 = arg(1)?;
+                    if !(**t == Class::Byte && a1 == Class::Text) {
+                        cell(t, a1, 1, &format!("la lista es de {}", t.short(types)))?;
+                    }
                     first.clone()
                 }
                 Lib::Last => Class::Opt(t.clone()),

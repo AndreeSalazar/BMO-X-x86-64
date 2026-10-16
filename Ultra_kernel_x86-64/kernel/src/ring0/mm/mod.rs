@@ -16,6 +16,8 @@
 pub mod titular;
 pub mod phys;
 pub mod vmm;
+/// **EL TOQUE** (PLAN_EL_TOQUE): la RAM que se USA frente a la que se tiene.
+pub mod toque;
 
 /// Base of the direct physical map installed by `s2_mem`.
 pub const HIGH_MEM_BASE: u64 = 0xFFFF_8000_0000_0000;

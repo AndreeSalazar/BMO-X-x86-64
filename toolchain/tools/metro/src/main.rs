@@ -28,6 +28,8 @@
 //!                    lenguaje (`emu::clases`). No es trinquete: es el dato
 //!                    que elige la primera optimizacion, en vez de elegirla
 //!                    quien mira
+//!   metro --duelo    el MISMO programa en C y en TITAN++ (`duelo/`): cuantas
+//!                    veces C cuesta TITAN++ (PLAN_TITAN_AFINADO)
 //!   metro --caliente <programa del banco> [salida.bin]
 //!                    las direcciones que MAS se ejecutan, con su clase, y
 //!                    el codigo volcado a un fichero para desensamblarlo
@@ -164,7 +166,21 @@ const BANCO: &[(&str, &str)] = &[
     // PLAN_LA_TINTA).
     ("titan", "toolchain/lang/titan/ejemplos/nivel14/pixeles.titan"),
     ("titan", "toolchain/lang/titan/ejemplos/nivel14/histograma.titan"),
+    // ** EL DUELO (16-10, PLAN_TITAN_AFINADO): el MISMO programa en C y en
+    // TITAN++. En el banco, sus pasos son trinquete como los de todos; con
+    // `--duelo`, la tabla de cuantas veces C es TITAN++.
+    ("c", "toolchain/tools/metro/duelo/primos.c"),
+    ("titan", "toolchain/tools/metro/duelo/primos.titan"),
+    ("c", "toolchain/tools/metro/duelo/fib.c"),
+    ("titan", "toolchain/tools/metro/duelo/fib.titan"),
+    ("c", "toolchain/tools/metro/duelo/bytes.c"),
+    ("titan", "toolchain/tools/metro/duelo/bytes.titan"),
+    ("c", "toolchain/tools/metro/duelo/ordenar.c"),
+    ("titan", "toolchain/tools/metro/duelo/ordenar.titan"),
 ];
+
+/// Los duelos: el nombre de cada par de `duelo/` (`.c` y `.titan`).
+const DUELOS: [&str; 4] = ["primos", "fib", "bytes", "ordenar"];
 
 #[derive(Debug, Clone, PartialEq)]
 struct Medida {
@@ -534,6 +550,29 @@ fn main() {
     let modo = std::env::args().nth(1).unwrap_or_default();
     if modo == "--recorre" {
         recorre_fichero(&std::env::args().nth(2).unwrap_or_default());
+        return;
+    }
+    // ** EL DUELO: TITAN++ contra C, el mismo programa. La meta de
+    // PLAN_TITAN_AFINADO: llegar a C sin que TITAN++ aprenda de CPU.
+    if modo == "--duelo" {
+        println!("{:<10} {:>12} {:>12} {:>8}", "duelo", "pasos C", "TITAN++", "veces C");
+        for d in DUELOS {
+            let c = medir("c", &format!("toolchain/tools/metro/duelo/{d}.c"));
+            let t = medir("titan", &format!("toolchain/tools/metro/duelo/{d}.titan"));
+            match (c, t) {
+                (Ok(c), Ok(t)) => {
+                    if c.salida != t.salida {
+                        eprintln!("metro: el duelo {d} no escribe lo mismo en C y en TITAN++");
+                        exit(1);
+                    }
+                    println!("{:<10} {:>12} {:>12} {:>8.2}", d, c.pasos, t.pasos, t.pasos as f64 / c.pasos as f64);
+                }
+                (c, t) => {
+                    eprintln!("metro: el duelo {d}: C {:?}, TITAN++ {:?}", c.err(), t.err());
+                    exit(1);
+                }
+            }
+        }
         return;
     }
     if modo == "--caliente" {

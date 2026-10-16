@@ -8,6 +8,9 @@
 //! esta carpeta no sabe de que color es la ventana.
 
 pub(crate) mod complete;
+pub(crate) mod dentro;
+/// `dentro JUEGO.EXE`: un programa de Windows por dentro (LX1).
+pub(crate) mod dentro_exe;
 /// C4: los contadores del Zen 3, calibrados (`cpu contadores`).
 pub(crate) mod contadores;
 /// Las sugerencias de la caja mientras se teclea, y TAB sobre ordenes (24-09).
@@ -251,6 +254,8 @@ pub(crate) enum Command<'a> {
     Sonidos,
     /// `fondo [pieza|siguiente|vol N|aviso|lista|apagar]`: la musica de fondo.
     Fondo(&'a [u8]),
+    /// `dentro RUTA`: un `.bex` por dentro, con los ojos del kernel (15-10).
+    Dentro(&'a [u8]),
     /// `oido [voz|musica|plano|graves N|...]`: el perfil del oido.
     Oido(&'a [u8]),
     /// `3d [apagado|cerca|sala|amplio|orbita [s]]`: el espacio.
@@ -667,6 +672,7 @@ pub(crate) fn parse(line: &[u8]) -> Command<'_> {
         b"placa" | b"firmware" => Command::Placa,
         b"sonidos" | b"censo-sonidos" => Command::Sonidos,
         b"fondo" => Command::Fondo(rest),
+        b"dentro" | b"radiografia" => Command::Dentro(rest),
         b"oido" => Command::Oido(rest),
         b"3d" | b"espacio" => Command::Espacio(rest),
         b"cpu" | b"procesador" => Command::Cpu(rest),

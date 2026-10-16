@@ -46,6 +46,19 @@ impl E1<'_> {
             self.here(done);
             return Ok((t, Class::Bool));
         }
+        // ** AF2b (PLAN_TITAN_AFINADO): `x + 1`, `x - 1` con el numero
+        // escrito DENTRO de la instruccion, sin hacerlo un valor aparte
+        if let (Value::Int(v, _), "+" | "-") = (b, op) {
+            if i32::try_from(*v).is_ok() && self.class_of(a)? == Class::Int {
+                let (pa, _) = self.eval(a)?;
+                self.load(pa, RAX);
+                self.suma_inmediata(RAX, if op == "+" { *v } else { -*v });
+                self.trap(0x80, "T0060", "el resultado no cabe en 64 bits", at);
+                let t = self.temp(8);
+                self.store(t, RAX);
+                return Ok((t, Class::Int));
+            }
+        }
         let (pa, ca) = self.eval(a)?;
         let (pb, cb) = self.eval(b)?;
         match op {
@@ -112,6 +125,20 @@ impl E1<'_> {
                 let what = format!("`{}` entre {:?} y {:?}", other, ca, cb);
                 Err(self.not_yet(&what, super::E1_WHY, super::E1_HOW, at))
             }
+        }
+    }
+
+    /// `reg += v`, con el numero dentro (`add r64, imm8/imm32`). `v` cabe
+    /// en 32 bits con signo (quien llama lo miro); pone las banderas, y el
+    /// `jo` de detras mira el desborde como con dos registros.
+    pub(super) fn suma_inmediata(&mut self, reg: u8, v: i64) {
+        if let Ok(b) = i8::try_from(v) {
+            x86::add_r64_imm8(&mut self.code, reg, b);
+        } else {
+            self.code.push(0x48 | ((reg >> 3) & 1));
+            self.code.push(0x81);
+            self.code.push(0xC0 | (reg & 7));
+            self.code.extend_from_slice(&(v as i32).to_le_bytes());
         }
     }
 
@@ -243,7 +270,7 @@ impl E1<'_> {
     /// rax * 10^rcx -> rax; r10 = 1 si no cabe. Ensucia rcx, r11.
     fn h_pow10(&mut self) {
         x86::zero_r32(&mut self.code, R10);
-        let top = self.code.len();
+        let top = self.etiqueta();
         x86::test_r64_r64(&mut self.code, RCX, RCX);
         let done = self.jcc(0x84);
         self.imm(R11, 10);
@@ -314,7 +341,7 @@ impl E1<'_> {
     /// cero, o cifras de mas: r10 = 4 (T0074).
     fn h_fit(&mut self) {
         x86::zero_r32(&mut self.code, R10);
-        let trim = self.code.len();
+        let trim = self.etiqueta();
         x86::cmp_r64_r64(&mut self.code, RCX, R8);
         let trimmed = self.jcc(0x8E);
         x86::mov_r64_r64(&mut self.code, R11, RAX);

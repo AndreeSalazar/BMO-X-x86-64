@@ -128,6 +128,7 @@ members = [
     # LA LENTE de x86-64 (14-10, A5 de EL_FOCO): lee el binario de los emisores
     # y lo dice; lo que no esta en su tabla, con sus bytes. La juzga `metro`.
     "platform/shared/bmo-lente-x86",
+    "platform/abi/bmo-radiografia",
     "platform/shared/verrano",
     "platform/shared/verrano-trama",
     # AYNI (12-10, PLAN_AYNI): que la GPU gaste MENOS. UMA, la red diminuta de
@@ -351,6 +352,13 @@ members = [
     # frontend; los datos llegan despues y de quien monta la app, asi que
     # empaquetar es un paso posterior y no una opcion del codegen.
     "toolchain/tools/bmo-pack",
+    # La CARA de una app desde un PNG, un JPG o un SVG (IC1, 15-10): un BICO
+    # de 32 con su alfa entero. Lo usan `titan build` y el empaquetado.
+    "toolchain/tools/bmo-icono",
+    # El ATLAS de una letra (LE1 de PLAN_ECCE PL18, 16-10): la letra de la casa
+    # (o un TrueType que elija el propietario) en Latin-1 con el borde suave,
+    # para que una app de TITAN++ la pinte sin saber de curvas.
+    "toolchain/tools/bmo-atlas",
     "toolchain/tools/bmo-enlazar",
     # El metro del emisor de x86-64 (2026-09-18): pasos, bytes y salida de un banco fijo.
     "toolchain/tools/metro",

@@ -677,6 +677,8 @@ pub const INFO_PROG_IMAGEN: u64 = 0x78;
 /// `n >> 8` = `programa * 4 + region` (0 codigo, 1 constantes, 2 datos, 3 ceros).
 pub const INFO_PROG_REGION: u64 = 0x79;
 pub const INFO_PROG_CIERRE: u64 = 0x7A;
+/// Lo que TOCO de su RAM (EL0 de PLAN_EL_TOQUE): ver el ABI.
+pub const INFO_PROG_TOQUE: u64 = 0xDA;
 pub const INFO_USB_LATIDO: u64 = 0x7B;
 pub const INFO_USB_LATIDO_CUANDO: u64 = 0x7C;
 pub const INFO_SPIN_RETENIDO: u64 = 0x7D;
@@ -906,6 +908,8 @@ pub const SUP_BUZON_RANURA: u64 = 8;
 pub const SUP_EV_RATON: u64 = 0x8000_0000_0000_0000;
 pub const SUP_EV_CARACTER: u64 = 0x4000_0000_0000_0000;
 pub const SUP_EV_CONFIGURE: u64 = 0x2000_0000_0000_0000;
+pub const SUP_EV_RUEDA: u64 = 0x1000_0000_0000_0000;
+pub const SUP_RUEDA_ALT: u64 = 1 << 16;
 pub const SUP_ESTADO_VENTANA: u64 = 0;
 pub const SUP_ESTADO_MAXIMIZADA: u64 = 1;
 pub const SUP_ESTADO_COMPLETA: u64 = 2;

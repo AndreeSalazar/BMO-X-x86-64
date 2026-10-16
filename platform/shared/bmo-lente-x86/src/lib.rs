@@ -35,6 +35,8 @@
 pub mod recorre;
 pub mod tabla;
 mod texto;
+/// **EN CASTELLANO** (15-10): lo que hace una instruccion, dicho para una persona.
+pub mod castellano;
 
 pub use tabla::{Ext, Fila, Forma, Pref};
 pub use texto::Texto;

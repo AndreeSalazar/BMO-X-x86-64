@@ -63,6 +63,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "bmo-atlas"
+version = "0.1.0"
+dependencies = [
+ "bmo-letra",
+]
+
+[[package]]
 name = "bmo-audio"
 version = "1.0.0"
 
@@ -421,6 +428,13 @@ version = "0.1.0"
 [[package]]
 name = "bmo-huesped"
 version = "0.1.0"
+
+[[package]]
+name = "bmo-icono"
+version = "0.1.0"
+dependencies = [
+ "bmo-imagen",
+]
 
 [[package]]
 name = "bmo-identify"
@@ -807,6 +821,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "bmo-radiografia"
+version = "0.1.0"
+dependencies = [
+ "bmo-abi",
+ "bmo-bex-gate",
+ "bmo-carga-juicio",
+ "bmo-lente-x86",
+ "bmo-proton-x",
+ "bmo-titan-x86-64",
+]
+
+[[package]]
 name = "bmo-raiz-juicio"
 version = "0.1.0"
 
@@ -929,14 +955,19 @@ name = "bmo-titan-x86-64"
 version = "0.1.0"
 dependencies = [
  "bmo-abi",
+ "bmo-atlas",
+ "bmo-bex-gate",
  "bmo-bsf",
  "bmo-cubo",
+ "bmo-icono",
+ "bmo-letra",
  "bmo-lower",
  "bmo-prometeo",
  "bmo-tarjeta-cpu",
  "bmo-tarjeta-rtx3060-12g",
  "bmo-titan-contrato",
  "bmo-titan-front",
+ "bmo-titan-lector",
  "bmo-titan-prometeo",
  "bmo-verify",
  "bmo-verrano",

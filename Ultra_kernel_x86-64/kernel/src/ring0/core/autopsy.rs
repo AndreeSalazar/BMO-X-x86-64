@@ -73,10 +73,14 @@ const CUANTAS: usize = 4;
 // DIECIOCHO desde el 14-10: la INSTRUCCION en claro y el registro que llevaba
 // la direccion, con la lente (B2 del foco). Va detras del `rip` al leer
 // (`ORDEN`), aunque se escriba la ultima.
-const RENGLONES: usize = 18;
-/// En que orden se guardan los renglones: el de la instruccion (17) justo
-/// despues del `rip` (5), que es donde se lee.
-const ORDEN: [usize; RENGLONES] = [0, 1, 2, 3, 4, 5, 17, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16];
+// DIECINUEVE desde el 15-10: la misma instruccion DICHA EN CASTELLANO (`dice`,
+// `bmo_lente_x86::castellano`), debajo de `instr`. El propietario: *"mi
+// kernel se convierte mi lente automatico de ver binarios a [castellano]"*. Y un
+// VEINTE para lo que de la frase no cabe en un renglon (se corta por palabra).
+const RENGLONES: usize = 20;
+/// En que orden se guardan los renglones: el de la instruccion (17) y su
+/// frase (18 y 19) justo despues del `rip` (5), que es donde se lee.
+const ORDEN: [usize; RENGLONES] = [0, 1, 2, 3, 4, 5, 17, 18, 19, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16];
 
 /// **Lo que se saca del proceso ANTES de tocar nada.**
 ///
@@ -1105,7 +1109,7 @@ pub fn registrar(
         Renglon::nuevo(), Renglon::nuevo(), Renglon::nuevo(),
         Renglon::nuevo(), Renglon::nuevo(), Renglon::nuevo(),
         Renglon::nuevo(), Renglon::nuevo(), Renglon::nuevo(),
-        Renglon::nuevo(),
+        Renglon::nuevo(), Renglon::nuevo(), Renglon::nuevo(),
     ];
 
     renglones[0].s("== FALLO EN RING 3 #");
@@ -1419,7 +1423,12 @@ pub fn registrar(
     // el 02-10 se hizo a mano con Cyberpunk: `mov eax, [rdi+0x18c0]` y un
     // `rdi` que no era de nadie.
     renglones[17].s("instr     ");
-    instruccion_leida(cap, rip, rsp, &mut renglones[17]);
+    {
+        let (a, b) = renglones.split_at_mut(18);
+        let (dice, sigue) = b.split_at_mut(1);
+        dice[0].s("dice      ");
+        instruccion_leida(cap, rip, rsp, &mut a[17], &mut dice[0], &mut sigue[0]);
+    }
 
     unsafe {
         let anillo = &mut *core::ptr::addr_of_mut!(ANILLO);
@@ -1444,7 +1453,7 @@ pub fn registrar(
 /// retorno en la pila: lo de justo antes del retorno, probando desde el final
 /// hasta dar con una instruccion entera que sea un `call`. Lo que la lente no
 /// sabe leer se dice, sin adivinar.
-fn instruccion_leida(cap: &Captura, rip: u64, rsp: u64, r: &mut Renglon) {
+fn instruccion_leida(cap: &Captura, rip: u64, rsp: u64, r: &mut Renglon, dice: &mut Renglon, sigue: &mut Renglon) {
     // De numero de registro de x86 (0 rax, 1 rcx, ...) a `cap.regs` (rax rbx
     // rcx rdx rsi rdi rbp r8..r15); `rsp` no esta ahi: es el del fallo.
     let valor = |n: u8| -> u64 {
@@ -1489,6 +1498,22 @@ fn instruccion_leida(cap: &Captura, rip: u64, rsp: u64, r: &mut Renglon) {
     };
     r.s(que);
     r.s(i.texto(en).as_str());
+    // ** Y DICHA EN CASTELLANO (15-10), en su renglon: lo que hace, para una
+    // persona. Si no cabe en el ancho, sigue en el renglon de debajo (que,
+    // vacio, nadie pinta).
+    let frase = bmo_lente_x86::castellano::explica(&i, en);
+    let frase = frase.as_str();
+    let cabe = ANCHO - dice.n;
+    if frase.len() <= cabe {
+        dice.s(frase);
+    } else {
+        // Se corta en el ultimo espacio que cabe; lo demas, debajo y
+        // alineado con la frase.
+        let corte = frase[..cabe].rfind(' ').unwrap_or(cabe);
+        dice.s(&frase[..corte]);
+        sigue.s("          ");
+        sigue.s(frase[corte..].trim_start());
+    }
     if let Some(m) = i.memoria() {
         for n in m.base.into_iter().chain(m.indice) {
             // `  r15=0x` y dieciseis cifras: si no cabe, se ve que falta.

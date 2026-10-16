@@ -185,7 +185,7 @@ impl E1<'_> {
         // q = 10^escala
         self.imm(R9, 1);
         self.imm(R10, 10);
-        let pow = self.code.len();
+        let pow = self.etiqueta();
         x86::test_r64_r64(&mut self.code, RCX, RCX);
         let pow_done = self.jcc(0x84);
         x86::imul_r64_r64(&mut self.code, R9, R10);
@@ -225,7 +225,7 @@ impl E1<'_> {
         x86::mov_r64_r64(&mut self.code, RAX, R8);
         x86::zero_r32(&mut self.code, RDX);
         x86::div_r64(&mut self.code, R9);
-        let step = self.code.len();
+        let step = self.etiqueta();
         x86::test_r64_r64(&mut self.code, RCX, RCX);
         let steps_done = self.jcc(0x84);
         x86::add_r64_r64(&mut self.code, RDX, RDX);
@@ -325,7 +325,7 @@ impl E1<'_> {
         self.imm(RCX, 1);
         x86::mov_r64_r64(&mut self.code, RDX, R9);
         self.imm(R10, 10);
-        let pow = self.code.len();
+        let pow = self.etiqueta();
         x86::test_r64_r64(&mut self.code, RDX, RDX);
         let pow_done = self.jcc(0x84);
         x86::imul_r64_r64(&mut self.code, RCX, R10);

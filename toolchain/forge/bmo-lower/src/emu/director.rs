@@ -47,24 +47,26 @@ impl Machine {
                 self.write_u64(s + buz + 8, estado | SUP_TOMADA);
             }
         }
-        let Some(e) = self.buzon_pendiente.front().copied() else {
-            return;
-        };
-        let s = base + desde;
-        let buz = self.read_u32_mem(s + 24) as u64;
-        let ranuras = self.read_u32_mem(s + 28) as u64;
-        if buz == 0 || ranuras == 0 {
-            return;
+        for _ in 0..self.buzon_por_vuelta.max(1) {
+            let Some(e) = self.buzon_pendiente.front().copied() else {
+                return;
+            };
+            let s = base + desde;
+            let buz = self.read_u32_mem(s + 24) as u64;
+            let ranuras = self.read_u32_mem(s + 28) as u64;
+            if buz == 0 || ranuras == 0 {
+                return;
+            }
+            let cabeza = self.read_u32_mem(s + buz) as u64;
+            let cola = self.read_u32_mem(s + buz + 4) as u64;
+            let mascara = ranuras - 1;
+            if ((cabeza + 1) & mascara) == (cola & mascara) {
+                return; // lleno: se queda pendiente, como en el DIRECTOR
+            }
+            self.write_u64(s + buz + SUP_BUZON_CABECERA + (cabeza & mascara) * SUP_BUZON_RANURA, e);
+            self.write_u32(s + buz, ((cabeza + 1) & mascara) as u32);
+            self.buzon_pendiente.pop_front();
         }
-        let cabeza = self.read_u32_mem(s + buz) as u64;
-        let cola = self.read_u32_mem(s + buz + 4) as u64;
-        let mascara = ranuras - 1;
-        if ((cabeza + 1) & mascara) == (cola & mascara) {
-            return; // lleno: se queda pendiente, como en el DIRECTOR
-        }
-        self.write_u64(s + buz + SUP_BUZON_CABECERA + (cabeza & mascara) * SUP_BUZON_RANURA, e);
-        self.write_u32(s + buz, ((cabeza + 1) & mascara) as u32);
-        self.buzon_pendiente.pop_front();
     }
 
 }

@@ -218,6 +218,7 @@ const INFO_PROG_QUIEN: u64 = 0x77;
 const INFO_PROG_IMAGEN: u64 = 0x78;
 const INFO_PROG_REGION: u64 = 0x79;
 const INFO_PROG_CIERRE: u64 = 0x7A;
+const INFO_PROG_TOQUE: u64 = 0xDA;
 // El veredicto del peor retraso del latido del bus USB, y cuando fue. Ver
 // `dev/usb/bus.rs::latido_peor`.
 const INFO_USB_LATIDO: u64 = 0x7B;
@@ -731,6 +732,24 @@ pub fn campo(n: u64) -> Option<u64> {
                 None => 0,
             }
         }
+        // `n >> 8` = programa * 3 + region (0 imagen, 1 memoria, 2 lo demas):
+        // lo que TOCO (EL0 de PLAN_EL_TOQUE). Del que pregunta, en vivo (su
+        // espacio es el que corre); de un muerto, lo apuntado al enterrarlo;
+        // de un tercero vivo, nada (0): no se camina un espacio ajeno vivo.
+        c if c & 0xFF == INFO_PROG_TOQUE => {
+            let i = (c >> 8) as usize;
+            match crate::ring0::task::proc::programa(i / 3) {
+                Some(r) if r.pid != 0 && r.pid == crate::ring0::task::scheduler::current_pid() => {
+                    let cuenta = crate::ring0::mm::toque::verde::contar(crate::ring0::mm::vmm::read_cr3());
+                    crate::ring0::mm::toque::verde::empaquetar(&cuenta, i % 3, true)
+                }
+                Some(r) => match crate::ring0::mm::toque::verde::de_muerto(r.tid) {
+                    Some(cuenta) => crate::ring0::mm::toque::verde::empaquetar(&cuenta, i % 3, false),
+                    None => 0,
+                },
+                None => 0,
+            }
+        }
         c if c & 0xFF == INFO_PROG_CIERRE => {
             match crate::ring0::task::proc::programa((c >> 8) as usize) {
                 Some(r) => (r.relocs as u64)
@@ -1168,6 +1187,7 @@ pub fn es_de_otros(n: u64) -> bool {
         || base == INFO_PROG_IMAGEN
         || base == INFO_PROG_REGION
         || base == INFO_PROG_CIERRE
+        || base == INFO_PROG_TOQUE
 }
 
 /// La topologia, **por el perfil y no por el nombre del fabricante**.

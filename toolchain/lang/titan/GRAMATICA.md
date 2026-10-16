@@ -483,6 +483,14 @@ cambia en UN camino, cuenta, aunque otro vuelva pronto sin tocarlo
 puntero: una tabla de 2000 prestada hacia dentro no gasta su tamanio en cada
 marco (`emisor-x86_64/tests/pila.rs`).
 
+**Y lo que solo se LEE tampoco se copia** (16-10, E1): `fn f(n: T)` es una
+copia para quien lee el programa, pero si `f` nunca cambia `n` ni se lo
+queda (no lo presta, no lo entrega, no lo guarda entero en un `let`, un `=`,
+un `return`, una tabla, un registro o un `push`), la copia y el original no
+se distinguen, y la maquina pasa un PUNTERO. Es para listas, tablas y mapas
+sin `dec` dentro. Medido: pasar una `[byte]` de 20 KB mil veces costaba 200
+millones de pasos y cuesta lo que leerla (`e1/mod.rs`, `solo_se_lee`).
+
 ### La precision de COBOL (el propietario: "precision fuerte para no generar bug")
 
 ```text
@@ -1055,9 +1063,16 @@ if director.toma() or director.fichero("datos/ejemplo.lam")
     let n = director.medida()                 # cuantos bytes se tienen
     let b = director.byte(0)                  # uno, o -1 fuera
 let que = director.evento()                   # 0 nada, 1 tecla pulsada, 2 soltada,
-                                              # 3 letra, 4 raton, 5 la ventana cambio
+                                              # 3 letra, 4 raton, 5 la ventana cambio,
+                                              # 6 la rueda (15-10)
 let tecla = director.codigo()                 # su scancode o su letra (Latin-1)
 let x = director.raton_x()                    # y raton_y(), botones()
+let muescas = director.rueda()                # con signo: arriba +, abajo -. Sola
+                                              # o con Alt; Ctrl + rueda es del
+                                              # escritorio (como todo Ctrl)
+let ruta = director.argumento()               # lo de detras de la ruta al lanzar
+                                              # ("" si nada): el explorador abre
+                                              # asi un fichero con su app (15-10)
 if director.se_ve()                           # no minimizada ni tapada (R-APP8)
     x = director.texto(8, 8, "hola", 1, 16777215)   # la x de detras
     x = director.letra(x, 8, 241, 2, 16777215)      # un glifo (aqui la n con tilde)
@@ -1353,6 +1368,9 @@ de imprenta son 52 millones de pixeles, 420 MB en `[int]` y 52 MB en `[byte]`
                          que quepa. Nunca un corte callado
    [byte] y [int]        dos listas distintas: una [byte] no se mira como
                          [int] (seria otra lista, no otra mirada): T0071
+   push(mut b, "texto")  en una [byte], las letras del texto, una detras de
+                         otra (16-10, PL6 de PLAN_ECCE: un fichero que es
+                         texto y bytes a la vez, como un PDF)
 ```
 
 ```text

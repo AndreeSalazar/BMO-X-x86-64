@@ -234,11 +234,14 @@ if ($Data) {
     foreach ($f in Get-ChildItem -Path $dataSrc -Recurse -File) {
         $mios[$f.FullName.Substring($dataSrc.Length).TrimStart([char]'\').ToUpper()] = $true
     }
-    $ajenos = @(Get-ChildItem -Path $dataRoot -Recurse -File -Filter '*.bex' -ErrorAction SilentlyContinue |
+    # ** `.ibx` tambien (15-10): el lanzador hace icono de los dos (`ends_in_bex`
+    # en `scene/launcher.rs`), y `apps\navegar.ibx` de INTI, retirado el 10-10,
+    # seguia en el disco como un SEGUNDO NAVEGAR sin que esta lista lo nombrara.
+    $ajenos = @(Get-ChildItem -Path $dataRoot -Recurse -File -Include '*.bex', '*.ibx' -ErrorAction SilentlyContinue |
         Where-Object { -not $mios.ContainsKey($_.FullName.Substring($dataRoot.Length).TrimStart([char]'\').ToUpper()) })
     if ($ajenos.Count -gt 0) {
         Write-Host ''
-        Write-Host ('  [!] {0} .bex en {1} que este deploy NO ha puesto:' -f $ajenos.Count, $dataRoot) -ForegroundColor Yellow
+        Write-Host ('  [!] {0} .bex o .ibx en {1} que este deploy NO ha puesto:' -f $ajenos.Count, $dataRoot) -ForegroundColor Yellow
         foreach ($a in $ajenos) {
             $rel = $a.FullName.Substring($dataRoot.Length)
             # Los de `apps\` se marcan aparte: son los unicos que el lanzador
@@ -249,7 +252,7 @@ if ($Data) {
         }
         Write-Host '      Se quitan A MANO. Aqui no se borra nada.' -ForegroundColor Yellow
     } else {
-        Write-Host ('  ' + $dataRoot + ': ningun .bex que este deploy no haya puesto') -ForegroundColor DarkGray
+        Write-Host ('  ' + $dataRoot + ': ningun .bex ni .ibx que este deploy no haya puesto') -ForegroundColor DarkGray
     }
 
     Write-Host ''

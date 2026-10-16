@@ -1,0 +1,168 @@
+# EL PAGINADO DEL OFICIO (PL4 de docs/plan/PLAN_ECCE.md, 16-10): donde
+# acaba cada pagina de un guion. Una pagina son 55 lineas de la letra del
+# oficio (Courier de 12 puntos, 6 lineas por pulgada, la hoja de 11 menos sus
+# margenes): un minuto de pelicula. Lo que dice donde se corta:
+#
+#    la linea en blanco   arriba de una pagina no cuenta (no se imprime)
+#    acto y sinopsis      no se imprimen: no ocupan
+#    ===                  salto de pagina: lo de detras, en la siguiente
+#    la escena            nunca sola al final: con ella, dos lineas mas
+#    el dialogo           se parte con el nombre y DOS lineas arriba, y dos
+#                         abajo; abajo, "(MAS)" donde iria el nombre; arriba
+#                         de la siguiente, "NOMBRE (CONT.)". Nunca queda un
+#                         parentesis al final de la pagina
+#    la accion            se parte si quedan dos lineas a cada lado
+#    la transicion        no se parte
+#
+# Se pagina sobre las lineas que SE VEN del guion (`guion.lineas`): los
+# anchos ya son los del oficio, asi que una linea de la ventana es una linea
+# de la pagina.
+mod pagina "el paginado del oficio: 55 lineas por pagina, y donde se corta"
+use guion
+
+pub fn lineas_por_pagina() -> int
+    return 55
+
+fn de_dialogo(q: int) -> bool
+    return q == guion.dialogo() or q == guion.parentesis()
+
+# Donde acaba el bloque que empieza en la linea `a`: un personaje con su
+# dialogo entero; si no, las lineas seguidas del mismo tipo.
+fn fin_de_bloque(tl: [int], a: int) -> int
+    let n = len(tl)
+    let q = tl[a]
+    let mut b = a + 1
+    if q == guion.vacia() or q == guion.salto()
+        return b
+    if q == guion.personaje()
+        while b < n and (tl[b] == guion.personaje() or de_dialogo(tl[b]))
+            b = b + 1
+        return b
+    while b < n and tl[b] == q
+        b = b + 1
+    return b
+
+# **Donde se corta** el bloque [ini, b) de tipo `q` si en la pagina quedan
+# `r` lineas: la primera linea que va a la siguiente, o -1 si no se puede
+# partir (y el bloque entero pasa). `primero`: el bloque empieza en `ini`
+# (con su nombre, si es un dialogo).
+fn corte(tl: [int], ini: int, b: int, r: int, q: int, primero: bool) -> int
+    if q == guion.personaje()
+        let mut pc = 0
+        if primero
+            while ini + pc < b and tl[ini + pc] == guion.personaje()
+                pc = pc + 1
+        let dichas = b - ini - pc
+        # Lo que cabe de dialogo: lo que queda menos el nombre y el "(MAS)".
+        let mut d = r - 1 - pc
+        if dichas - d < 2
+            d = dichas - 2
+        while d >= 2 and tl[ini + pc + d - 1] == guion.parentesis()
+            d = d - 1
+        if d < 2
+            return -1
+        return ini + pc + d
+    if q == guion.accion() or q == guion.centrado()
+        let h = b - ini
+        let mut d = r
+        if h - d < 2
+            d = h - 2
+        if d < 2
+            return -1
+        return ini + d
+    return -1
+
+fn nueva(mut ih: [int], mut cortes: [int], k: int, n: int, co: int)
+    if k < n
+        push(mut ih, k)
+        push(mut cortes, co)
+
+# **Las paginas**: en `ih`, la primera linea que se ve de cada una; en
+# `cortes`, la del NOMBRE del personaje si la pagina empieza a mitad de su
+# dialogo (lleva su "(CONT.)", y la de antes su "(MAS)"), o -1.
+pub fn pagina(tl: [int], mut ih: [int], mut cortes: [int])
+    while len(ih) > 0
+        pop(mut ih)
+    while len(cortes) > 0
+        pop(mut cortes)
+    push(mut ih, 0)
+    push(mut cortes, -1)
+    let p = lineas_por_pagina()
+    let n = len(tl)
+    let mut u = 0
+    let mut a = 0
+    while a < n
+        let q = tl[a]
+        let b = fin_de_bloque(tl, a)
+        if q == guion.seccion() or q == guion.sinopsis()
+            a = b
+        else if q == guion.salto()
+            if u > 0
+                nueva(mut ih, mut cortes, b, n, -1)
+                u = 0
+            a = b
+        else if q == guion.vacia()
+            if u >= p
+                nueva(mut ih, mut cortes, a, n, -1)
+                u = 0
+            else if u > 0
+                u = u + 1
+            a = b
+        else
+            let mut personaje = -1
+            if q == guion.personaje()
+                personaje = a
+            let mut ini = a
+            let mut sigue = true
+            while sigue
+                let h = b - ini
+                let mut extra = 0
+                if q == guion.escena() and b < n
+                    extra = 2
+                if u + h + extra <= p or (u == 0 and h <= p)
+                    u = u + h
+                    sigue = false
+                else
+                    let s = corte(tl, ini, b, p - u, q, ini == a)
+                    let mut co = -1
+                    if personaje >= 0 and (s > ini or ini > a)
+                        co = personaje
+                    if s > ini
+                        nueva(mut ih, mut cortes, s, n, co)
+                        ini = s
+                    else if u > 0
+                        nueva(mut ih, mut cortes, ini, n, co)
+                    else
+                        # Ni en una pagina entera: se corta donde se acaba.
+                        let mut fuerza = ini + p
+                        if co >= 0
+                            fuerza = ini + p - 2
+                        nueva(mut ih, mut cortes, fuerza, n, co)
+                        ini = fuerza
+                    u = 0
+                    if co >= 0
+                        u = 1
+            a = b
+
+# Las paginas de las NOTAS: cada `por` lineas, sin reglas.
+pub fn de_notas(cuantas: int, por: int, mut ih: [int], mut cortes: [int])
+    while len(ih) > 0
+        pop(mut ih)
+    while len(cortes) > 0
+        pop(mut cortes)
+    let mut k = 0
+    push(mut ih, 0)
+    push(mut cortes, -1)
+    k = por
+    while k < cuantas
+        push(mut ih, k)
+        push(mut cortes, -1)
+        k = k + por
+
+# La pagina de la linea que se ve `k`.
+pub fn de(ih: [int], k: int) -> int
+    let mut r = 0
+    for i in range(len(ih))
+        if ih[i] <= k
+            r = i
+    return r

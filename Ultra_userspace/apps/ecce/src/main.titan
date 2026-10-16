@@ -1,0 +1,1095 @@
+# espera: BIEN
+# ECCE (15-10, PL1 y PL3 de docs/plan/PLAN_ECCE.md): el bloc de notas de
+# BMO-X, en TITAN++ -- el primer peldanio de la app de escribir del
+# propietario, la que crecera hasta los guiones de Final Draft. Hoy: las
+# NOTAS, que es para lo que el propietario la quiere primero.
+#
+#    letras           se escriben donde esta el cursor (Latin-1: tildes y ene)
+#    Enter            parte la linea        Tab   cuatro espacios
+#                     (en GUION, como Final Draft: Tab cambia lo que es la
+#                     linea -- accion, personaje, transicion, escena; en el
+#                     dialogo, parentesis --; Enter tras un personaje o un
+#                     parentesis baja al dialogo, tras lo demas deja la linea
+#                     en blanco de Fountain; Mayus+Enter, un salto solo)
+#    raton            un clic pone el cursor; arrastrar selecciona (con
+#                     Mayus, el clic alarga la seleccion)
+#    Retroceso / Supr borran detras / delante
+#    flechas          mueven el cursor (arriba y abajo por la linea que SE VE)
+#    Inicio / Fin     al principio / al final de la linea
+#    RePag / AvPag    una pantalla arriba / abajo
+#    Alt+Z / Alt+Y    deshace / rehace (por palabras, sin limite)
+#    Esc              guarda (si hay algo nuevo) y cierra
+#    Mayus + flechas  seleccionan (y Mayus + Inicio / Fin)
+#    Alt+C / Alt+X    copia / corta lo seleccionado (sin seleccion: la linea)
+#    Alt+V            pega (lo seleccionado se reemplaza)    Alt+A  todo
+#    Alt+F            guarda como GUION de Fountain: datos/guion.fou (y sigue
+#                     en ese, en modo guion; el explorador abre un .fou aqui)
+#    Alt+P            el guion en PDF: datos/guion.pdf, con la Courier del
+#                     oficio y sus paginas (pdf.titan, PL6)
+#    Alt+G            NOTAS o GUION (Fountain, guion.titan): las escenas, los
+#                     personajes y el dialogo en su sitio, como Final Draft.
+#                     Se abre en guion si la nota tiene un INT. o un EXT.
+#    las paginas      en GUION, las del oficio (pagina.titan, PL4): 55
+#                     lineas, una raya y su numero donde acaba cada una, y
+#                     el dialogo partido con su (MAS) y su (CONT.)
+#    rueda            mueve el cursor tres lineas
+#    Alt + rueda      ALEJA la hoja: la mesa (las hojas en chico) y los nodos
+#                     (una tarjeta por hoja); acercando, se vuelve a la hoja
+#                     elegida. En la mesa: flechas eligen, Enter o un clic
+#                     abren, Esc vuelve (mesa.titan, PL9b de PLAN_ECCE)
+#
+# Alt y no Ctrl: Ctrl es del escritorio y a la app no le llegan los
+# modificadores, pero SI la tecla Alt al bajar y al subir (scancode 56):
+# ECCE lleva la cuenta, y con Alt abajo una letra no se escribe.
+#
+# EL DOCUMENTO: el que le pasen al lanzarla (`run apps/ecce/nucleo.bex
+# datos/x.fou`, lo que hace el explorador con un .fou), o datos/notas.txt.
+#
+# Guarda SOLO: Ctrl es del escritorio (`keys/app.rs`, la regla de las
+# teclas), asi que no hay Ctrl+S. Se guarda al cerrar y un segundo y medio
+# despues de la ultima tecla; el pie dice si esta guardado.
+#
+# El texto es una `[byte]`: un byte por letra, Latin-1, como la letra de
+# BMO-X. Las lineas que SE VEN se parten en el ultimo espacio que cabe
+# (`lineas`), y se rehacen en cada cambio: una nota es corta.
+mod main "ECCE: el bloc de notas -- escribir, moverse por lo escrito y guardar solo"
+use director
+mod medida
+mod mesa
+mod guion
+mod pagina
+mod pdf
+mod letra
+
+# -- Los colores: tinta clara sobre noche, y el oro de la pluma ----------
+
+fn fondo() -> int
+    return 1579040
+
+fn tinta() -> int
+    return 15262416
+
+fn tenue() -> int
+    return 7894666
+
+fn oro() -> int
+    return 14198359
+
+fn barra() -> int
+    return 1052694
+
+fn aviso() -> int
+    return 16737095
+
+# -- Las medidas ----------------------------------------------------------
+
+fn margen() -> int
+    return 28
+
+fn alto_cabeza() -> int
+    return 40
+
+fn alto_pie() -> int
+    return 24
+
+fn alto_linea() -> int
+    return 20
+
+# Donde empieza la primera linea de texto.
+fn arriba_texto() -> int
+    return alto_cabeza() + 12
+
+fn div(a: int, d: int) -> int
+    return (a - a % d) / d
+
+# -- El texto -------------------------------------------------------------
+
+# **Las lineas que SE VEN**, de dos en dos: donde empieza cada una y cuantas
+# letras lleva. Un salto de linea siempre parte; una linea que no cabe se
+# parte en su ultimo espacio (que se queda al final, sin dibujarse); una
+# palabra mas larga que la linea se corta donde no cabe. Siempre hay una
+# linea, aunque el texto este vacio.
+fn lineas(t: [byte], cols: int) -> [int]
+    let mut r: [int] = []
+    let n = len(t)
+    let mut i = 0
+    let mut sigue = true
+    while sigue
+        let mut j = i
+        let mut espacio = -1
+        let mut fin = -1
+        let mut sig = -1
+        while fin < 0
+            if j >= n
+                fin = j
+                sig = -1
+            else if t[j] == 10
+                fin = j
+                sig = j + 1
+            else if j - i >= cols
+                if t[j] == 32
+                    fin = j
+                    sig = j + 1
+                else if espacio > i
+                    fin = espacio
+                    sig = espacio + 1
+                else
+                    fin = j
+                    sig = j
+            else
+                if t[j] == 32
+                    espacio = j
+                j = j + 1
+        push(mut r, i)
+        push(mut r, fin - i)
+        if sig < 0
+            sigue = false
+        else
+            i = sig
+    return r
+
+# La linea en la que esta el cursor `c`: la ultima que empieza en c o antes.
+fn fila_de(l: [int], c: int) -> int
+    let mut k = 0
+    for m in range(div(len(l), 2))
+        if l[2 * m] <= c
+            k = m
+    return k
+
+# El sitio de la linea `k` que esta en la columna `col` (o su final, si es
+# mas corta).
+fn en_columna(l: [int], k: int, col: int) -> int
+    let n = l[2 * k + 1]
+    if col > n
+        return l[2 * k] + n
+    return l[2 * k] + col
+
+# Mete el byte `b` en el sitio `c` (lo de detras se corre uno).
+fn mete(mut t: [byte], c: int, b: int)
+    push(mut t, byte(0))
+    let mut i = len(t) - 1
+    while i > c
+        t[i] = byte(t[i - 1])
+        i = i - 1
+    t[c] = byte(b)
+
+# Quita el byte del sitio `c` (lo de detras se corre uno).
+fn quita(mut t: [byte], c: int)
+    let n = len(t)
+    let mut i = c
+    while i < n - 1
+        t[i] = byte(t[i + 1])
+        i = i + 1
+    pop(mut t)
+
+# -- Deshacer -----------------------------------------------------------------
+#
+# **Cada cambio es un registro de cinco**: su grupo, que fue (1 meter, 2
+# quitar), donde, que byte y donde estaba el cursor ANTES. Deshacer
+# deshace el ultimo GRUPO entero, al reves; rehacer lo vuelve a hacer en su
+# orden. Un grupo es una palabra escrita seguida, o un borrado seguido: lo
+# que un dedo hace sin pararse, como en cualquier editor.
+
+# Lo hace (de la historia `h`, el registro que empieza en `i`).
+fn aplica(mut t: [byte], h: [int], i: int)
+    if h[i + 1] == 1
+        mete(mut t, h[i + 2], h[i + 3])
+    else
+        quita(mut t, h[i + 2])
+
+# Lo deshace.
+fn revierte(mut t: [byte], h: [int], i: int)
+    if h[i + 1] == 1
+        quita(mut t, h[i + 2])
+    else
+        mete(mut t, h[i + 2], h[i + 3])
+
+# Pasa el ultimo grupo de `de` a `a`, deshaciendolo (al reves) o
+# rehaciendolo (en su orden), y da donde queda el cursor; -1 si no habia
+# nada. En `a` el grupo queda en su orden de siempre.
+fn mueve_grupo(mut t: [byte], mut de: [int], mut a: [int], rehacer: bool) -> int
+    let n = len(de)
+    if n == 0
+        return -1
+    let g = de[n - 5]
+    let mut desde = n - 5
+    while desde >= 5 and de[desde - 5] == g
+        desde = desde - 5
+    let mut c = de[desde + 4]
+    if rehacer
+        let mut i = desde
+        while i < n
+            aplica(mut t, de, i)
+            if de[i + 1] == 1
+                c = de[i + 2] + 1
+            else
+                c = de[i + 2]
+            i = i + 5
+    else
+        let mut i = n - 5
+        while i >= desde
+            revierte(mut t, de, i)
+            i = i - 5
+    for i in range(desde, n)
+        push(mut a, de[i])
+    let mut quedan = n
+    while quedan > desde
+        pop(mut de)
+        quedan = quedan - 1
+    return c
+
+# Apunta un cambio ya hecho.
+fn apunta(mut h: [int], grupo: int, que: int, donde: int, b: int, antes: int)
+    push(mut h, grupo)
+    push(mut h, que)
+    push(mut h, donde)
+    push(mut h, b)
+    push(mut h, antes)
+
+# Sigue en el grupo del ultimo cambio? Si es lo mismo (meter o quitar)
+# justo donde acabo el anterior, y no es un espacio o un salto que corta la
+# palabra.
+fn sigue_grupo(h: [int], que: int, donde: int, b: int) -> bool
+    let n = len(h)
+    if n == 0 or h[n - 4] != que
+        return false
+    if que == 1
+        return donde == h[n - 3] + 1 and b != 32 and b != 10
+    return donde == h[n - 3] - 1 or donde == h[n - 3]
+
+fn palabras(t: [byte]) -> int
+    let mut n = 0
+    let mut dentro = false
+    for b in t
+        if b == 32 or b == 10 or b == 9
+            dentro = false
+        else if not dentro
+            dentro = true
+            n = n + 1
+    return n
+
+# **Guardar**: el fichero entero, creado de cero. Si el disco dice que no,
+# lo dice el pie y la nota sigue en la ventana.
+fn guardar(t: [byte], ruta: text) -> bool
+    if not director.crea(ruta)
+        return false
+    for b in t
+        director.escribe(b)
+    return director.cierra()
+
+# -- Lo que se ve -----------------------------------------------------------
+
+fn pinta_cabeza(le: [byte], ti: [byte], w: int, vista: int, en_guion: bool, ruta: text, dicho: text)
+    director.rect(0, 0, w, alto_cabeza(), barra())
+    let mut x = 0
+    if letra.hay(ti)
+        x = letra.texto(ti, margen(), 32, "ECCE", oro(), barra())
+    else
+        x = director.texto(margen(), 4, "ECCE", 2, oro())
+    if vista == 0 and en_guion
+        let y = rotula(le, x + 16, 20, "guion", tenue())
+        let z = rotula(le, y + 16, 20, ruta, tenue())
+        let a = rotula(le, z + 16, 20, dicho, oro())
+    else if vista == 0
+        let y = rotula(le, x + 16, 20, "notas", tenue())
+        let z = rotula(le, y + 16, 20, ruta, tenue())
+        let a = rotula(le, z + 16, 20, dicho, oro())
+    else if vista == 1
+        let y = rotula(le, x + 16, 20, "la mesa", tenue())
+    else
+        let y = rotula(le, x + 16, 20, "los nodos", tenue())
+    director.rect(0, alto_cabeza() - 1, w, 1, oro())
+
+# El nombre del elemento del guion `que`, en el pie; da la x de detras.
+fn pon_elemento(le: [byte], x: int, y: int, que: int) -> int
+    if que == guion.escena()
+        return rotula(le, x, y, "escena", oro())
+    if que == guion.personaje()
+        return rotula(le, x, y, "personaje", tinta())
+    if que == guion.dialogo()
+        return rotula(le, x, y, "dialogo", tinta())
+    if que == guion.parentesis()
+        return rotula(le, x, y, "parentesis", tinta())
+    if que == guion.transicion()
+        return rotula(le, x, y, "transicion", tinta())
+    if que == guion.seccion()
+        return rotula(le, x, y, "acto", tinta())
+    if que == guion.sinopsis()
+        return rotula(le, x, y, "sinopsis", tinta())
+    if que == guion.centrado()
+        return rotula(le, x, y, "centrado", tinta())
+    if que == guion.salto()
+        return rotula(le, x, y, "salto de pagina", tinta())
+    if que == guion.vacia()
+        return rotula(le, x, y, "(en blanco)", tenue())
+    return rotula(le, x, y, "accion", tinta())
+
+# El pie del GUION: la escena de cuantas, la pagina y el elemento.
+fn pinta_pie_guion(le: [byte], w: int, alto: int, escena: int, escenas: int, hoja: int, hojas: int, que: int, estado: int)
+    let y = alto - alto_pie()
+    director.rect(0, y, w, alto_pie(), barra())
+    let mut x = rotula(le, margen(), y + 4, "escena ", tenue())
+    x = pon_cifras(le, x, y + 4, escena, tinta())
+    x = rotula(le, x, y + 4, " de ", tenue())
+    x = pon_cifras(le, x, y + 4, escenas, tenue())
+    x = rotula(le, x, y + 4, "   pag ", tenue())
+    x = pon_cifras(le, x, y + 4, hoja, tinta())
+    x = rotula(le, x, y + 4, " de ", tenue())
+    x = pon_cifras(le, x, y + 4, hojas, tenue())
+    x = rotula(le, x, y + 4, "   ", tenue())
+    x = pon_elemento(le, x, y + 4, que)
+    if estado == 0
+        x = rotula(le, w - margen() - mide(le, "guardado", 64), y + 4, "guardado", oro())
+    else if estado == 1
+        x = rotula(le, w - margen() - mide(le, "sin guardar", 88), y + 4, "sin guardar", tenue())
+    else
+        x = rotula(le, w - margen() - mide(le, "el disco NO guardo", 152), y + 4, "el disco NO guardo", aviso())
+
+# **Las lineas que se ven**, segun el modo: en guion, con su sangria y su
+# tipo (`ind`, `tl`); en notas, todas a la izquierda y de accion.
+fn rehaz(t: [byte], cols: int, en_guion: bool, mut ind: [int], mut tl: [int], mut ih: [int], mut co: [int]) -> [int]
+    if en_guion
+        let lg = guion.lineas(t, cols, mut ind, mut tl)
+        pagina.pagina(tl, mut ih, mut co)
+        return lg
+    let l = lineas(t, cols)
+    while len(ind) > 0
+        pop(mut ind)
+    while len(tl) > 0
+        pop(mut tl)
+    for k in range(div(len(l), 2))
+        push(mut ind, 0)
+        push(mut tl, 0)
+    pagina.de_notas(div(len(l), 2), mesa.por_hoja(), mut ih, mut co)
+    return l
+
+# Quita [ini, fin) del texto apuntando cada byte en el grupo `grupo` (el
+# deshacer lo vuelve a poner entero).
+fn borra_rango(mut t: [byte], mut h: [int], grupo: int, ini: int, fin: int, antes: int)
+    let mut k = fin - ini
+    while k > 0
+        apunta(mut h, grupo, 2, ini, t[ini], antes)
+        quita(mut t, ini)
+        k = k - 1
+
+# El principio y el final de la linea de texto (hasta el salto) donde esta `c`.
+fn linea_ini(t: [byte], c: int) -> int
+    let mut i = c
+    while i > 0 and t[i - 1] != 10
+        i = i - 1
+    return i
+
+fn linea_fin(t: [byte], c: int) -> int
+    let mut i = c
+    while i < len(t) and t[i] != 10
+        i = i + 1
+    if i < len(t)
+        return i + 1
+    return i
+
+# Cuantas lineas de texto (saltos) hay antes de `c`: la linea de `c` en
+# `guion.tipos`.
+fn linea_de(t: [byte], c: int) -> int
+    let mut n = 0
+    for i in range(c)
+        if t[i] == 10
+            n = n + 1
+    return n
+
+# Donde acaba la linea de texto de `c`, sin su salto.
+fn fin_de_linea(t: [byte], c: int) -> int
+    let mut i = c
+    while i < len(t) and t[i] != 10
+        i = i + 1
+    return i
+
+# Lo que es la linea de texto `k` (accion si no la hay).
+fn tipo_de(t: [byte], k: int) -> int
+    let ts = guion.tipos(t)
+    if k < len(ts)
+        return ts[k]
+    return guion.accion()
+
+# Tras ella, Enter no deja la linea en blanco: el dialogo va justo debajo.
+fn sin_blanco(que: int) -> bool
+    return que == guion.personaje() or que == guion.parentesis() or que == guion.vacia()
+
+# ** EL RATON EN LA HOJA: el sitio del texto bajo (x, y) -- la linea que se
+# ve en esa fila (o la primera o la ultima), y la letra mas cercana --.
+fn sitio_en(l: [int], ind: [int], vis: [int], arriba: int, filas: int, x: int, y: int) -> int
+    let mut fila = 0
+    if y > arriba_texto() - 2
+        fila = div(y - arriba_texto() + 2, alto_linea())
+    if fila > filas - 1
+        fila = filas - 1
+    let mut fi = arriba + fila
+    if fi > len(vis) - 1
+        fi = len(vis) - 1
+    # Una fila que no es texto (la raya, el MAS): la linea de despues.
+    let mut k = vis[fi]
+    while k < 0 and fi + 1 < len(vis)
+        fi = fi + 1
+        k = vis[fi]
+    while k < 0 and fi > 0
+        fi = fi - 1
+        k = vis[fi]
+    let mut col = 0
+    let x0 = margen() + ind[k] * 8
+    if x > x0
+        col = div(x - x0 + 4, 8)
+    return en_columna(l, k, col)
+
+# El pie de la mesa: cuantas hojas, y las manos.
+fn pinta_pie_mesa(le: [byte], w: int, alto: int, hojas: int, sel: int, escenas: bool)
+    let y = alto - alto_pie()
+    director.rect(0, y, w, alto_pie(), barra())
+    let mut x = 0
+    if escenas
+        x = rotula(le, margen(), y + 4, "escena ", tenue())
+    else
+        x = rotula(le, margen(), y + 4, "hoja ", tenue())
+    x = pon_cifras(le, x, y + 4, sel + 1, tinta())
+    x = rotula(le, x, y + 4, " de ", tenue())
+    x = pon_cifras(le, x, y + 4, hojas, tenue())
+    if w >= 560
+        x = rotula(le, x, y + 4, "   Alt+rueda acerca  Enter abre  Esc vuelve", tenue())
+
+# El principio de la hoja `k` en el texto.
+fn principio_de_hoja(l: [int], ih: [int], k: int) -> int
+    if k >= len(ih)
+        return 0
+    return l[2 * ih[k]]
+
+# ** LAS FILAS QUE SE VEN: cada linea (su indice) y, en guion, delante de
+# cada pagina, su RAYA; si la pagina sigue un dialogo, el (MAS) antes y el
+# NOMBRE (CONT.) despues. Esas van en negativo: -(4 * pagina + que + 1),
+# que 0 la raya, 1 el (MAS), 2 el (CONT.).
+fn filas_vistas(cuantas: int, ih: [int], co: [int], en_guion: bool) -> [int]
+    let mut r: [int] = []
+    let mut p = 1
+    for k in range(cuantas)
+        if en_guion and p < len(ih) and ih[p] == k
+            if co[p] >= 0
+                push(mut r, 0 - (4 * p + 2))
+            push(mut r, 0 - (4 * p + 1))
+            if co[p] >= 0
+                push(mut r, 0 - (4 * p + 3))
+            p = p + 1
+        push(mut r, k)
+    return r
+
+# La fila que se ve de la linea `k`.
+fn fila_vista(vis: [int], k: int) -> int
+    for i in range(len(vis))
+        if vis[i] == k
+            return i
+    return 0
+
+fn menor(a: int, b: int) -> int
+    if a < b
+        return a
+    return b
+
+# Una fila que no es texto: la raya del final de la pagina con el numero de
+# la siguiente, el (MAS) donde iria el nombre, o NOMBRE (CONT.).
+fn pinta_virtual(t: [byte], l: [int], co: [int], v: int, y: int, cols: int)
+    let u = 0 - v - 1
+    let que = u % 4
+    let pg = div(u - que, 4)
+    let ancho = menor(cols, 60)
+    let mut sx = margen() + 22 * 8
+    if cols < 40
+        sx = margen()
+    if que == 0
+        director.rect(margen(), y + 7, ancho * 8 - 72, 1, tenue())
+        let x = director.texto(margen() + ancho * 8 - 64, y, "pag ", 1, tenue())
+        let z = pon_numero(x, y, pg + 1, tenue())
+    else if que == 1
+        let x = director.texto(sx, y, "(MAS)", 1, tinta())
+    else
+        let k = co[pg]
+        let s = l[2 * k]
+        let mut x = sx
+        for i in range(l[2 * k + 1])
+            let b = t[s + i]
+            if b == 32
+                x = x + 8
+            else if i > 0 or b != 64
+                x = director.letra(x, y, guion.a_mayuscula(b), 1, tinta())
+        x = director.texto(x, y, " (CONT.)", 1, tinta())
+
+fn seleccion() -> int
+    return 3622488
+
+# El texto que cabe, desde la linea `arriba`, y el cursor: una barra de oro.
+# Cada linea con su sangria (`ind`, en columnas) y su tipo (`tl`, el del
+# guion: las cabeceras de escena en oro y en mayusculas; personajes y
+# transiciones en mayusculas; secciones y sinopsis en tenue). Lo que esta
+# entre `ancla` y `c`, con fondo de seleccion.
+fn pinta_texto(t: [byte], l: [int], ind: [int], tl: [int], vis: [int], co: [int], cols: int, w: int, alto: int, arriba: int, filas: int, c: int, ancla: int, en_guion: bool)
+    director.rect(0, alto_cabeza(), w, alto - alto_cabeza() - alto_pie(), fondo())
+    let cuantas = div(len(l), 2)
+    let kc = fila_de(l, c)
+    let mut s0 = c
+    let mut s1 = c
+    if ancla >= 0 and ancla < c
+        s0 = ancla
+    if ancla > c
+        s1 = ancla
+    for r in range(filas)
+        let fi = arriba + r
+        let mut k = -1
+        if fi < len(vis)
+            k = vis[fi]
+        if fi < len(vis) and k < 0
+            pinta_virtual(t, l, co, k, arriba_texto() + r * alto_linea(), cols)
+        if k >= 0 and k < cuantas
+            let s = l[2 * k]
+            let y = arriba_texto() + r * alto_linea()
+            let x0 = margen() + ind[k] * 8
+            let que = tl[k]
+            let mut color = tinta()
+            if que == guion.escena()
+                color = oro()
+            if que == guion.seccion() or que == guion.sinopsis()
+                color = tenue()
+            let mayus = que == guion.escena() or que == guion.personaje() or que == guion.transicion()
+            let mut x = x0
+            for i in range(l[2 * k + 1])
+                let b = t[s + i]
+                let p = s + i
+                if p >= s0 and p < s1
+                    director.rect(x, y - 2, 8, 20, seleccion())
+                # Las marcas de Fountain (@ . ! > <), en tenue: estan en el
+                # texto, pero no son el guion.
+                let primera = p == 0 or t[p - 1] == 10
+                let ultima = p + 1 == len(t) or t[p + 1] == 10
+                if b == 32
+                    x = x + 8
+                else if en_guion and guion.es_marca(b, que, primera, ultima)
+                    x = director.letra(x, y, b, 1, tenue())
+                else if mayus
+                    x = director.letra(x, y, guion.a_mayuscula(b), 1, color)
+                else
+                    x = director.letra(x, y, b, 1, color)
+            if k == kc
+                director.rect(x0 + (c - s) * 8, y - 2, 2, 20, oro())
+
+# Un numero, sin ceros delante.
+# ** LO ESCRITO EN LA CABEZA Y EN EL PIE (LE2 de PL18): con la letra de la
+# casa si esta su atlas (`le`, letra.titan), sobre la barra; si no, con la
+# de 8 x 16. `y` es lo de arriba de la celda de 16 de siempre.
+fn rotula(le: [byte], x: int, y: int, t: text, color: int) -> int
+    if letra.hay(le)
+        return letra.texto(le, x, y + 12, t, color, barra())
+    return director.texto(x, y, t, 1, color)
+
+fn pon_cifras(le: [byte], x: int, y: int, n: int, color: int) -> int
+    if letra.hay(le)
+        return letra.numero(le, x, y + 12, n, color, barra())
+    return pon_numero(x, y, n, color)
+
+# Lo que mide `t` en la letra de la cabeza (`ocho`: lo que mide en la de 8).
+fn mide(le: [byte], t: text, ocho: int) -> int
+    if letra.hay(le)
+        return letra.ancho(le, t)
+    return ocho
+
+fn pon_numero(x: int, y: int, n: int, color: int) -> int
+    let mut px = x
+    let mut potencia = 1000000
+    let mut empezo = false
+    while potencia >= 1
+        let resto = n % (potencia * 10)
+        let cifra = (resto - resto % potencia) / potencia
+        if cifra != 0 or empezo or potencia == 1
+            px = director.letra(px, y, 48 + cifra, 1, color)
+            empezo = true
+        if potencia == 1
+            potencia = 0
+        else
+            potencia = potencia / 10
+    return px
+
+# El pie: las palabras, la linea, y si esta guardado (0 guardado, 1 sin
+# guardar, 2 el disco dijo que no).
+fn pinta_pie(le: [byte], t: [byte], w: int, alto: int, linea: int, estado: int)
+    let y = alto - alto_pie()
+    director.rect(0, y, w, alto_pie(), barra())
+    let mut x = pon_cifras(le, margen(), y + 4, palabras(t), tenue())
+    x = rotula(le, x, y + 4, " palabras   linea ", tenue())
+    x = pon_cifras(le, x, y + 4, linea, tenue())
+    if w >= 560
+        x = rotula(le, x, y + 4, "   Alt+Z deshace  Alt+Y rehace", tenue())
+    if estado == 0
+        x = rotula(le, w - margen() - mide(le, "guardado", 64), y + 4, "guardado", oro())
+    else if estado == 1
+        x = rotula(le, w - margen() - mide(le, "sin guardar", 88), y + 4, "sin guardar", tenue())
+    else
+        x = rotula(le, w - margen() - mide(le, "el disco NO guardo", 152), y + 4, "el disco NO guardo", aviso())
+
+fn main()
+    # EL DOCUMENTO: el que le pasaron (el explorador, un .fou), o las notas.
+    let mut ruta = director.argumento()
+    if ruta == ""
+        ruta = "datos/notas.txt"
+    # Lo de antes, si lo hay (sin los retornos de carro de Windows).
+    let mut t: [byte] = []
+    if director.fichero(ruta)
+        for i in range(director.medida())
+            let b = director.byte(i)
+            if b >= 0 and b != 13
+                push(mut t, byte(b))
+    # La medida que eligio RESOLUCION (o 720 x 480).
+    let mut w = 720
+    let mut alto = 480
+    if director.fichero("datos/resol.txt")
+        let a = medida.ancho()
+        let b = medida.alto()
+        if a >= 240 and a <= 1920 and b >= 160 and b <= 1080
+            w = a
+            alto = b
+    if not director.ventana(w, alto)
+        print("ECCE es una ventana: abrela desde el escritorio")
+        return
+    # LA LETRA DE LA CASA (LE2 de PL18): la de la cabeza y el pie, y la del
+    # titulo, si sus atlas estan junto al nucleo; si no, la de 8 x 16.
+    let le = letra.carga("apps/ecce/letra.blt")
+    let ti = letra.carga("apps/ecce/titulo.blt")
+    let cols = div(w - 2 * margen(), 8)
+    let filas = div(alto - arriba_texto() - alto_pie() - 4, alto_linea())
+    # ** EL MODO: guion si la nota ya tiene alguna escena (INT., EXT.).
+    let mut en_guion = false
+    for x in guion.tipos(t)
+        if x == guion.escena()
+            en_guion = true
+    let mut ind: [int] = []
+    let mut tl: [int] = []
+    # Las PAGINAS: la primera linea de cada una, y la del personaje cuyo
+    # dialogo sigue en ella (-1 si ninguno); y las filas que se VEN (las
+    # lineas y, en guion, la raya de cada pagina, el (MAS) y el (CONT.)).
+    let mut ih: [int] = []
+    let mut co: [int] = []
+    let mut vis: [int] = []
+    let mut l = rehaz(t, cols, en_guion, mut ind, mut tl, mut ih, mut co)
+    let mut c = len(t)
+    let mut arriba = 0
+    let mut estado = 0
+    let mut sucio = false
+    let mut ultimo = 0
+    let mut antes = true
+    let mut pinta = true
+    # Lo hecho y lo deshecho, y el grupo que va (ver `mueve_grupo`).
+    let mut hecho: [int] = []
+    let mut deshecho: [int] = []
+    let mut grupo = 0
+    # Alt y Mayus, abajo o no (sus eventos crudos: 1 baja, 2 sube).
+    let mut alt = false
+    let mut mayus = false
+    # La SELECCION (de `ancla` al cursor; -1 ninguna) y lo copiado.
+    let mut ancla = -1
+    let mut porta: [byte] = []
+    # La MESA: 0 la hoja, 1 la mesa, 2 los nodos; y la hoja (o escena) elegida.
+    let mut vista = 0
+    let mut sel = 0
+    # El boton del raton: 0 suelto, 1 arrastrando en la hoja, 2 abajo pero
+    # no cuenta (el clic que abrio una hoja desde la mesa); y donde se pulso.
+    let mut boton = 0
+    # Lo que dijo el ultimo PDF (en la cabecera).
+    let mut dicho = ""
+    let mut arrastre = 0
+    while true
+        for n in range(64)
+            let que = director.evento()
+            if que == 0
+                break
+            let mut k = director.codigo()
+            let mut cambio = false
+            # La vista de ANTES de este evento: un Esc o un Enter que vuelven
+            # de la mesa no cuentan otra vez en la hoja.
+            let en_hoja = vista == 0
+            if que == 1 and k == 56
+                alt = true
+            if que == 2 and k == 56
+                alt = false
+            if que == 4 and director.botones() % 2 == 0
+                boton = 0
+            if que == 1 and (k == 42 or k == 54)
+                mayus = true
+            if que == 2 and (k == 42 or k == 54)
+                mayus = false
+            # ** LA RUEDA. Con Alt, aleja y acerca la mesa; sola, en la hoja,
+            # mueve el cursor tres lineas.
+            if que == 6
+                let muescas = director.rueda()
+                let es = guion.escenas(tl)
+                if alt and muescas < 0 and vista < 2
+                    if vista == 0
+                        sel = pagina.de(ih, fila_de(l, c))
+                    else if en_guion and len(es) > 0
+                        sel = guion.escena_de(es, ih[sel])
+                        if sel < 0
+                            sel = 0
+                    vista = vista + 1
+                    pinta = true
+                else if alt and muescas > 0 and vista > 0
+                    if vista == 2 and en_guion and len(es) > 0
+                        sel = pagina.de(ih, es[sel])
+                    vista = vista - 1
+                    if vista == 0
+                        if sel != pagina.de(ih, fila_de(l, c))
+                            c = principio_de_hoja(l, ih, sel)
+                        ancla = -1
+                    pinta = true
+                else if not alt and vista == 0 and muescas != 0
+                    let cuantas = div(len(l), 2)
+                    let kc = fila_de(l, c)
+                    let mut destino = kc - muescas * 3
+                    if destino < 0
+                        destino = 0
+                    if destino > cuantas - 1
+                        destino = cuantas - 1
+                    c = en_columna(l, destino, c - l[2 * kc])
+                    ancla = -1
+                    pinta = true
+            # ** EN LA MESA: un clic abre la hoja (o la escena); las flechas
+            # eligen, Enter abre y Esc vuelve. Nada se escribe.
+            if not en_hoja
+                let es = guion.escenas(tl)
+                let escenas = vista == 2 and en_guion and len(es) > 0
+                let n_nodos = mesa.cuantos(ih, es, en_guion, vista)
+                let mut acs: [int] = []
+                if escenas
+                    acs = guion.actos(tl, es)
+                let pf = mesa.por_fila(w, vista)
+                let mut abre = false
+                if que == 4 and director.botones() % 2 == 1 and boton == 0
+                    let h = mesa.hoja_en(director.raton_x(), director.raton_y(), n_nodos, acs, sel, w, alto, alto_cabeza(), alto_pie(), vista)
+                    if h >= 0
+                        sel = h
+                        abre = true
+                        boton = 2
+                if que == 1
+                    if k == 104 and sel > 0
+                        sel = sel - 1
+                        pinta = true
+                    if k == 105 and sel < n_nodos - 1
+                        sel = sel + 1
+                        pinta = true
+                    if k == 102 and sel >= pf
+                        sel = sel - pf
+                        pinta = true
+                    if k == 103 and sel + pf < n_nodos
+                        sel = sel + pf
+                        pinta = true
+                if que == 3 and k == 13
+                    abre = true
+                if que == 3 and k == 27
+                    vista = 0
+                    pinta = true
+                if abre
+                    if escenas
+                        c = l[2 * es[sel]]
+                    else
+                        c = principio_de_hoja(l, ih, sel)
+                    vista = 0
+                    ancla = -1
+                    pinta = true
+            # Con Alt abajo: Z y Y (44, 21) deshacen y rehacen; C, X y V (46,
+            # 45, 47) copian, cortan y pegan; A (30) lo selecciona todo; G
+            # (34) cambia de NOTAS a GUION. Ninguna letra se escribe.
+            if que == 1 and alt and en_hoja and (k == 44 or k == 21)
+                let mut nc = -1
+                if k == 44
+                    nc = mueve_grupo(mut t, mut hecho, mut deshecho, false)
+                else
+                    nc = mueve_grupo(mut t, mut deshecho, mut hecho, true)
+                if nc >= 0
+                    c = nc
+                    ancla = -1
+                    l = rehaz(t, cols, en_guion, mut ind, mut tl, mut ih, mut co)
+                    sucio = true
+                    estado = 1
+                    ultimo = director.ms()
+                    pinta = true
+                    grupo = grupo + 1
+            if que == 1 and alt and en_hoja and (k == 46 or k == 45)
+                # Lo seleccionado, o la linea entera si no hay seleccion.
+                let mut ini = c
+                let mut fin = c
+                if ancla >= 0 and ancla != c
+                    if ancla < c
+                        ini = ancla
+                    else
+                        fin = ancla
+                else
+                    ini = linea_ini(t, c)
+                    fin = linea_fin(t, c)
+                while len(porta) > 0
+                    pop(mut porta)
+                for i in range(ini, fin)
+                    push(mut porta, t[i])
+                if k == 45 and fin > ini
+                    grupo = grupo + 1
+                    borra_rango(mut t, mut hecho, grupo, ini, fin, c)
+                    c = ini
+                    ancla = -1
+                    cambio = true
+                pinta = true
+            if que == 1 and alt and en_hoja and k == 47 and len(porta) > 0
+                grupo = grupo + 1
+                if ancla >= 0 and ancla != c
+                    let mut ini = c
+                    let mut fin = ancla
+                    if ancla < c
+                        ini = ancla
+                        fin = c
+                    borra_rango(mut t, mut hecho, grupo, ini, fin, c)
+                    c = ini
+                    ancla = -1
+                for i in range(len(porta))
+                    apunta(mut hecho, grupo, 1, c, porta[i], c)
+                    mete(mut t, c, porta[i])
+                    c = c + 1
+                cambio = true
+            if que == 1 and alt and en_hoja and k == 30
+                ancla = 0
+                c = len(t)
+                pinta = true
+            if que == 1 and alt and en_hoja and k == 34
+                en_guion = not en_guion
+                l = rehaz(t, cols, en_guion, mut ind, mut tl, mut ih, mut co)
+                pinta = true
+            # Alt+F (33): GUARDAR COMO GUION. El documento pasa a ser
+            # datos/guion.fou, en modo guion, y se guarda ya.
+            if que == 1 and alt and en_hoja and k == 33
+                ruta = "datos/guion.fou"
+                en_guion = true
+                l = rehaz(t, cols, en_guion, mut ind, mut tl, mut ih, mut co)
+                if guardar(t, ruta)
+                    sucio = false
+                    estado = 0
+                else
+                    estado = 2
+                pinta = true
+            # Alt+P (25): EL PDF del guion, en datos/guion.pdf (pdf.titan).
+            if que == 1 and alt and en_hoja and k == 25
+                if guardar(pdf.hoja(t), "datos/guion.pdf")
+                    dicho = "PDF: datos/guion.pdf"
+                else
+                    dicho = "el disco NO guardo el PDF"
+                pinta = true
+            # ** EL RATON EN LA HOJA: el clic pone el cursor (con Mayus alarga
+            # la seleccion) y arrastrar selecciona. La cabeza y el pie no son
+            # texto: un clic ahi no mueve nada.
+            if que == 4 and en_hoja and director.botones() % 2 == 1 and boton != 2
+                let rx = director.raton_x()
+                let ry = director.raton_y()
+                let p = sitio_en(l, ind, vis, arriba, filas, rx, ry)
+                if boton == 0
+                    if ry >= alto_cabeza() and ry < alto - alto_pie()
+                        if mayus
+                            if ancla < 0
+                                ancla = c
+                            arrastre = ancla
+                        else
+                            arrastre = p
+                            ancla = -1
+                        c = p
+                        if ancla == c
+                            ancla = -1
+                        boton = 1
+                        pinta = true
+                else
+                    c = p
+                    ancla = -1
+                    if c != arrastre
+                        ancla = arrastre
+                    pinta = true
+            # Escribir con algo seleccionado: lo seleccionado se va primero
+            # (Retroceso y Supr solo lo quitan).
+            let escribe = que == 3 and not alt and en_hoja and k != 27
+            let suprime = que == 1 and en_hoja and k == 109
+            if (escribe or suprime) and ancla >= 0 and ancla != c
+                let mut ini = c
+                let mut fin = ancla
+                if ancla < c
+                    ini = ancla
+                    fin = c
+                grupo = grupo + 1
+                borra_rango(mut t, mut hecho, grupo, ini, fin, c)
+                c = ini
+                ancla = -1
+                cambio = true
+                if k == 8 or suprime
+                    k = -1
+            if que == 3 and not alt and en_hoja
+                if k == 27
+                    if sucio and not guardar(t, ruta)
+                        print("ECCE: el disco NO guardo ", ruta)
+                    return
+                if k == 8
+                    if c > 0
+                        if not sigue_grupo(hecho, 2, c - 1, 0)
+                            grupo = grupo + 1
+                        apunta(mut hecho, grupo, 2, c - 1, t[c - 1], c)
+                        quita(mut t, c - 1)
+                        c = c - 1
+                        cambio = true
+                else if k == 13
+                    # En GUION, como Final Draft: tras un personaje o un
+                    # parentesis el dialogo va justo debajo; tras lo demas,
+                    # la linea en blanco de Fountain (Mayus+Enter: un salto).
+                    let kl = linea_de(t, c)
+                    let al_final = c == fin_de_linea(t, c)
+                    let mut antes_q = guion.vacia()
+                    if en_guion
+                        antes_q = tipo_de(t, kl)
+                    grupo = grupo + 1
+                    apunta(mut hecho, grupo, 1, c, 10, c)
+                    mete(mut t, c, 10)
+                    c = c + 1
+                    if en_guion and al_final and not mayus
+                        if not sin_blanco(antes_q) and not sin_blanco(tipo_de(t, kl))
+                            apunta(mut hecho, grupo, 1, c, 10, c)
+                            mete(mut t, c, 10)
+                            c = c + 1
+                    cambio = true
+                else if k == 9 and en_guion
+                    # ** EL TAB DE FINAL DRAFT: la linea pasa a ser lo
+                    # siguiente (`guion.siguiente`), reescrita en Fountain
+                    # (`guion.como`). Un grupo: Alt+Z la deja como estaba.
+                    let ts = guion.tipos(t)
+                    let kl = linea_de(t, c)
+                    let a = linea_ini(t, c)
+                    let f = fin_de_linea(t, c)
+                    let mut previo = guion.vacia()
+                    if kl > 0
+                        previo = ts[kl - 1]
+                    let a_que = guion.siguiente(ts[kl], previo)
+                    let nuevo = guion.como(t, a, f, a_que, previo)
+                    grupo = grupo + 1
+                    borra_rango(mut t, mut hecho, grupo, a, f, c)
+                    for i in range(len(nuevo))
+                        apunta(mut hecho, grupo, 1, a + i, nuevo[i], c)
+                        mete(mut t, a + i, nuevo[i])
+                    c = a + len(nuevo)
+                    if a_que == guion.parentesis()
+                        c = c - 1
+                    ancla = -1
+                    cambio = true
+                else if k == 9
+                    grupo = grupo + 1
+                    for e in range(4)
+                        apunta(mut hecho, grupo, 1, c, 32, c)
+                        mete(mut t, c, 32)
+                        c = c + 1
+                    cambio = true
+                else if k >= 32 and k <= 255 and k != 127
+                    if not sigue_grupo(hecho, 1, c, k)
+                        grupo = grupo + 1
+                    apunta(mut hecho, grupo, 1, c, k, c)
+                    mete(mut t, c, k)
+                    c = c + 1
+                    cambio = true
+            if que == 1 and en_hoja and not alt
+                # Las teclas de moverse: los codigos propios del teclado USB
+                # (`bmo_uhid::SC_UP` y siguientes), no los del numerico. Con
+                # Mayus, la seleccion va de donde estaba el cursor a donde
+                # queda.
+                let mueve = k == 104 or k == 105 or k == 102 or k == 103 or k == 107 or k == 110 or k == 108 or k == 111
+                if mueve
+                    if mayus and ancla < 0
+                        ancla = c
+                    if not mayus
+                        ancla = -1
+                let cuantas = div(len(l), 2)
+                let kc = fila_de(l, c)
+                let col = c - l[2 * kc]
+                if k == 104 and c > 0
+                    c = c - 1
+                    pinta = true
+                if k == 105 and c < len(t)
+                    c = c + 1
+                    pinta = true
+                if k == 102 and kc > 0
+                    c = en_columna(l, kc - 1, col)
+                    pinta = true
+                if k == 103 and kc < cuantas - 1
+                    c = en_columna(l, kc + 1, col)
+                    pinta = true
+                if k == 107
+                    c = l[2 * kc]
+                    pinta = true
+                if k == 110
+                    c = l[2 * kc] + l[2 * kc + 1]
+                    pinta = true
+                if k == 108
+                    let mut destino = kc - filas
+                    if destino < 0
+                        destino = 0
+                    c = en_columna(l, destino, col)
+                    pinta = true
+                if k == 111
+                    let mut destino = kc + filas
+                    if destino > cuantas - 1
+                        destino = cuantas - 1
+                    c = en_columna(l, destino, col)
+                    pinta = true
+                if mueve
+                    pinta = true
+                    if ancla == c
+                        ancla = -1
+                if k == 109 and c < len(t)
+                    if not sigue_grupo(hecho, 2, c, 0)
+                        grupo = grupo + 1
+                    apunta(mut hecho, grupo, 2, c, t[c], c)
+                    quita(mut t, c)
+                    cambio = true
+            if cambio
+                # Lo deshecho se pierde al cambiar otra cosa (como en todos).
+                while len(deshecho) > 0
+                    pop(mut deshecho)
+                l = rehaz(t, cols, en_guion, mut ind, mut tl, mut ih, mut co)
+                sucio = true
+                estado = 1
+                ultimo = director.ms()
+                pinta = true
+        # Guardar solo, un segundo y medio despues de la ultima tecla (si el
+        # kernel no sabe el reloj, `ms` es 0 y se guarda al cerrar).
+        if sucio and ultimo > 0 and director.ms() - ultimo >= 1500
+            if guardar(t, ruta)
+                sucio = false
+                estado = 0
+            else
+                estado = 2
+            pinta = true
+        let se_ve = director.se_ve()
+        if se_ve and not antes
+            pinta = true
+        antes = se_ve
+        if pinta
+            # Que el cursor se vea: la pagina sigue a su linea.
+            let kc = fila_de(l, c)
+            vis = filas_vistas(div(len(l), 2), ih, co, en_guion)
+            let fc = fila_vista(vis, kc)
+            if fc < arriba
+                arriba = fc
+            if fc >= arriba + filas
+                arriba = fc - filas + 1
+            pinta_cabeza(le, ti, w, vista, en_guion, ruta, dicho)
+            let es = guion.escenas(tl)
+            if vista == 0
+                pinta_texto(t, l, ind, tl, vis, co, cols, w, alto, arriba, filas, c, ancla, en_guion)
+                if en_guion
+                    pinta_pie_guion(le, w, alto, guion.escena_de(es, kc) + 1, len(es), pagina.de(ih, kc) + 1, len(ih), tl[kc], estado)
+                else
+                    pinta_pie(le, t, w, alto, kc + 1, estado)
+            else
+                let acs = guion.actos(tl, es)
+                let tis = guion.titulos(tl, es)
+                mesa.pinta(t, l, ind, ih, es, acs, tis, en_guion, cols, sel, w, alto, alto_cabeza(), alto_pie(), vista)
+                pinta_pie_mesa(le, w, alto, mesa.cuantos(ih, es, en_guion, vista), sel, vista == 2 and en_guion and len(es) > 0)
+            director.presenta()
+            pinta = false
+        director.espera(16)

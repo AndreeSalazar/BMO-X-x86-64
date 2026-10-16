@@ -1,0 +1,200 @@
+# EL GUION ENTREGABLE (PL6 de docs/plan/PLAN_ECCE.md, 16-10): un PDF, lo
+# que piden productores, concursos y el registro de la obra.
+#
+# La letra es la COURIER de 12 puntos, una de las catorce que todo lector de
+# PDF trae dentro: no hace falta meterla en el fichero. Diez letras por
+# pulgada y seis lineas por pulgada, como la maquina de escribir de la que
+# viene el formato: una columna de ECCE son 7,2 puntos y una linea 12.
+#
+#    la hoja         carta, 612 x 792 puntos (8,5 x 11 pulgadas)
+#    la izquierda    1,5 pulgadas (108 puntos): la columna 0 del guion
+#    arriba          la primera linea a una pulgada; el numero de pagina a
+#                    media, a la derecha ("2."), desde la segunda
+#    las paginas     las de pagina.titan, con su (MAS) y su NOMBRE (CONT.)
+#    lo que no sale  actos, sinopsis, "===", el blanco de arriba de una
+#                    pagina y las marcas de Fountain (@ . ! > <)
+#
+# El fichero se escribe ENTERO en una `[byte]`: el indice del final (xref)
+# dice el byte donde empieza cada objeto, y eso solo se sabe escribiendo.
+mod pdf "el guion en PDF: la Courier del oficio y las paginas de pagina.titan"
+use guion, pagina
+
+fn div(a: int, d: int) -> int
+    return (a - a % d) / d
+
+# Un numero (0 o mas) en cifras.
+fn numero(mut b: [byte], n: int)
+    let mut potencia = 1
+    while potencia * 10 <= n
+        potencia = potencia * 10
+    let mut resto = n
+    while potencia >= 1
+        let cifra = div(resto, potencia)
+        push(mut b, byte(48 + cifra))
+        resto = resto - cifra * potencia
+        potencia = div(potencia, 10)
+
+# Diez cifras, con ceros delante: las del indice.
+fn diez(mut b: [byte], n: int)
+    let mut potencia = 1000000000
+    let mut resto = n
+    while potencia >= 1
+        let cifra = div(resto, potencia)
+        push(mut b, byte(48 + cifra))
+        resto = resto - cifra * potencia
+        potencia = div(potencia, 10)
+
+# Decimas de punto: 1080 -> "108.0".
+fn decimas(mut b: [byte], n: int)
+    numero(mut b, div(n, 10))
+    push(mut b, ".")
+    numero(mut b, n % 10)
+
+fn ancho() -> int
+    return 60
+
+# Una linea en la hoja: en la columna `col` (desde la izquierda) y la fila
+# `fila` (desde arriba), los bytes de `s`.
+fn linea(mut c: [byte], col: int, fila: int, s: [byte])
+    push(mut c, "1 0 0 1 ")
+    decimas(mut c, 1080 + col * 72)
+    push(mut c, " ")
+    numero(mut c, 710 - fila * 12)
+    push(mut c, " Tm (")
+    for x in s
+        # ( ) y \ van con su \ delante: son los del texto del PDF.
+        if x == 40 or x == 41 or x == 92
+            push(mut c, byte(92))
+        push(mut c, x)
+    push(mut c, ") Tj\n")
+
+# Lo que se imprime de la linea que se ve `k`: sin su marca de Fountain, y
+# en mayusculas si lo es (escena, personaje, transicion).
+fn letras(t: [byte], l: [int], tl: [int], k: int) -> [byte]
+    let s = l[2 * k]
+    let n = l[2 * k + 1]
+    let que = tl[k]
+    let mayus = que == guion.escena() or que == guion.personaje() or que == guion.transicion()
+    let mut r: [byte] = []
+    let mut tras_marca = false
+    for i in range(n)
+        let p = s + i
+        let b = t[p]
+        let primera = p == 0 or t[p - 1] == 10
+        let ultima = p + 1 == len(t) or t[p + 1] == 10 or i + 1 == n
+        if guion.es_marca(b, que, primera, ultima)
+            tras_marca = true
+        else if tras_marca and b == 32 and len(r) == 0
+            # Lo que la marca dejo en blanco ("@ ANA"): fuera.
+            tras_marca = true
+        else if mayus
+            push(mut r, byte(guion.a_mayuscula(b)))
+        else
+            push(mut r, b)
+    return r
+
+# La columna de la linea `k`: la de su sangria, y la transicion pegada a la
+# derecha y el centrado en medio, por lo que se IMPRIME (sin su marca).
+fn columna(ind: [int], tl: [int], k: int, largo: int) -> int
+    let que = tl[k]
+    if que == guion.transicion()
+        return ancho() - largo
+    if que == guion.centrado()
+        return div(ancho() - largo, 2)
+    return ind[k]
+
+# Lo que se imprime en la pagina `p`: su texto, con BT y ET.
+fn contenido(t: [byte], l: [int], ind: [int], tl: [int], ih: [int], co: [int], p: int) -> [byte]
+    let mut c: [byte] = []
+    push(mut c, "BT\n/F1 12 Tf\n")
+    let cuantas = div(len(l), 2)
+    let desde = ih[p]
+    let mut hasta = cuantas
+    if p + 1 < len(ih)
+        hasta = ih[p + 1]
+    let mut fila = 0
+    # El numero, desde la segunda: "2." a la derecha, a media pulgada.
+    if p > 0
+        let mut n: [byte] = []
+        numero(mut n, p + 1)
+        push(mut n, ".")
+        push(mut c, "1 0 0 1 ")
+        decimas(mut c, 1080 + (ancho() - len(n)) * 72)
+        push(mut c, " 747 Tm (")
+        for x in n
+            push(mut c, x)
+        push(mut c, ") Tj\n")
+    if co[p] >= 0
+        let mut nombre = letras(t, l, tl, co[p])
+        push(mut nombre, " (CONT.)")
+        linea(mut c, 22, fila, nombre)
+        fila = fila + 1
+    for k in range(desde, hasta)
+        let que = tl[k]
+        let fuera = que == guion.seccion() or que == guion.sinopsis() or que == guion.salto()
+        if not fuera and not (que == guion.vacia() and fila == 0)
+            if que != guion.vacia() and l[2 * k + 1] > 0
+                let s = letras(t, l, tl, k)
+                linea(mut c, columna(ind, tl, k, len(s)), fila, s)
+            fila = fila + 1
+    if p + 1 < len(ih) and co[p + 1] >= 0
+        let mut mas: [byte] = []
+        push(mut mas, "(MAS)")
+        linea(mut c, 22, fila, mas)
+    push(mut c, "ET\n")
+    return c
+
+# **El PDF entero del guion `t`.** Objetos: 1 el catalogo, 2 las paginas, 3
+# la letra, y por cada pagina la pagina (4, 6, ...) y lo que lleva (5, 7, ...).
+pub fn hoja(t: [byte]) -> [byte]
+    let mut ind: [int] = []
+    let mut tl: [int] = []
+    let l = guion.lineas(t, ancho(), mut ind, mut tl)
+    let mut ih: [int] = []
+    let mut co: [int] = []
+    pagina.pagina(tl, mut ih, mut co)
+    let n = len(ih)
+    let mut b: [byte] = []
+    let mut donde: [int] = []
+    push(mut b, "%PDF-1.4\n")
+    push(mut donde, len(b))
+    push(mut b, "1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n")
+    push(mut donde, len(b))
+    push(mut b, "2 0 obj\n<< /Type /Pages /Kids [")
+    for p in range(n)
+        push(mut b, " ")
+        numero(mut b, 4 + 2 * p)
+        push(mut b, " 0 R")
+    push(mut b, " ] /Count ")
+    numero(mut b, n)
+    push(mut b, " >>\nendobj\n")
+    push(mut donde, len(b))
+    push(mut b, "3 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Courier /Encoding /WinAnsiEncoding >>\nendobj\n")
+    for p in range(n)
+        push(mut donde, len(b))
+        numero(mut b, 4 + 2 * p)
+        push(mut b, " 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents ")
+        numero(mut b, 5 + 2 * p)
+        push(mut b, " 0 R >>\nendobj\n")
+        let c = contenido(t, l, ind, tl, ih, co, p)
+        push(mut donde, len(b))
+        numero(mut b, 5 + 2 * p)
+        push(mut b, " 0 obj\n<< /Length ")
+        numero(mut b, len(c))
+        push(mut b, " >>\nstream\n")
+        for x in c
+            push(mut b, x)
+        push(mut b, "\nendstream\nendobj\n")
+    let xref = len(b)
+    push(mut b, "xref\n0 ")
+    numero(mut b, len(donde) + 1)
+    push(mut b, "\n0000000000 65535 f \n")
+    for d in donde
+        diez(mut b, d)
+        push(mut b, " 00000 n \n")
+    push(mut b, "trailer\n<< /Size ")
+    numero(mut b, len(donde) + 1)
+    push(mut b, " /Root 1 0 R >>\nstartxref\n")
+    numero(mut b, xref)
+    push(mut b, "\n%%EOF\n")
+    return b

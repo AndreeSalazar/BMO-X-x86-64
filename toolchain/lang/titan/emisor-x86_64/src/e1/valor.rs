@@ -247,7 +247,7 @@ impl E1<'_> {
         }
         let count = self.temp(8);
         self.store_imm(count, n as i64);
-        let top = self.code.len();
+        let top = self.etiqueta();
         let cells: Vec<Place> = ptrs.iter().map(|s| Place { base: Base::Ptr(s.off), off: 0 }).collect();
         body(self, &cells)?;
         for ((_, sz), s) in bases.iter().zip(&ptrs) {

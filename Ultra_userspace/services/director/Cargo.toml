@@ -25,6 +25,9 @@ bmo-cubo = { path = "../../../platform/shared/bmo-cubo" }
 bmo-verrano = { path = "../../../platform/shared/verrano" }
 # El censo de las laminas: la puerta unica de lo que se ofrece (14-10, A3).
 bmo-lamina = { path = "../../../platform/shared/bmo-lamina" }
+# `dentro` / clic derecho > ver por dentro (15-10): la puerta, los papeles y la
+# lente del kernel sobre un `.bex` entero. Pura y sin monton.
+bmo-radiografia = { path = "../../../platform/abi/bmo-radiografia" }
 bmo-bsf = { path = "../../../toolchain/lang/spirv/bsf" }
 bmo-iommu-amdvi = { path = "../../../platform/drivers/iommu/amdvi" }
 bmo-userland = { path = "../../userland" }

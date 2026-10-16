@@ -53,6 +53,24 @@
 //! Y el numero importa mas de lo que parece: la gracia de meter el icono en el
 //! paquete es que **no cueste nada llevarlo**. Un icono que engorda la app es
 //! un icono que alguien acabara quitando.
+//!
+//! ## Y desde el 15-10, tambien 32x32 con su ALFA ENTERO (IC2)
+//!
+//! El propietario: *"que el icono en escritorio se vea elegante [...] con
+//! imagen png o jpg o svg"*. Agrandar 16 al doble son cuadros de 2x2; lo
+//! elegante es guardarlo a la medida a la que se pinta (32) y con el borde
+//! SUAVE: el canal alto ya no es un bit sino 256 tonos, y cada pixel se
+//! MEZCLA con lo que hay debajo (el fondo del escritorio, que `background_at`
+//! sabe calcular sin leer el framebuffer, o la pastilla de la marca). Lo
+//! fabrica `bmo-icono` al construir, desde un SVG, un PNG o un JPG. Son 4 KiB
+//! por app y viven aparte (`CARAS`, en `.bss`): la `App` sigue chica y no
+//! pasa por la pila. El de 16 se sigue entendiendo, como siempre.
+//!
+//! ## Una app tambien es una CARPETA (KA1, 15-10)
+//!
+//! `apps/ecce/` con su `nucleo.bex` (el que arranca) y sus piezas: es UNA app
+//! y UN icono, el de su nucleo, con el nombre de la carpeta. Ver
+//! `docs/plan/PLAN_EL_KERNEL_DE_LA_APP.md`.
 
 use bmo_userland as bmo;
 
@@ -85,6 +103,28 @@ fn grid_x() -> u32 {
 const GRID_Y: u32 = 24;
 
 const PIXELS: usize = (ICON_SIDE * ICON_SIDE) as usize;
+/// El lado de un icono GRANDE: el mismo al que se pinta, uno a uno.
+pub const ICON_GRANDE: u32 = ICON_PX;
+const PIXELS_GRANDE: usize = (ICON_GRANDE * ICON_GRANDE) as usize;
+
+/// **Las caras grandes**, una por app y en el mismo orden que `apps`. En
+/// `.bss` y no dentro de `App`: doce de 4 KiB son 48 KiB, y `Launcher::new`
+/// los devolveria por la pila de 64 KiB del director si un dia no le llegara
+/// el `sret` (ver su cabecera).
+static mut CARAS: [[u32; PIXELS_GRANDE]; MAX_APPS] = [[0; PIXELS_GRANDE]; MAX_APPS];
+
+/// Lo que se sabe de la cara de una app.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Cara {
+    Ninguna,
+    /// 16x16 en `App::pixeles`, alfa de un bit, pintada al doble.
+    Chica,
+    /// 32x32 en `CARAS`, alfa entero, mezclada.
+    Grande,
+}
+
+/// El nucleo de una app CARPETA: `apps/<carpeta>/nucleo.bex`.
+pub const NUCLEO: &[u8] = b"nucleo.bex";
 
 /// Una app encontrada en `apps\`.
 pub struct App {
@@ -94,9 +134,9 @@ pub struct App {
     /// `doom.bex`, para pintar debajo.
     name: [u8; 12],
     name_len: usize,
-    /// Los pixeles del icono, si el paquete traia uno.
+    /// Los pixeles del icono, si el paquete traia uno de 16.
     pixeles: [u32; PIXELS],
-    tiene_icono: bool,
+    cara: Cara,
 }
 
 impl App {
@@ -106,7 +146,7 @@ impl App {
         name: [0; 12],
         name_len: 0,
         pixeles: [0; PIXELS],
-        tiene_icono: false,
+        cara: Cara::Ninguna,
     };
 
     pub fn name(&self) -> &[u8] {
@@ -165,23 +205,43 @@ impl Launcher {
         };
         while me.count < MAX_APPS {
             let Some(e) = dir.next() else { break };
-            if e.es_dir {
-                continue;
-            }
             let mut name = [0u8; 12];
             let n = e.legible(&mut name);
-            if n < 5 || !ends_in_bex(&name[..n]) {
-                continue;
-            }
             let i = me.count;
             let app = &mut me.apps[i];
+            if e.es_dir {
+                // ** UNA APP CARPETA (KA1): la carpeta es la app si trae su
+                // `nucleo.bex`; si no, es una carpeta cualquiera y no sale.
+                // `apps/` + 8 + `/` + `nucleo.bex` = 24: cabe justo (8.3).
+                if n == 0 || n > 8 || n == 1 && name[0] == b'.' || n == 2 && &name[..2] == b".." {
+                    continue;
+                }
+                let mut ruta = [0u8; 24];
+                ruta[..5].copy_from_slice(b"apps/");
+                ruta[5..5 + n].copy_from_slice(&name[..n]);
+                ruta[5 + n] = b'/';
+                ruta[6 + n..6 + n + NUCLEO.len()].copy_from_slice(NUCLEO);
+                let largo = 6 + n + NUCLEO.len();
+                if bmo::Archivo::leer_de(&ruta[..largo]).is_err() {
+                    continue;
+                }
+                app.path = ruta;
+                app.path_len = largo;
+            } else {
+                if n < 5 || !ends_in_bex(&name[..n]) {
+                    continue;
+                }
+                // `apps/` + el nombre. Cabe siempre: 5 + 12 = 17 de 24.
+                app.path[..5].copy_from_slice(b"apps/");
+                app.path[5..5 + n].copy_from_slice(&name[..n]);
+                app.path_len = 5 + n;
+            }
             app.name[..n].copy_from_slice(&name[..n]);
             app.name_len = n;
-            // `apps/` + el nombre. Cabe siempre: 5 + 12 = 17 de 24.
-            app.path[..5].copy_from_slice(b"apps/");
-            app.path[5..5 + n].copy_from_slice(&name[..n]);
-            app.path_len = 5 + n;
-            app.tiene_icono = read_icon(&app.path[..app.path_len], &mut app.pixeles);
+            // SAFETY: un solo hilo arma la rejilla, una vez, al arrancar; la
+            // cara `i` es solo de la app `i`.
+            let grande = unsafe { &mut *core::ptr::addr_of_mut!(CARAS[i]) };
+            app.cara = read_icon(&app.path[..app.path_len], &mut app.pixeles, grande);
             me.count += 1;
         }
         me
@@ -316,10 +376,31 @@ pub fn paint_una(p: &bmo::Pantalla, l: &Launcher, i: usize) {
     }
     // El icono, centrado en la celda.
     let ix = cx + (CELL_W - ICON_PX) / 2;
-    if app.tiene_icono {
-        paint_pixels(p, ix, cy, &app.pixeles);
-    } else {
-        paint_default(p, ix, cy, app.name());
+    match app.cara {
+        Cara::Chica => paint_pixels(p, ix, cy, &app.pixeles),
+        Cara::Grande => {
+            // Lo que hay DEBAJO de cada pixel: la pastilla de la marca si cae
+            // dentro (el icono va centrado, lejos de sus esquinas redondas), y
+            // si no el fondo del escritorio.
+            let pastilla = if marcada {
+                let (x, y, w, h) = ((cx + 4) as i32, y0 as i32, (CELL_W - 8) as i32, (CELL_H - 6) as i32);
+                let k = brota(i);
+                let (bw, bh) = (vida::entre(w * 6 / 10, w, k).min(CELL_W as i32 - 2), vida::entre(h * 6 / 10, h, k).min(h));
+                Some((x + (w - bw) / 2, y + (h - bh) / 2, bw, bh))
+            } else {
+                None
+            };
+            let debajo = |x: u32, y: u32| match pastilla {
+                Some((px, py, pw, ph)) if (x as i32) >= px && (x as i32) < px + pw && (y as i32) >= py && (y as i32) < py + ph => {
+                    super::tema_gen::MARCA_FONDO
+                }
+                _ => super::background_at(x, y, p.alto),
+            };
+            // SAFETY: las caras solo se escriben en `Launcher::new`.
+            let cara = unsafe { &*core::ptr::addr_of!(CARAS[i]) };
+            paint_grande(p, ix, cy, cara, debajo);
+        }
+        Cara::Ninguna => paint_default(p, ix, cy, app.name()),
     }
     // El nombre debajo, centrado y SIN el `.bex`: la extension es la misma
     // en todos, asi que ocupa sitio y no distingue nada. Medido con la letra
@@ -437,6 +518,33 @@ pub fn area(p: &bmo::Pantalla, l: &Launcher) -> (u32, u32, u32, u32) {
     )
 }
 
+/// **Un icono grande, mezclado**: cada pixel con su alfa entero sobre lo que
+/// `debajo` dice que hay.
+fn paint_grande(p: &bmo::Pantalla, x: u32, y: u32, px: &[u32; PIXELS_GRANDE], debajo: impl Fn(u32, u32) -> u32) {
+    p.marcar(x, y, ICON_GRANDE, ICON_GRANDE);
+    for fy in 0..ICON_GRANDE {
+        for fx in 0..ICON_GRANDE {
+            let c = px[(fy * ICON_GRANDE + fx) as usize];
+            let a = c >> 24;
+            if a == 0 {
+                continue;
+            }
+            let (sx, sy) = (x + fx, y + fy);
+            let color = if a == 255 { c & 0x00FF_FFFF } else { mezcla(c, debajo(sx, sy), a) };
+            p.punto_ya_marcado(sx, sy, color);
+        }
+    }
+}
+
+/// `c` sobre `fondo` con alfa `a` (0..255), canal a canal.
+fn mezcla(c: u32, fondo: u32, a: u32) -> u32 {
+    let canal = |s: u32| {
+        let (v, f) = ((c >> s) & 0xFF, (fondo >> s) & 0xFF);
+        ((v * a + f * (255 - a) + 127) / 255) << s
+    };
+    canal(16) | canal(8) | canal(0)
+}
+
 fn paint_pixels(p: &bmo::Pantalla, x: u32, y: u32, px: &[u32; PIXELS]) {
     for fy in 0..ICON_SIDE {
         for fx in 0..ICON_SIDE {
@@ -551,25 +659,25 @@ const SPLASH_SECTION: usize = 16;
 const HEADER_BRES: usize = 16;
 const SPLASH_BRES: usize = 64;
 
-/// Saca el recurso `icono` de un `.bex` y lo descifra como BICO.
-/// `true` = habia icono y esta en `px`.
-fn read_icon(path: &[u8], px: &mut [u32; PIXELS]) -> bool {
+/// Saca el recurso `icono` de un `.bex` y lo descifra como BICO: uno de 16
+/// queda en `px`, uno de 32 en `grande`.
+fn read_icon(path: &[u8], px: &mut [u32; PIXELS], grande: &mut [u32; PIXELS_GRANDE]) -> Cara {
     let Ok(f) = bmo::Archivo::leer_de(path) else {
-        return false;
+        return Cara::Ninguna;
     };
     // -- La cabecera BEF2: cuantos ANEXOS hay. Su tabla va justo detras, en
     // el byte 64, asi que no hay offset que leer ni que creerse.
     let mut cab = [0u8; 64];
     if f.read(&mut cab) < 64 {
-        return false;
+        return Cara::Ninguna;
     }
     if &cab[0..4] != b"BEF2" {
-        return false;
+        return Cara::Ninguna;
     }
     let lookup = 64u64;
     let count = read_u32(&cab, 20) as usize;
     if count == 0 || count > 16 {
-        return false;
+        return Cara::Ninguna;
     }
     // -- Buscar la seccion de recursos --
     let mut sec_off = 0u64;
@@ -578,7 +686,7 @@ fn read_icon(path: &[u8], px: &mut [u32; PIXELS]) -> bool {
         f.saltar(lookup + (i * SPLASH_SECTION) as u64);
         let mut e = [0u8; SPLASH_SECTION];
         if f.read(&mut e) < SPLASH_SECTION {
-            return false;
+            return Cara::Ninguna;
         }
         if e[0] == SECTION_RESOURCES {
             sec_off = read_u32(&e, 4) as u64;
@@ -587,20 +695,20 @@ fn read_icon(path: &[u8], px: &mut [u32; PIXELS]) -> bool {
         }
     }
     if sec_len == 0 {
-        return false;
+        return Cara::Ninguna;
     }
     // -- El indice BRES --
     f.saltar(sec_off);
     let mut bres = [0u8; HEADER_BRES];
     if f.read(&mut bres) < HEADER_BRES || &bres[0..4] != b"BRES" {
-        return false;
+        return Cara::Ninguna;
     }
     let resources = read_u32(&bres, 4) as usize;
     for i in 0..resources.min(64) {
         f.saltar(sec_off + (HEADER_BRES + i * SPLASH_BRES) as u64);
         let mut e = [0u8; SPLASH_BRES];
         if f.read(&mut e) < SPLASH_BRES {
-            return false;
+            return Cara::Ninguna;
         }
         let length = e[16] as usize;
         if length > 47 || &e[17..17 + length] != b"icono" {
@@ -611,35 +719,45 @@ fn read_icon(path: &[u8], px: &mut [u32; PIXELS]) -> bool {
         // que el `.bex` se vuelve a emitir con otra disposicion.
         let datum = sec_off + read_u64(&e, 0);
         let tam = read_u64(&e, 8) as usize;
-        return read_bico(&f, datum, tam, px);
+        return read_bico(&f, datum, tam, px, grande);
     }
-    false
+    Cara::Ninguna
 }
 
-fn read_bico(f: &bmo::Archivo, off: u64, tam: usize, px: &mut [u32; PIXELS]) -> bool {
+fn read_bico(f: &bmo::Archivo, off: u64, tam: usize, px: &mut [u32; PIXELS], grande: &mut [u32; PIXELS_GRANDE]) -> Cara {
     const CAB: usize = 8;
-    if tam < CAB + PIXELS * 4 {
-        return false;
-    }
     f.saltar(off);
     let mut cab = [0u8; CAB];
-    if f.read(&mut cab) < CAB || &cab[0..4] != b"BICO" {
-        return false;
+    if tam < CAB || f.read(&mut cab) < CAB || &cab[0..4] != b"BICO" {
+        return Cara::Ninguna;
     }
-    // Solo se acepta el medida que este escritorio sabe pintar. Escalar un
-    // icono de otro medida es una decision de aspecto que no toca aqui, y
-    // aceptarlo a medias daria iconos deformes sin decir por que.
-    if read_u16(&cab, 4) as u32 != ICON_SIDE || read_u16(&cab, 6) as u32 != ICON_SIDE {
-        return false;
+    // Solo se aceptan las DOS medidas que este escritorio sabe pintar: la de
+    // 16 (al doble) y la de 32 (tal cual). Escalar otra es una decision de
+    // aspecto que no toca aqui -- la toma `bmo-icono` al construir --, y
+    // aceptarla a medias daria iconos deformes sin decir por que.
+    let (w, h) = (read_u16(&cab, 4) as u32, read_u16(&cab, 6) as u32);
+    let (destino, cara): (&mut [u32], Cara) = match (w, h) {
+        (ICON_SIDE, ICON_SIDE) => (&mut px[..], Cara::Chica),
+        (ICON_GRANDE, ICON_GRANDE) => (&mut grande[..], Cara::Grande),
+        _ => return Cara::Ninguna,
+    };
+    if tam < CAB + destino.len() * 4 {
+        return Cara::Ninguna;
     }
-    let mut bytes = [0u8; PIXELS * 4];
-    if f.read(&mut bytes) < bytes.len() {
-        return false;
+    // Fila a fila (128 B la grande): un bufer de 4 KiB en la pila del
+    // director no se gasta para esto.
+    let lado = w as usize;
+    let mut fila = [0u8; ICON_GRANDE as usize * 4];
+    for y in 0..lado {
+        let bytes = &mut fila[..lado * 4];
+        if f.read(bytes) < bytes.len() {
+            return Cara::Ninguna;
+        }
+        for x in 0..lado {
+            destino[y * lado + x] = read_u32(bytes, x * 4);
+        }
     }
-    for i in 0..PIXELS {
-        px[i] = read_u32(&bytes, i * 4);
-    }
-    true
+    cara
 }
 
 fn read_u16(b: &[u8], o: usize) -> u16 {

@@ -448,7 +448,12 @@ fn app_abierta(dsk: &Desktop, nombre: &[u8]) -> Option<usize> {
 }
 
 fn lanzar_o_alternar(dsk: &mut Desktop, p: &bmo::Pantalla, ruta: &[u8]) {
-    let nombre = ruta.rsplit(|&c| c == b'/').next().unwrap_or(ruta);
+    let mut partes = ruta.rsplit(|&c| c == b'/');
+    let mut nombre = partes.next().unwrap_or(ruta);
+    // Una app CARPETA (KA1) se llama como su carpeta: el kernel la nombra asi.
+    if nombre.eq_ignore_ascii_case(crate::scene::launcher::NUCLEO) {
+        nombre = partes.next().unwrap_or(nombre);
+    }
     if let Some(i) = app_abierta(dsk, nombre) {
         let v = Ventana::App(i as u8);
         if !dsk.table.minimizada(i) && dsk.win.focus.actual() == Some(v) {

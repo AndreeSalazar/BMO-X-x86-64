@@ -98,6 +98,13 @@ pub const SUP_EV_RATON: u64 = 0x8000_0000_0000_0000;
 pub const SUP_EV_CARACTER: u64 = 0x4000_0000_0000_0000;
 /// Bit 61: la ventana cambio de estado (`SUP_ESTADO_*`) o de medida.
 pub const SUP_EV_CONFIGURE: u64 = 0x2000_0000_0000_0000;
+/// Bit 60: la RUEDA del raton (15-10, PL9b de PLAN_ECCE), girada con el
+/// puntero sobre la app. El byte bajo son las MUESCAS con signo (arriba,
+/// positivo); el bit 16, Alt pulsado. Ctrl + rueda no llega: Ctrl es del
+/// escritorio, como toda tecla con Ctrl.
+pub const SUP_EV_RUEDA: u64 = 0x1000_0000_0000_0000;
+/// `SUP_EV_RUEDA`: con Alt pulsado.
+pub const SUP_RUEDA_ALT: u64 = 1 << 16;
 
 /// `SUP_EV_CONFIGURE`: es una ventana normal.
 pub const SUP_ESTADO_VENTANA: u64 = 0;

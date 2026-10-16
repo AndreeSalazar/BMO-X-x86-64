@@ -1,14 +1,14 @@
 <!-- GENERADO por toolchain/tools/planes. No se edita a mano. -->
 
-# LO QUE FALTA -- las casillas abiertas de los 86 planes
+# LO QUE FALTA -- las casillas abiertas de los 89 planes
 
 > Generado por `toolchain/tools/planes`. **El build comprueba que
 > este fichero y los planes dicen lo mismo**, asi que no puede
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   854 casillas ABIERTAS en 77 planes
-   638 hechas
+   884 casillas ABIERTAS en 80 planes
+   674 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -90,13 +90,13 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] TB3 -- TESELAS E HISTORIAL: capas en teselas de 256 (las vacias no existen) y deshacer/rehacer s
 - ... y 28 mas
 
-## [`EL_FOCO.md`](EL_FOCO.md) -- 29 abiertas, 24 hechas
+## [`PLAN_ECCE.md`](PLAN_ECCE.md) -- 29 abiertas, 20 hechas
 
-*EL FOCO -- una cosa a la vez, hasta el final (10-10; el orden nuevo, 14-10)*
+*PLAN ECCE -- escribir en BMO-X: guiones al nivel de Final Draft, y todo lo demas*
 
-- [ ] A4 -- TITAN++ pide RAM SOLO con laminas. director.lamina deja de
-- [ ] en el Ryzen -- un .bex del nivel 15 de TITAN++ corriendo (hoja 6b, fila A4). Cuando se vea bien:
-- [ ] B1 -- LB7 + LB8: verificar una vez y apartarse. Al admitir un
+- [ ] PL0 -- las decisiones de la seccion 7, contestadas por el propietario (D1 si: ECCE).
+- [ ] PL2 -- Fountain, leer y escribir. Como se sabe: los ejemplos
+- [ ] la PAGINA DE TITULO (Title:, Credit:, Author:, Draft date:...)
 - ... y 26 mas
 
 ## [`PLAN_LA_3060_AFINADA.md`](PLAN_LA_3060_AFINADA.md) -- 25 abiertas, 18 hechas
@@ -107,6 +107,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] A4 -- los CARRILES de la 3060: una carpeta que no mezcla
 - [ ] A5 -- cada prestamo a la 3060 dice quien lo devuelve
 - ... y 22 mas
+
+## [`EL_FOCO.md`](EL_FOCO.md) -- 23 abiertas, 30 hechas
+
+*EL FOCO -- una cosa a la vez, hasta el final (10-10; el orden nuevo, 14-10)*
+
+- [ ] B1 -- LB7 + LB8: verificar una vez y apartarse. Al admitir un
+- [ ] en el Ryzen -- run dos veces del mismo .bex: la segunda, lente: ya leido (hoja 6b, fila B1). Cua
+- [ ] B3 -- Q0a1..Q0a4: el cubo de TITAN++ en SU ventana, por la 3060
+- ... y 20 mas
 
 ## [`PLAN_FASE.md`](PLAN_FASE.md) -- 19 abiertas, 3 hechas
 
@@ -151,15 +160,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] B1 -- F2 abre LOS ARCHIVOS: una app propia como el TALLER (sys/archivos.bex), que el DIRECTOR la
 - [ ] B2 -- el GLOBO, en el MISMO commit que B1 (una linea de SABIAS tiene que ser verdad el dia que s
 - [ ] B3 -- LA BANDEJA (seccion 3): los discos que el kernel lee, con su perfil y su rango; el NVMe CE
-- ... y 13 mas
-
-## [`PLAN_LA_PLUMA.md`](PLAN_LA_PLUMA.md) -- 16 abiertas, 0 hechas
-
-*PLAN LA PLUMA -- escribir en BMO-X: guiones al nivel de Final Draft, y todo lo demas*
-
-- [ ] PL0 -- las decisiones de la seccion 7, contestadas por el propietario.
-- [ ] PL1 -- el motor de texto: parrafos con elemento, cursor, seleccion,
-- [ ] PL2 -- Fountain, leer y escribir. Como se sabe: los ejemplos
 - ... y 13 mas
 
 ## [`PLAN_MEDIOS.md`](PLAN_MEDIOS.md) -- 16 abiertas, 3 hechas
@@ -306,6 +306,24 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] AY4 -- el juez sabe de tasas. El juez de la CPU dibuja con el mismo
 - ... y 6 mas
 
+## [`PLAN_PROTON_X.md`](PLAN_PROTON_X.md) -- 9 abiertas, 11 hechas
+
+*PLAN PROTON-X -- un .exe de Windows en BMO-X, SOLO x86-64, y medido*
+
+- [ ] P3 -- el cubo D3D12. Partido en tres el 27-09, porque el .exe
+- [ ] P3b -- el cubo con sus sombreadores. Root signature, PSO,
+- [ ] P3c -- el BMOX-12 de EPICX-FRAMEWORK, sin tocar. [VISTO EN EL
+- ... y 6 mas
+
+## [`PLAN_TITAN_AFINADO.md`](PLAN_TITAN_AFINADO.md) -- 9 abiertas, 4 hechas
+
+*PLAN TITAN AFINADO -- TITAN++ a la altura de C, sin aprender de CPU*
+
+- [ ] AF2 -- el valor que ya esta en el registro. No guardar en la pila
+- [ ] AF3 -- los locales enteros en REGISTROS. Los contadores de un
+- [ ] AF4 -- for i in range(...) como el for de C. Hoy el contador y
+- ... y 6 mas
+
 ## [`PLAN_VATIOS.md`](PLAN_VATIOS.md) -- 9 abiertas, 4 hechas
 
 *PLAN_VATIOS -- lo que gasta el CPU en reposo, y por que*
@@ -333,15 +351,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] MC3 -- la fisica. Gravedad, saltar, y el jugador como una CAJA
 - ... y 5 mas
 
-## [`PLAN_PROTON_X.md`](PLAN_PROTON_X.md) -- 8 abiertas, 8 hechas
-
-*PLAN PROTON-X -- un .exe de Windows en BMO-X, SOLO x86-64, y medido*
-
-- [ ] P3 -- el cubo D3D12. Partido en tres el 27-09, porque el .exe
-- [ ] P3b -- el cubo con sus sombreadores. Root signature, PSO,
-- [ ] P3c -- el BMOX-12 de EPICX-FRAMEWORK, sin tocar. [VISTO EN EL
-- ... y 5 mas
-
 ## [`PLAN_COBOL_MAESTRO.md`](PLAN_COBOL_MAESTRO.md) -- 7 abiertas, 1 hechas
 
 *PLAN COBOL MAESTRO -- un FRONTEND bien hecho, y el x86-64 aparte*
@@ -358,6 +367,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] pendiente [~] a medias, y se dice cuanto [x] hecho, con fecha
 - [ ] A1.3 -- el AP con reloj: un LAPIC timer propio, o el MWAITX con plazo
 - [ ] A2.1 -- bmo-orquesta: una clase de parte nueva, RESIDENTE, que no
+- ... y 4 mas
+
+## [`PLAN_EL_TOQUE.md`](PLAN_EL_TOQUE.md) -- 7 abiertas, 0 hechas
+
+*PLAN EL TOQUE -- la RAM se llena al USAR, y se vacia sola lo que dejo de usarse*
+
+- [ ] EL0 -- MEDIR antes de tocar nada. Por app: paginas mapeadas,
+- [ ] EL1 -- los CEROS al tocarlos. La region de ceros de un .bex (el
+- [ ] EL2 -- el CODIGO al tocarlo, leido del .bex (de la cache de
 - ... y 4 mas
 
 ## [`PLAN_EL_VIDEO.md`](PLAN_EL_VIDEO.md) -- 7 abiertas, 0 hechas
@@ -421,6 +439,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] E4 -- EL METAL. Ese .bex enlazado, en el Ryzen. Hoy corre en el
 - [ ] E5f -- errno, Y LOS extern QUE NADIE DEFINE. Lo encontro DOOM al
 - [ ] E5d -- EL bss NO SE SABE NOMBRAR. Salio al hacer E5b: una reloc del
+- ... y 3 mas
+
+## [`PLAN_EL_KERNEL_DE_LA_APP.md`](PLAN_EL_KERNEL_DE_LA_APP.md) -- 6 abiertas, 3 hechas
+
+*PLAN EL KERNEL DE LA APP -- cada app se administra sola; el kernel principal arbitra*
+
+- [ ] KA2 -- el CONTRATO de una pieza: su peso, lo que pide (los
+- [ ] KA3 -- PRESTAR DE GOLPE: un bloque de RAM y un tramo de
+- [ ] KA4 -- el kernel de la app CARGA AL TOCAR sus piezas (sobre EL1
 - ... y 3 mas
 
 ## [`PLAN_EL_NEUTRO_VIGILADO.md`](PLAN_EL_NEUTRO_VIGILADO.md) -- 6 abiertas, 12 hechas

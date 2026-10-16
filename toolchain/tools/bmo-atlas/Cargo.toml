@@ -1,0 +1,17 @@
+[package]
+name = "bmo-atlas"
+version = "0.1.0"
+edition = "2021"
+description = "El ATLAS de una letra: la de la casa (bmo-letra) o un TrueType, en Latin-1 con el borde suave (alfa de 8 bits), a la medida pedida"
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "bmo-atlas"
+path = "src/main.rs"
+
+# La letra de la CASA (trazos propios, sin terceros). Leer un TrueType y
+# rasterizar sus curvas es aritmetica: no pide nada mas.
+[dependencies]
+bmo-letra = { path = "../../../platform/shared/bmo-letra" }

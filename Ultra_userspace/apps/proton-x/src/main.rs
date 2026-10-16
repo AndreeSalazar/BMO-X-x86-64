@@ -74,6 +74,8 @@ mod el_nulo;
 mod en_vivo;
 mod entorno_windows;
 mod la3060;
+/// LX2 (15-10): lo que falta, con el binario del juego al lado.
+mod lo_que_falta;
 /// LI2f (13-10): el computo del juego por la 3060.
 mod computo3060;
 
@@ -599,6 +601,17 @@ pub extern "C" fn _start() -> ! {
         );
         for (quien, i) in &faltan {
             t.push_str(&format!("\n  {quien} pide {}!{}", i.dll, i.funcion));
+        }
+        // ** LX2: y DESDE DONDE las pide el juego, y que hacia justo antes.
+        for m in &modulos {
+            let de_este: Vec<(alloc::string::String, u32)> = faltan
+                .iter()
+                .filter(|(quien, _)| *quien == m.nombre)
+                .map(|(_, i)| (format!("{}!{}", i.dll, i.funcion), i.ranura))
+                .collect();
+            if !de_este.is_empty() {
+                t.push_str(&lo_que_falta::contar(m, &de_este));
+            }
         }
         fin(&t);
     }

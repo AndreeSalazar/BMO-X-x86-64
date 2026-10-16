@@ -258,6 +258,9 @@ fn save_autopsies(vistos: &mut u64) -> bool {
 
         for f in 0..rows {
             let n = bmo::autopsia_linea(i, f, &mut buf);
+            if n == 0 {
+                continue;
+            }
             a.write(&buf[..n]);
             // `\r\n` por lo mismo que `dump_output`: esto se abre en Windows
             // para mandarlo, y el Notepad viejo junta los saltos de Unix.
@@ -1205,7 +1208,7 @@ pub extern "C" fn _start() -> ! {
                 dsk.tick.repaint_field = true;
             }
 
-            desktop::mouse::on_pointer(&mut dsk, &p, g.pos, g.wheel, g.ctrl);
+            desktop::mouse::on_pointer(&mut dsk, &p, g.pos, g.wheel, g.ctrl, g.alt_alone);
         }
 
         // HUD 2: si el foco cambio en esta vuelta (teclado, raton, una app que

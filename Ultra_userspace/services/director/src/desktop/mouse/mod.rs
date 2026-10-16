@@ -114,13 +114,14 @@ pub(crate) fn on_pointer(
     pos: bmo::Punto,
     wheel: i32,
     ctrl: bool,
+    alt: bool,
 ) {
     // ** MIENTRAS SE RECORTA, el raton es del recorte: ni ventanas ni apps.
     if crate::desktop::captura::recortando() {
         let antes = dsk.tick.button_before;
         crate::desktop::captura::raton(dsk, p, pos.x, pos.y, pos.botones & IZQUIERDO != 0, antes);
     } else {
-        repartir(dsk, p, pos, wheel, ctrl);
+        repartir(dsk, p, pos, wheel, ctrl, alt);
     }
     dsk.tick.button_before = pos.botones & IZQUIERDO != 0;
     // El flanco del derecho, aparte: sin el, mantenerlo pulsado reabriria el
@@ -145,6 +146,7 @@ fn repartir(
     pos: bmo::Punto,
     wheel: i32,
     ctrl: bool,
+    alt: bool,
 ) {
 
     // -- Raton --
@@ -305,6 +307,14 @@ fn repartir(
                 dsk.win.data.move_sel(-wheel, how_many);
                 scene::data::paint(&p, &dsk.win.data);
             }
+            // ** LA RUEDA SOBRE UNA APP (15-10, PL9b de PLAN_ECCE): a la app
+            // que esta DEBAJO del puntero, como un clic -- se gira donde se
+            // mira --, sola o con Alt (Alt + rueda: la mesa de ECCE se aleja).
+            // Ctrl + rueda NO: Ctrl es del escritorio, como toda tecla con
+            // Ctrl (`keys/app.rs`, `del_escritorio`).
+            Some(Ventana::App(_)) if !ctrl => {
+                crate::desktop::keys::app::rueda(dsk, pos.x, pos.y, wheel, alt);
+            }
             _ => {}
         }
     }
@@ -446,6 +456,28 @@ pub(super) fn usar_entrada(
         Hace::Verificar => {
             if let Sobre::Hijo(i) = sobre {
                 dsk.win.data.verified = Some(bmo::estratos::verificar(i as u64));
+            }
+        }
+        // ** "ver por dentro" (15-10): `dentro <ruta entera>` en la caja de
+        // Ejecutar y disparado, como el doble clic de un icono. La salida es
+        // larga y va a la consola grande (y a `informe/`), no a la de seis
+        // lineas del explorador.
+        Hace::Dentro => {
+            if let Sobre::Hijo(i) = sobre {
+                let mut ruta = [0u8; 120];
+                let r = scene::data::fuente::ruta_hijo(i as u64, &mut ruta);
+                let largo = 7 + r;
+                if r > 0 && largo <= dsk.field.path.len() {
+                    dsk.field.path[..7].copy_from_slice(b"dentro ");
+                    dsk.field.path[7..largo].copy_from_slice(&ruta[..r]);
+                    dsk.field.n = largo;
+                    dsk.field.cur = largo;
+                    dsk.tick.repaint_field = true;
+                    if dsk.field.ni < dsk.field.injected.len() {
+                        dsk.field.injected[dsk.field.ni] = b'\n';
+                        dsk.field.ni += 1;
+                    }
+                }
             }
         }
         Hace::Orden => dsk.win.data.consola.poner_orden(e.verbo, &nom[..n], true),

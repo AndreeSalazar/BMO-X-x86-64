@@ -94,6 +94,8 @@ pub(crate) enum Hace {
     Entrar,
     Subir,
     Verificar,
+    /// "ver por dentro" un `.bex`: `dentro <ruta>` en la caja de Ejecutar.
+    Dentro,
 }
 
 #[derive(Clone, Copy)]
@@ -116,6 +118,15 @@ pub(crate) struct Menu {
 }
 
 const VACIA: Entrada = Entrada { texto: "", verbo: "", hace: Hace::Orden, pesa: false };
+
+/// El hijo `i` es un programa (`.bex` o `.ibx`, o un `.exe`/`.dll` de
+/// Windows desde LX1): se puede ver por dentro.
+fn es_programa(i: u64) -> bool {
+    let mut nom = [0u8; 64];
+    let n = super::data::fuente::hijo_nombre(i, &mut nom);
+    let nom = &nom[..n];
+    n >= 4 && [b".bex", b".ibx", b".exe", b".dll"].iter().any(|e| nom[n - 4..].eq_ignore_ascii_case(*e))
+}
 
 impl Menu {
     pub(crate) const fn nuevo() -> Self {
@@ -143,6 +154,12 @@ impl Menu {
             if let Sobre::Hijo(i) = sobre {
                 if super::data::fuente::hijo_tipo(i as u64) == bmo::estratos::DIRECTORIO {
                     self.mete("entrar", "", Hace::Entrar, false);
+                    // ** Una carpeta puede ser una APP (KA1, 15-10): sus piezas,
+                    // una a una, con la lente del kernel (`dentro` la entiende).
+                    self.mete("ver la app por dentro", "dentro", Hace::Dentro, false);
+                } else if es_programa(i as u64) {
+                    // ** Mirar no escribe: vale en DATOS y en EFI (15-10).
+                    self.mete("ver por dentro", "dentro", Hace::Dentro, false);
                 }
             }
             if super::data::fuente::hondo() > 0 {

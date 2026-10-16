@@ -117,8 +117,10 @@
 0x08 SUP_BUZON_RANURA               BMO_SUP_BUZON_RANURA             una ranura del buzon: un evento crudo de 8 bytes
 0x10 SUP_BUZON_CABECERA             BMO_SUP_BUZON_CABECERA           cabeza, cola y estado del buzon: 16 bytes
 0x20 SUP_CABECERA                   BMO_SUP_CABECERA                 la cabecera BSUP: 32 bytes, ocho u32
+0x10000 SUP_RUEDA_ALT                  BMO_SUP_RUEDA_ALT                
 0x1000000 SUP_TOMADA                     BMO_SUP_TOMADA                   bit 24 del estado: el DIRECTOR ya la tomo
 0x50555342 SUP_MAGIC                      BMO_SUP_MAGIC                    "BSUP" en little-endian, primer u32 del bloque
+0x1000000000000000 SUP_EV_RUEDA                   BMO_SUP_EV_RUEDA                 
 0x2000000000000000 SUP_EV_CONFIGURE               BMO_SUP_EV_CONFIGURE             bit 61 del evento: cambio de ventana
 0x4000000000000000 SUP_EV_CARACTER                BMO_SUP_EV_CARACTER              bit 62 del evento: una letra ya cocinada
 0x8000000000000000 SUP_EV_RATON                   BMO_SUP_EV_RATON                 bit 63 del evento: raton

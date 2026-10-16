@@ -156,11 +156,14 @@ fn una_lamina_prestada_y_mal_hecha_se_niega_igual() {
 
 #[test]
 fn la_flecha_abajo_desplaza_la_lamina_32_pixeles() {
-    let abajo = 0x100 | 0x200 | 0x50;
-    let m = con(None, Some(&lamina_ejemplo()), &[abajo]);
-    let (w, _, pixel) = pantalla(&m);
-    assert!(cuenta(&pixel, w, 89, 121, 0) > 300, "el titulo subio 32 pixeles");
-    assert_eq!(cuenta(&pixel, w, 121, 137, 0), 0, "y debajo del titulo ya no hay titulo");
+    // La del numerico (0x50) y la del teclado USB (`bmo_uhid::SC_DOWN`, 0x67,
+    // 15-10): las dos bajan lo mismo.
+    for abajo in [0x100 | 0x200 | 0x50, 0x100 | 0x200 | 0x67] {
+        let m = con(None, Some(&lamina_ejemplo()), &[abajo]);
+        let (w, _, pixel) = pantalla(&m);
+        assert!(cuenta(&pixel, w, 89, 121, 0) > 300, "el titulo subio 32 pixeles ({abajo:#x})");
+        assert_eq!(cuenta(&pixel, w, 121, 137, 0), 0, "y debajo del titulo ya no hay titulo ({abajo:#x})");
+    }
 }
 
 #[test]

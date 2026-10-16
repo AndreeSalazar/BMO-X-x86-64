@@ -98,8 +98,11 @@ const TIPOS: &[Tipo] = &[
     Tipo { ext: b"exe", clase: Clase::Juego, abre: Abre::Con(b"sys/proton-x.bex") },
     Tipo { ext: b"bex", clase: Clase::App, abre: Abre::Programa },
     Tipo { ext: b"ibx", clase: Clase::App, abre: Abre::Programa },
-    // ** El reproductor recibe la ruta por los ARGUMENTOS (`task/argumentos.rs`).
-    Tipo { ext: b"mus", clase: Clase::Audio, abre: Abre::Con(b"inti/musica.ibx") },
+    // ** El reproductor de INTI recibia la ruta por los ARGUMENTOS
+    // (`task/argumentos.rs`); salio el 15-10 (Q2) y su relevo, `apps/musica.bex`
+    // de TITAN++, aun no lee argumentos: toca `datos/tema.mus`. Hasta que los
+    // lea, abrir OTRO `.mus` lo dice en vez de lanzar un programa que no esta.
+    Tipo { ext: b"mus", clase: Clase::Audio, abre: Abre::Falta("MUS: `run apps/musica.bex` toca datos/tema.mus; otro .mus pide argumentos en TITAN++") },
     Tipo { ext: b"wav", clase: Clase::Audio, abre: Abre::Falta("WAV: el tubo USB esta, falta leer el formato") },
     // ** Las tres que `bmo-imagen` sabe descifrar: al visor, que pinta la imagen
     // y no sus bytes (2026-09-13).
@@ -113,6 +116,12 @@ const TIPOS: &[Tipo] = &[
     // un progresivo lo dice el visor con nombre.
     // (`.jpeg` no cabe: el FAT32 es 8.3, tres letras. Se guarda como `.jpg`.)
     Tipo { ext: b"jpg", clase: Clase::Imagen, abre: Abre::Visor },
+    // ** Los GUIONES (15-10, PL3 de PLAN_ECCE): Fountain, el texto plano de
+    // los guionistas, se abre en ECCE en modo guion -- la app recibe la ruta
+    // por los argumentos (`director.argumento()` de TITAN++) y guarda ahi --.
+    // `.fountain` no cabe en 8.3: en FAT32 es `.fou`; ESTRATOS si lo trae largo.
+    Tipo { ext: b"fou", clase: Clase::Texto, abre: Abre::Con(b"apps/ecce/nucleo.bex") },
+    Tipo { ext: b"fountain", clase: Clase::Texto, abre: Abre::Con(b"apps/ecce/nucleo.bex") },
     Tipo { ext: b"txt", clase: Clase::Texto, abre: Abre::Visor },
     Tipo { ext: b"log", clase: Clase::Texto, abre: Abre::Visor },
     Tipo { ext: b"md", clase: Clase::Texto, abre: Abre::Visor },

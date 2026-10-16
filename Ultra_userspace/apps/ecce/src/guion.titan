@@ -1,0 +1,427 @@
+# EL MODO GUION de ECCE (PL2 y PL4 de docs/plan/PLAN_ECCE.md, 15-10):
+# FOUNTAIN, el texto plano de los guionistas (fountain.io). Lo que se
+# escribe sigue siendo texto; lo que es cada linea sale de COMO esta escrita,
+# como en Fountain, y se pinta con los margenes de un guion de cine.
+#
+#    escena       INT. / EXT. / EST. / INT./EXT. / I/E al principio, con una
+#                 linea en blanco antes; o forzada con "." delante
+#    personaje    todo en MAYUSCULAS, blanco antes y algo debajo; o "@"
+#    dialogo      lo que va debajo de un personaje, hasta una linea en blanco
+#    parentesis   dentro del dialogo, una linea "(asi)"
+#    transicion   MAYUSCULAS que acaban en "TO:" o en "A:" (CORTE A:), con
+#                 blanco antes y despues; o forzada con ">"
+#    centrado     >asi<
+#    seccion      "# ACTO I": la estructura (no se imprime; en la mesa son
+#                 las FILAS de los nodos)
+#    sinopsis     "= de que va": tampoco se imprime
+#    salto        "===": salto de pagina
+#    accion       todo lo demas (o forzada con "!")
+#
+# Al ESCRIBIR, como Final Draft (PL3): Tab cambia lo que es la linea --
+# accion > personaje > transicion > escena > accion; en el dialogo, dialogo
+# <> parentesis; una linea en blanco pasa a personaje, o a parentesis si va
+# en un dialogo -- reescribiendola en Fountain (`como`: su marca, mayusculas,
+# los parentesis). Y la ultima linea, vacia, debajo de un personaje ya es su
+# dialogo: el cursor va donde ira la letra.
+#
+# Los margenes, en columnas de la letra (8 px), los del oficio a 10 por
+# pulgada: accion 60 de ancho; personaje a 22; dialogo a 10 y 35 de ancho;
+# parentesis a 16 y 25; la transicion, pegada a la derecha. Si la ventana es
+# mas estrecha que 40 columnas, todo va a la izquierda.
+mod guion "el modo guion de ECCE: Fountain, cada linea en su sitio"
+use director
+
+pub fn accion() -> int
+    return 0
+
+pub fn escena() -> int
+    return 1
+
+pub fn personaje() -> int
+    return 2
+
+pub fn parentesis() -> int
+    return 3
+
+pub fn dialogo() -> int
+    return 4
+
+pub fn transicion() -> int
+    return 5
+
+pub fn seccion() -> int
+    return 6
+
+pub fn sinopsis() -> int
+    return 7
+
+pub fn centrado() -> int
+    return 8
+
+pub fn vacia() -> int
+    return 9
+
+pub fn salto() -> int
+    return 10
+
+fn div(a: int, d: int) -> int
+    return (a - a % d) / d
+
+fn minuscula(b: int) -> bool
+    return (b >= 97 and b <= 122) or (b >= 223 and b <= 255 and b != 247)
+
+fn mayuscula(b: int) -> bool
+    return (b >= 65 and b <= 90) or (b >= 192 and b <= 222 and b != 215)
+
+# La misma letra en mayuscula (Latin-1).
+pub fn a_mayuscula(b: int) -> int
+    if (b >= 97 and b <= 122) or (b >= 224 and b <= 254 and b != 247)
+        return b - 32
+    return b
+
+# Si la linea [i, f) empieza por `p` sin mirar mayusculas.
+fn empieza(t: [byte], i: int, f: int, p: [byte]) -> bool
+    if f - i < len(p)
+        return false
+    for k in range(len(p))
+        if a_mayuscula(t[i + k]) != p[k]
+            return false
+    return true
+
+fn en_blanco(t: [byte], i: int, f: int) -> bool
+    for k in range(i, f)
+        if t[k] != 32 and t[k] != 9
+            return false
+    return true
+
+# La letra `k` de la linea [i, f), en mayuscula, es `c`.
+fn en(t: [byte], i: int, f: int, k: int, c: int) -> bool
+    return f - i > k and a_mayuscula(t[i + k]) == c
+
+# Una linea de cabecera de escena: INT. EXT. EST. INT./EXT. INT/EXT I/E, o
+# "INT " y "EXT " con espacio.
+fn es_escena(t: [byte], i: int, f: int) -> bool
+    let interior = en(t, i, f, 0, 73) and en(t, i, f, 1, 78) and en(t, i, f, 2, 84)
+    let ext = en(t, i, f, 0, 69) and en(t, i, f, 1, 88) and en(t, i, f, 2, 84)
+    let est = en(t, i, f, 0, 69) and en(t, i, f, 1, 83) and en(t, i, f, 2, 84)
+    let detras = en(t, i, f, 3, 46) or en(t, i, f, 3, 32) or en(t, i, f, 3, 47)
+    let ie = en(t, i, f, 0, 73) and en(t, i, f, 1, 47) and en(t, i, f, 2, 69)
+    return ((interior or ext or est) and detras) or ie
+
+# Todo en mayusculas (alguna letra y ninguna minuscula), sin contar lo que
+# va entre parentesis: "ANA (V.O.)" es un personaje.
+fn en_mayusculas(t: [byte], i: int, f: int) -> bool
+    let mut letras = 0
+    let mut dentro = false
+    for k in range(i, f)
+        let b = t[k]
+        if b == 40
+            dentro = true
+        else if b == 41
+            dentro = false
+        else if not dentro
+            if minuscula(b)
+                return false
+            if mayuscula(b)
+                letras = letras + 1
+    return letras > 0
+
+# Acaba en "TO:" o en " A:" (la transicion en castellano: CORTE A:).
+fn acaba_en_transicion(t: [byte], i: int, f: int) -> bool
+    let mut g = f
+    while g > i and t[g - 1] == 32
+        g = g - 1
+    if g - i >= 3 and t[g - 1] == 58 and t[g - 2] == 79 and t[g - 3] == 84
+        return true
+    if g - i >= 3 and t[g - 1] == 58 and t[g - 2] == 65 and t[g - 3] == 32
+        return true
+    return false
+
+# **Lo que es cada LINEA del texto** (las que acaban en un salto), en orden.
+pub fn tipos(t: [byte]) -> [int]
+    let mut ini: [int] = []
+    let mut fin: [int] = []
+    let n = len(t)
+    let mut i = 0
+    push(mut ini, 0)
+    while i < n
+        if t[i] == 10
+            push(mut fin, i)
+            push(mut ini, i + 1)
+        i = i + 1
+    push(mut fin, n)
+    let cuantas = len(ini)
+    let mut r: [int] = []
+    for k in range(cuantas)
+        let a = ini[k]
+        let f = fin[k]
+        let blanco_antes = k == 0 or en_blanco(t, ini[k - 1], fin[k - 1])
+        let blanco_despues = k + 1 >= cuantas or en_blanco(t, ini[k + 1], fin[k + 1])
+        # La ultima linea, vacia, es la que se esta escribiendo: no corta.
+        let abierta = k + 2 == cuantas and ini[k + 1] == fin[k + 1]
+        let mut que = accion()
+        let mut previo = vacia()
+        if k > 0
+            previo = r[k - 1]
+        if en_blanco(t, a, f)
+            que = vacia()
+            if k + 1 == cuantas and a == f and (previo == personaje() or previo == parentesis())
+                que = dialogo()
+        else if f - a >= 3 and t[a] == 61 and t[a + 1] == 61 and t[a + 2] == 61
+            que = salto()
+        else if t[a] == 35
+            que = seccion()
+        else if t[a] == 61
+            que = sinopsis()
+        else if t[a] == 33
+            que = accion()
+        else if t[a] == 46 and (f - a < 2 or t[a + 1] != 46)
+            que = escena()
+        else if t[a] == 62 and t[f - 1] == 60
+            que = centrado()
+        else if t[a] == 62
+            que = transicion()
+        else if t[a] == 64
+            que = personaje()
+        else if previo == personaje() or previo == dialogo() or previo == parentesis()
+            if t[a] == 40
+                que = parentesis()
+            else
+                que = dialogo()
+        else if blanco_antes and es_escena(t, a, f)
+            que = escena()
+        else if blanco_antes and blanco_despues and en_mayusculas(t, a, f) and acaba_en_transicion(t, a, f)
+            que = transicion()
+        else if blanco_antes and (not blanco_despues or abierta) and en_mayusculas(t, a, f)
+            que = personaje()
+        push(mut r, que)
+    return r
+
+fn sangria(que: int, ancho: int) -> int
+    if ancho < 40
+        return 0
+    if que == personaje()
+        return 22
+    if que == dialogo()
+        return 10
+    if que == parentesis()
+        return 16
+    return 0
+
+fn ancho_de(que: int, ancho: int) -> int
+    if ancho < 40
+        return ancho
+    if que == dialogo()
+        return 35
+    if que == parentesis()
+        return 25
+    if que == personaje()
+        return ancho - 22
+    return ancho
+
+# **Las lineas que SE VEN en modo guion**, de dos en dos (como `lineas` de
+# main.titan: donde empieza cada una y cuantas letras lleva), y para cada una
+# su SANGRIA (en columnas) y su TIPO, en `ind` y `tl`. `cols` es lo que cabe
+# en la ventana; el guion usa como mucho 60.
+pub fn lineas(t: [byte], cols: int, mut ind: [int], mut tl: [int]) -> [int]
+    while len(ind) > 0
+        pop(mut ind)
+    while len(tl) > 0
+        pop(mut tl)
+    let ancho = if_menor(cols, 60)
+    let ts = tipos(t)
+    let mut r: [int] = []
+    let n = len(t)
+    let mut i = 0
+    let mut linea = 0
+    let mut sigue = true
+    while sigue
+        let que = ts[linea]
+        let w = ancho_de(que, ancho)
+        let mut j = i
+        let mut espacio = -1
+        let mut fin = -1
+        let mut sig = -1
+        let mut nueva_linea = false
+        while fin < 0
+            if j >= n
+                fin = j
+                sig = -1
+            else if t[j] == 10
+                fin = j
+                sig = j + 1
+                nueva_linea = true
+            else if j - i >= w
+                if t[j] == 32
+                    fin = j
+                    sig = j + 1
+                else if espacio > i
+                    fin = espacio
+                    sig = espacio + 1
+                else
+                    fin = j
+                    sig = j
+            else
+                if t[j] == 32
+                    espacio = j
+                j = j + 1
+        let largo = fin - i
+        push(mut r, i)
+        push(mut r, largo)
+        let mut s = sangria(que, ancho)
+        if que == transicion() and ancho >= 40
+            s = ancho - largo
+        if que == centrado()
+            s = div(ancho - largo, 2)
+        if s < 0
+            s = 0
+        push(mut ind, s)
+        push(mut tl, que)
+        if nueva_linea
+            linea = linea + 1
+        if sig < 0
+            sigue = false
+        else
+            i = sig
+    return r
+
+fn if_menor(a: int, b: int) -> int
+    if a < b
+        return a
+    return b
+
+# **Las escenas**: el indice de la linea que SE VE donde empieza cada una.
+pub fn escenas(tl: [int]) -> [int]
+    let mut r: [int] = []
+    let mut antes = -1
+    for k in range(len(tl))
+        if tl[k] == escena() and antes != escena()
+            push(mut r, k)
+        antes = tl[k]
+    return r
+
+# **El ACTO de cada escena**: cuantas secciones ("# ...") hay antes de ella
+# (0 si ninguna). En la mesa, cada acto es una fila de nodos.
+pub fn actos(tl: [int], es: [int]) -> [int]
+    let mut r: [int] = []
+    let mut acto = 0
+    let mut visto_seccion = false
+    let mut e = 0
+    for k in range(len(tl))
+        if tl[k] == seccion() and (k == 0 or tl[k - 1] != seccion())
+            if visto_seccion or e > 0
+                acto = acto + 1
+            visto_seccion = true
+        if e < len(es) and es[e] == k
+            push(mut r, acto)
+            e = e + 1
+    return r
+
+# **El TITULO de cada acto**: la linea que se ve de su "# ..." (-1 si el
+# acto no tiene: las escenas de antes de la primera seccion).
+pub fn titulos(tl: [int], es: [int]) -> [int]
+    let mut r: [int] = []
+    let mut e = 0
+    let mut pendiente = -1
+    let mut visto_seccion = false
+    for k in range(len(tl))
+        if tl[k] == seccion() and (k == 0 or tl[k - 1] != seccion())
+            if visto_seccion or e > 0
+                push(mut r, pendiente)
+            pendiente = k
+            visto_seccion = true
+        if e < len(es) and es[e] == k
+            e = e + 1
+    push(mut r, pendiente)
+    return r
+
+# La escena en la que esta la linea que se ve `k` (-1 antes de la primera).
+pub fn escena_de(es: [int], k: int) -> int
+    let mut r = -1
+    for i in range(len(es))
+        if es[i] <= k
+            r = i
+    return r
+
+# ** PL3: EL TAB DE FINAL DRAFT. Lo que pasa a ser una linea que es `que`
+# (y `previo` la de antes).
+pub fn siguiente(que: int, previo: int) -> int
+    if que == vacia()
+        if previo == personaje() or previo == dialogo() or previo == parentesis()
+            return parentesis()
+        return personaje()
+    if que == accion()
+        return personaje()
+    if que == personaje()
+        return transicion()
+    if que == transicion()
+        return escena()
+    if que == dialogo()
+        return parentesis()
+    if que == parentesis()
+        return dialogo()
+    return accion()
+
+# Si `b` es una MARCA de Fountain (! @ . > y el < del centrado) que fuerza
+# lo que es la linea de tipo `que`: se pinta en tenue.
+pub fn es_marca(b: int, que: int, primera: bool, ultima: bool) -> bool
+    if primera and b == 33 and que == accion()
+        return true
+    if primera and b == 64 and que == personaje()
+        return true
+    if primera and b == 46 and que == escena()
+        return true
+    if primera and b == 62 and (que == transicion() or que == centrado())
+        return true
+    return ultima and b == 60 and que == centrado()
+
+# La linea [i, f) sin sus marcas: la de delante (! @ . >, y el < del
+# centrado), los parentesis y los espacios de delante.
+fn limpia(t: [byte], i: int, f: int) -> [byte]
+    let mut a = i
+    let mut b = f
+    if a < b and (t[a] == 33 or t[a] == 64 or t[a] == 46 or t[a] == 62)
+        if t[a] == 62 and b - a >= 2 and t[b - 1] == 60
+            b = b - 1
+        a = a + 1
+    if a < b and t[a] == 40
+        a = a + 1
+        if a < b and t[b - 1] == 41
+            b = b - 1
+    while a < b and t[a] == 32
+        a = a + 1
+    let mut r: [byte] = []
+    for k in range(a, b)
+        push(mut r, t[k])
+    return r
+
+# **La linea [i, f) escrita como `a_que`**: con la marca que la fuerza (el
+# personaje "@", la transicion ">", la escena "." si no empieza por INT. o
+# EXT., la accion "!" si sin ella seria otra cosa), en mayusculas si lo es
+# (escena, personaje, transicion) y entre parentesis el parentesis.
+pub fn como(t: [byte], i: int, f: int, a_que: int, previo: int) -> [byte]
+    let s = limpia(t, i, f)
+    let n = len(s)
+    let mut r: [byte] = []
+    if a_que == personaje()
+        push(mut r, byte(64))
+    else if a_que == transicion()
+        push(mut r, byte(62))
+    else if a_que == escena() and not es_escena(s, 0, n)
+        push(mut r, byte(46))
+    else if a_que == parentesis()
+        push(mut r, byte(40))
+    else if a_que == accion() and n > 0
+        let dentro = previo == personaje() or previo == dialogo() or previo == parentesis()
+        let raro = s[0] == 35 or s[0] == 61 or s[0] == 46 or s[0] == 64 or s[0] == 62
+        if dentro or raro or en_mayusculas(s, 0, n) or es_escena(s, 0, n)
+            push(mut r, byte(33))
+    let mayus = a_que == personaje() or a_que == transicion() or a_que == escena()
+    for b in s
+        if mayus
+            push(mut r, byte(a_mayuscula(b)))
+        else
+            push(mut r, b)
+    if a_que == parentesis()
+        push(mut r, byte(41))
+    return r

@@ -4,6 +4,7 @@
 //!    byte        0 a 255; cuenta como un int (sumar, comparar, indexar)
 //!    byte(x)     un int a byte: si no cabe, NO T0060 -- al compilar o al correr
 //!    [byte]      UNA celda, UN byte: los pixeles de una pagina caben
+//!    push(mut b, "texto")   las letras de un texto, una detras de otra (16-10)
 //! ```
 //!
 //! La vara, la de siempre: el calculo (E0) y la maquina (E1) escriben LO MISMO,
@@ -49,6 +50,12 @@ fn same(body: &str) -> Result<String, String> {
 #[test]
 fn bytes_run_in_the_machine_as_the_calculation_says() {
     let programs: &[(&str, &str)] = &[
+        // ** un TEXTO entra en una `[byte]` letra a letra (PL6 de PLAN_ECCE:
+        // el PDF de ECCE se escribe asi); uno hecho al correr tambien
+        (
+            "fn main()\n    let mut b: [byte] = []\n    push(mut b, \"BT \")\n    push(mut b, byte(40))\n    let mut t = \"x\"\n    for i in range(2)\n        t = t + \"y\"\n    push(mut b, t)\n    push(mut b, \"\")\n    print(b, \" \", len(b))\n",
+            "[66, 84, 32, 40, 120, 121, 121] 7\n",
+        ),
         // push, index, len, for, a cell changed, print, pop, equality
         (
             "fn main()\n    let mut px: [byte] = []\n    for i in range(6)\n        push(mut px, byte(i * 50))\n    px[1] = byte(7)\n    let mut s = 0\n    for b in px\n        s = s + b\n    print(px, \" \", len(px), \" \", px[5], \" \", s)\n    match pop(mut px)\n        Hay(b)\n            print(\"saco \", b, \" \", b + 1000)\n        NoHay\n            print(\"nada\")\n    print(px == [byte(0), byte(7), byte(100), byte(150), byte(200)], \" \", px == [byte(0)])\n",

@@ -264,6 +264,27 @@ pub fn sobre(ks: &[bmo_titan_prometeo::Kernel]) -> Result<Option<(Vec<bmo_tarjet
     Ok(Some((pegadas, s)))
 }
 
+/// **La cara de la app** (IC2, 15-10), si su `Titan.toml` la pide
+/// (`[package] icono = "icono.svg"`): el fichero (SVG, PNG o JPG, junto al
+/// Titan.toml, que da `leer`) pintado en un BICO de 32 con su alfa entero
+/// (`bmo-icono`) y metido en el `.bex` como el recurso `icono`, que es de
+/// donde lo saca el escritorio. Sin Titan.toml o sin `icono`, el `.bex` sale
+/// como estaba. Devuelve tambien lo que el SVG traia y no se supo pintar.
+pub fn con_cara(toml: Option<&[u8]>, leer: &mut dyn FnMut(&str) -> Option<Vec<u8>>, bex: Vec<u8>) -> Result<(Vec<u8>, Vec<String>), String> {
+    let Some(toml) = toml else { return Ok((bex, Vec::new())) };
+    // El frontend ya leyo este manifiesto: si no se entiende, ya lo dijo.
+    let Ok(m) = bmo_titan_lector::manifest::parse(toml) else { return Ok((bex, Vec::new())) };
+    if m.icono.is_empty() {
+        return Ok((bex, Vec::new()));
+    }
+    let nombre = String::from_utf8_lossy(m.icono.as_bytes()).into_owned();
+    let bytes = leer(&nombre).ok_or_else(|| format!("el Titan.toml pide el icono `{nombre}` y no se pudo leer"))?;
+    let (bico, saltado) = bmo_icono::icono(&bytes, bmo_icono::LADO).map_err(|e| format!("el icono `{nombre}`: {e}"))?;
+    let bex = bmo_abi::bef2::paquete::empaquetar(&bex, &[("icono", &bico)]).map_err(|e| format!("no se pudo meter el icono en el .bex: {e}"))?;
+    Ok((bex, saltado))
+}
+
+
 /// A PACKAGE to a `.bex` (level 9): the root file (its path from the package
 /// and its text), and `read` for the files its `mod`s name. The manifest
 /// names the root.

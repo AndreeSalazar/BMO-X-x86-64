@@ -115,6 +115,8 @@
 mod espejo;
 mod director;
 mod grupo_f7;
+mod desplaza;
+use desplaza::desplaza;
 mod sistema;
 /// **VEX**: la codificacion de AVX2. Aparte porque es otra codificacion, no
 /// mas instrucciones -- ver la cabecera de `vex.rs`.
@@ -480,6 +482,9 @@ pub struct Machine {
     /// entre miradas al buzon--, en el buzon de la primera superficie
     /// ofrecida, con la misma aritmetica de anillo que usa `keys/app.rs`.
     pub buzon_pendiente: std::collections::VecDeque<u64>,
+    /// Cuantos de `buzon_pendiente` se entregan en cada WAIT (1 por defecto):
+    /// una RAFAGA, como un teclado rapido o una repeticion (ECCE, 15-10).
+    pub buzon_por_vuelta: usize,
     /// La imagen desde la que se "lanzo" este programa, si el banco la puso.
     /// Es lo que contesta `TASK_OP_MI_PAQUETE`. `None` = el kernel no recuerda
     /// de donde salio, que es lo que le pasa a los binarios que el propio
@@ -598,6 +603,7 @@ impl Machine {
             prestamo_pendiente: None,
             prestado: None,
             buzon_pendiente: std::collections::VecDeque::new(),
+            buzon_por_vuelta: 1,
             mi_paquete: None,
             mem: HashMap::new(),
             solo_lectura: Vec::new(),
@@ -1789,26 +1795,6 @@ enum Operand {
 /// lo esconde en vez de reportarlo).
 pub fn run(m: Machine, max_steps: usize) -> Machine {
     run_con(m, max_steps, |_| {})
-}
-
-/// ** UN DESPLAZAMIENTO COMO EL SILICIO (LB4, 08-10): `/4 shl`, `/5 shr`,
-/// `/7 sar`. La cuenta se enmascara a 6 bits en 64 y a CINCO en 32, y `sar`
-/// arrastra el bit de signo DE SU ANCHO (el 31 en 32 bits).
-///
-/// ** Hasta el 08-10 la cuenta iba siempre a 6 bits y `sar` miraba el bit 63:
-/// en 32 bits, `shl eax, cl` con cl = 32 daba 0 (el silicio: eax, intacto) y
-/// `sar` de 0x80000000 daba 0x40000000 (el silicio: 0xC0000000). Ningun
-/// emisor de la casa desplazaba en 32 bits hasta que la CPU fue una libreria
-/// de la GPU: los enteros del Programa de la casa son de 32.
-fn desplaza(ext: usize, a: u64, cuenta: u32, wide: bool) -> Option<u64> {
-    let c = cuenta & if wide { 0x3F } else { 0x1F };
-    Some(match (ext, wide) {
-        (4, _) => a << c,
-        (5, _) => a >> c,
-        (7, true) => ((a as i64) >> c) as u64,
-        (7, false) => ((a as u32 as i32) >> c) as u32 as u64,
-        _ => return None,
-    })
 }
 
 /// ** Como [`run`], pero un presupuesto agotado NO revienta (LB4, 08-10):

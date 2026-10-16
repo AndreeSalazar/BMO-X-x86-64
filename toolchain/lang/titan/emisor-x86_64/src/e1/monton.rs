@@ -349,7 +349,7 @@ impl E1<'_> {
             self.store(s, RAX);
             ptrs.push(s);
         }
-        let top = self.code.len();
+        let top = self.etiqueta();
         self.load(left, RAX);
         x86::test_r64_r64(&mut self.code, RAX, RAX);
         let out = self.jcc(0x84);
@@ -375,7 +375,7 @@ impl E1<'_> {
         self.lea(RDX, RDI, 16);
         self.imm(RCX, 5);
         self.imm(RAX, 32);
-        let class_top = self.code.len();
+        let class_top = self.etiqueta();
         x86::cmp_r64_r64(&mut self.code, RAX, RDX);
         let have = self.jcc(0x83);
         x86::shl_r64_imm8(&mut self.code, RAX, 1);
@@ -387,7 +387,7 @@ impl E1<'_> {
         x86::test_r64_r64(&mut self.code, R14, R14);
         let first = self.jcc(0x84);
         // la lista de libres de esa medida
-        let head = self.code.len();
+        let head = self.etiqueta();
         x86::mov_r64_r64(&mut self.code, R10, RCX);
         x86::shl_r64_imm8(&mut self.code, R10, 3);
         x86::add_r64_r64(&mut self.code, R10, R14);

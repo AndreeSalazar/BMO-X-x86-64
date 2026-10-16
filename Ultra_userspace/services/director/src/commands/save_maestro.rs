@@ -771,6 +771,67 @@ pub(crate) fn report_programas(s: &mut Output) {
     s.text(b"    que se escribio, no quien); firmado #k = Ed25519 con la clave k del ancla.\n");
     s.text(b"    xcr0 = componentes XSAVE declarados (0x3 = x87+SSE, lo que el kernel preserva).\n");
     s.with_ink(INK_PLAIN);
+    report_toque(s);
+}
+
+/// **LO QUE CADA PROGRAMA TOCO DE LA RAM QUE TIENE** (EL0 de
+/// `docs/plan/PLAN_EL_TOQUE.md`, 15-10): la medida que decide si cargar al
+/// tocar vale la pena. Paginas de 4 KiB por region -- `estan` las mapeadas,
+/// `toco` las que la CPU leyo o escribio (bit A), `escribio` las del bit D.
+#[inline(never)]
+fn report_toque(s: &mut Output) {
+    subregla(s, b"lo que TOCO de lo que tiene  (paginas de 4 KiB; EL0 de PLAN_EL_TOQUE)");
+    s.with_ink(INK_ECHO);
+    s.text(b"    n  region     ");
+    der(s, b"estan", 8);
+    der(s, b"toco", 8);
+    der(s, b"escribio", 10);
+    der(s, b"sin tocar", 11);
+    s.text(b"  cuando\n");
+    s.with_ink(INK_PLAIN);
+    const REGIONES: [&[u8]; 3] = [b"imagen   ", b"memoria  ", b"lo demas "];
+    let mut n = 0u64;
+    while n < FICHAS {
+        if bmo::info(bmo::INFO_PROG_QUIEN | (n << 8)) == 0 {
+            break;
+        }
+        for r in 0..3u64 {
+            let v = bmo::info(bmo::INFO_PROG_TOQUE | ((n * 3 + r) << 8));
+            if v >> 63 == 0 {
+                if r == 0 {
+                    s.text(b"    ");
+                    s.dec(n);
+                    s.with_ink(INK_ECHO);
+                    s.text(b"  (vivo y de otro: se cuenta al cerrarse)\n");
+                    s.with_ink(INK_PLAIN);
+                }
+                break;
+            }
+            let m = 0x1F_FFFF;
+            let (estan, toco, escribio) = (v & m, (v >> 21) & m, (v >> 42) & m);
+            if estan == 0 && r != 0 {
+                continue;
+            }
+            s.text(b"    ");
+            if r == 0 {
+                s.dec(n);
+            } else {
+                s.byte(b' ');
+            }
+            s.text(b"  ");
+            s.text(REGIONES[r as usize]);
+            s.dec_right(estan, 8);
+            s.dec_right(toco, 8);
+            s.dec_right(escribio, 10);
+            s.dec_right(estan - toco.min(estan), 11);
+            s.text(if v >> 62 & 1 != 0 { b"  ahora (el que pregunta)\n" as &[u8] } else { b"  al cerrarse\n" });
+        }
+        n += 1;
+    }
+    s.with_ink(INK_ECHO);
+    s.text(b"    sin tocar = lo que se cargo y la CPU no miro nunca: lo que cargar AL TOCAR\n");
+    s.text(b"    ahorraria. Si casi todo se toca, EL_TOQUE vale poco, y esta tabla lo dice.\n");
+    s.with_ink(INK_PLAIN);
 }
 
 /// Un rotulo de columna alineado a la derecha, como los numeros de debajo.

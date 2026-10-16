@@ -199,7 +199,7 @@ impl E1<'_> {
         self.here(pos);
         self.lea(R8, RBP, -16);
         x86::zero_r32(&mut self.code, R11);
-        let top = self.code.len();
+        let top = self.etiqueta();
         x86::zero_r32(&mut self.code, RDX);
         self.imm(RCX, 10);
         x86::div_r64(&mut self.code, RCX);
@@ -251,7 +251,7 @@ impl E1<'_> {
             }
         };
         // los blancos de delante
-        let front = self.code.len();
+        let front = self.etiqueta();
         x86::test_r64_r64(&mut self.code, R9, R9);
         let fail0 = self.jcc(0x84);
         x86::movzx_r32_byte_at_reg(&mut self.code, RAX, R8);
@@ -267,7 +267,7 @@ impl E1<'_> {
         x86::patch_jump_to(&mut self.code, b1, front);
         self.here(front_done);
         // los de detras (queda al menos un byte que no es blanco)
-        let back = self.code.len();
+        let back = self.etiqueta();
         x86::mov_r64_r64(&mut self.code, R11, R9);
         x86::dec_r64(&mut self.code, R11);
         x86::movzx_r32_byte_base_index(&mut self.code, RAX, R8, R11);
@@ -297,7 +297,7 @@ impl E1<'_> {
         x86::test_r64_r64(&mut self.code, R9, R9);
         let fail1 = self.jcc(0x84);
         // las cifras, contando en NEGATIVO (asi cabe MIN)
-        let top = self.code.len();
+        let top = self.etiqueta();
         x86::test_r64_r64(&mut self.code, R9, R9);
         let end = self.jcc(0x84);
         x86::movzx_r32_byte_at_reg(&mut self.code, RAX, R8);
@@ -338,7 +338,7 @@ impl E1<'_> {
         self.lea(RDI, RBP, -2048);
         x86::mov_byte_at_reg_imm8(&mut self.code, RDI, b'"');
         x86::inc_r64(&mut self.code, RDI);
-        let top = self.code.len();
+        let top = self.etiqueta();
         x86::test_r64_r64(&mut self.code, R9, R9);
         let close = self.jcc(0x84);
         x86::movzx_r32_byte_at_reg(&mut self.code, RAX, R8);

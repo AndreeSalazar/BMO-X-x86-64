@@ -155,6 +155,15 @@ fn judge_fn(f: &Function) -> Result<(), Message> {
         // No way leads here (a line after a `break`): nothing in it runs.
         let Some(mut state) = entry[i].clone() else { continue };
         for op in &b.ops {
+            // ** A block that closes with its `mut` CHANGED is also a way
+            // out where the promise was kept (15-10, ECCE): without this, a
+            // `return` in an `if` above the change was the only way out seen,
+            // and `let mut c = false` in a loop body was "never changed".
+            if let Op::Drop { local, .. } = op {
+                if let State::Alive { since, at, mutable: true, changed: true } = state[*local] {
+                    out[*local].get_or_insert((since, at, false)).2 = true;
+                }
+            }
             step(f, op, &mut state)?;
         }
         match &b.end {
@@ -630,6 +639,12 @@ mod tests {
 
     #[test]
     fn a_function_that_promises_a_value_gives_it_on_every_way() {
+        // A `mut` changed AFTER an early `return` in the same block, and
+        // dropped at the end of the loop body: kept on that way out.
+        assert!(verdict("mod main \"x\"\nfn main()\n    for n in range(3)\n        let mut c = false\n        if n == 1\n            if n > 0\n                return\n            c = true\n        if c\n            print(\"si\")\n").is_ok());
+        // And one that never changes on any way is still a NO.
+        let e = verdict("mod main \"x\"\nfn main()\n    for n in range(3)\n        let mut c = false\n        if n == 1\n            return\n        if c\n            print(\"si\")\n").unwrap_err();
+        assert_eq!((e.code, e.line), (Code::NeverChanged, 4));
         // Both sides of the `if` return: the line after has no way in.
         assert!(verdict("mod main \"x\"\nfn signo(n: int) -> int\n    if n < 0\n        return -1\n    else\n        return 1\nfn main()\n    print(signo(3))\n").is_ok());
         let e = verdict("mod main \"x\"\nfn signo(n: int) -> int\n    if n < 0\n        return -1\nfn main()\n    print(signo(3))\n").unwrap_err();

@@ -251,7 +251,7 @@ impl E1<'_> {
         self.donde();
         // Una celda son 8 bytes: el color, en su mitad baja.
         self.addr(t, RCX);
-        let celda = self.code.len();
+        let celda = self.etiqueta();
         x86::mov_r64_at_reg(&mut self.code, RDX, RCX);
         x86::and_r64_imm32(&mut self.code, RDX, 0x00FF_FFFF);
         self.imm(RAX, OPACO as i64);
