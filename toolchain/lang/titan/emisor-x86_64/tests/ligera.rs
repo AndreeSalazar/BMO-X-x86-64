@@ -111,3 +111,35 @@ fn what_is_proven_is_not_checked_and_what_is_not_still_traps() {
     }
     assert!(wrong.is_empty(), "{}", wrong.join("\n\n"));
 }
+
+/// ** B5 (16-10): la celda de una lista de enteros (o bytes) se lee y se
+/// escribe DERECHO en `rax`, sin dejar su direccion en la pila. Lo mismo que
+/// antes: el valor, y el NO fuera de ella en su linea.
+#[test]
+fn a_cell_read_and_written_in_the_register_is_the_same_cell() {
+    let programs: &[(&str, &str)] = &[
+        (
+            "fn main()\n    let mut a: [int] = []\n    for i in range(6)\n        push(mut a, i * i)\n    a[2] = a[5] + a[1]\n    a[0] = a[a[1]] - 7\n    let mut s = 0\n    for x in a\n        s = s + x\n    print(a, \" \", s)\n",
+            "[-6, 1, 26, 9, 16, 25] 71\n",
+        ),
+        (
+            "fn main()\n    let mut b: [byte] = []\n    for i in range(5)\n        push(mut b, byte(i + 250))\n    b[0] = byte(b[4] - b[1])\n    print(b)\n",
+            "[3, 251, 252, 253, 254]\n",
+        ),
+        // fuera, al leer y al escribir, por debajo y por encima
+        ("fn main()\n    let a: [int] = [1, 2, 3]\n    let mut s = 0\n    for i in range(4)\n        let v = a[i]\n        s = s + v\n    print(s)\n", "NO T0072 linea 7"),
+        ("fn main()\n    let a: [int] = [1, 2, 3]\n    let mut s = 0\n    for i in range(4)\n        if a[3 - i] > 0\n            s = s + 1\n    print(s)\n", "NO T0072 linea 7"),
+        ("fn main()\n    let mut a: [int] = [1, 2, 3]\n    for i in range(4)\n        a[2 - i] = i\n    print(a)\n", "NO T0072 linea 6"),
+        // un byte que no cabe, escrito derecho, sigue siendo un NO
+        ("fn main()\n    let mut b: [byte] = [byte(1)]\n    for i in range(3)\n        b[0] = byte(b[0] * 200)\n    print(b)\n", "NO T0060 linea 6"),
+    ];
+    let mut wrong = Vec::new();
+    for (k, (body, want)) in programs.iter().enumerate() {
+        match same(body) {
+            Ok(out) if out == *want => {}
+            Ok(out) => wrong.push(format!("programa {k}: escribe {out:?}, y se esperaba {want:?}")),
+            Err(e) => wrong.push(format!("programa {k}: {e}")),
+        }
+    }
+    assert!(wrong.is_empty(), "{}", wrong.join("\n\n"));
+}

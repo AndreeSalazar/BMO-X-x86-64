@@ -915,18 +915,7 @@ impl<'m> E1<'m> {
                     self.convert(dst, p, &c, &want, decl.as_ref(), *at)?;
                 }
             }
-            Op::SetAt { local, path, value, at } => {
-                let (dst, cell, ty, byte_cell) = self.path(*local, path, *at)?;
-                let (p, c) = self.eval(value)?;
-                if byte_cell {
-                    // TA1: `l[i] = v` en una `[byte]`: UN byte de la lista
-                    self.byte_cell_write(dst, p);
-                } else {
-                    let p = self.ensure_owned(p, &c);
-                    self.drop_at(dst, &cell);
-                    self.convert(dst, p, &c, &cell, ty.as_ref(), *at)?;
-                }
-            }
+            Op::SetAt { local, path, value, at } => self.pon_en_parte(*local, path, value, *at)?,
             // LB7b: el director, en su propia linea (`director.rs`).
             Op::Director { what, args, at } => {
                 self.director(*what, args, *at)?;

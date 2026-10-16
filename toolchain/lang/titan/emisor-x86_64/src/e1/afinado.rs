@@ -503,6 +503,46 @@ impl E1<'_> {
     /// sin dejar cada paso en la pila para leerlo otra vez. `false`, y nada
     /// emitido, si `v` no es una cuenta de dos enteros.
     pub(super) fn entero_a_rax(&mut self, v: &Value) -> Result<bool, String> {
+        // B5: la celda de una lista de enteros (o de bytes), leida DERECHO:
+        // su direccion en `rax` y el valor encima, sin dejar la direccion en
+        // la pila
+        if let Value::Index(b, i, at) = v {
+            if let Class::List(inner) = self.class_of(b)? {
+                if matches!(*inner, Class::Int | Class::Byte) {
+                    let (h, _) = self.eval(b)?;
+                    self.a_rax(i)?;
+                    self.dentro_de(h.at(8), "una celda fuera de la lista", *at);
+                    let cell = self.list_cell(&inner);
+                    self.direccion_rax(h, cell);
+                    if *inner == Class::Byte {
+                        x86::movzx_r32_byte_at_reg(&mut self.code, RAX, RAX);
+                    } else {
+                        x86::mov_r64_at_reg_disp32(&mut self.code, RAX, RAX, 0);
+                    }
+                    self.guardado = None;
+                    return Ok(true);
+                }
+            }
+        }
+        // B5: la vuelta de un `for` sobre una lista de enteros (o bytes):
+        // su celda, leida derecho (la vuelta ya esta dentro: no se mira)
+        if let Value::Lib(Lib::Turn, args, _) = v {
+            if let Class::List(inner) = self.class_of(&args[0])? {
+                if matches!(*inner, Class::Int | Class::Byte) {
+                    let (h, _) = self.eval(&args[0])?;
+                    self.a_rax(&args[1])?;
+                    let cell = self.list_cell(&inner);
+                    self.direccion_rax(h, cell);
+                    if *inner == Class::Byte {
+                        x86::movzx_r32_byte_at_reg(&mut self.code, RAX, RAX);
+                    } else {
+                        x86::mov_r64_at_reg_disp32(&mut self.code, RAX, RAX, 0);
+                    }
+                    self.guardado = None;
+                    return Ok(true);
+                }
+            }
+        }
         let Value::Bin(op, a, b, at) = v else { return Ok(false) };
         self.cuenta_a_rax(op, a, b, *at)
     }
@@ -819,17 +859,50 @@ impl E1<'_> {
         }
         let cabeza = &f.blocks[t];
         let End::Branch { cond, then, other, .. } = &cabeza.end else { return Ok(None) };
-        if cabeza.dead || !cabeza.ops.is_empty() || matches!(cond, Value::Bin("and", ..)) || !self.se_funde(cond)? {
+        if cabeza.dead || !cabeza.ops.is_empty() || !self.se_funde(cond)? {
             return Ok(None);
         }
+        // con `and`, cada comparacion salta a la salida si NO se cumple; la
+        // ULTIMA, al reves: al cuerpo si se cumple
         let saltos = self.salto_directo(cond)?;
-        let [j] = saltos[..] else { return Err("B3: una comparacion dio mas de un salto (fallo de E1)".into()) };
-        // el salto de cuando NO se cumple, al reves: el de cuando SI
+        let Some((&j, antes)) = saltos.split_last() else { return Err("B3: una comparacion sin salto (fallo de E1)".into()) };
         self.code[j - 1] ^= 1;
-        let mut out = vec![(j, *then)];
+        let mut out: Vec<(usize, usize)> = antes.iter().map(|&k| (k, *other)).collect();
+        out.push((j, *then));
         if *other != i + 1 {
             out.push((self.jmp(), *other));
         }
         Ok(Some(out))
+    }
+}
+
+impl E1<'_> {
+    /// `a[i] = v`, `nave.x = v`: una PARTE de un local cambia. B5: un entero
+    /// a una celda de enteros (o de bytes) se calcula DERECHO en `rax` y se
+    /// guarda una vez.
+    pub(super) fn pon_en_parte(&mut self, local: usize, path: &[PathStep], value: &Value, at: (usize, usize)) -> Result<(), String> {
+        let (dst, cell, ty, byte_cell) = self.path(local, path, at)?;
+        let entero = matches!(self.class_of(value)?, Class::Int | Class::Byte);
+        if entero && byte_cell {
+            self.a_rax(value)?;
+            self.addr(dst, RCX);
+            x86::mov_byte_at_reg_from_low(&mut self.code, RCX, RAX);
+            return Ok(());
+        }
+        if entero && cell == Class::Int && ty.as_ref().is_none_or(|t| matches!(t, bmo_titan_front::tree::Ty::Int)) {
+            self.a_rax(value)?;
+            self.store(dst, RAX);
+            return Ok(());
+        }
+        let (p, c) = self.eval(value)?;
+        if byte_cell {
+            // TA1: `l[i] = v` en una `[byte]`: UN byte de la lista
+            self.byte_cell_write(dst, p);
+        } else {
+            let p = self.ensure_owned(p, &c);
+            self.drop_at(dst, &cell);
+            self.convert(dst, p, &c, &cell, ty.as_ref(), at)?;
+        }
+        Ok(())
     }
 }

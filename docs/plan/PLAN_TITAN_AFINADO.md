@@ -411,7 +411,8 @@ entero, la seguridad demostrada). TITAN++ sigue sin una palabra de CPU.
        bucle                             una vez, no en cada vuelta
 ```
 
-- [x] **B1, B2, B3, B4** (16-10). Medido, el mismo dia:
+- [x] **B1, B2, B3, B4** (16-10). Medido, el mismo dia (y tras B5a, mas
+  abajo: bytes 1,0 x el C de la casa y 2,4 x Rust, ordenar 1,0 x y 4,6 x):
 
 ```text
    duelo      C casa   gcc C  clang C  g++  clang++  rustc  gcc Zen3  clang Zen3
@@ -434,6 +435,19 @@ entero, la seguridad demostrada). TITAN++ sigue sin una palabra de CPU.
   Pruebas: `tests/ligera.rs` (lo demostrado no se mira, lo que no, atrapa en
   su linea; el bucle girado mira su condicion las mismas veces), con dos
   sabotajes (la resta ignorada en la cota; el salto sin dar la vuelta).
+- [x] **B5a -- la CELDA derecha** (16-10). Leer `a[i]` de una lista de
+      enteros o de bytes deja su direccion en `rax` y el valor encima, sin
+      guardar la direccion en la pila; `a[i] = v` calcula `v` derecho y lo
+      guarda una vez; `push` escribe en su celda desde `rcx`; la vuelta de
+      `for x in lista` se lee igual. Y el bucle girado (B3) ya gira con
+      `and` (`while j >= 0 and a[j] > v`). El duelo: ordenar 1,11 -> 1,00,
+      bytes 1,20 -> 1,03. El banco 34,8 -> 33,5 millones, 11,4 -> 10,7
+      millones de accesos. **Lo que subio, a la vista:** `agenda` +2
+      accesos (al CRECER una lista la capacidad se lee dos veces; cada
+      `push` que no crece ahorra una instruccion) y unos bytes de codigo en
+      `ordenar` y `agenda` (la condicion con `and`, escrita dos veces).
+      `tests/ligera.rs`, con sabotaje (la lectura derecha sin mirar el
+      limite: lo dice)
 - [ ] **B5 -- la forma intermedia con registros virtuales.** Lo que mas
       falta para `fib` y `ordenar` contra Rust y Clang
 - [ ] **B6 -- AF5 entero**

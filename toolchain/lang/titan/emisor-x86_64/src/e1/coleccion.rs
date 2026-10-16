@@ -69,6 +69,12 @@ impl E1<'_> {
 
     /// La celda cuyo numero esta en `rax`.
     pub(super) fn celda_rax(&mut self, h: Place, cell: i32) -> Place {
+        self.direccion_rax(h, cell);
+        self.pointer_from(RAX)
+    }
+
+    /// La DIRECCION de la celda cuyo numero esta en `rax`, en `rax`.
+    pub(super) fn direccion_rax(&mut self, h: Place, cell: i32) {
         // AF6: una celda de 1 byte no se multiplica, y una de 2, 4, 8... se
         // corre (`shl`)
         if cell > 1 && (cell as u32).is_power_of_two() {
@@ -81,7 +87,6 @@ impl E1<'_> {
             self.load(h, RCX);
             x86::add_r64_r64(&mut self.code, RAX, RCX);
         }
-        self.pointer_from(RAX)
     }
 
     /// `l[i]` de una lista: dentro, o T0072.
@@ -214,10 +219,17 @@ impl E1<'_> {
     /// Si el asa `h` esta llena, el doble de sitio (4 la primera vez).
     fn grow(&mut self, h: Place, cell: i32) {
         self.load(h.at(8), RAX);
-        // la capacidad queda en `rcx`: crecer la dobla desde ahi
-        self.load(h.at(16), RCX);
-        x86::cmp_r64_r64(&mut self.code, RAX, RCX);
-        let room = self.jcc(0x8C);
+        // B5: la capacidad, leida por el `cmp` mismo; y en `rcx` solo en el
+        // camino que crece (dobla desde ahi)
+        let room = if self.cmp_con_sitio(RAX, h.at(16)) {
+            let room = self.jcc(0x8C);
+            self.load(h.at(16), RCX);
+            room
+        } else {
+            self.load(h.at(16), RCX);
+            x86::cmp_r64_r64(&mut self.code, RAX, RCX);
+            self.jcc(0x8C)
+        };
         let cap = self.temp(8);
         x86::shl_r64_imm8(&mut self.code, RCX, 1);
         x86::cmp_r64_imm8(&mut self.code, RCX, 4);
@@ -296,6 +308,22 @@ impl E1<'_> {
                 let otra = self.jmp();
                 x86::patch_jump_to(&mut self.code, otra, vuelta);
                 self.here(fin);
+            }
+            // B5: un numero (o un byte) a la lista: su celda en `rcx`, sin
+            // dejar la direccion en la pila
+            (Lib::Push, Class::List(t)) if matches!(**t, Class::Int | Class::Byte) && matches!(vals[0].1, Class::Int | Class::Byte) && decl.as_ref().is_none_or(|d| !matches!(d, Ty::List(it) if self.forms.has_decp(it))) => {
+                let byte = **t == Class::Byte;
+                self.grow(h, cell);
+                self.load(h.at(8), RAX);
+                self.direccion_rax(h, cell);
+                x86::mov_r64_r64(&mut self.code, RCX, RAX);
+                self.load(vals[0].0, RAX);
+                if byte {
+                    x86::mov_byte_at_reg_from_low(&mut self.code, RCX, RAX);
+                } else {
+                    x86::mov_at_reg_disp32_from_r64(&mut self.code, RCX, 0, RAX);
+                }
+                self.uno_mas(h.at(8));
             }
             (Lib::Push, Class::List(t)) => {
                 let t = (**t).clone();
