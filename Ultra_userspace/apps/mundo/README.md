@@ -36,3 +36,9 @@ No identifico el backend usado; falta comprobar persistencia al cerrar/abrir
 y el camino GPU con su diagnostico.
 
 Orden pendiente: [PLAN_MUNDO](../../../docs/plan/PLAN_MUNDO.md).
+
+Referencia local: [estudio de Minecraft 26.3](ESTUDIO_MINECRAFT.md), con
+inventario de recursos y firmas de clases; aun no importa recursos al juego.
+
+Reutilizacion del codigo: [objetos, composicion y traits de TITAN++](../../../toolchain/lang/titan/OBJETOS.md),
+con un ejemplo de bloques comprobado en el emisor nativo.

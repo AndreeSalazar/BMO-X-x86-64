@@ -61,6 +61,15 @@ fn lent_indexes<'a>(e: &'a Expr, out: &mut Vec<&'a Expr>) {
     }
 }
 
+/// O1 starts with fields, not indexed cells or partial ownership transfers.
+fn mutable_field_root(e: &Expr) -> Option<&Expr> {
+    match e {
+        Expr::Lend { mode: Mode::Mut, .. } => Some(e),
+        Expr::Field { base, .. } => mutable_field_root(base),
+        _ => None,
+    }
+}
+
 /// The fn a trait promises, by its name (level 10): what `area(f)` calls.
 fn method<'p>(p: &'p Program, name: &str) -> Option<&'p crate::tree::Sig> {
     p.traits.iter().flat_map(|t| &t.methods).find(|s| s.name == name)
@@ -389,10 +398,10 @@ fn modes(p: &Program, args: &[Expr], callee: &str) -> Result<(), Message> {
     let lib_mut = |i: usize| i == 0 && collection(callee).is_some_and(|c| c.1);
     for (i, a) in args.iter().enumerate() {
         let want = params.and_then(|ps| ps.get(i)).map(|x| x.mode).unwrap_or(if lib_mut(i) { Mode::Mut } else { Mode::Copy });
-        // `push(mut nave.carga, x)` (13): a PART of a value, lent to the
-        // library -- the `mut` is said at its start
+        // The library accepts indexed parts; own functions also accept
+        // mutable field chains (O1). Partial take is deliberately excluded.
         let a = match lent_root(a) {
-            Some(root) if lib_mut(i) && params.is_none() => root,
+            Some(root) if (lib_mut(i) && params.is_none()) || (params.is_some() && mutable_field_root(a).is_some()) => root,
             _ => a,
         };
         let (got, at) = match a {

@@ -40,6 +40,7 @@
 mod afinado;
 mod ancho;
 mod coleccion;
+mod construccion;
 mod director;
 mod disco;
 mod e2;
@@ -893,6 +894,14 @@ impl<'m> E1<'m> {
                     Ok(())
                 })?;
                 self.f.known[*local] = Some(Class::Table(Box::new(ic), *n));
+                self.f.decl[*local] = ty.clone();
+            }
+            // O1: un registro NUEVO se construye en su sitio, sin duplicar
+            // sus tablas en temporales. Las reasignaciones no usan este camino.
+            Op::Let { local, value: Value::Record(t, items, at), ty, .. } => {
+                let dst = self.local(*local);
+                self.initialize_record(dst, *t, items, *at)?;
+                self.f.known[*local] = Some(Class::Record(*t));
                 self.f.decl[*local] = ty.clone();
             }
             // AF2b: `let x = 0` y `x = 1`: el numero derecho a su sitio

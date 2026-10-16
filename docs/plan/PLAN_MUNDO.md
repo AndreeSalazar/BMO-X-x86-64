@@ -15,6 +15,12 @@
 
 # 0. PARA QUE ES
 
+**16-10, referencia local pedida por el propietario:** se localizo Minecraft
+26.3 y New World. Se inventariaron modelos, texturas y firmas de clases,
+sin ejecutar Java ni incorporar el juego al repo. [Estudio junto a MUNDO](../../Ultra_userspace/apps/mundo/ESTUDIO_MINECRAFT.md).
+Esta lectura prepara compatibilidad por datos; no cierra MC6 ni cambia la
+siguiente meta jugable MC2a.
+
 Un juego de bloques es la mejor escuela de un motor 3D: mucha geometria
 sencilla, una camara que anda, un mundo que CAMBIA (se quitan y se ponen
 bloques) y que hay que guardar. Cada peldanio de abajo obliga a VERRANO o a

@@ -257,22 +257,28 @@ fn lends(v: &Value, out: &mut Vec<(Mode, usize, At)>) {
 /// `restrict` and a prayer. T0076.
 fn exclusive(f: &Function, args: &[Value]) -> Result<(), Message> {
     for (i, a) in args.iter().enumerate() {
-        let Value::Lend(mode, l, at) = a else { continue };
+        let Some(loan) = a.field_loan() else { continue };
+        let (mode, l, at) = (loan.mode, loan.local, loan.at);
         for (j, b) in args.iter().enumerate() {
             if i == j {
                 continue;
             }
             let mut reads = Vec::new();
             b.reads(&mut reads);
-            if reads.iter().any(|(r, _)| r == l) {
-                let name = &f.locals[*l].name;
-                let twice = matches!(b, Value::Lend(_, k, _) if k == l);
+            if reads.iter().any(|(r, _)| *r == l) {
+                let name = &f.locals[l].name;
+                let twice = b.field_loan().is_some_and(|other| other.local == l);
+                let field = !loan.fields.is_empty() || b.field_loan().is_some_and(|other| !other.fields.is_empty());
                 return Err(Message::new(
                     Code::Alias,
                     at.0,
                     at.1,
-                    &if twice { format!("`{}` se presta dos veces en la misma llamada", name) } else { format!("`{}` se {} y a la vez se lee en la misma llamada", name, if *mode == Mode::Mut { "presta para cambiarlo" } else { "entrega" }) },
-                    "dos nombres para la misma memoria en una llamada: lo que uno cambia el otro lo ve a medias (la regla de oro de FORTRAN, y aqui DEMOSTRADA)",
+                    &if twice { format!("`{}` se presta dos veces en la misma llamada", name) } else { format!("`{}` se {} y a la vez se lee en la misma llamada", name, if mode == Mode::Mut { "presta para cambiarlo" } else { "entrega" }) },
+                    if field {
+                        "al prestar un campo se reserva su propietario entero durante la llamada; aun no se admiten accesos a campos hermanos en esa misma llamada"
+                    } else {
+                        "dos nombres para la misma memoria en una llamada: lo que uno cambia el otro lo ve a medias (la regla de oro de FORTRAN, y aqui DEMOSTRADA)"
+                    },
                     &format!("haz una copia antes: let copia = {}, y pasa la copia en el otro lugar", name),
                 ));
             }

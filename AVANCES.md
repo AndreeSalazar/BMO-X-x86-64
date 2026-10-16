@@ -1,5 +1,16 @@
 # AVANCES -- estado de BMO-X (recuperacion de contexto)
 
+> **16-10, TITAN++ O1:** funciones propias reciben campos prestados con
+> `mut`, tambien anidados, entre modulos y como componente de trait. E1
+> apunta al campo; no copia su contenedor. La exclusividad es del propietario
+> completo (hermanos en una llamada aun se rechazan); no hay indices ni take
+> parcial nuevos. Dieciseis pruebas de composicion pasan en E1 y calculo, con
+> rechazos de alias, inmutables, tipos y propietarios entregados. La
+> construccion directa de registros elimina temporales que agotaban la pila
+> con una tabla de 3000 elementos; la prueba ahora pasa. Metal O1
+> pendiente. Siguiente del compilador: O2, especializar trait con tipo conocido.
+> [Capacidades y metas](toolchain/lang/titan/OBJETOS.md).
+
 > **16-10, decision del propietario: continuar MUNDO nativo en TITAN++ y
 > VERRANO.** Guardado BMW1 (G y Esc), validacion de ficheros y seis pruebas
 > del anfitrion pasan. El DIRECTOR informa el error de dibujo y el ultimo

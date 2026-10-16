@@ -1,0 +1,49 @@
+# espera: BIEN
+# sale: piedra: 7 false
+# sale: madera: 0 true
+# Un comportamiento compartido; cada bloque compone sus datos y reglas.
+mod main "bloques con composicion y comportamiento"
+
+type Durability
+    remaining: int
+
+type Stone
+    durability: Durability
+
+type Wood
+    durability: Durability
+
+trait Breakable
+    fn remaining(b: Breakable) -> int
+    fn hit(mut b: Breakable, force: int)
+
+fn reduce(mut d: Durability, force: int)
+    if force > 0
+        if force >= d.remaining
+            d.remaining = 0
+        else
+            d.remaining = d.remaining - force
+
+trait Breakable for Stone
+    fn remaining(b: Stone) -> int
+        return b.durability.remaining
+    fn hit(mut b: Stone, force: int)
+        reduce(mut b.durability, force)
+
+trait Breakable for Wood
+    fn remaining(b: Wood) -> int
+        return b.durability.remaining
+    fn hit(mut b: Wood, force: int)
+        reduce(mut b.durability, force * 2)
+
+fn mine(mut b: Breakable, force: int) -> bool
+    hit(mut b, force)
+    return remaining(b) == 0
+
+fn main()
+    let mut stone = Stone { durability: Durability { remaining: 10 } }
+    let mut wood = Wood { durability: Durability { remaining: 6 } }
+    let stone_broken = mine(mut stone, 3)
+    let wood_broken = mine(mut wood, 3)
+    print("piedra: ", stone.durability.remaining, " ", stone_broken)
+    print("madera: ", wood.durability.remaining, " ", wood_broken)

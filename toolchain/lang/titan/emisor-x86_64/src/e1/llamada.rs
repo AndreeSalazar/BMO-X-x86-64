@@ -54,10 +54,11 @@ impl E1<'_> {
         let mut back: Vec<(Place, Place, i32)> = Vec::new();
         for (i, a) in args.iter().enumerate() {
             let (pc, pt, _) = &params[i];
-            let ptr = match a {
-                Value::Lend(Mode::Mut, l, _) => {
-                    let lc = self.f.known[*l].clone().ok_or("un local sin valor")?;
-                    let lp = self.local(*l);
+            let loan = a.field_loan();
+            let ptr = match loan {
+                Some(loan) if loan.mode == Mode::Mut => {
+                    let path: Vec<_> = loan.fields.iter().map(|(name, at)| bmo_titan_front::ir::PathStep::Field((*name).to_string(), *at)).collect();
+                    let (lp, lc, _, _) = self.path(loan.local, &path, loan.at)?;
                     if matches!(pc, Class::Trait(_)) && !matches!(lc, Class::Trait(_)) {
                         // un `mut` hacia un trait: va con su tipo, y vuelve
                         // se MUEVE al sitio del trait y vuelve movido

@@ -53,6 +53,7 @@
 use crate::tree::{EnumDef, Expr, Mode, Program, Stmt, TraitDef, Ty, TypeDef};
 
 mod biblioteca;
+mod field_loan;
 mod muestra;
 
 /// A whole module, ready to emit.

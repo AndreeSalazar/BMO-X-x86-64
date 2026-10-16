@@ -1917,6 +1917,10 @@ ANFITRION el 04-10** (`take`, 18 palabras):
 ```
 
 - **Sin herencia**: composicion y trait, lo que 14.13 tomo de C++ y de Rust.
+- **O1, 16-10:** una funcion propia puede cambiar un componente prestado
+  (`reduce(mut block.durability, force)`), sin copiar su contenedor en E1.
+  Exclusividad conservadora del propietario completo; indices y take parcial
+  no se agregan. [Alcance y pruebas](../../toolchain/lang/titan/OBJETOS.md).
 - **Un generico se juzga UNA vez, contra su trait** (Rust, no las plantillas
   de C++): dentro de `mide`, `f` solo sabe lo que Forma promete, y un tipo que
   no lo cumple se dice EN LA LLAMADA, en una frase (T0085) -- la promesa de
@@ -1928,7 +1932,10 @@ ANFITRION el 04-10** (`take`, 18 palabras):
 - **Como**: `comportamiento.rs` comprueba los trait y hace de cada fn de un
   `trait X for T` una fn del programa (`area<Circulo>`); la IR da a cada fn de
   un trait su tabla (tipo -> fn), y hoy el calculo, que conoce todos los
-  valores, elige. Con E1 la eleccion se hara por tipo al compilar: sin coste.
+  valores, elige. **Revision 16-10:** E1 ya corre, pero hoy lleva una etiqueta
+  de tipo y un dispatcher que compara y salta (`e1/llamada.rs`). Resolver
+  tipos concretos al compilar es una optimizacion pendiente; no hay aun una
+  garantia de coste cero para todos los trait.
 - **F1**: un `trait` es un CRISTAL, como un `type`.
 - 🟡 en el emulador; el banco corre formas que se miden y un motor con piezas
   que se cambian, repartido en cuatro modulos.

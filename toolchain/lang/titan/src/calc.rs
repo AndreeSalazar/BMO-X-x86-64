@@ -664,6 +664,15 @@ impl Run<'_, '_> {
         }
         let (result, finals) = self.call(func, vals, at)?;
         for (a, back) in args.iter().zip(finals) {
+            if let Some(loan) = a.field_loan() {
+                if loan.mode == crate::tree::Mode::Mut && !loan.fields.is_empty() {
+                    let steps: Vec<_> = loan.fields.iter().map(|(name, _)| Ok(*name)).collect();
+                    let mut whole = known[loan.local].take().expect("juez: el propietario vive");
+                    set_in(&mut whole, &steps, back, self.m.defs(), loan.at)?;
+                    known[loan.local] = Some(whole);
+                    continue;
+                }
+            }
             match a {
                 Value::Lend(crate::tree::Mode::Mut, l, _) => known[*l] = Some(back),
                 Value::Lend(crate::tree::Mode::Take, l, _) => known[*l] = None,

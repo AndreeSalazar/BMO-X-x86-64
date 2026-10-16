@@ -473,6 +473,16 @@ fn main()
    fn f(take n: T)      ENTREGADO: f(take x); despues x ya no es tuyo
 ```
 
+**O1, 16-10:** una funcion propia tambien recibe `f(mut block.durability)`
+o campos anidados, con la misma firma `fn f(mut d: Durability)`. El propietario
+debe ser mutable y seguir vivo. Por ahora se reserva el propietario completo:
+`f(mut block.left, block.right)` y dos campos hermanos prestados en la misma
+llamada son T0076, aunque sus nombres sean distintos. Se puede leer antes y
+pasar una copia. No se habilitan `take block.field` ni `mut blocks[i]` para
+funciones propias. Las primitivas de colecciones mantienen sus reglas previas.
+[Ejemplo de bloques](ejemplos/nivel10/bloques.titan),
+[pruebas nativas y rechazos](emisor-x86_64/tests/composition.rs).
+
 **Se dice en los DOS lados** (`f(mut x)`, no solo `fn f(mut n)`): quien lee la
 llamada sabe que le puede pasar a `x` sin abrir la funcion -- en C, `f(&x)` solo
 dice "quiza". Y un `mut` en un parametro que nunca cambia es T0057, como el de
@@ -692,6 +702,9 @@ dependencia, y una dependencia que no existe es la mentira que U3 prohibe.
 ---
 
 ## Nivel 10 -- comportamientos (24 palabras: + `trait`) -- 04-10
+
+Revision de capacidades y mejoras: [OBJETOS.md](OBJETOS.md).
+Ejemplo de componentes y bloques: [bloques.titan](ejemplos/nivel10/bloques.titan).
 
 ```text
 # formas.titan

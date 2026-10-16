@@ -27,9 +27,10 @@
 //! `area<Circulo>` (a name no one can write). Which one a call `area(f)`
 //! runs is decided by the type of its first value: the IR gives each fn of a
 //! trait a table of them (`ir.rs`, `dispatch`), and today the calculation,
-//! which knows every value, picks from it. The day a value comes from outside
-//! (E1), each call is decided by its type when compiling -- zero cost, as C++
-//! promises; nothing here changes for that.
+//! which knows every value, picks from it. E1 currently carries a type tag
+//! and emits a dispatcher (`e1/llamada.rs`): comparisons and a jump at runtime.
+//! Specializing known concrete types is a future optimization, not a current
+//! zero-cost guarantee.
 //!
 //! ```text
 //!    T0085  a value whose type does not keep the trait a parameter asks for
