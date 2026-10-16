@@ -658,9 +658,8 @@ pub(crate) fn despertar() -> Result<u64, u32> {
 }
 
 /// **LA 3060 VIENE CALIENTE** (25-09): `despertar` se nego porque la WPR2
-/// ya venia extendida (67), o el booter devolvio 0x15. Las dos caras de una
-/// tarjeta que NO perdio la corriente desde que otro arranco su GSP: Windows
-/// (reiniciar desde alli), o un reinicio de BMO-X sin `gpu apagar`.
+/// ya venia extendida (67). MAILBOX0=0x15 no demuestra llegada caliente:
+/// el informe del 16-10 lo reproduce con llegada fria registrada.
 pub(crate) fn caliente() -> bool {
     let d = bmo::info(bmo::INFO_GPU_DESPIERTO);
     if d & bmo::DESPIERTO_VISTO != 0 {
@@ -668,7 +667,6 @@ pub(crate) fn caliente() -> bool {
     }
     let motivo = (d >> bmo::DESPIERTO_MOTIVO_SHIFT) & 0xFF;
     motivo == bmo::IOMMU_NO_GPU_CALIENTE as u64
-        || d & bmo::DESPIERTO_SEC2_ARRANCADO != 0 && (d >> bmo::DESPIERTO_BUZON_SHIFT) & 0xFFFF_FFFF == 0x15
 }
 
 /// Lo que se dice cuando viene caliente: que es y que hacer.

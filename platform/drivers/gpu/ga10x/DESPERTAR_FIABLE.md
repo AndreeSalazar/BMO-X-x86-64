@@ -1,5 +1,12 @@
 # Despertar fiable de la RTX 3060 12G -- investigacion del 16-10
 
+**Actualizacion 16-10, 11:07:** ya hay un parte malo concreto: llegada FRIA
+registrada, FRTS correcto, booter SEC2 MAILBOX0=0x15, sin GSP activo. IOMMU
+sin eventos nuevos y RAM del firmware intacta. MUNDO funciona por VERRANO
+CPU. [Resultado y limites](../../../../docs/metal/METAL_2026-10-16.md).
+Se aplica la correccion de clasificacion descrita abajo: `caliente()` exige
+motivo 67; 0x15 solo no demuestra estado residual de Windows. G0 sigue abierto.
+
 Pregunta: por que el propietario tiene que reiniciar siete o diez veces
 si la misma tarjeta ya ha ejecutado 3D. Investigacion de commits y codigo;
 sin nueva corrida del metal y sin cambiar registros ni firmware.
@@ -8,7 +15,8 @@ sin nueva corrida del metal y sin cambiar registros ni firmware.
 
 El 3D funciona en las corridas documentadas. La fiabilidad del arranque
 GSP sigue abierta (G0). No esta demostrada una causa electrica o ACPI
-para el fallo ACTUAL: falta el parte de esa sesion. Un error conocido del
+para el fallo ACTUAL: el nuevo parte acredita un 0x15 en frio, no su causa.
+Un error conocido del
 booter y un resumen incorrecto del escritorio pueden parecer el mismo
 "no desperto", pero requieren respuestas distintas.
 
@@ -51,7 +59,8 @@ posteriores del 11-10 y la aclaracion del 15-10 en EL_FOCO.
 
 ## Un diagnostico del escritorio que aun mezcla causas
 
-En `commands/gsp.rs`, `caliente()` devuelve true si el motivo es 67 O si
+Antes de la correccion del 16-10, en `commands/gsp.rs`, `caliente()` devolvia
+true si el motivo era 67 O si
 SEC2 arranco y MAILBOX0 vale 0x15. El segundo caso no demuestra que la
 tarjeta llegara caliente: esta documentado tambien en frio.
 

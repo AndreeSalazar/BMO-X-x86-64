@@ -1,5 +1,13 @@
 # AVANCES -- estado de BMO-X (recuperacion de contexto)
 
+> **16-10, segunda tanda 11:07-11:08:** booter 0x15 en FRIO registrado;
+> MUNDO visible por VERRANO CPU, confirmado en capturas y consola. Se arregla
+> el falso aviso CALIENTE (0x15 no basta), no el arranque del firmware.
+> El propietario confirma las pruebas solicitadas: MC5 cerrado por su
+> confirmacion, sin log independiente de guardar/cargar. MC2a ya implementado
+> en el anfitrion: I/K, mira, rayo 3D y camara con O1; pendiente de metal.
+> [Parte y limites](docs/metal/METAL_2026-10-16.md).
+
 > **16-10, TITAN++ O1:** funciones propias reciben campos prestados con
 > `mut`, tambien anidados, entre modulos y como componente de trait. E1
 > apunta al campo; no copia su contenedor. La exclusividad es del propietario

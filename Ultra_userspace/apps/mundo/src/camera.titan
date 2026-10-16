@@ -1,0 +1,41 @@
+# Camara nativa: posicion y orientacion como componentes, sin jerarquias.
+mod camera "camara de MUNDO con giro e inclinacion"
+
+pub type Position
+    x: int
+    y: int
+    z: int
+
+pub type Angles
+    yaw: int
+    pitch: int
+
+pub type Camera
+    position: Position
+    angles: Angles
+
+pub fn initial() -> Camera
+    return Camera { position: Position { x: 80000, y: 36000, z: 15000 }, angles: Angles { yaw: 0, pitch: 0 } }
+
+# O1: el llamador presta solo el componente de orientacion.
+pub fn turn(mut angles: Angles, yaw: int, pitch: int)
+    angles.yaw = ((angles.yaw + yaw) % 24 + 24) % 24
+    angles.pitch = angles.pitch + pitch
+    if angles.pitch > 5
+        angles.pitch = 5
+    if angles.pitch < -5
+        angles.pitch = -5
+
+pub fn sine(k: int) -> int
+    let t: [int; 24] = [0, 259, 500, 707, 866, 966, 1000, 966, 866, 707, 500, 259, 0, -259, -500, -707, -866, -966, -1000, -966, -866, -707, -500, -259]
+    return t[(k % 24 + 24) % 24]
+
+pub fn cosine(k: int) -> int
+    return sine(k + 6)
+
+pub fn axis(cam: Camera, a: int) -> int
+    if a == 0
+        return cam.position.x
+    if a == 1
+        return cam.position.y
+    return cam.position.z

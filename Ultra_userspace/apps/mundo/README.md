@@ -7,14 +7,18 @@ en el escritorio. No usa Java ni archivos de Minecraft.
 | --- | --- |
 | W / S / A / D | Avanzar, retroceder, desplazarse |
 | Q / E | Girar 15 grados |
+| I / K | Mirar arriba / abajo, hasta 75 grados |
 | R / F | Subir y bajar |
 | X / C | Quitar el bloque apuntado / poner tablas |
 | G | Guardar los bloques |
 | Esc | Guardar cambios y cerrar; si falla, sigue abierto |
 
 El mundo mide 16 x 8 x 16. Aun se vuela: faltan gravedad, salto, colision
-del cuerpo, raton relativo, mirar arriba/abajo y texturas. Hay un limite de
+del cuerpo, raton relativo y texturas. Hay un limite de
 80 caras visibles; los mundos mayores necesitan vertices fuera de la pila.
+La mira central se publica junto a la escena y el rayo para quitar/poner
+sigue tanto el giro como la inclinacion. La camara presta su componente de
+orientacion a `camera.turn`, usando O1 de TITAN++ en el juego real.
 
 `src/guardado.titan` conserva los bloques en `datos/mundo.bmv`, formato BMW1:
 ocho bytes `42 4d 57 31 10 08 10 00`, despues 2048 bytes de tipos 0..6.
@@ -32,8 +36,10 @@ Pruebas del anfitrion: `cargo test -p bmo-titan-x86-64 --test mundo` desde la
 raiz. Ejecutan el binario TITAN++, comparan imagenes, guardan y recargan bloques,
 rechazan ficheros corruptos y simulan un fallo de escritura al salir.
 El propietario confirma jugar y verlo funcionar en el Ryzen el 16-10-2026.
-No identifico el backend usado; falta comprobar persistencia al cerrar/abrir
-y el camino GPU con su diagnostico.
+En la segunda tanda (11:08), la consola acredita el backend CPU y el
+propietario confirma que cumplen las pruebas solicitadas, incluido el
+guardado. El camino GPU sigue abierto. Los controles I/K y la mira nuevos
+pasan en el anfitrion; falta probarlos en metal.
 
 Orden pendiente: [PLAN_MUNDO](../../../docs/plan/PLAN_MUNDO.md).
 

@@ -1,5 +1,11 @@
 # EL FOCO -- una cosa a la vez, hasta el final (10-10; el orden nuevo, 14-10)
 
+> **Segunda tanda 16-10:** MUNDO funciona con respaldo CPU mientras el booter
+> falla con 0x15 pese a llegada fria registrada. Aviso CALIENTE corregido;
+> G0 sigue abierto. Guardado confirmado por el propietario, MC5 cerrado.
+> MC2a (I/K, mira, rayo 3D y uso de O1) pasa en el anfitrion y espera metal.
+> [Resultado](../metal/METAL_2026-10-16.md), [metas](PLAN_MUNDO.md).
+
 > **Foco actual, 16-10: MUNDO nativo en TITAN++ y VERRANO.** El propietario
 > confirma jugar y verlo funcionar en el metal: MC1 funcional cerrado.
 > MC5 (guardar) pasa en el anfitrion; no se ha probado cerrar y recargar en

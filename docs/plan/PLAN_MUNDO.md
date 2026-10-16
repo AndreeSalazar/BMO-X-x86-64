@@ -96,15 +96,16 @@ pide Cyberpunk por PROTON-X --.
       solo la camara por fotograma --, que es lo que hace un juego de
       verdad. Y el tope de la lamina en el DIRECTOR (`laminas.rs`, 768
       vertices) sube con el.
-- [ ] **MC5 -- guardar el mundo.** `datos/mundo.bmv`: cabecera BMW1 de ocho
+- [x] **MC5 -- guardar el mundo.** `datos/mundo.bmv`: cabecera BMW1 de ocho
       bytes (magia, medidas 16 x 8 x 16, reservado), seguida de 2048 bloques.
       **16-10, HECHO en el anfitrion:** carga validando longitud, cabecera
       y todos los tipos antes de usar los bloques; G guarda, Esc guarda los
       cambios y cierra. Si el disco falla al salir, conserva el juego abierto.
       Seis pruebas de MUNDO pasan: dibujo, movimiento, picar, persistencia,
       guardados corruptos y fallo de escritura. No guarda la camara.
-      **Falta el metal del guardado:** el propietario aclara el 16-10 que
-      solo probo jugar y verlo funcionar, sin cerrar/recargar los cambios.
+      **Metal, segunda tanda 16-10:** tras la consigna de cerrar/recargar,
+      el propietario confirma "bien cumplen". Cierre por confirmacion del
+      propietario; los nuevos logs no registran guardar/cargar por separado.
       Uso: [README de la app](../../Ultra_userspace/apps/mundo/README.md).
 - [ ] **MC6 -- texturas.** Cada tipo de bloque con su dibujo de 16 x 16, de
       un atlas. **Necesita:** M3 de VERRANO (la textura en la VRAM y su
@@ -148,7 +149,7 @@ pide Cyberpunk por PROTON-X --.
    MC1 bloques, camara,       si         si (tests/mundo.rs)     SI, PROPIETARIO 16-10
    picar                     (juego funcional confirmado 16-10; backend sin identificar)
    V2b el recorte de cerca    con MC1    si (juez de la CPU)     GPU POR PROBAR
-   MC5 guardar                si (16-10) si (tests/mundo.rs)     POR PROBAR
+   MC5 guardar                si (16-10) si (tests/mundo.rs)     SI, PROPIETARIO 16-10
    MC2..MC4, MC6..MC8         por cerrar --                      --
 ```
 
@@ -156,9 +157,15 @@ pide Cyberpunk por PROTON-X --.
 
 - [x] MC1 funcional en metal, por confirmacion del propietario (16-10).
 - [x] MC5 implementado y probado en el anfitrion, incluidos corrupcion y fallo de disco.
-- [ ] MC5 metal: quitar/poner, guardar, cerrar y volver a abrir; conservar los cambios.
+- [x] MC5 metal: confirmado por el propietario en la segunda tanda del 16-10.
 - [ ] MC2a: mirar arriba y abajo por teclado, mira central y rayo de picar
       que siga la inclinacion. Probar arriba/abajo, alcance y bloque colocado.
+      **HECHO en el anfitrion, 16-10:** I/K hasta +/-75 grados, yaw y pitch
+      coherentes con el rayo, mira siempre delante por profundidad cero.
+      Nueve pruebas pasan, incluidas persistencia, suelo picado y tablas
+      colocadas con inclinacion, limites del giro y mira visible. 80 caras
+      del mundo (480 vertices) + mira (12), lamina de 492. Usa O1 en la camara.
+      **Falta el metal de MC2a y O1.** El respaldo CPU ya se vio en metal.
 - [ ] MC2b: resaltar el bloque apuntado y movimiento relativo del raton;
       capturar al jugar y liberar al salir o perder el foco.
 - [ ] MC3: teclas mantenidas, gravedad, salto y colision del cuerpo por ejes.

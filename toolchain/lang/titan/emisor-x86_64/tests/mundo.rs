@@ -19,8 +19,8 @@ use bmo_verrano::{Backend, Cull, Frame, Image, Vertex, Viewport};
 use core::sync::atomic::AtomicU32;
 use std::path::Path;
 
-/// Los vertices de la lamina: 80 caras de 6.
-const CAPACIDAD: usize = 480;
+/// 80 caras de 6, mas 12 vertices para la mira.
+const CAPACIDAD: usize = 492;
 
 fn bex() -> Vec<u8> {
     let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../../Ultra_userspace/apps/mundo");
@@ -112,7 +112,7 @@ fn cuenta(px: &[u32]) -> (usize, usize, usize, usize) {
 fn the_world_is_a_few_joined_faces_and_they_face_the_right_way() {
     let (v, coste) = con("");
     let tris = v.len() / 3;
-    eprintln!("al abrir: {} caras, {} instrucciones", v.len() / 6, coste);
+    eprintln!("al abrir: {} caras del mundo + mira, {} instrucciones", (v.len() - 12) / 6, coste);
     assert!(v.len() % 6 == 0 && (6..=CAPACIDAD).contains(&v.len()), "{} vertices", v.len());
     let px = dibuja(&v, Cull::Back);
     let todas = dibuja(&v, Cull::None);
@@ -232,4 +232,58 @@ fn failed_save_keeps_the_edited_world_open() {
     assert!(!stopped && !m.exited, "el fallo no debe cerrar: {}", m.console);
     assert!(m.console.contains("el disco NO guardo; sigue abierto"), "{}", m.console);
     assert!(!m.archivos.contains_key("datos/mundo.bmv"));
+}
+
+#[test]
+fn pitch_moves_the_world_but_the_crosshair_stays_visible_and_centered() {
+    let (level, _) = con("");
+    let (up, _) = con("ii");
+    let (down, _) = con("kk");
+    let a = dibuja(&level, Cull::Back);
+    let b = dibuja(&up, Cull::Back);
+    let c = dibuja(&down, Cull::Back);
+    foto("arriba", &b);
+    foto("abajo", &c);
+    let background = |px: &[u32]| cuenta(px).3;
+    assert!(background(&b) > background(&a) + 10_000, "mirar arriba muestra mas cielo");
+    assert!(background(&c) + 10_000 < background(&a), "mirar abajo muestra menos cielo");
+    for px in [&a, &b, &c] {
+        let white = (175..185).flat_map(|y| (315..325).map(move |x| y * W as usize + x))
+            .filter(|&i| px[i] & 0xFFFFFF == 0xFFFFFF).count();
+        assert!(white >= 20, "la mira se ve con descarte y profundidad: {white}");
+    }
+    // Incluso una cara que toque el plano cercano no tapa la mira: ambas
+    // tienen z=0 y el HUD se presenta primero con profundidad LESS.
+    let mut near = level.clone();
+    for v in &mut near[12..] { v.position[2] = 0.0; }
+    let px = dibuja(&near, Cull::Back);
+    assert_eq!(px[(W * H / 2 + W / 2) as usize] & 0xFFFFFF, 0xFFFFFF);
+}
+
+#[test]
+fn pitch_is_clamped_and_yaw_wraps() {
+    let (limit, _) = con("iiiii");
+    let (beyond, _) = con("iiiiiiiiiiiiiii");
+    assert_eq!(dibuja(&limit, Cull::Back), dibuja(&beyond, Cull::Back));
+    let (level, _) = con("");
+    let (wrapped, _) = con(&"q".repeat(24));
+    assert_eq!(dibuja(&level, Cull::Back), dibuja(&wrapped, Cull::Back));
+}
+
+#[test]
+fn picking_and_placing_follow_pitch_instead_of_eye_height() {
+    let code = bex();
+    let initial = close_world(&code, "g", None);
+    let baseline = &initial.archivos["datos/mundo.bmv"];
+    let horizontal = close_world(&code, "x", None);
+    assert!(!horizontal.archivos.contains_key("datos/mundo.bmv"), "sin inclinar, el suelo no es el blanco");
+    let down = close_world(&code, "kkkx", None);
+    let saved = &down.archivos["datos/mundo.bmv"];
+    let ground = 8 + (16 + 3) * 16 + 8;
+    assert_eq!(baseline[ground], 1);
+    assert_eq!(saved[ground], 0, "se quita la hierba bajo el rayo inclinado");
+    assert_eq!(saved.iter().zip(baseline).filter(|(a, b)| a != b).count(), 1);
+    let placed = close_world(&code, "kkkc", None);
+    let top = 8 + (2 * 16 + 3) * 16 + 8;
+    assert_eq!(placed.archivos["datos/mundo.bmv"][top], 6, "tablas sobre el suelo apuntado");
 }

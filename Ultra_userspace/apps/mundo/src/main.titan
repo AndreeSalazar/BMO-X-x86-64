@@ -1,15 +1,16 @@
 # espera: BIEN
 # MUNDO (11-10, MC1 de docs/plan/PLAN_MUNDO.md): el PRIMER peldanio del
 # Minecraft propio del propietario, en TITAN++, dibujado por VERRANO en la
-# 3060. Un mundo de bloques (16 x 8 x 16, una `[byte]`), sus caras juntadas
+# GPU o CPU. Un mundo de bloques (16 x 8 x 16, una `[byte]`), sus caras juntadas
 # en rectangulos (`malla.titan`), una camara que anda y gira, y quitar y
 # poner bloques.
 #
 #    w s               adelante, atras
 #    a d               a un lado y al otro
 #    q e               gira a la izquierda, a la derecha (15 grados)
+#    i k               mira arriba, abajo (hasta 75 grados)
 #    r f               sube, baja
-#    x                 quita el bloque que miras (a la altura de los ojos)
+#    x                 quita el bloque que miras (rayo en 3D)
 #    c                 pone uno de tablas delante de el
 #    g                 guarda los bloques en datos/mundo.bmv
 #    Esc               guarda los cambios y cierra
@@ -32,28 +33,29 @@ mod main "MUNDO: bloques en 3D -- el primer peldanio del Minecraft propio, por V
 use director
 mod malla
 mod guardado
+mod camera
+mod hud
 
 # Las caras por fotograma, y los vertices: 6 por cara.
 fn caras_max() -> int
     return 80
 
 fn vertices_max() -> int
-    return 480
+    return 492
 
 fn div(a: int, d: int) -> int
     return (a - a % d) / d
 
 # El seno y el coseno de 0, 15, 30... grados, en milesimas.
 fn seno(k: int) -> int
-    let t: [int; 24] = [0, 259, 500, 707, 866, 966, 1000, 966, 866, 707, 500, 259, 0, -259, -500, -707, -866, -966, -1000, -966, -866, -707, -500, -259]
-    return t[k % 24]
+    return camera.sine(k)
 
 fn coseno(k: int) -> int
     return seno(k + 6)
 
-# ** LAS CUENTAS DE UN VERTICE, en la 3060. La camara (cx, cy, cz en
-# diezmilesimas, s y c en milesimas) mira hacia (s, 0, c); el giro deja +z
-# delante, +x a la derecha, +y arriba. Luego, a recorte: 16:9, una focal de
+# ** LAS CUENTAS DE UN VERTICE. La camara (cx, cy, cz en diezmilesimas,
+# s y c en milesimas) gira primero en horizontal y despues aplica pitch.
+# El giro deja +z delante, +x a la derecha, +y arriba. A recorte: 16:9, focal
 # 1,5, cerca 0,1 y lejos 64 (la z de despues de dividir, de 0 a 1).
 gpu fn vista_x(ex: f32, ez: f32, cx: f32, cz: f32, s: f32, c: f32) -> f32
     return ((ex - cx * 0.0001) * c - (ez - cz * 0.0001) * s) * 0.001
@@ -64,8 +66,11 @@ gpu fn vista_z(ex: f32, ez: f32, cx: f32, cz: f32, s: f32, c: f32) -> f32
 gpu fn recorte_x(vx: f32) -> f32
     return vx * 0.84375
 
-gpu fn recorte_y(ey: f32, cy: f32) -> f32
-    return (ey - cy * 0.0001) * 1.5
+gpu fn recorte_y(ey: f32, cy: f32, vz: f32, sp: f32, cp: f32) -> f32
+    return ((ey - cy * 0.0001) * cp - vz * sp) * 0.0015
+
+gpu fn pitch_depth(ey: f32, cy: f32, vz: f32, sp: f32, cp: f32) -> f32
+    return ((ey - cy * 0.0001) * sp + vz * cp) * 0.001
 
 gpu fn recorte_z(vz: f32) -> f32
     return (vz - 0.1) * 1.0015649
@@ -101,7 +106,7 @@ fn celda(x: int, y: int, z: int) -> int
 
 # ** UN TROZO: los vertices `desde .. desde + 48` -- 8 caras, de la lista
 # `elegidas` --, contados por las gpu fn y escritos en `pos` y `col`.
-fn trozo(mut pos: [f32; 1920], mut col: [f32; 1920], caras: [int], elegidas: [int], desde: int, cuantos: int, cam: [int; 4], tonos: [f32; 126])
+fn trozo(mut pos: [f32; 1968], mut col: [f32; 1968], caras: [int], elegidas: [int], desde: int, cuantos: int, cam: camera.Camera, tonos: [f32; 126])
     let cero: f32 = 0.0
     let uno: f32 = 1.0
     let mut ex: [f32; 48] = [cero; 48]
@@ -135,14 +140,15 @@ fn trozo(mut pos: [f32; 1920], mut col: [f32; 1920], caras: [int], elegidas: [in
         ey[k] = fy
         ez[k] = fz
         let t = caras[c + 6]
+        let target = n + 12
         for i in range(3)
-            col[4 * n + i] = tonos[18 * t + 3 * cara + i]
-        col[4 * n + 3] = uno
-    let fcx: f32 = cam[0]
-    let fcy: f32 = cam[1]
-    let fcz: f32 = cam[2]
-    let fs: f32 = seno(cam[3])
-    let fc: f32 = coseno(cam[3])
+            col[4 * target + i] = tonos[18 * t + 3 * cara + i]
+        col[4 * target + 3] = uno
+    let fcx: f32 = cam.position.x
+    let fcy: f32 = cam.position.y
+    let fcz: f32 = cam.position.z
+    let fs: f32 = seno(cam.angles.yaw)
+    let fc: f32 = coseno(cam.angles.yaw)
     let cxs: [f32; 48] = [fcx; 48]
     let cys: [f32; 48] = [fcy; 48]
     let czs: [f32; 48] = [fcz; 48]
@@ -150,26 +156,31 @@ fn trozo(mut pos: [f32; 1920], mut col: [f32; 1920], caras: [int], elegidas: [in
     let cs: [f32; 48] = [fc; 48]
     let vx = vista_x(ex, ez, cxs, czs, ss, cs)
     let vz = vista_z(ex, ez, cxs, czs, ss, cs)
+    let sp: f32 = seno(cam.angles.pitch)
+    let cp: f32 = coseno(cam.angles.pitch)
+    let sps: [f32; 48] = [sp; 48]
+    let cps: [f32; 48] = [cp; 48]
+    let depth = pitch_depth(ey, cys, vz, sps, cps)
     let x = recorte_x(vx)
-    let y = recorte_y(ey, cys)
-    let z = recorte_z(vz)
+    let y = recorte_y(ey, cys, vz, sps, cps)
+    let z = recorte_z(depth)
     for k in range(cuantos)
-        let n = desde + k
+        let n = desde + k + 12
         pos[4 * n] = x[k]
         pos[4 * n + 1] = y[k]
         pos[4 * n + 2] = z[k]
-        pos[4 * n + 3] = vz[k]
+        pos[4 * n + 3] = depth[k]
 
 # Las caras que miran a la camara (una +a, desde mas alla de su plano), como
 # mucho `caras_max()`.
-fn elige(caras: [int], cam: [int; 4]) -> [int]
+fn elige(caras: [int], cam: camera.Camera) -> [int]
     let mut out: [int] = []
     let n = div(len(caras), 7)
     for k in range(n)
         let cara = caras[7 * k]
         let a = (cara - cara % 2) / 2
         let plano = 10000 * caras[7 * k + 1]
-        let mira = (cara % 2 == 1 and cam[a] > plano) or (cara % 2 == 0 and cam[a] < plano)
+        let mira = (cara % 2 == 1 and camera.axis(cam, a) > plano) or (cara % 2 == 0 and camera.axis(cam, a) < plano)
         if mira and len(out) < caras_max()
             push(mut out, k)
     return out
@@ -188,13 +199,13 @@ fn main()
     let tonos = colores()
     let mut mundo = guardado.load(malla.nuevo())
     let mut dirty = false
-    print("MUNDO: WASD anda, Q/E gira, R/F sube y baja, X quita, C pone, G guarda, Esc guarda y cierra")
+    print("MUNDO: WASD anda, Q/E gira, I/K mira arriba/abajo, R/F sube y baja, X quita, C pone, G guarda, Esc guarda y cierra")
     let mut caras = malla.caras(mundo)
-    # la camara: x, y, z en diezmilesimas de bloque, y su giro (de 15 en 15)
-    let mut cam: [int; 4] = [80000, 36000, 15000, 0]
+    # Posicion y orientacion separadas; O1 presta la orientacion al girar.
+    let mut cam = camera.initial()
     let cero: f32 = 0.0
-    let mut pos: [f32; 1920] = [cero; 1920]
-    let mut col: [f32; 1920] = [cero; 1920]
+    let mut pos: [f32; 1968] = [cero; 1968]
+    let mut col: [f32; 1968] = [cero; 1968]
     let mut f = 0
     let mut cambio = true
     while true
@@ -217,11 +228,11 @@ fn main()
                         print("MUNDO: bloques guardados en datos/mundo.bmv")
                     else
                         print("MUNDO: el disco NO guardo; los bloques siguen en memoria")
-                let s = seno(cam[3])
-                let co = coseno(cam[3])
-                let mut nx = cam[0]
-                let mut ny = cam[1]
-                let mut nz = cam[2]
+                let s = seno(cam.angles.yaw)
+                let co = coseno(cam.angles.yaw)
+                let mut nx = cam.position.x
+                let mut ny = cam.position.y
+                let mut nz = cam.position.z
                 if c == 119
                     nx = nx + 2 * s
                     nz = nz + 2 * co
@@ -239,18 +250,24 @@ fn main()
                 if c == 102
                     ny = ny - 2000
                 if c == 113
-                    cam[3] = (cam[3] + 23) % 24
+                    camera.turn(mut cam.angles, -1, 0)
                     cambio = true
                 if c == 101
-                    cam[3] = (cam[3] + 1) % 24
+                    camera.turn(mut cam.angles, 1, 0)
+                    cambio = true
+                if c == 105
+                    camera.turn(mut cam.angles, 0, 1)
+                    cambio = true
+                if c == 107
+                    camera.turn(mut cam.angles, 0, -1)
                     cambio = true
                 # se anda por el aire y dentro del mundo
                 let donde = celda(nx, ny, nz)
-                if donde >= 0 and (nx != cam[0] or ny != cam[1] or nz != cam[2])
+                if donde >= 0 and (nx != cam.position.x or ny != cam.position.y or nz != cam.position.z)
                     if mundo[donde] == 0
-                        cam[0] = nx
-                        cam[1] = ny
-                        cam[2] = nz
+                        cam.position.x = nx
+                        cam.position.y = ny
+                        cam.position.z = nz
                         cambio = true
                 if c == 120 or c == 99
                     let pico = pica(mut mundo, cam, c == 99)
@@ -268,25 +285,32 @@ fn main()
                     cuantos = 48
                 trozo(mut pos, mut col, caras, elegidas, desde, cuantos, cam, tonos)
                 desde = desde + cuantos
-            director.publica(f, nv, pos, col)
+            hud.crosshair(mut pos, mut col, 0)
+            director.publica(f, nv + 12, pos, col)
             f = f + 1
             cambio = false
         director.espera(16)
 
-# ** QUITAR Y PONER: un rayo desde los ojos, hacia donde se mira, de decima
-# en decima de bloque y hasta 6 bloques. `poner`: un bloque de tablas en el
+# ** QUITAR Y PONER: un rayo 3D desde los ojos, segun yaw y pitch, pasos de
+# aproximadamente una decima y hasta 6 bloques. `poner`: tablas en el
 # ultimo aire antes del bloque tocado (si no es donde esta la camara).
-fn pica(mut mundo: [byte], cam: [int; 4], poner: bool) -> bool
-    let s = seno(cam[3])
-    let c = coseno(cam[3])
-    let yo = celda(cam[0], cam[1], cam[2])
-    let mut x = cam[0]
-    let mut z = cam[2]
+fn pica(mut mundo: [byte], cam: camera.Camera, poner: bool) -> bool
+    let s = seno(cam.angles.yaw)
+    let c = coseno(cam.angles.yaw)
+    let yo = celda(cam.position.x, cam.position.y, cam.position.z)
+    let mut x = cam.position.x
+    let mut z = cam.position.z
+    let mut y = cam.position.y
+    let cp = coseno(cam.angles.pitch)
+    let dx = div(s * cp, 1000)
+    let dz = div(c * cp, 1000)
+    let dy = seno(cam.angles.pitch)
     let mut antes = yo
     for paso in range(60)
-        x = x + s
-        z = z + c
-        let k = celda(x, cam[1], z)
+        x = x + dx
+        z = z + dz
+        y = y + dy
+        let k = celda(x, y, z)
         if k < 0
             return false
         if mundo[k] != 0
