@@ -22,7 +22,7 @@
 # los 69 `gui` de ayer no se reescriben, y un guardian que fallara por ellos se
 # apagaria en una semana. Se mueve con `--sellar`.
 [DESDE]
-28202211a78558b80c280dd19c21901849307885   sellado a mano
+d4f5d5720dc65a27794b307f4a48428343fce3c9   sellado a mano
 
 # Viejo -> como se llama ahora, y por que. Un alias no es un error del que
 # escribe: es un nombre que se quedo atras, y decirle el nuevo cuesta lo mismo
