@@ -229,11 +229,33 @@ les puede ganar -- sin que TITAN++ aprenda de CPU: lo sabe el emisor.
 
 # 2d. ★★★ EL MARCADOR: lo que ya gana, lo que pierde y lo que falta
 
+**16-10, M3a APLICADO Y PROBADO EN EL ANFITRION.** El parche guardado en
+`M3a_SIN_PROBAR.diff` ya esta en `e2/repetido.rs`: el nombre de ese fichero
+describe el punto de pausa anterior, no el estado actual. `ordenar` baja de
+1.186.491 a **824.134 instrucciones (-30,54 %)** y de 3.625 a 3.530 B;
+los accesos quedan en 271.528. Contra el C de la casa: **0,325**.
+El banco de 72 conserva las salidas y no sube en instrucciones, accesos ni
+codigo: total 26.203.892 instrucciones, 4.943.814 accesos, 459.777 B.
+La lente lee las 36.501 instrucciones distintas ejecutadas y el recorrido
+las demuestra. La linea base se fija con el metro, no a mano.
+
+Pruebas: lista ordenada ENTERA y ambos extremos invalidos en
+`checked_index_offsets_keep_their_boundaries`; en la pasada misma,
+`an_offset_needs_both_bounds_and_the_same_length` exige las dos cotas y
+que no cambie el largo. Sabotaje: quitar la cota `j >= 0` lo hace FALLAR;
+la regla correcta, restaurada, pasa. Las pruebas del emisor pasan.
+Revision antes del commit: tambien conserva el control si solo una rama
+miro el indice, y separa el desborde aritmetico de un indice negativo en
+los desplazamientos extremos (MIN, MAX, -2 y +2).
+El versus completo con compiladores externos NO se ha vuelto a correr:
+el MARCADOR de 8/3/21 de abajo es el anterior a este cambio. Los ciclos
+siguen pendientes del Ryzen (M5). Siguiente foco: M1 (`fib`).
+
 El propietario, 16-10: *"mi bmo-X que es mi casa ya supera? sino faltarian
 mejorar y poner eso en datos y documentos que decir que faltan [...] me
 gustaria que [...] lo aplaste"*.
 
-**>> DONDE ESTAMOS (16-10, al pausar)** -- el propietario: *"commitea y
+**>> PUNTO DE PAUSA ANTERIOR (16-10, antes del M3a probado de arriba)** -- el propietario: *"commitea y
 poner en datos [...] donde estamos nada mas"*. EL MARCADOR: **8 gana, 3
 empata, 21 pierde** de 32. Contra el C de la casa, los 4 GANAN: primos
 0,74, fib 0,75, bytes 0,42, ordenar 0,47. primos GANA a Clang (0,95) y a
@@ -242,7 +264,7 @@ ordenar con todos (1,29-2,14), bytes con Clang y GCC (SIMD), primos con
 GCC (1,17). Banco: 26,57 millones de instrucciones, 4,944 millones de
 accesos. 5453 pruebas pasan, 0 fallan.
 
-**EL SIGUIENTE PASO, a medias: M3a** (`ordenar`). El bucle de dentro hace
+**EL PASO QUE QUEDO A MEDIAS EN ESA PAUSA: M3a** (`ordenar`). El bucle de dentro hace
 13 instrucciones por vuelta; dos miradas de celda sobran: `a[j + 1]` (`j +
 1` es el `j` de la vuelta anterior, ya mirado) y `a[j]` (con `j >= 0` del
 salto y `j + 1` mirado, esta dentro). La idea: en B6 (`e2/repetido.rs`) lo

@@ -351,3 +351,17 @@ fn only_what_dies_in_a_sum_lends_its_register() {
         }
     }
 }
+
+/// M3a: un indice mirado viaja con su desplazamiento, pero no autoriza
+/// ni la celda siguiente al final ni una negativa. Se compara TODA la lista.
+#[test]
+fn checked_index_offsets_keep_their_boundaries() {
+    let programs: &[(&str, &str)] = &[
+        ("fn main()\n    let mut a: [int] = [9, 1, 8, 2, 7, 3, 6, 4, 5, 0]\n    for i in range(1, len(a))\n        let v = a[i]\n        let mut j = i - 1\n        while j >= 0 and a[j] > v\n            a[j + 1] = a[j]\n            j = j - 1\n        a[j + 1] = v\n    for i in range(len(a))\n        print(a[i])\n", "0\n1\n2\n3\n4\n5\n6\n7\n8\n9\n"),
+        ("fn main()\n    let a: [int] = [4, 5, 6]\n    let mut j = 0\n    for i in range(3)\n        let v = a[j]\n        j = j + 1\n        print(a[j])\n", "NO T0072 linea 9"),
+        ("fn main()\n    let a: [int] = [4, 5, 6]\n    let mut j = 2\n    for i in range(3)\n        let v = a[j]\n        j = j - 1\n        print(a[j])\n", "NO T0072 linea 9"),
+    ];
+    for (k, (body, want)) in programs.iter().enumerate() {
+        assert_eq!(same(body).unwrap(), *want, "programa {k}");
+    }
+}
