@@ -233,6 +233,28 @@ El propietario, 16-10: *"mi bmo-X que es mi casa ya supera? sino faltarian
 mejorar y poner eso en datos y documentos que decir que faltan [...] me
 gustaria que [...] lo aplaste"*.
 
+**>> DONDE ESTAMOS (16-10, al pausar)** -- el propietario: *"commitea y
+poner en datos [...] donde estamos nada mas"*. EL MARCADOR: **8 gana, 3
+empata, 21 pierde** de 32. Contra el C de la casa, los 4 GANAN: primos
+0,74, fib 0,75, bytes 0,42, ordenar 0,47. primos GANA a Clang (0,95) y a
+Rust (0,72); bytes gana a g++ (0,72). Pierden: fib con todos (1,23-1,38),
+ordenar con todos (1,29-2,14), bytes con Clang y GCC (SIMD), primos con
+GCC (1,17). Banco: 26,57 millones de instrucciones, 4,944 millones de
+accesos. 5453 pruebas pasan, 0 fallan.
+
+**EL SIGUIENTE PASO, a medias: M3a** (`ordenar`). El bucle de dentro hace
+13 instrucciones por vuelta; dos miradas de celda sobran: `a[j + 1]` (`j +
+1` es el `j` de la vuelta anterior, ya mirado) y `a[j]` (con `j >= 0` del
+salto y `j + 1` mirado, esta dentro). La idea: en B6 (`e2/repetido.rs`) lo
+mirado pasa de `(i, largo)` a `(i, off, largo)` = "`i + off` ya mirada",
+y viaja por `d = a +- K` (off - K). El cambio esta ESCRITO pero **SIN
+COMPILAR NI PROBAR** en `docs/plan/M3a_SIN_PROBAR.diff` (`git apply`).
+Falta: compilarlo, medir, una prueba con sabotaje (p. ej. que `j + 1`
+fuera de la lista siga siendo NO), y el metro. Despues: M1 (fib: AF8 o
+desenrollar), M2 (bytes: llenar en vectores; AVX2 lo decide el
+propietario), M4 (primos: `k + 1` del bucle de fuera), M5 (ciclos en el
+Ryzen).
+
 **Los datos no se escriben a mano**: `python toolchain/tools/metro/versus.py
 --escribe` reescribe `toolchain/tools/metro/MARCADOR.md` con cada duelo
 contra cada rival (GANA por debajo de 0,95, EMPATA hasta 1,05, pierde por
