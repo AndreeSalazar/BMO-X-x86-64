@@ -278,3 +278,24 @@ fn a_list_grows_inside_a_loop_in_registers() {
         }
     }
 }
+
+/// ** (16-10) Lo que se DEMUESTRA de un local (que vale 1 o mas) solo quita
+/// el cero de una division: una suma con el sigue mirando su desborde. Y
+/// `i + 1` de un indice ya mirado contra una lista no desborda (i < largo).
+#[test]
+fn a_proven_positive_still_overflows_where_it_overflows() {
+    let programs: &[(&str, &str)] = &[
+        ("fn main()\n    let mut x = 9223372036854775000\n    let mut d = 2\n    for i in range(2000)\n        d = d + 1\n        x = x + d\n    print(x)\n", "NO T0060 linea 8"),
+        ("fn main()\n    let mut d = 9223372036854775000\n    for i in range(2000)\n        d = d + 1\n    print(d)\n", "NO T0060 linea 6"),
+        (
+            "fn main()\n    let a: [int] = [5, 6, 7, 8]\n    let mut s = 0\n    for i in range(3)\n        let v = a[i]\n        s = s + a[i + 1] - v\n    print(s)\n",
+            "3\n",
+        ),
+    ];
+    for (k, (body, want)) in programs.iter().enumerate() {
+        match same(body) {
+            Ok(out) => assert_eq!(out, *want, "programa {k}"),
+            Err(e) => panic!("programa {k}: {e}"),
+        }
+    }
+}

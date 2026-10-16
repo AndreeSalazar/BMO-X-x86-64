@@ -252,7 +252,9 @@ impl Baja<'_> {
         match v {
             Value::Bin(op @ ("+" | "-" | "*" | "/" | "%"), a, b, at) => {
                 let cota_a = super::afinado::cota(a, &self.minimo);
-                let seguro = super::afinado::cota(b, &self.minimo).is_some_and(|m| m >= 1);
+                // `seguro` en una division: el divisor se demuestra 1 o mas (en una
+                // suma, solo lo pone B6: `i + 1` de un indice ya mirado)
+                let seguro = matches!(*op, "/" | "%") && super::afinado::cota(b, &self.minimo).is_some_and(|m| m >= 1);
                 // B2: `x % 2^k` de un x que se demuestra no negativo, un `and`
                 let y = matches!((*op, &**b), ("%", Value::Int(k, _)) if *k > 0 && (*k as u64).is_power_of_two() && *k <= i32::MAX as i64) && cota_a.is_some_and(|m| m >= 0);
                 let av = self.valor(a)?;
@@ -593,6 +595,14 @@ fn reparte(code: &[I], nv: usize, preservados: &[u8], de_paso: &[u8], scratch: b
             I::Ret(Some(Opnd::V(v))) => {
                 pide[*v].get_or_insert(RAX);
             }
+            // el resto de una division sale en `rdx`, y el cociente en `rax`:
+            // alli mismo, sin copiarlo
+            I::Bin("%", d, ..) => {
+                pide[*d].get_or_insert(RDX);
+            }
+            I::Bin("/", d, ..) => {
+                pide[*d].get_or_insert(RAX);
+            }
             _ => {}
         }
     }
@@ -601,6 +611,8 @@ fn reparte(code: &[I], nv: usize, preservados: &[u8], de_paso: &[u8], scratch: b
         (a..=b).any(|k| match &code[k] {
             // la llamada que lo produce (en `a`) o que lo consume (en `b`) no lo pisa
             I::Call(..) => k != a && k != b,
+            // la division que lo DA, en el registro donde lo deja, no lo pisa
+            I::Bin(op @ ("/" | "%"), d, ..) if k == a && *d == v => r != if *op == "%" { RDX } else { RAX },
             I::Bin("/" | "%", ..) => matches!(r, RAX | RDX | RCX),
             I::Bin("-", ..) => r == RAX,
             _ => false,
@@ -922,6 +934,12 @@ impl E1<'_> {
                 self.mov_si(d, a);
                 x86::and_r64_imm32(&mut self.code, d, m as u32);
             }
+            // B6: `i + n` de un indice que ya se miro contra lo que mide una
+            // lista (i < largo): no desborda. Un `lea`, sin `jo`
+            "+" if demostrado && matches!(b, Opnd8::K(n) if i32::try_from(n).is_ok()) => {
+                let Opnd8::K(n) = b else { return };
+                self.lea(d, a, n as i32);
+            }
             "+" | "-" | "*" => {
                 let b = match b {
                     Opnd8::K(n) if i32::try_from(n).is_err() => {
@@ -937,7 +955,7 @@ impl E1<'_> {
                             x86::mov_r64_r64(&mut self.code, RAX, a);
                             x86::sub_r64_r64(&mut self.code, RAX, r);
                             self.trap(0x80, "T0060", NO_CABE, at);
-                            x86::mov_r64_r64(&mut self.code, d, RAX);
+                            self.mov_si(d, RAX);
                             return;
                         }
                         // + y * dan lo mismo al reves
@@ -983,7 +1001,7 @@ impl E1<'_> {
                         x86::cmp_r64_r64(&mut self.code, RAX, R11);
                         self.trap(0x84, "T0060", NO_CABE, at);
                         x86::neg_r64(&mut self.code, RAX);
-                        x86::mov_r64_r64(&mut self.code, d, RAX);
+                        self.mov_si(d, RAX);
                     } else {
                         self.imm(d, 0);
                     }
@@ -996,9 +1014,9 @@ impl E1<'_> {
                 if op == "/" {
                     x86::test_r64_r64(&mut self.code, RDX, RDX);
                     self.trap(0x85, "T0062", "una division que no es exacta (entre enteros, 7 / 2 no es 3)", at);
-                    x86::mov_r64_r64(&mut self.code, d, RAX);
+                    self.mov_si(d, RAX);
                 } else {
-                    x86::mov_r64_r64(&mut self.code, d, RDX);
+                    self.mov_si(d, RDX);
                 }
                 if let Some(h) = hecho {
                     self.here(h);

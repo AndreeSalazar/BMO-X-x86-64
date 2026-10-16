@@ -98,6 +98,8 @@ pub(super) fn quita_lo_repetido(code: &mut [I]) {
                 code[k] = I::Mov(*d, quien);
             }
             I::Idx { len, i, mira, .. } | I::Pon { len, i, mira, .. } if s.0.contains(&(*i, *len)) => *mira = false,
+            // `i + 1` de un i que ya se miro (`i < largo <= el mayor`): cabe
+            I::Bin("+", _, a, Opnd::K(1), _, seguro) if s.0.iter().any(|&(x, _)| x == *a) => *seguro = true,
             _ => {}
         }
     }

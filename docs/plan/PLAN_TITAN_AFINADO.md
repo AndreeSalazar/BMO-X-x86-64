@@ -279,6 +279,22 @@ y lo que falta esta medido, duelo a duelo:
       raro del `push`, escrito dentro del bucle. `tests/ligera.rs`
       (`a_list_grows_inside_a_loop_in_registers`), con sabotaje (no
       recargar la base tras crecer: escribe en memoria soltada y lo dice)
+- [x] **M3a/M4a -- la division da su resultado donde cae, y `i + 1` de un
+      indice ya mirado es `lea`** (16-10). En E2, el resto de `/` y `%` se
+      pide en RDX y el cociente en RAX (donde `idiv` los deja: sin mover), y
+      la regla de B6 sabe que si `i` ya paso por `i < largo`, `i + 1` no
+      desborda (largo <= 2^63 - 1): `lea`, sin `jo`. El duelo: primos
+      0,86 -> 0,80 y ordenar 0,58 -> 0,50 x el C de la casa. El banco
+      28,1 -> 27,2 millones de instrucciones, 5,10 -> 4,95 millones de
+      accesos. Sube UNO: `ordenar` +16 accesos (271 512 -> 271 528) mientras
+      baja 1,46 -> 1,28 millones de instrucciones: el reparto de registros
+      cambia y un valor mas va a la pila fuera del bucle. **Un fallo cazado
+      por las pruebas antes de subir**: el "seguro" de la division se ponia
+      tambien a `x + K` y quitaba el `jo` (primos 0,80 y bytes 0,38 eran
+      FALSOS). `tests/ligera.rs`
+      (`a_proven_positive_still_overflows_where_it_overflows`), con sabotaje.
+      EL MARCADOR: 5 gana, 6 empata, 21 pierde -- primos EMPATA con Clang
+      (1,03) y gana a Rust (0,77)
 - [ ] **M2 -- `bytes` contra Clang y GCC (pierde 4,2 y 1,25).**
       Llenar la lista se lleva el 80 %: cada `push` mira la capacidad en la
       memoria. Que un bucle con `push` vaya por E2 con lo que mide la lista

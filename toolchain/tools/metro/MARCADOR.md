@@ -10,13 +10,13 @@ Medido: 2026-10-16.
 
 ```text
 duelo         TITAN++  C casa        gcc C         clang C       g++ C++       clang++ C++   rustc Rust    gcc Zen3      clang Zen3    
-primos      4,088,215  GANA 0.86     pierde 1.37   pierde 1.11   pierde 1.37   pierde 1.11   GANA 0.84     pierde 1.39   pierde 1.13   
+primos      3,786,940  GANA 0.80     pierde 1.27   EMPATA 1.03   pierde 1.27   EMPATA 1.03   GANA 0.77     pierde 1.29   EMPATA 1.04   
 fib         1,031,889  EMPATA 1.00   pierde 1.69   pierde 1.64   pierde 1.69   pierde 1.64   pierde 1.83   pierde 1.72   pierde 1.64   
 bytes       2,496,507  GANA 0.42     pierde 1.25   pierde 4.23   GANA 0.72     EMPATA 0.98   EMPATA 0.98   pierde 6.85   pierde 13.14  
-ordenar     1,457,495  GANA 0.57     pierde 2.27   pierde 1.60   pierde 1.92   pierde 1.58   pierde 2.63   pierde 2.29   pierde 1.94   
+ordenar     1,277,230  GANA 0.50     pierde 1.99   pierde 1.41   pierde 1.68   pierde 1.38   pierde 2.30   pierde 2.00   pierde 1.70   
 ```
 
-**La cuenta: 5 gana, 3 empata y 24 pierde, de 32.**
+**La cuenta: 5 gana, 6 empata y 21 pierde, de 32.**
 
 [!] Lo que esto NO dice: los ciclos del Ryzen (una instruccion de SIMD
 hace el trabajo de varias, y una division cuesta unas 40 veces una suma).
