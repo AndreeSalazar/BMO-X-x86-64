@@ -63,15 +63,10 @@ impl E1<'_> {
 
     /// `l[i]`: el sitio de su byte `i`, o T0072 fuera de ella.
     pub(super) fn lamina_index(&mut self, h: Place, idx: &Value, at: (usize, usize)) -> Result<Place, String> {
-        let (pi, _) = self.eval(idx)?;
-        self.load(pi, RAX);
-        x86::cmp_r64_imm8(&mut self.code, RAX, 0);
-        self.trap(0x8C, "T0072", "una celda fuera de la lamina", at);
-        self.load(h.at(8), RCX);
-        x86::cmp_r64_r64(&mut self.code, RAX, RCX);
-        self.trap(0x8D, "T0072", "una celda fuera de la lamina", at);
+        self.a_rax(idx)?;
+        self.dentro_de(h.at(8), "una celda fuera de la lamina", at);
         let cell = self.list_cell(&Class::Byte);
-        Ok(self.cell_at(h, cell, pi))
+        Ok(self.celda_rax(h, cell))
     }
 
     /// Muere su propietario: el bloque, de vuelta al kernel, y el asa a cero.

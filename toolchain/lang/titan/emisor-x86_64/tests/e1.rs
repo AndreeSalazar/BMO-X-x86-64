@@ -109,6 +109,18 @@ fn a_typed_number_chooses_the_cell_and_leaving_the_table_is_a_no() {
     assert!(ran(body, ENTERO, "9\n").0.starts_with("NO T0072 al correr, linea 5:"));
 }
 
+/// ** AF5 (16-10): la celda de una LISTA se mira con UN `cmp` sin signo: un
+/// negativo, visto sin signo, es enorme y se sale igual que uno de mas.
+#[test]
+fn a_typed_list_cell_below_zero_or_past_the_end_is_a_no() {
+    let body = "    let mut l: [int] = []\n    push(mut l, 4)\n    push(mut l, 5)\n    let i = entero(lee())\n    print(l[i], \" \", l[i - 1])\n";
+    assert_eq!(ran(body, ENTERO, "1\n").0, "5 4\n");
+    for typed in ["2\n", "-1\n", "0\n", "-9223372036854775807\n"] {
+        let (out, exited) = ran(body, ENTERO, typed);
+        assert!(exited && out.starts_with("NO T0072 al correr, linea 8:"), "typed {typed:?}: {out:?}");
+    }
+}
+
 #[test]
 fn the_pic_is_looked_at_when_the_number_comes_from_outside() {
     let body = "    let mut saldo: dec(7, 2) = 900.00\n    saldo = saldo * entero(lee())\n    print(saldo)\n";

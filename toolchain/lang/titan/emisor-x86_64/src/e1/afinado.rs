@@ -587,3 +587,16 @@ impl E1<'_> {
         self.store(p, RAX);
     }
 }
+
+impl E1<'_> {
+    /// ** AF5: la celda de `rax` esta DENTRO de lo que mide `n` (un sitio),
+    /// o T0072. UN `cmp` sin signo: un negativo, visto sin signo, es enorme y
+    /// tambien se pasa -- las dos miradas (`>= 0` y `< n`) en una.
+    pub(super) fn dentro_de(&mut self, n: super::Place, why: &str, at: (usize, usize)) {
+        if !self.cmp_con_sitio(RAX, n) {
+            self.load(n, RCX);
+            x86::cmp_r64_r64(&mut self.code, RAX, RCX);
+        }
+        self.trap(0x83, "T0072", why, at);
+    }
+}

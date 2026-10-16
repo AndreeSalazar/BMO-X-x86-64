@@ -7,8 +7,8 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   880 casillas ABIERTAS en 80 planes
-   678 hechas
+   879 casillas ABIERTAS en 80 planes
+   680 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -576,15 +576,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] 3. reap PREGUNTA AL JUEZ en vez de mirar solo su rsp. El cambio
 - ... y 2 mas
 
-## [`PLAN_TITAN_AFINADO.md`](PLAN_TITAN_AFINADO.md) -- 5 abiertas, 8 hechas
-
-*PLAN TITAN AFINADO -- TITAN++ a la altura de C, sin aprender de CPU*
-
-- [ ] AF5 -- EL PRECIO DE LA SEGURIDAD, medido. Cuantas instrucciones del
-- [ ] AF7 -- las llamadas. El marco de una fn pequenia sin lo que no usa
-- [ ] AF8 -- COPIAR DENTRO (fase C, ventaja 3). Una fn chica de un
-- ... y 2 mas
-
 ## [`PLAN_DIRECTOR_CENSO.md`](PLAN_DIRECTOR_CENSO.md) -- 4 abiertas, 11 hechas
 
 *PLAN DEL DIRECTOR -- el censo, lo que gasta, y por que*
@@ -637,6 +628,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] ME -- los elementos de la seccion 2c segun E1: la etiqueta en toolchain/tools/maqueta/node/src/m
 - [ ] MB -- la pila B segun M1-M4 y M6: la rejilla en toolchain/tools/maqueta/layout/src/flow.rs, las 
 - [ ] MC -- la pila C segun M5: @secuencia junto a @estado en toolchain/tools/maqueta/node/src/style.r
+- ... y 1 mas
+
+## [`PLAN_TITAN_AFINADO.md`](PLAN_TITAN_AFINADO.md) -- 4 abiertas, 10 hechas
+
+*PLAN TITAN AFINADO -- TITAN++ a la altura de C, sin aprender de CPU*
+
+- [ ] AF5 -- EL PRECIO DE LA SEGURIDAD, medido. Cuantas instrucciones del
+- [ ] AF8 -- COPIAR DENTRO (fase C, ventaja 3). Una fn chica de un
+- [ ] AF9 -- EL BUCLE DE DATOS EN VECTORES (fase C, ventajas 1 y 2). Un
 - ... y 1 mas
 
 ## [`PLAN_EL_CENTAURO.md`](PLAN_EL_CENTAURO.md) -- 3 abiertas, 32 hechas

@@ -280,13 +280,17 @@ impl E1<'_> {
 
     /// `t[i]`: el sitio de la celda, mirando que este dentro (T0072).
     pub fn index_place(&mut self, base: Place, inner: &Class, n: usize, idx: &Value, at: (usize, usize)) -> Result<Place, String> {
-        let (pi, _) = self.eval(idx)?;
-        self.load(pi, RAX);
-        x86::cmp_r64_imm8(&mut self.code, RAX, 0);
-        self.trap(0x8C, "T0072", &format!("una celda fuera de la tabla (tiene {}: de 0 a {})", n, n.saturating_sub(1)), at);
-        self.imm(RCX, n as i64);
-        x86::cmp_r64_r64(&mut self.code, RAX, RCX);
-        self.trap(0x8D, "T0072", &format!("una celda fuera de la tabla (tiene {}: de 0 a {})", n, n.saturating_sub(1)), at);
+        self.a_rax(idx)?;
+        // AF5: UN `cmp` sin signo -- un negativo, sin signo, pasa de `n`
+        let why = format!("una celda fuera de la tabla (tiene {}: de 0 a {})", n, n.saturating_sub(1));
+        match i32::try_from(n) {
+            Ok(n) => x86::cmp_r64_imm32(&mut self.code, RAX, n),
+            Err(_) => {
+                self.imm(RCX, n as i64);
+                x86::cmp_r64_r64(&mut self.code, RAX, RCX);
+            }
+        }
+        self.trap(0x83, "T0072", &why, at);
         self.imm(RCX, self.forms.size(inner) as i64);
         x86::imul_r64_r64(&mut self.code, RAX, RCX);
         self.addr(base, RDX);

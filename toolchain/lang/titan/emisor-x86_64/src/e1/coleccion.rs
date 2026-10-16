@@ -64,6 +64,11 @@ impl E1<'_> {
     /// La celda `i` (un sitio con un int) de lo que apunta el asa `h`.
     pub(super) fn cell_at(&mut self, h: Place, cell: i32, i: Place) -> Place {
         self.load(i, RAX);
+        self.celda_rax(h, cell)
+    }
+
+    /// La celda cuyo numero esta en `rax`.
+    pub(super) fn celda_rax(&mut self, h: Place, cell: i32) -> Place {
         // AF6: una celda de 1 byte no se multiplica, y una de 2, 4, 8... se
         // corre (`shl`)
         if cell > 1 && (cell as u32).is_power_of_two() {
@@ -81,15 +86,10 @@ impl E1<'_> {
 
     /// `l[i]` de una lista: dentro, o T0072.
     pub fn list_index(&mut self, h: Place, t: &Class, idx: &Value, at: (usize, usize)) -> Result<Place, String> {
-        let (pi, _) = self.eval(idx)?;
-        self.load(pi, RAX);
-        x86::cmp_r64_imm8(&mut self.code, RAX, 0);
-        self.trap(0x8C, "T0072", "una celda fuera de la lista", at);
-        self.load(h.at(8), RCX);
-        x86::cmp_r64_r64(&mut self.code, RAX, RCX);
-        self.trap(0x8D, "T0072", "una celda fuera de la lista", at);
+        self.a_rax(idx)?;
+        self.dentro_de(h.at(8), "una celda fuera de la lista", at);
         let cell = self.list_cell(t);
-        Ok(self.cell_at(h, cell, pi))
+        Ok(self.celda_rax(h, cell))
     }
 
     /// Lo que dan `get`, `has`, `pop` (su ultimo) y una vuelta de `for`.

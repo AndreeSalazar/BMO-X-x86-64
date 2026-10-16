@@ -53,6 +53,7 @@ mod lamina;
 mod sonido;
 mod entrada;
 mod letra;
+mod llamada;
 mod valor;
 mod ventana;
 
@@ -663,11 +664,13 @@ impl<'m> E1<'m> {
         self.code.extend_from_slice(&[0x48, 0x89, 0xE5]); // mov rbp, rsp
         self.code.extend_from_slice(&[0x48, 0x81, 0xEC, 0, 0, 0, 0]); // sub rsp, imm32
         let frame_patch = self.code.len() - 4;
-        // el sitio del resultado y los valores: solo si los hay
-        if f.ret.is_some() {
+        // el sitio del resultado y los valores: solo si los hay (AF7: una fn
+        // ligera los trae en registros)
+        let ligera = self.m.functions.iter().position(|g| std::ptr::eq(g, f)).is_some_and(|k| llamada::ligera(self.m, k));
+        if f.ret.is_some() && !ligera {
             x86::mov_at_reg_disp32_from_r64(&mut self.code, RBP, -8, RSI);
         }
-        if !f.params.is_empty() {
+        if !f.params.is_empty() && !ligera {
             x86::mov_at_reg_disp32_from_r64(&mut self.code, RBP, -16, RDI);
         }
         if let Some((_, guarda)) = self.f.registro {
@@ -682,7 +685,10 @@ impl<'m> E1<'m> {
             depth_patches.push(self.code.len() - 4);
         }
         // los valores que llegan
-        for (i, (l, t)) in f.params.iter().enumerate() {
+        if ligera {
+            self.llegan_ligeros(f);
+        }
+        for (i, (l, t)) in f.params.iter().enumerate().filter(|_| !ligera) {
             let c = self.forms.class(t);
             x86::mov_r64_at_reg_disp32(&mut self.code, R11, RBP, -16);
             x86::mov_r64_at_reg_disp32(&mut self.code, RAX, R11, 8 * i as i32);
@@ -724,19 +730,16 @@ impl<'m> E1<'m> {
             self.f.temp = 0;
             match &b.end {
                 End::Return(v) => {
-                    if let (Some(v), Some(rc)) = (v, &ret_class) {
-                        let (p, c) = self.eval(v)?;
-                        let dst = Place { base: Base::Ptr(-8), off: 0 };
-                        self.convert(dst, p, &c, rc, f.ret.as_ref(), v.at())?;
-                    }
-                    // lo que muere al volver: lo calculado y los locales (un
-                    // `mut` prestado es del que llama)
-                    self.drop_owned_from(0);
-                    for l in 0..self.f.known.len() {
-                        if let (Some(c), false) = (self.f.known[l].clone(), self.f.indirect[l]) {
-                            let p = self.local(l);
-                            self.drop_at(p, &c);
+                    match (v, &ret_class) {
+                        // AF7: el resultado de una fn ligera vuelve en `rax`
+                        (Some(v), Some(_)) if ligera => self.vuelve_ligero(v, &mut |e| e.muere_al_volver())?,
+                        (Some(v), Some(rc)) => {
+                            let (p, c) = self.eval(v)?;
+                            let dst = Place { base: Base::Ptr(-8), off: 0 };
+                            self.convert(dst, p, &c, rc, f.ret.as_ref(), v.at())?;
+                            self.muere_al_volver();
                         }
+                        _ => self.muere_al_volver(),
                     }
                     if !root {
                         self.code.extend_from_slice(&[0x49, 0x81, 0x2F, 0, 0, 0, 0]); // sub qword [r15], imm32
@@ -790,100 +793,16 @@ impl<'m> E1<'m> {
         Ok(cost)
     }
 
-    /// La fn de un trait: mira el TIPO del primer valor y salta a la fn de
-    /// ese tipo, con el puntero ya en el valor (sin su tipo delante).
-    fn dispatcher(&mut self, table: &[(String, usize)], line: usize) -> Result<(), String> {
-        x86::mov_r64_at_reg_disp32(&mut self.code, R11, RDI, 0);
-        x86::mov_r64_at_reg_disp32(&mut self.code, RAX, R11, 0);
-        for (ty, target) in table {
-            let id = self.forms.type_id(ty);
-            self.imm(bmo_lower::x86::RCX, id);
-            x86::cmp_r64_r64(&mut self.code, RAX, bmo_lower::x86::RCX);
-            let next = self.jcc(0x85);
-            self.lea(R11, R11, 8);
-            x86::mov_at_reg_disp32_from_r64(&mut self.code, RDI, 0, R11);
-            let j = self.jmp();
-            self.calls.push((j, *target));
-            self.here(next);
-        }
-        let j = self.jmp();
-        self.traps.push(Trap { field: j, head: "NO al correr, linea ".into(), line, why: "un trait sin la fn de este tipo (fallo del compilador: avisa)".into() });
-        Ok(())
-    }
-
-    /// Una llamada: los punteros a sus valores, el sitio de su resultado.
-    pub fn call(&mut self, func: usize, args: &[Value], at: (usize, usize)) -> Result<Option<(Place, Class)>, String> {
-        let f = &self.m.functions[func];
-        if f.gpu {
-            return self.gpu_call(func, args, at);
-        }
-        let params: Vec<(Class, Ty, Mode)> = f.params.iter().enumerate().map(|(i, (_, t))| (self.forms.class(t), t.clone(), f.modes.get(i).copied().unwrap_or(Mode::Copy))).collect();
-        let ret = f.ret.as_ref().map(|t| self.forms.class(t));
-        let block = self.temp(8 * args.len().max(1) as i32);
-        let mut back: Vec<(Place, Place, i32)> = Vec::new();
-        for (i, a) in args.iter().enumerate() {
-            let (pc, pt, _) = &params[i];
-            let ptr = match a {
-                Value::Lend(Mode::Mut, l, _) => {
-                    let lc = self.f.known[*l].clone().ok_or("un local sin valor")?;
-                    let lp = self.local(*l);
-                    if matches!(pc, Class::Trait(_)) && !matches!(lc, Class::Trait(_)) {
-                        // un `mut` hacia un trait: va con su tipo, y vuelve
-                        // se MUEVE al sitio del trait y vuelve movido
-                        let t = self.temp(self.forms.size(pc));
-                        self.conv(t, lp, &lc, pc, true, a.at())?;
-                        back.push((lp, t.at(8), self.forms.size(&lc)));
-                        t
-                    } else {
-                        lp
-                    }
-                }
-                _ => {
-                    let (p, c) = self.eval(a)?;
-                    if &c == pc {
-                        p
-                    } else {
-                        let t = self.temp(self.forms.size(pc));
-                        self.convert(t, p, &c, pc, Some(pt), a.at())?;
-                        self.own(t, pc);
-                        t
-                    }
-                }
-            };
-            self.addr(ptr, RAX);
-            self.store(block.at(8 * i as i32), RAX);
-        }
-        let out = ret.map(|c| (self.temp(self.forms.size(&c)), c));
-        self.addr(block, RDI);
-        match &out {
-            Some((p, _)) => self.addr(*p, RSI),
-            None => x86::zero_r32(&mut self.code, RSI),
-        }
-        // T0066 AQUI, en la linea de la llamada (donde lo dice el calculo):
-        // [r15] + lo que gasta la fn > la pila. Lo que gasta se sabe al final.
-        self.code.extend_from_slice(&[0x49, 0x81, 0x3F, 0, 0, 0, 0]); // cmp qword [r15], imm32
-        self.depth_checks.push((self.code.len() - 4, func));
-        let name = self.m.functions[func].name.clone();
-        self.trap(0x8F, "T0066", &format!("las llamadas se anidan mas de lo que cabe en la pila (`{}` sin llegar a su caso de parada?)", forma::short(&name)), at);
-        self.code.push(0xE8);
-        self.calls.push((self.code.len(), func));
-        self.code.extend_from_slice(&[0; 4]);
-        for (to, from, size) in back {
-            self.copy(to, from, size);
-        }
-        // A4b: la lamina ENTREGADA ya es de la fn: aqui no queda nada que soltar.
-        for a in args {
-            if let Value::Lend(Mode::Take, l, _) = a {
-                if self.f.known[*l] == Some(Class::Lamina) {
-                    let p = self.local(*l);
-                    self.olvida_lamina(p);
-                }
+    /// Lo que muere al volver: lo calculado y los locales (un `mut`
+    /// prestado es del que llama).
+    fn muere_al_volver(&mut self) {
+        self.drop_owned_from(0);
+        for l in 0..self.f.known.len() {
+            if let (Some(c), false) = (self.f.known[l].clone(), self.f.indirect[l]) {
+                let p = self.local(l);
+                self.drop_at(p, &c);
             }
         }
-        if let Some((p, c)) = &out {
-            self.own(*p, c);
-        }
-        Ok(out)
     }
 
     /// Si `[item; n]` ya es lo que su `let` declara (o no declara nada): la

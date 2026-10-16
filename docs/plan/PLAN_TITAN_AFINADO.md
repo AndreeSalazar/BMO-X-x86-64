@@ -81,10 +81,12 @@ asi que sus pasos son TRINQUETE: solo pueden bajar.
                                                empezar     AF0 + AF1   AF4 y AF6
    ---------------------------------------------------------------------------
    primos     bucles, `%`, `break`              3,0 x C     2,33 x C    1,33 x C
-   fib        llamadas (fib 22 recursivo)       2,6 x C     2,31 x C    1,83 x C
+   fib        llamadas (fib 22 recursivo)       2,6 x C     2,31 x C    1,25 x C *
    bytes      llenar y sumar 200000 bytes       3,4 x C     3,03 x C    1,50 x C
-   ordenar    indices y un while con `and`      2,9 x C     2,43 x C    1,57 x C
+   ordenar    indices y un while con `and`      2,9 x C     2,43 x C    1,11 x C *
 ```
+(* tras AF7, la fn ligera (`fib`), y AF5a, la celda con una comparacion
+(`ordenar`). **Los cuatro en la meta de la fase A.**)
 
 **La meta: 1,5 x C o menos en los cuatro**, con las comprobaciones de
 seguridad puestas (C no las tiene: igualarlo del todo seria quitarlas).
@@ -137,6 +139,11 @@ Como se lee, sin adornarlo:
 * **La meta realista, en orden:** el C de la casa (1,5 x), despues Rust en
   los bucles enteros (AF3, los registros, es el salto grande), y el SIMD
   como trabajo del emisor, no del que escribe.
+
+**Tras AF7 y AF5a** (el versus, otra vez el 16-10): fib 1,3 x el C de la
+casa y 2,3 x Rust; ordenar 1,1 x el C de la casa y 5,1 x Rust (Rust no
+llama a nada en su bucle y sus indices ya los demuestra LLVM: es la fase
+B). primos y bytes, como abajo.
 
 **El mismo dia, tras AF3, AF4 y AF6** (el versus vuelto a correr):
 
@@ -319,6 +326,14 @@ en sus cientos de programas) y el metro sin que ninguna salida cambie.
         correr: se sabe al compilar que no atrapa
       El duelo: primos 1,54 -> 1,33, bytes 2,43 -> 1,93; el banco del metro
       50,7 -> 45,7 millones de instrucciones, y ninguno de los 72 subio
+- [x] **AF5a -- la celda mirada con UNA comparacion** (16-10). `a[i]`
+      miraba `i >= 0` y `i < len` (cinco instrucciones); ahora un `cmp` sin
+      signo y un `jae`: un negativo, visto sin signo, es enorme y se sale
+      igual. La MISMA seguridad (T0072, la misma linea), en listas, tablas y
+      laminas; y el indice se calcula derecho en `rax`. El duelo: ordenar
+      1,57 -> 1,11. El banco 40,1 -> 38,9 millones. `tests/e1.rs`
+      (`a_typed_list_cell_below_zero_or_past_the_end_is_a_no`), con su
+      sabotaje (el salto con signo: un -1 pasaria y lo dice)
 - [ ] **AF5 -- EL PRECIO DE LA SEGURIDAD, medido.** Cuantas instrucciones del
       duelo son desbordes, indices y divisiones mirados. Y quitar SOLO los
       que se pueden DEMOSTRAR imposibles al compilar (`for i in range(len(a))`
@@ -338,8 +353,17 @@ en sus cientos de programas) y el metro sin que ninguna salida cambie.
       desde `rcx`, y el `cmp` nuevo ya no la dejaba alli): el monton se
       acababa al quinto `push`. Lo vio el duelo (no acababa); ahora una
       prueba lo dice (`tests/bytes.rs`)
-- [ ] **AF7 -- las llamadas.** El marco de una fn pequenia sin lo que no usa
-      (`fib`)
+- [x] **AF7 -- las llamadas: la fn LIGERA** (16-10). Una fn de 1 a 4 `int`
+      copiados que da un `int` (o nada) recibe sus valores en `rdx`, `rcx`,
+      `r8` y `r9` y devuelve el resultado en `rax`: sin el bloque de
+      punteros, sin el sitio del resultado y sin copiar cada valor de un
+      puntero al entrar. Lo decide el emisor (`e1/llamada.rs`, `ligera`):
+      ni la de un trait ni una fn a la que salta un trait (su salto lleva el
+      bloque), ni `main`. Si al volver muere algo que soltar, el resultado
+      espera aparte; si no, ni se guarda.
+      El duelo: fib 1,83 -> 1,25. El banco 42,2 -> 40,1 millones de
+      instrucciones y 14,2 -> 12,5 millones de accesos. `tests/ligera.rs`,
+      con su sabotaje (los registros cruzados al llegar: lo dice)
 - [ ] **AF8 -- COPIAR DENTRO (fase C, ventaja 3).** Una fn chica de un
       paquete se emite dentro de quien la llama: sin `call`, sin marco
 - [ ] **AF9 -- EL BUCLE DE DATOS EN VECTORES (fase C, ventajas 1 y 2).** Un
