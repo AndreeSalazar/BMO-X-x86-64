@@ -227,6 +227,65 @@ les puede ganar -- sin que TITAN++ aprenda de CPU: lo sabe el emisor.
 
 ---
 
+# 2d. ★★★ EL MARCADOR: lo que ya gana, lo que pierde y lo que falta
+
+El propietario, 16-10: *"mi bmo-X que es mi casa ya supera? sino faltarian
+mejorar y poner eso en datos y documentos que decir que faltan [...] me
+gustaria que [...] lo aplaste"*.
+
+**Los datos no se escriben a mano**: `python toolchain/tools/metro/versus.py
+--escribe` reescribe `toolchain/tools/metro/MARCADOR.md` con cada duelo
+contra cada rival (GANA por debajo de 0,95, EMPATA hasta 1,05, pierde por
+encima). El 16-10, al cerrar la fase B:
+
+```text
+   la cuenta: 4 GANA, 0 empata, 28 pierde -- de 32 (4 duelos x 8 rivales)
+
+   gana:    primos al C de la casa (0,86) y a Rust (0,84)
+            bytes al C de la casa (0,62), ordenar al C de la casa (0,58)
+   cerca:   primos a Clang (1,11), bytes a g++ (1,06), fib al C casa (1,06)
+   lejos:   bytes a Clang (6,3; a tope 19,5), ordenar a Rust (2,6),
+            fib a todos (1,7 a 1,9)
+```
+
+**Respuesta corta: no, todavia no los aplasta.** Al empezar el dia perdia
+los 32, de 2,3 a 95 veces. Hoy gana 4 y pierde el resto por 1,06 a 19,5 --
+y lo que falta esta medido, duelo a duelo:
+
+- [ ] **M1 -- `fib` (pierde 1,7 a 1,9 con todos).** Cada llamada paga 4
+      instrucciones por la pila de las llamadas (`[r15]`: sumar, restar,
+      comparar, saltar) y 3 `jo`. Que la mire `rsp` mismo (3 instrucciones
+      en quien llama, ninguna en la fn), y COPIAR DENTRO (AF8) la fn chica
+      en quien la llama
+- [ ] **M2 -- `bytes` (pierde 1,45 con Rust, 1,85 con GCC, 6,3 con Clang).**
+      Llenar la lista se lleva el 80 %: cada `push` mira la capacidad en la
+      memoria. Que un bucle con `push` vaya por E2 con lo que mide la lista
+      EN UN REGISTRO (crecer, por el camino largo de E1), y llenar en
+      vectores como Clang. Y AVX2, 32 bytes por instruccion: **lo decide el
+      propietario** en `PERFIL/CPU.txt`
+- [ ] **M3 -- `ordenar` (pierde 2,6 con Rust, 1,6 con Clang).** El bucle de
+      dentro hace 12 instrucciones por vuelta; Rust, unas 5: no mira el
+      indice (lo demuestra) ni el desborde de `j - 1`. Demostrar el indice
+      (`j` entre 0 y `i`, y `i < n`) con la cota de B2 extendida a lo MAS
+      que vale cada local, y que E2 guarde en la pila lo que no le cabe en
+      vez de dejar el bucle entero a E1
+- [ ] **M4 -- `primos` (pierde 1,11 con Clang, 1,38 con GCC).** El bucle de
+      dentro: los dos `jo` de `d * d` y `d + 1`. Demostrar con la cota que
+      `d * d` no desborda mientras `d * d <= k`
+- [ ] **M5 -- los CICLOS (AF10).** El marcador cuenta instrucciones; el
+      Ryzen cuenta ciclos. El dia que gane, que lo diga el metal
+
+**Las subidas del metro, redefinidas** (16-10, al cerrar la fase B). Medido
+programa a programa contra la linea base de ANTES de la fase B (AF7, commit
+`28202211a`): de los 72 programas, **ninguno sube en instrucciones ni en
+accesos**. Solo dos suben en BYTES de codigo, por el bucle girado (la
+condicion escrita arriba y abajo): `cubo_gira` +57 B (+0,04 %) y `agenda`
++8 B. Lo demas que se habia aceptado a la vista en los commits de la fase B
+ya no sube: el `push` que crece lee la capacidad de lo que mide (son lo
+mismo cuando no cabe), y lo demas lo bajaron los pasos de despues.
+
+---
+
 # 3. DONDE SE VAN LAS INSTRUCCIONES (el bucle de `primos`, desensamblado)
 
 ```text

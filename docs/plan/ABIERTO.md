@@ -7,7 +7,7 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   882 casillas ABIERTAS en 80 planes
+   887 casillas ABIERTAS en 80 planes
    686 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
@@ -243,6 +243,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] E2 -- (C,T) DECLARADOS Y EL AFORO. Cada tarea trae su compas; el kernel
 - ... y 9 mas
 
+## [`PLAN_TITAN_AFINADO.md`](PLAN_TITAN_AFINADO.md) -- 12 abiertas, 16 hechas
+
+*PLAN TITAN AFINADO -- TITAN++ a la altura de C, sin aprender de CPU*
+
+- [ ] M1 -- fib (pierde 1,7 a 1,9 con todos). Cada llamada paga 4
+- [ ] M2 -- bytes (pierde 1,45 con Rust, 1,85 con GCC, 6,3 con Clang).
+- [ ] M3 -- ordenar (pierde 2,6 con Rust, 1,6 con Clang). El bucle de
+- ... y 9 mas
+
 ## [`PLAN_LA_PUERTA_SE_PARTE.md`](PLAN_LA_PUERTA_SE_PARTE.md) -- 11 abiertas, 8 hechas
 
 *PLAN LA PUERTA SE PARTE -- dividir lo que no se puede abaratar*
@@ -421,15 +430,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] 2b la ventana con REJILLA scroll como modulo reutilizable, de la
 - [ ] 5 los comandos que la ls, cat, escribir. Y los que la
 - [ ] 6 compilar hola.ada el frontend de Ada dentro del mismo
-- ... y 4 mas
-
-## [`PLAN_TITAN_AFINADO.md`](PLAN_TITAN_AFINADO.md) -- 7 abiertas, 16 hechas
-
-*PLAN TITAN AFINADO -- TITAN++ a la altura de C, sin aprender de CPU*
-
-- [ ] AF5 -- EL PRECIO DE LA SEGURIDAD, medido. Cuantas instrucciones del
-- [ ] AF8 -- COPIAR DENTRO (fase C, ventaja 3). Una fn chica de un
-- [ ] AF9 -- el resto del bucle de DATOS en vectores. Llenar una lista
 - ... y 4 mas
 
 ## [`PLAN_EL_ENLAZADOR.md`](PLAN_EL_ENLAZADOR.md) -- 6 abiertas, 10 hechas

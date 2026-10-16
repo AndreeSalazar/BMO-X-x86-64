@@ -223,7 +223,9 @@ impl E1<'_> {
         // camino que crece (dobla desde ahi)
         let room = if self.cmp_con_sitio(RAX, h.at(16)) {
             let room = self.jcc(0x8C);
-            self.load(h.at(16), RCX);
+            // si no cabe, lo que mide ES su capacidad: crecer la dobla
+            // desde ahi, sin leerla otra vez
+            x86::mov_r64_r64(&mut self.code, RCX, RAX);
             room
         } else {
             self.load(h.at(16), RCX);
