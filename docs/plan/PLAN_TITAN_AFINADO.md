@@ -36,6 +36,37 @@ por cero. Eso es lo que C no hace y por eso C explota. El precio se MIDE
 
 ---
 
+# 1b. EL FUEGO REAL -- lo que hace unico a BMO-X
+
+El propietario, 16-10: *"bmo-X no es tipico como clang ni otros: prepara bien
+el CPU y expulsa brutalmente todo para exprimir, y se aplicara en cualquier
+perfil, solo en x86_64 [...] clang puede hacer su truco si quiere pero
+cuando se trata del fuego real ahi es donde yo gano el terreno [...] el
+monopolio del fuego real"*.
+
+Clang y GCC hacen sus trucos AL COMPILAR, y despues el programa corre en un
+sistema que no controlan: otros procesos, interrupciones, un planificador
+que lo mueve de nucleo, memoria repartida, una frecuencia que sube y baja.
+BMO-X es la maquina ENTERA. Al CORRER puede:
+
+```text
+   preparar        un nucleo para el trabajo y nada mas en el (sin otros
+                   procesos ni sus interrupciones), la topologia y la cache
+                   que el kernel ya mide al arrancar (`cpu_vendor/`)
+   la memoria      el trabajo en memoria contigua y en paginas grandes,
+                   cerca de su nucleo
+   el silicio      lo que la CPU de ESTA maquina sabe hacer, leido al
+                   arrancar y comparado con su perfil (B4): cualquier
+                   x86-64, cada uno con lo suyo
+   medir           los contadores del Zen 3 (C4): los ciclos de verdad
+```
+
+**La regla que se sigue de esto**: el juez final no es el emulador ni el
+versus de instrucciones, es el RYZEN corriendo (AF10). Las fases A y B
+ponen el codigo de TITAN++ a la altura; el fuego real es donde BMO-X gana.
+
+---
+
 # 2. ★★★ EL NUMERO: EL DUELO
 
 El MISMO programa escrito en C y en TITAN++ (`toolchain/tools/metro/duelo/`),
