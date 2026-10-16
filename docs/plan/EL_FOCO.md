@@ -1,5 +1,18 @@
 # EL FOCO -- una cosa a la vez, hasta el final (10-10; el orden nuevo, 14-10)
 
+> **16-10, foco pedido ahora: M3a y la lente precisa de bytes.** M3a queda
+> cerrado en el anfitrion (-30,54 % de instrucciones en ordenar, sin
+> regresiones del banco). La vista cruda de la autopsia (hex y bits, hasta
+> 16 bytes capturados desde RIP) compila y pasa la pila; falta verla en el
+> Ryzen. El metro imprime ficheros completos con esa misma vista.
+> [`Estudio y medidas`](../../toolchain/tools/metro/M3A_Y_LENTE.md).
+> Cyberpunk sigue aparcado como se decidio abajo.
+
+> **Continuacion del 16-10:** el DIRECTOR ya tiene `dentro bits OFFSET RUTA`,
+> 64 bytes por pagina con hex y bits, y el comando para seguir. El juez puro
+> de ventanas pasa sus pruebas; falta la comprobacion en el Ryzen. Hoja de
+> esta tanda: [`LENTE_CRUDA_2026-10-16.md`](../metal/LENTE_CRUDA_2026-10-16.md).
+
 > Peticion del propietario, **2026-10-10**: *"enfoca en algo, terminar eso y
 > luego seguimos [...] me gustaria que enfoques mas en TITAN++ y VERRANO con
 > PROTON-X + INTI esos elementos y LAMINA la RAM, el INTI en NAVEGAR si

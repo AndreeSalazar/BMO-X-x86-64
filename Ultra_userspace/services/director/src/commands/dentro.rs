@@ -33,8 +33,17 @@ const PILA: u64 = 64 * 1024;
 pub(crate) fn dentro(dsk: &mut Desktop, _p: &bmo::Pantalla, ruta: &[u8]) -> After {
     let s = &mut dsk.out.grid;
     let ruta = ruta.trim_ascii();
+    if ruta == b"bits" {
+        super::dentro_bits::mostrar(s, b"");
+        return After::Settle;
+    }
+    if let Some(args) = ruta.strip_prefix(b"bits ") {
+        super::dentro_bits::mostrar(s, args);
+        return After::Settle;
+    }
     if ruta.is_empty() {
         s.text(b"  dentro RUTA: lo que hay dentro de un .bex, un .exe de Windows o una app carpeta (o clic derecho > ver por dentro)\n");
+        s.text(b"  dentro bits 0x0 RUTA: estudiar sus bytes en hexadecimal y bits\n");
         return After::Settle;
     }
     let Ok(a) = bmo::Archivo::leer_de(ruta) else {
@@ -107,6 +116,14 @@ pub(crate) fn dentro(dsk: &mut Desktop, _p: &bmo::Pantalla, ruta: &[u8]) -> Afte
     s.text(b"   relocaciones ");
     s.dec(r.relocs as u64);
     s.byte(b'\n');
+    if let Some(c) = r.regiones[0] {
+        s.text(b"  codigo crudo: dentro bits 0x");
+        s.hex(c.file_offset, 1);
+        s.byte(b' ');
+        s.text(ruta);
+        s.byte(b'\n');
+        s.text(b"  ese offset es del fichero; la entrada de arriba es relativa al codigo\n");
+    }
     // Los anexos: lo que viaja pegado al programa.
     s.text(b"  anexos     ");
     for a in &r.anexos[..r.cuantos_anexos.min(bmo_radiografia::ANEXOS_MAX)] {

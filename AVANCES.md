@@ -1,5 +1,21 @@
 # AVANCES -- estado de BMO-X (recuperacion de contexto)
 
+> **16-10, foco actual del propietario: M3a y la lente PRECISA.** M3a ya
+> aplicado y probado: ordenar 1.186.491 -> 824.134 instrucciones (-30,54 %),
+> 72 programas sin regresiones del metro. La lente comparte una vista cruda
+> (direccion, hex y ocho bits por byte) entre autopsia y metro; el kernel
+> muestra hasta los 16 bytes capturados desde RIP y el metro vuelca ficheros
+> completos. Kernel enlazado y pila comprobada; **falta la salida en el
+> Ryzen**. El versus externo no se ha repetido. Detalle y estudio:
+> [`M3A_Y_LENTE.md`](toolchain/tools/metro/M3A_Y_LENTE.md),
+> [`PLAN_TITAN_AFINADO.md`](docs/plan/PLAN_TITAN_AFINADO.md), seccion 2d.
+>
+> **Continuacion:** `dentro bits OFFSET RUTA` en el DIRECTOR recorre un
+> fichero por paginas de 64 bytes, solo lectura, con offset/hex/bits y la
+> orden siguiente. `dentro RUTA` localiza la region de codigo en el fichero.
+> Pruebas de ventanas y el banco de 72 pasan; pendiente de metal en
+> [`LENTE_CRUDA_2026-10-16.md`](docs/metal/LENTE_CRUDA_2026-10-16.md).
+
 > Documento vivo para retomar el proyecto desde cero (chat nuevo). Resumen de
 > QUE funciona, QUE falta, DONDE esta cada cosa y COMO se trabaja. Para el
 > detalle cronologico ver los commits y `BITACORA.md`.

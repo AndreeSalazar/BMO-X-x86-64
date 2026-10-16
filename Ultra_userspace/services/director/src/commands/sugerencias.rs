@@ -47,6 +47,7 @@ pub(crate) const MAX: usize = 8;
 
 /// `(linea, que hace)`, de lo que mas se usa a lo que menos.
 const LISTA: &[(&[u8], &[u8])] = &[
+    (b"dentro bits", b"OFFSET RUTA: sus bytes en hexadecimal y bits, 64 por pagina; empezar en 0x0"),
     (b"save mode", b"la verificacion total: cada paso de la GPU con su save antes"),
     (b"save", b"el INFORME MAESTRO en informe/salida.txt"),
     (b"save mode off", b"desarma el modo: al arrancar ya no se repite"),

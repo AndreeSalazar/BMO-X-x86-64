@@ -9,6 +9,8 @@
 
 pub(crate) mod complete;
 pub(crate) mod dentro;
+/// Los bytes crudos, paginados con la misma lente que la autopsia.
+pub(crate) mod dentro_bits;
 /// `dentro JUEGO.EXE`: un programa de Windows por dentro (LX1).
 pub(crate) mod dentro_exe;
 /// C4: los contadores del Zen 3, calibrados (`cpu contadores`).

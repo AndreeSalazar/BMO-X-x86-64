@@ -34,6 +34,9 @@
 //!                    las direcciones que MAS se ejecutan, con su clase, y
 //!                    el codigo volcado a un fichero para desensamblarlo
 //!                    (llvm-objcopy -I binary -O elf64-x86-64 + llvm-objdump)
+//!   metro --binario <fichero> <salida.txt>
+//!                    TODOS sus bytes, en orden: offset, hexadecimal y bits.
+//!                    No supone que los datos de un fichero sean instrucciones.
 //!
 //! ** INTI entro el 19-09 (C5 de `PLAN_EL_TROQUEL.md`): cinco programas por
 //! `cadena::compilar`, la MISMA cadena que la linea de ordenes, con el nombre
@@ -546,8 +549,49 @@ fn caliente(rel: &str, salida: Option<&str>) {
     }
 }
 
+/// Volcado completo con la MISMA vista de bytes que usa la autopsia del kernel.
+/// Entrada y salida distintas; create_new evita pisar un fichero existente.
+fn binario(entrada: &str, salida: &str) -> std::io::Result<()> {
+    use std::io::{Read, Write};
+    let mut input = std::io::BufReader::new(std::fs::File::open(entrada)?);
+    let mut output = std::io::BufWriter::new(std::fs::OpenOptions::new().write(true).create_new(true).open(salida)?);
+    writeln!(output, "BMO-X LENTE -- bytes crudos; offsets desde el comienzo del fichero")?;
+    writeln!(output, "Orden de memoria; bits 7..0 por byte; no implica codigo ni orden de ejecucion.")?;
+    let mut en = 0u64;
+    let mut buf = [0u8; bmo_lente_x86::crudo::POR_FILA];
+    loop {
+        let mut n = 0;
+        while n < buf.len() {
+            match input.read(&mut buf[n..]) {
+                Ok(0) => break,
+                Ok(k) => n += k,
+                Err(e) if e.kind() == std::io::ErrorKind::Interrupted => continue,
+                Err(e) => return Err(e),
+            }
+        }
+        if n == 0 { break; }
+        let fila = bmo_lente_x86::crudo::fila(en, &buf[..n]).ok_or_else(|| std::io::Error::other("direccion fuera de rango"))?;
+        writeln!(output, "{}", fila.as_str())?;
+        en = en.checked_add(n as u64).ok_or_else(|| std::io::Error::other("fichero fuera de rango"))?;
+    }
+    writeln!(output, "TOTAL: {en} bytes; ningun byte omitido.")?;
+    output.flush()
+}
+
 fn main() {
     let modo = std::env::args().nth(1).unwrap_or_default();
+    if modo == "--binario" {
+        let args: Vec<_> = std::env::args().skip(2).collect();
+        if args.len() != 2 {
+            eprintln!("uso: metro --binario <fichero> <salida.txt>");
+            exit(1);
+        }
+        if let Err(e) = binario(&args[0], &args[1]) {
+            eprintln!("metro: no se pudo completar el volcado: {e}");
+            exit(1);
+        }
+        return;
+    }
     if modo == "--recorre" {
         recorre_fichero(&std::env::args().nth(2).unwrap_or_default());
         return;
@@ -677,6 +721,41 @@ fn main() {
 #[cfg(test)]
 mod pruebas {
     use super::*;
+
+    #[test]
+    fn binary_dump_covers_every_byte_and_never_overwrites() {
+        let base = std::env::temp_dir().join(format!("bmo-lente-cruda-{}", std::process::id()));
+        let input = base.with_extension("bin");
+        let output = base.with_extension("txt");
+        let original: Vec<u8> = (0u8..=255).chain([0x48, 0x83, 0xc0]).collect();
+        std::fs::write(&input, &original).unwrap();
+        // Una salida existente debe rechazarse sin tocarla.
+        std::fs::write(&output, b"conservar").unwrap();
+        assert!(binario(input.to_str().unwrap(), output.to_str().unwrap()).is_err());
+        assert_eq!(std::fs::read(&output).unwrap(), b"conservar");
+        assert!(binario(input.to_str().unwrap(), input.to_str().unwrap()).is_err());
+        assert_eq!(std::fs::read(&input).unwrap(), original);
+        std::fs::remove_file(&output).unwrap();
+        binario(input.to_str().unwrap(), output.to_str().unwrap()).unwrap();
+        let dump = std::fs::read_to_string(&output).unwrap();
+        let mut restored = Vec::new();
+        for line in dump.lines().skip(2).take_while(|l| !l.starts_with("TOTAL:")) {
+            let (hex, bits) = line.split_once("| ").unwrap();
+            let mut fields = hex.split_whitespace();
+            assert_eq!(u64::from_str_radix(fields.next().unwrap(), 16).unwrap(), restored.len() as u64);
+            let h: Vec<_> = fields.map(|s| u8::from_str_radix(s, 16).unwrap()).collect();
+            let b: Vec<_> = bits.split_whitespace().map(|s| {
+                assert_eq!(s.len(), 8);
+                u8::from_str_radix(s, 2).unwrap()
+            }).collect();
+            assert_eq!(h, b);
+            restored.extend(h);
+        }
+        assert_eq!(restored, original);
+        assert!(dump.ends_with("TOTAL: 259 bytes; ningun byte omitido.\n"));
+        std::fs::remove_file(input).unwrap();
+        std::fs::remove_file(output).unwrap();
+    }
 
     fn m(pasos: u64, codigo: u64, salida: &str) -> Medida {
         Medida { pasos, accesos: pasos / 2, codigo, salida: salida.into(), censo: Censo::default(), lente: Ok(0) }

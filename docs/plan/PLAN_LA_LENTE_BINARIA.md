@@ -12,6 +12,52 @@
 
 ## 0. La idea, y la regla que la sostiene
 
+**16-10, continuacion: CONSULTA NATIVA PAGINADA.**
+`dentro bits OFFSET RUTA` en el DIRECTOR muestra 64 bytes por consulta,
+con la misma vista `crudo` del kernel y del metro. La propia salida da el
+offset siguiente; no hay un volcado masivo al cargar un programa. Pide un
+bloque de 64 bytes y usa el handle de lectura existente. El desplazamiento
+del fichero va a `Archivo::saltar`; `leer_en` recibe CERO como destino
+dentro del bloque, no el desplazamiento del fichero.
+
+El juez puro `crudo::pagina` comprueba EOF, paginas parciales y limites
+sin desbordar. Se cubren todos los largos 0..257 y el extremo de u64.
+`dentro RUTA` muestra como localizar el comienzo del codigo EN EL FICHERO.
+Una lectura corta no se anuncia como completa. DIRECTOR compilado y enlazado;
+el guardian de pila de Ring 3 pasa: camino mayor 45.984 de 65.536 B,
+marco mayor 19.552 B. Las 17 pruebas de la lente y el banco de 72 pasan.
+**Falta verlo en el Ryzen**, junto a la autopsia cruda.
+
+**16-10: LA VISTA CRUDA, escrita y probada en el anfitrion.**
+`bmo_lente_x86::crudo` es la misma vista pura para el kernel y el metro:
+direccion creciente, cuatro bytes por fila, hexadecimal y OCHO bits por
+byte (7 a 0, con ceros). Nunca invierte los bytes little-endian para
+mostrarlos como si fueran otro orden de memoria.
+
+La autopsia muestra los **16 bytes capturados desde RIP** completos (o
+solo los que se pudieron leer), antes de `instr` y `dice`. No vuelve a
+leer el proceso despues de cambiar CR3. Esto NO es todo el ejecutable:
+es la ventana del fallo, que puede contener mas de una instruccion.
+Kernel comprobado y enlazado; el guardian de pila pasa (IST1: 7.080 de
+8.192 B). **Falta verlo en el Ryzen.**
+
+Para estudiar un fichero ENTERO en el anfitrion:
+`cargo run --release -p bmo-metro -- --binario entrada.bin salida.txt`.
+No sobrescribe una salida existente. Lee por bloques, sin cargar todo en
+RAM, y termina con el total de bytes. La prueba reconstruye los bytes
+desde el hex y desde los bits, incluidos 00, FF y una ultima fila parcial.
+Sirve para cualquier fichero: BEF, datos y opcodes desconocidos incluidos.
+
+**Tres preguntas distintas:** volcar todos los bytes, decodificar las
+instrucciones alcanzables y observar el orden real de ejecucion. La vista
+cruda responde a la primera; `recorre` y su cobertura, a la segunda; el
+metro en el anfitrion, a la tercera sobre su corrida. Ninguna convierte
+los datos en instrucciones ni demuestra que toda x86-64 este en la tabla.
+Un volcado sin la linea TOTAL no certifica haber terminado.
+
+Estudio breve con los datos de M3a:
+[`M3A_Y_LENTE.md`](../../toolchain/tools/metro/M3A_Y_LENTE.md).
+
 El ensamblador es una vista para personas. La maquina habla en bits, y el
 kernel ya los lee sin pasar por texto:
 

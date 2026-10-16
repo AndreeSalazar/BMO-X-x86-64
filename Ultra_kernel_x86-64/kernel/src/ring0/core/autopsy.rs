@@ -77,10 +77,12 @@ const CUANTAS: usize = 4;
 // `bmo_lente_x86::castellano`), debajo de `instr`. El propietario: *"mi
 // kernel se convierte mi lente automatico de ver binarios a [castellano]"*. Y un
 // VEINTE para lo que de la frase no cabe en un renglon (se corta por palabra).
-const RENGLONES: usize = 20;
+// 16-10: los 16 bytes capturados, COMPLETOS, en hex y bits, cuatro por fila.
+// Son bytes de memoria desde RIP, no cuatro instrucciones inventadas.
+const RENGLONES: usize = 24;
 /// En que orden se guardan los renglones: el de la instruccion (17) y su
 /// frase (18 y 19) justo despues del `rip` (5), que es donde se lee.
-const ORDEN: [usize; RENGLONES] = [0, 1, 2, 3, 4, 5, 17, 18, 19, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16];
+const ORDEN: [usize; RENGLONES] = [0, 1, 2, 3, 4, 5, 20, 21, 22, 23, 17, 18, 19, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16];
 
 /// **Lo que se saca del proceso ANTES de tocar nada.**
 ///
@@ -1103,14 +1105,7 @@ pub fn registrar(
         DENTRO = true;
     }
 
-    let mut renglones: [Renglon; RENGLONES] = [
-        Renglon::nuevo(), Renglon::nuevo(), Renglon::nuevo(), Renglon::nuevo(),
-        Renglon::nuevo(), Renglon::nuevo(), Renglon::nuevo(), Renglon::nuevo(),
-        Renglon::nuevo(), Renglon::nuevo(), Renglon::nuevo(),
-        Renglon::nuevo(), Renglon::nuevo(), Renglon::nuevo(),
-        Renglon::nuevo(), Renglon::nuevo(), Renglon::nuevo(),
-        Renglon::nuevo(), Renglon::nuevo(), Renglon::nuevo(),
-    ];
+    let mut renglones: [Renglon; RENGLONES] = core::array::from_fn(|_| Renglon::nuevo());
 
     renglones[0].s("== FALLO EN RING 3 #");
     renglones[0].dec(unsafe { TOTAL } as u64 + 1);
@@ -1422,6 +1417,15 @@ pub fn registrar(
     // registro salio la direccion -- con su valor al fallar. Es la linea que
     // el 02-10 se hizo a mano con Cyberpunk: `mov eax, [rdi+0x18c0]` y un
     // `rdi` que no era de nadie.
+    // La misma vista pura del metro. No vuelve a leer memoria del proceso:
+    // usa la captura hecha antes de cambiar CR3, incluso si no se decodifica.
+    for (k, bytes) in cap.codigo[..cap.codigo_n].chunks(bmo_lente_x86::crudo::POR_FILA).enumerate() {
+        if let Some(en) = rip.checked_add((k * bmo_lente_x86::crudo::POR_FILA) as u64) {
+            if let Some(fila) = bmo_lente_x86::crudo::fila(en, bytes) {
+                renglones[20 + k].s(fila.as_str());
+            }
+        }
+    }
     renglones[17].s("instr     ");
     {
         let (a, b) = renglones.split_at_mut(18);

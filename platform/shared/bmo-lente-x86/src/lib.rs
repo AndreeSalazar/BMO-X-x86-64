@@ -37,6 +37,8 @@ pub mod tabla;
 mod texto;
 /// **EN CASTELLANO** (15-10): lo que hace una instruccion, dicho para una persona.
 pub mod castellano;
+/// Direccion, hexadecimal y bits literales, incluso de lo que no se decodifica.
+pub mod crudo;
 
 pub use tabla::{Ext, Fila, Forma, Pref};
 pub use texto::Texto;
