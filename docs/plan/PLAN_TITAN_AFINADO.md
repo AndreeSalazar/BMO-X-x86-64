@@ -448,8 +448,26 @@ entero, la seguridad demostrada). TITAN++ sigue sin una palabra de CPU.
       `ordenar` y `agenda` (la condicion con `and`, escrita dos veces).
       `tests/ligera.rs`, con sabotaje (la lectura derecha sin mirar el
       limite: lo dice)
-- [ ] **B5 -- la forma intermedia con registros virtuales.** Lo que mas
-      falta para `fib` y `ordenar` contra Rust y Clang
+- [x] **B5b -- E2, EL EMISOR CON REGISTROS VIRTUALES** (16-10, la primera
+      pieza; `e1/e2.rs`). El propietario: *"no es siempre parche, siempre
+      cambiar piezas"*. Una fn se baja a instrucciones de tres direcciones
+      sobre registros VIRTUALES; se calcula cuales viven en cada sitio (con
+      los bucles) y cuales cruzan una llamada; un barrido lineal los reparte
+      (los que cruzan, a preservados; los demas, a los de paso) y cada uno
+      pide el registro que necesita (el valor de una llamada, el suyo; el
+      resultado, `rax`) si nada lo pisa. Los valores de una llamada van con
+      un MOVIMIENTO PARALELO (`g(b, a)` cruza dos registros). Los NO, los de
+      E1. Hoy toma las fn LIGERAS de enteros (cuentas, comparaciones con
+      `and`/`or`, bucles, llamadas a otras ligeras); lo que no sabe, o lo
+      que no cabe en los registros, sigue por E1, fn a fn.
+      El duelo: fib 1,14 -> 1,06 (y su pila: sin marco, dos registros
+      guardados). El banco 33,5 -> 33,1 millones de instrucciones, 10,7 ->
+      9,9 millones de accesos (-7 %), y menos codigo; ninguno subio.
+      `tests/ligera.rs` (`e2_gives_the_same_numbers_and_the_same_noes`), con
+      sabotaje (las copias en orden en vez del movimiento paralelo: lo dice)
+- [ ] **B5 -- E2 entero.** Que E2 tome tambien las fn con listas, textos y
+      el director (todas las de `main`), con el bucle girado y lo demostrado
+      de E1; y lo que no cabe, a la pila (no a E1)
 - [ ] **B6 -- AF5 entero**
 - [ ] **B7 -- lo que no cambia, fuera del bucle**
 

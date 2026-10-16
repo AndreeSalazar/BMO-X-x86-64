@@ -112,7 +112,7 @@ impl E1<'_> {
     /// La pila que queda y el `call`. T0066 AQUI, en la linea de la llamada
     /// (donde lo dice el calculo): [r15] + lo que gasta la fn > la pila. Lo
     /// que gasta se sabe al final.
-    fn salta_a(&mut self, func: usize, at: (usize, usize)) {
+    pub(super) fn salta_a(&mut self, func: usize, at: (usize, usize)) {
         self.code.extend_from_slice(&[0x49, 0x81, 0x3F, 0, 0, 0, 0]); // cmp qword [r15], imm32
         self.depth_checks.push((self.code.len() - 4, func));
         let name = self.m.functions[func].name.clone();

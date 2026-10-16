@@ -143,3 +143,44 @@ fn a_cell_read_and_written_in_the_register_is_the_same_cell() {
     }
     assert!(wrong.is_empty(), "{}", wrong.join("\n\n"));
 }
+
+/// ** E2 (B5, 16-10): las fn ligeras de enteros las emite E2, con registros
+/// virtuales repartidos entre los de verdad. Lo mismo que E1: el valor, y
+/// cada NO en su linea.
+#[test]
+fn e2_gives_the_same_numbers_and_the_same_noes() {
+    let programs: &[(&str, &str)] = &[
+        // los valores CRUZADOS (un movimiento paralelo) y una vuelta de tres
+        (
+            "fn g(a: int, b: int) -> int\n    return a * 10 + b\nfn cruza(a: int, b: int) -> int\n    return g(b, a)\nfn rota(a: int, b: int, c: int) -> int\n    return tres(c, a, b)\nfn tres(a: int, b: int, c: int) -> int\n    return a * 100 + b * 10 + c\nfn main()\n    print(cruza(1, 2), \" \", rota(1, 2, 3))\n",
+            "21 312\n",
+        ),
+        // divisiones: por un local, por -1, el resto, y lo que no es exacta
+        (
+            "fn d(a: int, b: int) -> int\n    return a / b + a % b\nfn main()\n    print(d(12, 4), \" \", d(-12, -1), \" \", d(7, 7), \" \", d(-9, 3))\n",
+            "3 12 1 -3\n",
+        ),
+        ("fn d(a: int, b: int) -> int\n    return a / b\nfn main()\n    print(d(7, 2))\n", "NO T0062 linea 4"),
+        ("fn d(a: int, b: int) -> int\n    return a % b\nfn main()\n    print(d(7, 0))\n", "NO T0061 linea 4"),
+        ("fn d(a: int, b: int) -> int\n    return a / b\nfn main()\n    print(d(0 - 9223372036854775807 - 1, 0 - 1))\n", "NO T0060 linea 4"),
+        // bucles con `and` y `or`, una resta al reves y numeros grandes
+        (
+            "fn cuenta(n: int) -> int\n    let mut i = 0\n    let mut c = 0\n    while i < n and (i % 3 != 0 or i < 5)\n        c = 100 - c\n        i = i + 1\n    return c + 5000000000 - 5000000000 * 1\nfn main()\n    print(cuenta(20), \" \", cuenta(4), \" \", cuenta(5))\n",
+            "0 0 100\n",
+        ),
+        // muchos valores vivos a la vez: no caben, la emite E1 (y da lo mismo)
+        (
+            "fn muchos(a: int) -> int\n    let b = a + 1\n    let c = b + 1\n    let d = c + 1\n    let e = d + 1\n    let f = e + 1\n    let g = f + 1\n    let h = g + 1\n    let i = h + 1\n    return a + b + c + d + e + f + g + h + i\nfn main()\n    print(muchos(1))\n",
+            "45\n",
+        ),
+    ];
+    let mut wrong = Vec::new();
+    for (k, (body, want)) in programs.iter().enumerate() {
+        match same(body) {
+            Ok(out) if out == *want => {}
+            Ok(out) => wrong.push(format!("programa {k}: escribe {out:?}, y se esperaba {want:?}")),
+            Err(e) => wrong.push(format!("programa {k}: {e}")),
+        }
+    }
+    assert!(wrong.is_empty(), "{}", wrong.join("\n\n"));
+}

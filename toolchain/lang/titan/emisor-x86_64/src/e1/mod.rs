@@ -42,6 +42,7 @@ mod ancho;
 mod coleccion;
 mod director;
 mod disco;
+mod e2;
 mod escribe;
 mod forma;
 mod gpu;
@@ -650,6 +651,12 @@ impl<'m> E1<'m> {
         // de la CPU, y va al final (`emit_all`). LB4, 08-10.
         if f.gpu {
             return Ok(0);
+        }
+        // B5: la fn que E2 sabe emitir (con registros virtuales), la emite E2
+        if !root {
+            if let Some(coste) = self.e2(f)? {
+                return Ok(coste);
+            }
         }
         let sizes = self.plan(f)?;
         let n = f.locals.len();
