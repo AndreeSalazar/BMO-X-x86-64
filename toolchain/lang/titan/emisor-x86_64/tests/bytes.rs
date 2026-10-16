@@ -86,6 +86,16 @@ fn bytes_run_in_the_machine_as_the_calculation_says() {
         ("fn main()\n    let b = byte(0 - 1)\n    print(b)\n", "NO T0060 linea 4"),
         // and computed
         ("fn main()\n    let mut px: [byte] = []\n    for i in range(300)\n        push(mut px, byte(i))\n    print(len(px))\n", "NO T0060 linea 6"),
+        // ** AF6 (16-10): `byte(x)` mira con UN `cmp` sin signo -- un
+        // negativo calculado tambien es un NO --
+        ("fn main()\n    let mut px: [byte] = []\n    for i in range(5)\n        push(mut px, byte(i - 3))\n    print(len(px))\n", "NO T0060 linea 6"),
+        // ** y crecer, con el valor ya calculado: la capacidad de la lista
+        // sigue en su sitio (16-10, AF6: un paso la perdio y el monton se
+        // acababa al quinto `push`)
+        (
+            "fn main()\n    let n = 9\n    let mut a: [byte] = []\n    for i in range(n)\n        push(mut a, byte(7))\n    print(len(a), \" \", a[8])\n",
+            "9 7\n",
+        ),
     ];
     let mut wrong = Vec::new();
     for (k, (body, want)) in programs.iter().enumerate() {

@@ -147,7 +147,7 @@ impl E1<'_> {
         let patch = self.code.len() - 4;
         x86::mov_at_reg_disp32_from_r64(&mut self.code, super::RBP, -8, RDI);
         x86::mov_at_reg_disp32_from_r64(&mut self.code, super::RBP, -16, RSI);
-        self.f = Fun { known: Vec::new(), decl: Vec::new(), slot: Vec::new(), indirect: Vec::new(), locals_end: 16, temp: 0, temp_max: 0, registro: None };
+        self.f = Fun { known: Vec::new(), decl: Vec::new(), slot: Vec::new(), indirect: Vec::new(), locals_end: 16, temp: 0, temp_max: 0, registro: None, vuelta: Vec::new() };
         patch
     }
 

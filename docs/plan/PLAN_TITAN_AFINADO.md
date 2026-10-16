@@ -77,13 +77,13 @@ maquina). Lo que imprimen es identico, o el duelo no vale.
 asi que sus pasos son TRINQUETE: solo pueden bajar.
 
 ```text
-   duelo      que mide                         16-10 al    16-10 tras
-                                               empezar     AF0 + AF1
-   ---------------------------------------------------------------------
-   primos     bucles, `%`, `break`              3,0 x C     2,33 x C
-   fib        llamadas (fib 22 recursivo)       2,6 x C     2,31 x C
-   bytes      llenar y sumar 200000 bytes       3,4 x C     3,03 x C
-   ordenar    indices y un while con `and`      2,9 x C     2,43 x C
+   duelo      que mide                         16-10 al    tras        tras AF3,
+                                               empezar     AF0 + AF1   AF4 y AF6
+   ---------------------------------------------------------------------------
+   primos     bucles, `%`, `break`              3,0 x C     2,33 x C    1,33 x C
+   fib        llamadas (fib 22 recursivo)       2,6 x C     2,31 x C    1,83 x C
+   bytes      llenar y sumar 200000 bytes       3,4 x C     3,03 x C    1,50 x C
+   ordenar    indices y un while con `and`      2,9 x C     2,43 x C    1,57 x C
 ```
 
 **La meta: 1,5 x C o menos en los cuatro**, con las comprobaciones de
@@ -138,7 +138,24 @@ Como se lee, sin adornarlo:
   los bucles enteros (AF3, los registros, es el salto grande), y el SIMD
   como trabajo del emisor, no del que escribe.
 
-Y los veteranos A TOPE (`-O3 -march=znver3`, la CPU de BMO-X), el mismo dia:
+**El mismo dia, tras AF3, AF4 y AF6** (el versus vuelto a correr):
+
+```text
+   duelo       TITAN++   C casa   gcc C  clang C  g++  clang++  rustc  gcc Zen3  clang Zen3
+   ----------------------------------------------------------------------------------------
+   primos    6.339.380   1,3 x    2,1 x   1,7 x  2,1 x  1,7 x   1,3 x   2,2 x     1,7 x
+   fib       1.891.583   1,8 x    3,1 x   3,0 x  3,1 x  3,0 x   3,4 x   3,2 x     3,0 x
+   bytes     9.002.405   1,5 x    4,5 x  15,3 x  2,6 x  3,5 x   3,5 x  24,7 x    47,4 x
+   ordenar   3.989.054   1,6 x    6,2 x   4,4 x  5,3 x  4,3 x   7,2 x   6,3 x     5,3 x
+```
+
+En `primos` TITAN++ hace ya las mismas instrucciones que Rust de mas
+(1,3 x) y le queda 1,7 x a Clang. `bytes` y `primos` estan en la meta de
+la fase A (1,5 x el C de la casa); `fib` (las llamadas, AF7) y `ordenar`
+(los indices, AF5) son lo que falta.
+
+Y los veteranos A TOPE (`-O3 -march=znver3`, la CPU de BMO-X), el mismo dia
+(antes de AF2):
 
 ```text
    duelo      gcc Zen3    clang Zen3    TITAN++ es
@@ -288,15 +305,39 @@ en sus cientos de programas) y el metro sin que ninguna salida cambie.
       un fotograma TARDE con 500 000 vueltas, que TITAN++ ya hace en ~13 ms:
       ahora un millon. Desde hoy se lee la linea `test result` de cada
       prueba, no un filtro de fallos
-- [ ] **AF4 -- `for i in range(...)` como el `for` de C.** Hoy el contador y
-      su tope van y vienen de la pila en cada vuelta
+- [x] **AF4 -- `for i in range(...)` como el `for` de C, y las cuentas en
+      el registro** (16-10). Cuatro cosas del emisor:
+      - **la vuelta ES su contador**: `i` y el contador escondido viven en
+        el mismo sitio (`i` no se puede cambiar y el contador solo cambia
+        cuando `i` ya murio): la copia de cada vuelta sobra
+      - **las cuentas de enteros DERECHO en `rax`**: `(i * 7) % 256` ya no
+        deja cada paso en la pila para leerlo otra vez, y `let x = ...` /
+        `x = ...` lo guardan una vez, en `x`
+      - **el `cmp` lee el otro lado de su sitio** (`cmp r14, [fin]`), sin
+        cargarlo antes
+      - **un divisor escrito** (`% 256`) que no es 0 ni -1 no se mira al
+        correr: se sabe al compilar que no atrapa
+      El duelo: primos 1,54 -> 1,33, bytes 2,43 -> 1,93; el banco del metro
+      50,7 -> 45,7 millones de instrucciones, y ninguno de los 72 subio
 - [ ] **AF5 -- EL PRECIO DE LA SEGURIDAD, medido.** Cuantas instrucciones del
       duelo son desbordes, indices y divisiones mirados. Y quitar SOLO los
       que se pueden DEMOSTRAR imposibles al compilar (`for i in range(len(a))`
       ya sabe que `a[i]` esta dentro): la seguridad se queda, la repeticion
       no
-- [ ] **AF6 -- las listas de bytes.** `push` y la celda de una `[byte]` sin
-      llamar a crecer en cada byte cuando ya cabe (`bytes` es el duelo peor)
+- [x] **AF6 -- las listas** (16-10). `push` y la celda de una lista:
+      - la celda de 1 byte no se multiplica por 1, y la de 8 se corre
+        (`shl`); la direccion se suma de su sitio (`add rax, [lista]`)
+      - el valor que entra no se copia aparte si es un numero del marco
+        (solo una CELDA se mueve al crecer la lista)
+      - lo que mide la lista sube EN su sitio (`add [n], 1`)
+      - `byte(x)` mira con UN `cmp` sin signo (un negativo, sin signo, es
+        enorme): dos instrucciones en vez de cinco
+      El duelo: bytes 1,93 -> 1,50, ordenar 1,86 -> 1,57; el banco 45,7 ->
+      42,2 millones de instrucciones y 15,6 -> 14,2 millones de accesos.
+      **[!] Un paso intermedio perdio la capacidad** (crecer la doblaba
+      desde `rcx`, y el `cmp` nuevo ya no la dejaba alli): el monton se
+      acababa al quinto `push`. Lo vio el duelo (no acababa); ahora una
+      prueba lo dice (`tests/bytes.rs`)
 - [ ] **AF7 -- las llamadas.** El marco de una fn pequenia sin lo que no usa
       (`fib`)
 - [ ] **AF8 -- COPIAR DENTRO (fase C, ventaja 3).** Una fn chica de un

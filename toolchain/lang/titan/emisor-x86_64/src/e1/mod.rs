@@ -175,6 +175,9 @@ pub(crate) struct Fun {
     /// AF3: el local que vive en `r14`, y donde se guarda el `r14` de quien
     /// llamo.
     pub registro: Option<(usize, i32)>,
+    /// AF4 (`afinado::vueltas`): por cada contador de un `for`, la vuelta en
+    /// cuyo sitio vive.
+    pub vuelta: Vec<Option<usize>>,
 }
 
 pub(crate) struct E1<'m> {
@@ -313,7 +316,7 @@ impl<'m> E1<'m> {
             }
             Base::Frame => self.lea(reg, RBP, p.off),
             Base::Ptr(slot) => {
-                x86::mov_r64_at_reg_disp32(&mut self.code, reg, RBP, slot);
+                self.load(Place::frame(slot), reg);
                 if p.off != 0 {
                     self.lea(reg, reg, p.off);
                 }
@@ -340,7 +343,7 @@ impl<'m> E1<'m> {
             }
             Base::Frame => x86::mov_r64_at_reg_disp32(&mut self.code, reg, RBP, p.off),
             Base::Ptr(slot) => {
-                x86::mov_r64_at_reg_disp32(&mut self.code, reg, RBP, slot);
+                self.load(Place::frame(slot), reg);
                 x86::mov_r64_at_reg_disp32(&mut self.code, reg, reg, p.off);
             }
         }
@@ -408,6 +411,9 @@ impl<'m> E1<'m> {
     }
 
     pub fn local(&self, l: usize) -> Place {
+        if let Some(Some(v)) = self.f.vuelta.get(l) {
+            return self.local(*v);
+        }
         if matches!(self.f.registro, Some((r, _)) if r == l) {
             return Place { base: Base::Reg(afinado::R14), off: 0 };
         }
@@ -641,13 +647,14 @@ impl<'m> E1<'m> {
         }
         let sizes = self.plan(f)?;
         let n = f.locals.len();
-        self.f = Fun { known: vec![None; n], decl: vec![None; n], slot: vec![0; n], indirect: vec![false; n], locals_end: 16, temp: 0, temp_max: 0, registro: None };
+        self.f = Fun { known: vec![None; n], decl: vec![None; n], slot: vec![0; n], indirect: vec![false; n], locals_end: 16, temp: 0, temp_max: 0, registro: None, vuelta: Vec::new() };
         for (l, s) in sizes.iter().enumerate() {
             self.f.locals_end += (s + 7) / 8 * 8;
             self.f.slot[l] = -self.f.locals_end;
         }
         // AF3: el local de `r14`, y un sitio para el `r14` de quien llamo
-        if let Some(l) = afinado::en_registro(f, &self.solo_int, self.m) {
+        self.f.vuelta = afinado::vueltas(f, self.m);
+        if let Some(l) = afinado::en_registro(f, &self.solo_int, &self.f.vuelta, self.m) {
             self.f.locals_end += 8;
             self.f.registro = Some((l, -self.f.locals_end));
         }
@@ -889,6 +896,11 @@ impl<'m> E1<'m> {
 
     fn op(&mut self, op: &Op) -> Result<(), String> {
         match op {
+            // AF4: la vuelta de un `for` ya esta en su sitio: el del contador
+            Op::Let { local, value: Value::Local(c, _), .. } if self.f.vuelta.get(*c) == Some(&Some(*local)) => {
+                self.f.known[*local] = Some(Class::Int);
+                self.f.decl[*local] = None;
+            }
             // lo tecleado va derecho a su local: sin pasar por un temporal
             Op::Let { local, value: Value::Read(at), .. } | Op::Set { local, value: Value::Read(at), .. } => {
                 let dst = self.local(*local);
@@ -932,6 +944,18 @@ impl<'m> E1<'m> {
             Op::Set { local, value: Value::Int(v, _), .. } if self.f.known[*local] == Some(Class::Int) && self.f.decl[*local].as_ref().is_none_or(|t| matches!(t, Ty::Int)) => {
                 let dst = self.local(*local);
                 self.store_imm(dst, *v);
+            }
+            // AF4: `let x = a * b + 1`, `x = x % d` de enteros: la cuenta en
+            // `rax` y DERECHO al local, sin pasar por un sitio de paso
+            Op::Let { local, value, ty: None, .. } if self.entero_a_rax(value)? => {
+                let dst = self.local(*local);
+                self.store(dst, RAX);
+                self.f.known[*local] = Some(Class::Int);
+                self.f.decl[*local] = None;
+            }
+            Op::Set { local, value, .. } if self.f.known[*local] == Some(Class::Int) && self.f.decl[*local].as_ref().is_none_or(|t| matches!(t, Ty::Int)) && self.entero_a_rax(value)? => {
+                let dst = self.local(*local);
+                self.store(dst, RAX);
             }
             Op::Let { local, value, ty, at, .. } => {
                 let (p, c) = self.eval(value)?;
@@ -1053,7 +1077,7 @@ pub fn emit<'m>(m: &'m Module, cuerpos: &'m Cuerpos) -> Result<Emitted, NoE1> {
         status_traps: Vec::new(),
         helper_calls: Vec::new(),
         depth_checks: Vec::new(),
-        f: Fun { known: Vec::new(), decl: Vec::new(), slot: Vec::new(), indirect: Vec::new(), locals_end: 16, temp: 0, temp_max: 0, registro: None },
+        f: Fun { known: Vec::new(), decl: Vec::new(), slot: Vec::new(), indirect: Vec::new(), locals_end: 16, temp: 0, temp_max: 0, registro: None, vuelta: Vec::new() },
         lenient: 0,
         owned: Vec::new(),
         kinds: Vec::new(),

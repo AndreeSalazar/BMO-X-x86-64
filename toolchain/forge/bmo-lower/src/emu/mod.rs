@@ -750,8 +750,9 @@ impl Machine {
     /// test que deberia fallar.
     ///
     /// ** 2026-10-16: el MISMO hueco seguia en el `add` con INMEDIATO (`83 /0`,
-    /// `81 /0`, `05`). TITAN++ empezo a sumar en sitio (`x = x + 1` -> `add
-    /// [x], 1` + `jo`, AF2b/AF3) y el desborde dejo de atrapar en el emulador.
+    /// `81 /0`, `05`) y en el `add reg, [mem]` (`03`). TITAN++ empezo a sumar
+    /// en sitio (`x = x + 1` -> `add [x], 1` + `jo`, AF2b/AF3) y el desborde
+    /// dejo de atrapar en el emulador.
     fn flags_add(&mut self, a: u64, b: u64) {
         let (m, signo) = self.mascara();
         let (a, b) = (a & m, b & m);
@@ -1107,7 +1108,7 @@ impl Machine {
                     }
                     0x03 => {
                         let r = a.wrapping_add(b);
-                        self.flags_logic(r);
+                        self.flags_add(a, b);
                         self.write_reg(reg, r, wide);
                     }
                     0x2B => {
@@ -1436,12 +1437,21 @@ impl Machine {
                     self.push(v);
                     return;
                 }
+                // `inc`/`dec` ponen el desborde como una suma o una resta de
+                // 1 y NO tocan `cf` (16-10: antes `of` iba siempre a falso)
+                let cf = self.cf;
                 let r = match ext & 7 {
-                    0 => a.wrapping_add(1),
-                    1 => a.wrapping_sub(1),
+                    0 => {
+                        self.flags_add(a, 1);
+                        a.wrapping_add(1)
+                    }
+                    1 => {
+                        self.flags_sub(a, 1);
+                        a.wrapping_sub(1)
+                    }
                     other => panic!("grupo FF /{other} no emitido por BMO"),
                 };
-                self.flags_logic(r);
+                self.cf = cf;
                 self.store(dst, r, ancho);
             }
             // cqo -- extiende el signo de rax a rdx

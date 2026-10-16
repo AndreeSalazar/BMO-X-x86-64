@@ -64,10 +64,18 @@ impl E1<'_> {
     /// La celda `i` (un sitio con un int) de lo que apunta el asa `h`.
     pub(super) fn cell_at(&mut self, h: Place, cell: i32, i: Place) -> Place {
         self.load(i, RAX);
-        self.imm(RCX, cell as i64);
-        x86::imul_r64_r64(&mut self.code, RAX, RCX);
-        self.load(h, RCX);
-        x86::add_r64_r64(&mut self.code, RAX, RCX);
+        // AF6: una celda de 1 byte no se multiplica, y una de 2, 4, 8... se
+        // corre (`shl`)
+        if cell > 1 && (cell as u32).is_power_of_two() {
+            x86::shl_r64_imm8(&mut self.code, RAX, cell.trailing_zeros() as u8);
+        } else if cell != 1 {
+            self.imm(RCX, cell as i64);
+            x86::imul_r64_r64(&mut self.code, RAX, RCX);
+        }
+        if !self.suma_de_sitio(RAX, h) {
+            self.load(h, RCX);
+            x86::add_r64_r64(&mut self.code, RAX, RCX);
+        }
         self.pointer_from(RAX)
     }
 
@@ -206,6 +214,7 @@ impl E1<'_> {
     /// Si el asa `h` esta llena, el doble de sitio (4 la primera vez).
     fn grow(&mut self, h: Place, cell: i32) {
         self.load(h.at(8), RAX);
+        // la capacidad queda en `rcx`: crecer la dobla desde ahi
         self.load(h.at(16), RCX);
         x86::cmp_r64_r64(&mut self.code, RAX, RCX);
         let room = self.jcc(0x8C);
@@ -304,9 +313,7 @@ impl E1<'_> {
                         self.fit(dst, it, at)?;
                     }
                 }
-                self.load(h.at(8), RAX);
-                x86::inc_r64(&mut self.code, RAX);
-                self.store(h.at(8), RAX);
+                self.uno_mas(h.at(8));
             }
             (Lib::DropLast, Class::List(t)) => {
                 let t = (**t).clone();
@@ -410,6 +417,11 @@ impl E1<'_> {
     /// copia en uno nuevo. Quien lo pide lo mueve o lo suelta.
     pub fn mine(&mut self, p: Place, c: &Class) -> Place {
         if self.take_owned(p) {
+            return p;
+        }
+        // AF6: un numero en el marco no se mueve aunque la lista crezca: no
+        // hace falta copiarlo (solo una CELDA, detras de un puntero, se mueve)
+        if !self.forms.has_heap(c) && !matches!(p.base, super::Base::Ptr(_)) {
             return p;
         }
         let t = self.temp(self.forms.size(c));

@@ -66,13 +66,27 @@ impl E1<'_> {
             Value::Lamina(n, at) => self.lamina_nueva(n, *at)?,
             // `byte(x)` (TA1): el int, si cabe en un byte; si no, T0060.
             Value::Byte(inner, at) => {
-                let (p, _) = self.eval(inner)?;
-                self.load(p, RAX);
-                x86::cmp_r64_imm8(&mut self.code, RAX, 0);
-                self.trap(0x8C, "T0060", "byte(x) no cabe en un byte: va de 0 a 255", *at);
-                self.imm(RCX, 255);
-                x86::cmp_r64_r64(&mut self.code, RAX, RCX);
-                self.trap(0x8F, "T0060", "byte(x) no cabe en un byte: va de 0 a 255", *at);
+                // AF6: lo que no es un local se calcula derecho en `rax`
+                let p = if let Value::Local(..) = &**inner {
+                    let (p, _) = self.eval(inner)?;
+                    self.load(p, RAX);
+                    Some(p)
+                } else {
+                    self.a_rax(inner)?;
+                    None
+                };
+                // UN `cmp` sin signo: un negativo, visto sin signo, es enorme
+                // y tambien pasa de 255
+                x86::cmp_r64_imm32(&mut self.code, RAX, 255);
+                self.trap(0x87, "T0060", "byte(x) no cabe en un byte: va de 0 a 255", *at);
+                let p = match p {
+                    Some(p) => p,
+                    None => {
+                        let t = self.temp(8);
+                        self.store(t, RAX);
+                        t
+                    }
+                };
                 (p, Class::Int)
             }
             Value::Bin(op, a, b, at) => self.bin(op, a, b, *at)?,

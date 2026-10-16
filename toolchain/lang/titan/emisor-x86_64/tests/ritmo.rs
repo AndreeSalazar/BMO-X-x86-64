@@ -34,12 +34,15 @@ fn fotogramas(trabajo: u32, ms: u32) -> String {
     format!("    let mut s = 0\n    for f in range(5)\n        for i in range({})\n            s = s + i % 7\n        director.espera({})\n    print(s > 0)\n", trabajo, ms)
 }
 
+/// (16-10: eran 50 000 vueltas; con AF4 bajaron a 0,8 ms y el trabajo se
+/// salia de la medida que se mira. Ahora 150 000, ~2,4 ms.)
+///
 /// ** Con trabajo de ~2 ms por fotograma, CINCO fotogramas miden 5 x 16 ms
 /// (mas el trabajo del primero), no 5 x (2 + 16): el trabajo cae DENTRO del
 /// fotograma. El primer reposo es entero; los demas, lo que falta.
 #[test]
 fn the_frame_lasts_what_was_asked() {
-    let m = corre(&fotogramas(50_000, 16));
+    let m = corre(&fotogramas(150_000, 16));
     let s = reposos(&m);
     assert_eq!(s.len(), 5, "{:?}", s);
     assert_eq!(s[0], 16_000_000, "el primero, entero");
@@ -57,10 +60,11 @@ fn the_frame_lasts_what_was_asked() {
 /// turno (WAIT de 0) -- y se pone en hora: no amontona fotogramas.
 ///
 /// 16-10: eran 500 000 vueltas; con AF3 (la cuenta en registro) TITAN++ las
-/// hace en ~13 ms y el fotograma dejo de llegar tarde. Un millon: ~26 ms.
+/// hace en ~13 ms y el fotograma dejo de llegar tarde; con AF4, un millon ya
+/// rozaba los 16. Dos millones: ~32 ms, y tarde aunque se doble la marcha.
 #[test]
 fn late_it_yields_and_catches_up() {
-    let m = corre(&fotogramas(1_000_000, 16));
+    let m = corre(&fotogramas(2_000_000, 16));
     let s = reposos(&m);
     assert_eq!(s.len(), 5);
     assert_eq!(s[0], 16_000_000);
