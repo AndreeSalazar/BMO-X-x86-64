@@ -474,10 +474,7 @@ const INFO_IOMMU_DOMINIO: u64 = 0xAE;
 const INFO_GPU_PRUEBA: u64 = 0xAF;
 const INFO_IOMMU_EVENTO: u64 = 0xB0;
 const INFO_IOMMU_EVENTO_DIR: u64 = 0xB1;
-/// M0d3: la prueba de fuego y la frontera (2026-09-24).
-const INFO_GPU_FUEGO: u64 = 0xB2;
-const INFO_GPU_FUEGO_LEIDO: u64 = 0xB3;
-const INFO_GPU_FRONTERA: u64 = 0xB4;
+// 0xB2..0xB4 fueron M0d3 (`gpu fuego`, `gpu frontera`), retiradas el 17-10.
 /// L0a: la ROM (con selector), el fusible (con selector), la VRAM, la VGA y la WPR2.
 const INFO_GPU_ROM: u64 = 0xB5;
 const INFO_GPU_FUSIBLE: u64 = 0xB6;
@@ -1124,9 +1121,6 @@ pub fn campo(n: u64) -> Option<u64> {
         INFO_GPU_PRUEBA => crate::ring0::dev::gpu_prestamo::info_prueba(),
         INFO_IOMMU_EVENTO => crate::ring0::plat::iommu::info_evento(),
         INFO_IOMMU_EVENTO_DIR => crate::ring0::plat::iommu::info_evento_dir(),
-        INFO_GPU_FUEGO => crate::ring0::dev::gpu_prestamo::info_fuego(),
-        INFO_GPU_FUEGO_LEIDO => crate::ring0::dev::gpu_prestamo::info_fuego_leido(),
-        INFO_GPU_FRONTERA => crate::ring0::dev::gpu_prestamo::info_frontera(),
         INFO_GPU_FB => crate::ring0::dev::gpu::info_fb(),
         INFO_GPU_VGA => crate::ring0::dev::gpu::info_vga(),
         INFO_GPU_WPR2 => crate::ring0::dev::gpu::info_wpr2(),

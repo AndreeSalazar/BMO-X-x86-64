@@ -17,10 +17,8 @@
 //! # La pagina de prueba
 //!
 //! 4 KiB con un patron que se reconoce (`PATRON | indice` por palabra de 32
-//! bits), prestada SOLO PARA LEER en [`IOVA_PRUEBA`]. La 3060 todavia no tiene
-//! un motor que haga DMA; el primero que la lea sera el DMA de un falcon (M0d3,
-//! la prueba de fuego), y leera ESTO. Si lee otra cosa, o si la IOMMU apunta un
-//! fallo de pagina en otra direccion, la traduccion esta mal.
+//! bits), prestada SOLO PARA LEER en [`IOVA_PRUEBA`]: el paso `prestar` del
+//! arranque, que prueba la traduccion de la IOMMU antes del firmware.
 
 use core::sync::atomic::{AtomicU64, Ordering};
 
@@ -67,56 +65,21 @@ pub fn info_prueba() -> u64 {
     PRUEBA.load(Ordering::Acquire)
 }
 
-// == M0d3: LA PRUEBA DE FUEGO, y LA FRONTERA (2026-09-24) =====================
+// == El acceso a la 3060 para el DMA de sus falcons ============================
 //
-// `gpu fuego`: el DMA del falcon del GSP trae la pagina de prueba desde
-// `IOVA_PRUEBA` a su DMEM, y se compara palabra a palabra. Si las 1024
-// cuadran, la 3060 LEYO la RAM del PC a traves de la IOMMU -- solo lo
-// prestado.
+// `gpu fuego` y `gpu frontera` (M0d3, 24-09), las pruebas a mano del DMA del
+// falcon del GSP, se retiraron el 17-10: tocar ese falcon antes del booter
+// daba 0x15 (EL_0x15.md) y FWSEC, el booter y el GSP-RM ya prueban ese camino
+// en cada arranque. Queda lo comun: BAR0, el reloj y el candado.
 //
-// `gpu frontera`: lo mismo desde `IOVA_NO_PRESTADA`. Lo correcto es que NO
-// llegue nada y que la IOMMU apunte un FALLO DE PAGINA con el BDF de la 3060 y
-// esa direccion. Es la mitad que dice que la venda existe.
-//
-// ** EL CANDADO: la 3060 TRADUCIDA y releida, la pagina prestada, y el Bus
-// Master YA encendido por E2 (`gpu vblank`). Esto no lo enciende: el Bus
-// Master tiene un solo propietario, y es quien lo apaga cuando la IOMMU se apaga o
-// la 3060 vuelve a ver (`syscall/op_maquina.rs`).
+// ** EL CANDADO: la 3060 TRADUCIDA y releida y el Bus Master YA encendido por
+// E2 (`gpu vblank`). Esto no lo enciende: el Bus Master tiene un solo
+// propietario, y es quien lo apaga cuando la IOMMU se apaga o la 3060 vuelve a
+// ver (`syscall/op_maquina.rs`).
 
 use bmo_gpu_ga10x::falcon::{self as fa, NoFuego};
 
-/// Una direccion del aparato que NO se presta nunca: la de la frontera.
-pub const IOVA_NO_PRESTADA: u64 = 0x2000_0000;
-
 pub const IOMMU_NO_SIN_BUS_MASTER: u32 = 16;
-pub const IOMMU_NO_FUEGO: u32 = 17;
-pub const IOMMU_NO_SIN_PRUEBA: u32 = 18;
-
-pub const FUEGO_PRIMERA_SHIFT: u64 = 11;
-pub const FUEGO_MOTIVO_SHIFT: u64 = 22;
-pub const FUEGO_SEGURIDAD_SHIFT: u64 = 26;
-pub const FUEGO_DMEM_SHIFT: u64 = 28;
-pub const FUEGO_EVENTOS_SHIFT: u64 = 36;
-pub const FUEGO_HECHO: u64 = 1 << 62;
-pub const FUEGO_INTENTADO: u64 = 1 << 63;
-
-pub const FRONTERA_EVENTO: u64 = 1 << 4;
-pub const FRONTERA_BDF: u64 = 1 << 5;
-pub const FRONTERA_DIR: u64 = 1 << 6;
-pub const FRONTERA_DMA_ACABO: u64 = 1 << 7;
-pub const FRONTERA_MOTIVO_SHIFT: u64 = 8;
-
-/// `INFO_GPU_FUEGO`: `0..10` palabras que cuadran | `11..21` la primera que no
-/// | `22..25` el motivo (`NoFuego` + 1, 6 = sin empezar) | `26..27` seguridad
-/// del falcon | `28..35` su DMEM en KiB | `36..43` eventos nuevos de la IOMMU |
-/// 62 HECHO (1024 de 1024 y ningun evento) | 63 intentado.
-static FUEGO: AtomicU64 = AtomicU64::new(0);
-/// `INFO_GPU_FUEGO_LEIDO`: la primera palabra que no cuadro | us del DMA << 32.
-static FUEGO_LEIDO: AtomicU64 = AtomicU64::new(0);
-/// `INFO_GPU_FRONTERA`: `0..3` tipo del evento | 4 hubo evento nuevo | 5 con el
-/// BDF de la 3060 | 6 con la direccion no prestada | 7 el DMA acabo | `8..11`
-/// motivo | 62 HECHO (evento, BDF y direccion) | 63 intentada.
-static FRONTERA: AtomicU64 = AtomicU64::new(0);
 
 /// Los registros de la 3060 por BAR0 en el physmap (como `dev/vblank.rs`).
 pub(crate) struct Bar0(pub(crate) u64);
@@ -152,34 +115,6 @@ pub(crate) fn motivo(e: NoFuego) -> u64 {
     }
 }
 
-/// **El candado del fuego.** `Ok(bar0)` o el motivo del NO.
-///
-/// ** Y NUNCA con el GSP en marcha (26-09, EL_0x15.md): `fuego` y `frontera`
-/// RESETEAN el falcon del GSP; con el booter ya dado, lo matarian. Y el falcon
-/// que usan queda apuntado: el caso del 0x15 mostro que tocarlo antes del
-/// booter es lo que lo tumbaba (3 de 3 arranques en frio buenos sin ellas).
-fn candado() -> Result<u64, u32> {
-    if PRUEBA.load(Ordering::Acquire) & GPU_PRUEBA_PRESTADA == 0 {
-        return Err(IOMMU_NO_SIN_PRUEBA);
-    }
-    if crate::ring0::dev::gpu_despertar::gsp_tocado() {
-        crate::ring0::cabina::warn("gpu", "M0d3 NEGADA: el booter ya corrio; resetear el falcon del GSP lo mataria", 0);
-        return Err(crate::ring0::dev::gpu_despertar::IOMMU_NO_YA_DESPIERTO);
-    }
-    let bar0 = candado_dma()?;
-    FALCON_GSP_USADO.store(true, Ordering::Release);
-    Ok(bar0)
-}
-
-/// `fuego` o `frontera` usaron el DMA del falcon del GSP en este arranque.
-static FALCON_GSP_USADO: core::sync::atomic::AtomicBool = core::sync::atomic::AtomicBool::new(false);
-
-/// Si el falcon del GSP ya hizo DMA para una prueba en este arranque: el
-/// booter que venga detras puede dar 0x15 (EL_0x15.md).
-pub fn falcon_gsp_usado() -> bool {
-    FALCON_GSP_USADO.load(Ordering::Acquire)
-}
-
 /// **El candado de todo DMA de la 3060**: TRADUCIDA y releida, una NVIDIA en
 /// su BDF, y el Bus Master de E2 encendido (que no se enciende aqui).
 pub(crate) fn candado_dma() -> Result<u64, u32> {
@@ -212,123 +147,11 @@ pub(crate) fn reloj() -> Tsc {
     Tsc((crate::ring0::task::scheduler::tsc_freq() / 1_000_000).max(1))
 }
 
-/// **`gpu fuego`**. `Ok(palabras que cuadran)` -- 1024 es el exito.
-pub fn fuego() -> Result<u64, u32> {
-    let bar0 = candado()?;
-    let (mut r, mut t) = (Bar0(bar0), reloj());
-    let boot0 = bmo_gpu_ga10x::Registros::leer(&mut r, bmo_gpu_ga10x::BOOT_0);
-    let antes = eventos();
-    FUEGO.store(FUEGO_INTENTADO | 6 << FUEGO_MOTIVO_SHIFT, Ordering::Release);
-    crate::ring0::cabina::info("gpu", "M0d3: la PRUEBA DE FUEGO -- el falcon del GSP trae la pagina prestada por DMA", IOVA_PRUEBA);
-    let ficha = match fa::ficha(&mut r, fa::GSP) {
-        Ok(f) => f,
-        Err(e) => return fallo_fuego(e, 0),
-    };
-    let fija = (ficha.seguridad() as u64 & 3) << FUEGO_SEGURIDAD_SHIFT | ((ficha.dmem / 1024).min(255) as u64) << FUEGO_DMEM_SHIFT;
-    if ficha.dmem < 4096 {
-        return fallo_fuego(NoFuego::DmemChica(ficha.dmem), fija);
-    }
-    if let Err(e) = fa::resetear(&mut r, &mut t, fa::GSP, boot0) {
-        return fallo_fuego(e, fija);
-    }
-    let t0 = fa::Reloj::us(&mut t);
-    let dma = fa::traer(&mut r, &mut t, fa::GSP, IOVA_PRUEBA, 0, 4096, 50_000);
-    let us = fa::Reloj::us(&mut t) - t0;
-    let mut leido = [0u32; 1024];
-    if dma.is_ok() {
-        fa::leer_dmem(&mut r, fa::GSP, 0, &mut leido);
-    }
-    // Y se deja como estaba: el reset borra su DMEM.
-    let _ = fa::resetear(&mut r, &mut t, fa::GSP, boot0);
-    if let Err(e) = dma {
-        return fallo_fuego(e, fija);
-    }
-    let c = fa::contar(&leido, PATRON);
-    let nuevos = eventos().saturating_sub(antes);
-    let (idx, mal) = c.primera_mal.unwrap_or((0, 0));
-    let hecho = c.bien == 1024 && nuevos == 0;
-    FUEGO.store(
-        FUEGO_INTENTADO
-            | if hecho { FUEGO_HECHO } else { 0 }
-            | c.bien as u64
-            | (idx as u64 & 0x7FF) << FUEGO_PRIMERA_SHIFT
-            | fija
-            | nuevos.min(0xFF) << FUEGO_EVENTOS_SHIFT,
-        Ordering::Release,
-    );
-    FUEGO_LEIDO.store(mal as u64 | us.min(0xFFFF_FFFF) << 32, Ordering::Release);
-    if hecho {
-        crate::ring0::cabina::count("gpu", "M0d3: la 3060 LEYO la RAM del PC por la IOMMU: palabras que cuadran", 1024);
-    } else {
-        crate::ring0::cabina::warn("gpu", "M0d3: el DMA acabo pero la DMEM NO es la pagina prestada; cuadran", c.bien as u64);
-    }
-    Ok(c.bien as u64)
-}
-
-fn fallo_fuego(e: NoFuego, fija: u64) -> Result<u64, u32> {
-    FUEGO.store(FUEGO_INTENTADO | fija | motivo(e) << FUEGO_MOTIVO_SHIFT, Ordering::Release);
-    crate::ring0::cabina::warn("gpu", "M0d3: el falcon del GSP no dejo hacer el DMA; motivo", motivo(e));
-    Err(IOMMU_NO_FUEGO)
-}
-
-/// **`gpu frontera`**. `Ok(1)` si la IOMMU paro el DMA con su evento.
-pub fn frontera() -> Result<u64, u32> {
-    use crate::ring0::plat::iommu as io;
-    let bar0 = candado()?;
-    let (mut r, mut t) = (Bar0(bar0), reloj());
-    let boot0 = bmo_gpu_ga10x::Registros::leer(&mut r, bmo_gpu_ga10x::BOOT_0);
-    let antes = eventos();
-    FRONTERA.store(FUEGO_INTENTADO, Ordering::Release);
-    crate::ring0::cabina::info("gpu", "M0d3: la FRONTERA -- el falcon pide una direccion NO prestada", IOVA_NO_PRESTADA);
-    if let Err(e) = fa::resetear(&mut r, &mut t, fa::GSP, boot0) {
-        FRONTERA.store(FUEGO_INTENTADO | motivo(e) << FRONTERA_MOTIVO_SHIFT, Ordering::Release);
-        return Err(IOMMU_NO_FUEGO);
-    }
-    let dma = fa::traer(&mut r, &mut t, fa::GSP, IOVA_NO_PRESTADA, 0, fa::TROZO, 50_000);
-    let _ = fa::resetear(&mut r, &mut t, fa::GSP, boot0);
-    // La IOMMU escribe el evento por su cuenta: se le dan unos ms.
-    let fin = fa::Reloj::us(&mut t) + 5_000;
-    while eventos() <= antes && fa::Reloj::us(&mut t) < fin {}
-    let e = io::info_evento();
-    let nuevo = eventos() > antes;
-    let bdf_gpu = io::info_gpu() & 0xFFFF;
-    let bdf_ok = nuevo && (e >> io::IOMMU_EVENTO_BDF_SHIFT) & 0xFFFF == bdf_gpu;
-    let dir_ok = nuevo && io::info_evento_dir() & !0xFFF == IOVA_NO_PRESTADA;
-    let hecho = nuevo && bdf_ok && dir_ok;
-    FRONTERA.store(
-        FUEGO_INTENTADO
-            | if hecho { FUEGO_HECHO } else { 0 }
-            | (e >> io::IOMMU_EVENTO_TIPO_SHIFT) & 0xF
-            | if nuevo { FRONTERA_EVENTO } else { 0 }
-            | if bdf_ok { FRONTERA_BDF } else { 0 }
-            | if dir_ok { FRONTERA_DIR } else { 0 }
-            | if dma.is_ok() { FRONTERA_DMA_ACABO } else { 0 }
-            | dma.err().map_or(0, motivo) << FRONTERA_MOTIVO_SHIFT,
-        Ordering::Release,
-    );
-    if hecho {
-        crate::ring0::cabina::count("gpu", "M0d3: la FRONTERA aguanta -- la IOMMU paro el DMA de la 3060 en", IOVA_NO_PRESTADA);
-    } else {
-        crate::ring0::cabina::warn("gpu", "M0d3: la FRONTERA no se vio: sin evento con el BDF y la direccion de la 3060", e);
-    }
-    Ok(hecho as u64)
-}
-
-pub fn info_fuego() -> u64 {
-    FUEGO.load(Ordering::Acquire)
-}
-pub fn info_fuego_leido() -> u64 {
-    FUEGO_LEIDO.load(Ordering::Acquire)
-}
-pub fn info_frontera() -> u64 {
-    FRONTERA.load(Ordering::Acquire)
-}
-
 // == L0b: FWSEC-FRTS (2026-09-24) ==============================================
 //
 // El firmware FIRMADO de la VBIOS corre en el falcon del GSP y aparta la WPR2
 // en la VRAM. Es la puerta del booter y del GSP-RM. Por el mismo camino que la
-// prueba de fuego: el ucode se copia de la ROM a paginas NEUTRO, se PRESTA a la
+// prueba de la pagina prestada: el ucode se copia de la ROM a paginas NEUTRO, se PRESTA a la
 // 3060 solo para leer en `IOVA_FWSEC`, y el DMA del falcon lo trae -- ahora a la
 // IMEM y a la DMEM, en modo seguro, con la firma que pide el fusible puesta.
 //

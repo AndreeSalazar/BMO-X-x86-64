@@ -879,9 +879,6 @@ fn fila_autopsia(s: &mut Output) {
             s.text(b" ms");
             super::datos::anotar(b"gpu booter desde frts", m & 0xFFFF_FFFF, b"ms");
         }
-        if (bmo::info(bmo::INFO_GPU_DESPIERTO) >> bmo::DESPIERTO_BUZON_SHIFT) & 0xFFFF_FFFF != 0 && !despierto() {
-            super::gspreintento::hint(s);
-        }
         super::datos::anotar(b"gpu booter bsi parado", parado as u32 as u64, b"");
         super::datos::anotar(b"gpu booter us", us, b"us");
         super::datos::anotar(b"gpu booter gsp mailbox0", gsp as u32 as u64, b"");
@@ -930,18 +927,11 @@ pub(crate) fn fila_despierto(s: &mut Output) {
         s.text(b", MAILBOX1 0x");
         s.hex(m1, 8);
         super::datos::anotar(b"gpu sec2 mailbox1", m1, b"");
-        // ** 0x15: nueve veces en el metal (24-09 y 25-09), seis seguidas EN
-        // FRIO: cortar la corriente NO lo arregla. La causa (25-09, 3 de 3):
-        // `fuego`/`frontera` usaban el falcon del GSP antes que el booter; ya
-        // no son pasos de `save mode`. El caso: `platform/drivers/gpu/ga10x/EL_0x15.md`.
+        // ** 0x15: el booter dice que no y deja el GSP cerrado hasta cortar la
+        // corriente. El caso: `platform/drivers/gpu/ga10x/EL_0x15.md`.
         if d >> bmo::DESPIERTO_BUZON_SHIFT & 0xFFFF_FFFF == 0x15 {
             s.with_ink(INK_ERR);
-            let con_prueba = bmo::info(bmo::INFO_GPU_FRONTERA) & bmo::FUEGO_INTENTADO != 0 || bmo::info(bmo::INFO_GPU_FUEGO) & bmo::FUEGO_INTENTADO != 0;
-            s.text(if con_prueba {
-                b" = el booter no cargo, y `gpu fuego`/`gpu frontera` corrieron ANTES en el falcon del GSP (la causa conocida): arranca otra vez sin darlas" as &[u8]
-            } else {
-                b" = el booter no cargo SIN `fuego` ni `frontera`: un 0x15 NUEVO, no el conocido; pega la fila `autopsia` (EL_0x15.md)"
-            });
+            s.text(b" = el booter no cargo (0x15): pega la fila `autopsia` (EL_0x15.md)");
             s.with_ink(INK_ECHO);
         }
     }

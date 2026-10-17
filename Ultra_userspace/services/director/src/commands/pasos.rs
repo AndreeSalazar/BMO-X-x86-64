@@ -131,15 +131,12 @@ pub(crate) const PASOS: &[Paso] = &[
         hecho: prueba_prestada,
         dar: prestar_prueba,
         pide: Some(b"traducir"),
-        consejo: b"`iommu`: la fila `domain` dice 1 pagina prestada; M0d3 (`gpu fuego`) va A MANO y nunca en un arranque en el que se despierte el GSP (EL_0x15.md)",
+        consejo: b"`iommu`: la fila `domain` dice 1 pagina prestada",
         repinta: false,
     },
-    // ** `fuego` y `frontera` (M0d3) YA NO SON PASOS (26-09, EL_0x15.md).
-    // Usan el DMA del falcon del GSP -- y `frontera` deja que la IOMMU aborte
-    // uno -- y corrian justo antes de `despertar`: el booter daba 0x15 en seis
-    // arranques en frio seguidos. Sin ellas, tres de tres en frio con el GSP
-    // arriba. Siguen a mano (`gpu fuego`, `gpu frontera`) en un arranque en el
-    // que NO se despierte el GSP; el kernel las niega con el booter ya dado.
+    // ** `fuego` y `frontera` (M0d3) dejaron de ser pasos el 26-09 y se
+    // retiraron el 17-10: el DMA del falcon del GSP antes de `despertar`
+    // daba 0x15 (EL_0x15.md).
     Paso {
         nombre: b"vbios",
         que: b"leer la VBIOS, hallar FWSEC y su firma para este fusible; solo lectura (L0a)",

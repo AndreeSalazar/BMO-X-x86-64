@@ -368,10 +368,7 @@ pub(crate) const IOMMU_OP_E2_APAGAR: u64 = 0x06;
 pub(crate) const IOMMU_OP_TRADUCIR_GPU: u64 = 0x07;
 /// M0d: prestarle la pagina de prueba (solo lectura). Ver `dev/gpu_prestamo.rs`.
 pub(crate) const IOMMU_OP_PRESTAR_PRUEBA: u64 = 0x08;
-/// M0d3: la PRUEBA DE FUEGO -- el falcon del GSP lee la pagina prestada.
-pub(crate) const IOMMU_OP_GPU_FUEGO: u64 = 0x09;
-/// M0d3: la FRONTERA -- una direccion no prestada sale como fallo de pagina.
-pub(crate) const IOMMU_OP_GPU_FRONTERA: u64 = 0x0A;
+// 0x09 y 0x0A fueron M0d3 (`gpu fuego` y `gpu frontera`), retiradas el 17-10.
 /// L0b: FWSEC -- juzgar el descriptor (`arg1` = donde empieza en la ROM).
 pub(crate) const IOMMU_OP_FWSEC_PREPARAR: u64 = 0x0B;
 /// L0b: FWSEC -- copiar el trozo `arg1` de 4 KiB de la ROM al bufer.
@@ -509,15 +506,8 @@ pub(crate) const IOMMU_OP_GPU_DIBUJAR: u64 = 0x48;
 /// ventana de la pantalla y no en su RAM. Pasa por las dos llaves de
 /// `iommu_`. Ver `dev/gpu_trabajo/cubo.rs::pantalla_para`.
 pub(crate) const IOMMU_OP_GPU_PANTALLA_PARA: u64 = 0x49;
-/// El REINTENTO LIMPIO del GSP (29-09), tras un 0x15 del booter: FWSEC-SB.
-/// Ver `dev/gpu_reintento.rs`.
-pub(crate) const IOMMU_OP_GSP_REINTENTO_CERRAR: u64 = 0x4A;
-/// El reintento: tras FWSEC-SB, el booter de descarga baja la WPR2.
-pub(crate) const IOMMU_OP_GSP_REINTENTO_DESCARGAR: u64 = 0x4B;
-/// El reintento: con la WPR2 abajo, el despertar a cero y FWSEC-FRTS otra vez.
-pub(crate) const IOMMU_OP_GSP_REINTENTO_SUBIR: u64 = 0x4C;
-/// El reintento: como va, leido en vivo.
-pub(crate) const IOMMU_OP_GSP_REINTENTO: u64 = 0x4D;
+// 0x4A..0x4D fueron el reintento del GSP tras un 0x15 (29-09), retirado el
+// 17-10: en el metal ni FWSEC-SB ni el booter de descarga bajan la WPR2.
 /// E7: el trabajo ETERNO, que corta el vigilante. Ver el ABI.
 pub(crate) const IOMMU_OP_GPU_ETERNO: u64 = 0x4E;
 /// VE5: el formato de una tanda de COMPLETAR (ESTUDIO VIVO). Ver
@@ -1032,8 +1022,6 @@ pub(crate) fn nombre_iommu(op: u64) -> &'static str {
         IOMMU_OP_E2_APAGAR => "E2_APAGAR",
         IOMMU_OP_TRADUCIR_GPU => "TRADUCIR_GPU",
         IOMMU_OP_PRESTAR_PRUEBA => "PRESTAR_PRUEBA",
-        IOMMU_OP_GPU_FUEGO => "GPU_FUEGO",
-        IOMMU_OP_GPU_FRONTERA => "GPU_FRONTERA",
         IOMMU_OP_FWSEC_PREPARAR => "FWSEC_PREPARAR",
         IOMMU_OP_FWSEC_TROZO => "FWSEC_TROZO",
         IOMMU_OP_FWSEC_CORRER => "FWSEC_CORRER",
@@ -1097,10 +1085,6 @@ pub(crate) fn nombre_iommu(op: u64) -> &'static str {
         IOMMU_OP_GPU_IMAGEN => "GPU_IMAGEN",
         IOMMU_OP_GPU_DIBUJAR => "GPU_DIBUJAR",
         IOMMU_OP_GPU_PANTALLA_PARA => "GPU_PANTALLA_PARA",
-        IOMMU_OP_GSP_REINTENTO_CERRAR => "GSP_REINTENTO_CERRAR",
-        IOMMU_OP_GSP_REINTENTO_DESCARGAR => "GSP_REINTENTO_DESCARGAR",
-        IOMMU_OP_GSP_REINTENTO_SUBIR => "GSP_REINTENTO_SUBIR",
-        IOMMU_OP_GSP_REINTENTO => "GSP_REINTENTO",
         IOMMU_OP_GPU_ETERNO => "GPU_ETERNO",
         IOMMU_OP_GPU_COMPLETA_FORMATO => "GPU_COMPLETA_FORMATO",
         IOMMU_OP_GPU_COMPLETA => "GPU_COMPLETA",
