@@ -1,5 +1,8 @@
 # GSP-CONTROL-BMO -- etapa 1: que la GPU deje evidencia
 
+Parte del gobierno del GSP: el GSP ejecuta, BMO-X gobierna
+([plan](../../../../../docs/plan/PLAN_GSP_CONTROL_BMO.md)).
+
 `bmo-nvidia-gsp-control` es `no_std`, sin dependencias y con `unsafe` prohibido.
 Su consumidor real es Director: `gpu control` y el capitulo GPU de `save`.
 El diagnostico conserva datos ausentes y muestra los valores crudos que lo
@@ -37,7 +40,9 @@ y tiempo monotono pertenecen a esa misma sesion. Una identidad distinta,
 un numero repetido con contenido distinto o un tiempo anterior se rechazan.
 Un duplicado exacto del ultimo evento aceptado es idempotente.
 
-Hoy la ABI no entrega build e intento fiables. Director lo imprime y utiliza
+Desde el 17-10 (GCB2a) la ABI entrega build (`INFO_BUILD`, el commit del
+kernel) e intento (`INFO_GPU_INTENTO`, las veces que se solto el booter en
+este arranque); faltan verse en metal. Aun asi Director utiliza
 solo `diagnose(Snapshot)`: una foto derivada, sin inventar una historia de
 transiciones. Dos lecturas iguales delimitan la consulta, pero no prueban
 atomicidad ni excluyen cambios intermedios. El INIT_DONE es un hecho local
@@ -95,8 +100,9 @@ verificados. Una copia de prueba con unsafe bajo feature compila con la
 variante inactiva y es rechazada por Rust al activarla; S8 rechaza la fuente
 aunque este inactiva. La copia de prueba queda en target, fuera del commit.
 
-Siguiente: GCB2, contrastar el protocolo inicial completo y preparar una
-variante coherente para G0-MODO. Esta etapa no cambia reset, energia,
-firmware, esperas ni corrige por si misma el 0x15. No requiere otra tanda de
-reinicios para demostrar el contrato puro. El nuevo resumen nativo queda
-pendiente de observar en metal cuando el propietario use su proximo build.
+Siguiente: GCB2b del plan redefinido (17-10, gobernar y no reemplazar):
+comparar las entradas del booter contra OpenRM 570.144. GCB2a (build e
+intento reales) esta en el anfitrion. Esta etapa no
+cambia reset, energia, firmware ni esperas, ni corrige por si sola el 0x15.
+El nuevo resumen nativo queda pendiente de observar en metal cuando el
+propietario use su proximo build.

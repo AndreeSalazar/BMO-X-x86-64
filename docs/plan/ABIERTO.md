@@ -7,8 +7,8 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   904 casillas ABIERTAS en 81 planes
-   702 hechas
+   902 casillas ABIERTAS en 81 planes
+   703 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -243,15 +243,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] E2 -- (C,T) DECLARADOS Y EL AFORO. Cada tarea trae su compas; el kernel
 - ... y 9 mas
 
-## [`PLAN_GSP_CONTROL_BMO.md`](PLAN_GSP_CONTROL_BMO.md) -- 12 abiertas, 4 hechas
-
-*PLAN GSP-CONTROL-BMO -- administrar y conocer la RTX desde BMO-X*
-
-- [ ] GCB2a: contrastar la preparacion inicial completa con OpenRM 570.144 y
-- [ ] GCB2b: preparar una variante coherente y reversible para G0-MODO,
-- [ ] GCB2c: validar el cambio candidato contra el criterio de G0 del plan
-- ... y 9 mas
-
 ## [`PLAN_TITAN_AFINADO.md`](PLAN_TITAN_AFINADO.md) -- 12 abiertas, 21 hechas
 
 *PLAN TITAN AFINADO -- TITAN++ a la altura de C, sin aprender de CPU*
@@ -295,6 +286,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] LI1 -- traducir y juzgar al CREAR, no al dibujar. Es VC1 de
 - [ ] LI2c -- texturas (TEX; M3 de PLAN_VERRANO.md). El TIC y el
 - [ ] LI2d -- varios render targets y la profundidad (N5.8; V2/M1 de
+- ... y 7 mas
+
+## [`PLAN_GSP_CONTROL_BMO.md`](PLAN_GSP_CONTROL_BMO.md) -- 10 abiertas, 5 hechas
+
+*PLAN GSP-CONTROL-BMO -- gobernar el GSP, no reemplazarlo*
+
+- [ ] GCB2b: comparar TODAS las entradas que recibe el booter (FRTS, WPR2,
+- [ ] GCB2c: cambiar UNA variable a la vez donde GCB2b encuentre diferencia,
+- [ ] GCB3a: decodificar cada evento que ya se nombra (RC_TRIGGERED,
 - ... y 7 mas
 
 ## [`PLAN_LA_DEUDA.md`](PLAN_LA_DEUDA.md) -- 10 abiertas, 7 hechas

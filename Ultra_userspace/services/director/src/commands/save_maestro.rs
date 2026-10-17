@@ -611,6 +611,7 @@ fn cabecera(s: &mut Output) {
         s.text(b"(sin nombre)");
     }
     s.byte(b'\n');
+    super::obs_build::lineas(s, b"    ");
     fila(s, b"ticks", bmo::info(bmo::INFO_TICKS), b"", b"desde el arranque");
     let vistos = bmo::info(bmo::INFO_PROGRAMAS);
     let olvidados = bmo::info(bmo::INFO_PROGRAMAS_OLVIDADOS);

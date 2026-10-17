@@ -6,14 +6,15 @@ sustituyen el ultimo resultado. [Indice de documentos](../README.md).
 
 ## Ahora: G0, que la RTX arranque de forma fiable
 
-El [plan GSP-CONTROL-BMO](PLAN_GSP_CONTROL_BMO.md) organiza el supervisor
-NVIDIA, su anatomia progresiva y el estudio del RISC-V del GSP. Empieza
-por contratos y G0; firmware propio interno es una investigacion condicional,
-sin ejecucion demostrada. No desplaza la prioridad de arranque fiable.
+El [plan GSP-CONTROL-BMO](PLAN_GSP_CONTROL_BMO.md) se redefinio el 17-10:
+el GSP ejecuta y BMO-X lo GOBIERNA (dar posesion, conceder, pedir, escuchar,
+revocar). El estudio del RISC-V y el firmware propio interno quedan APARCADOS.
 GCB0/GCB1 ya implementados: contrato, supervisor puro con ocho pruebas y
 `gpu control`, incluido en `save`. El resumen indica etapa, datos crudos y
 build/intento ausentes; no arma recuperacion ni cambia el arranque.
-Siguiente: GCB2/G0-MODO, protocolo completo antes de probar otra secuencia.
+GCB2a (build e intento reales) hecho en el anfitrion el 17-10. Siguiente:
+GCB2b, las entradas del booter contra OpenRM 570.144 antes de probar otra
+secuencia. Con kernel y DIRECTOR nuevos, el `save` dira con que commit corrio.
 
 Soporte del 17-10: [VERIFICAR y tiempos del build](../../toolchain/tools/verificar/README.md).
 Se conserva el banco completo y se elimina la colision entre texto y bandera
@@ -78,6 +79,9 @@ Fuentes: [parte del 16-10](../metal/METAL_2026-10-16.md),
       mirada, captura del puntero y guardado; no existe esa grabacion nueva.
 - [ ] OBS-BUILD: incluir identificacion del commit/build en cada informe;
       falta implementar y comprobar que corresponde al binario desplegado.
+      17-10, en el anfitrion: la cabecera de `save` dice el commit del kernel
+      y del DIRECTOR (con SUCIO si habia cambios) y si coinciden (GCB2a).
+      Se cierra cuando un `save` del metal lo muestre igual al build desplegado.
 
 La cronologia enlazada ya esta en el [indice](../README.md). Estas dos
 metas de evidencia no bloquean el analisis del informe actual ni adelantan

@@ -297,6 +297,9 @@ const INFO_GPU_RC_TEXTO: u64 = 0xD7;
 /// C4: los contadores del Zen 3 (ver el ABI).
 const INFO_CPU_CONTADORES: u64 = 0xD8;
 const INFO_CPU_CONTADOR: u64 = 0xD9;
+/// OBS-BUILD y el intento del booter (17-10, ver el ABI).
+const INFO_BUILD: u64 = 0xDB;
+const INFO_GPU_INTENTO: u64 = 0xDC;
 
 // El metro de la puerta: cuantas y cuantos ciclos dentro de `dispatch`. Se
 // leen como delta. Ver `ring0/syscall/meter.rs`.
@@ -1131,6 +1134,9 @@ pub fn campo(n: u64) -> Option<u64> {
         INFO_GPU_GSP_HASH => crate::ring0::dev::gpu_gsp::info_gsp_hash(),
         INFO_GPU_LIBOS => crate::ring0::dev::gpu_libos::info_libos(),
         INFO_GPU_DESPIERTO => crate::ring0::dev::gpu_despertar::info_despierto(),
+        INFO_GPU_INTENTO => crate::ring0::dev::gpu_despertar::info_intento(),
+        // El commit de este Ring 0, armado por `kernel/build.rs`.
+        INFO_BUILD => OBS_BUILD,
         INFO_ENTERRADOR => crate::ring0::task::enterrador::cuentas(),
         // == *** LOS DOCE DEL DMA, y por que salen de tres sitios ========
         //
@@ -1271,4 +1277,20 @@ pub fn texto(n: u64, trozo: u64) -> u64 {
         }
     }
     u64::from_le_bytes(w)
+}
+
+/// La palabra de OBS-BUILD que dejo `build.rs` (`../build/obs_build.rs`),
+/// leida al compilar: un texto que no sea un numero no compila.
+const OBS_BUILD: u64 = obs_build();
+
+const fn obs_build() -> u64 {
+    let b = env!("BMO_OBS_BUILD").as_bytes();
+    let mut v: u64 = 0;
+    let mut i = 0;
+    while i < b.len() {
+        assert!(b[i].is_ascii_digit(), "BMO_OBS_BUILD no es un numero");
+        v = v * 10 + (b[i] - b'0') as u64;
+        i += 1;
+    }
+    v
 }
