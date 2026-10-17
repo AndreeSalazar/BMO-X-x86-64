@@ -22,7 +22,9 @@
 # los 69 `gui` de ayer no se reescriben, y un guardian que fallara por ellos se
 # apagaria en una semana. Se mueve con `--sellar`.
 [DESDE]
-d4f5d5720dc65a27794b307f4a48428343fce3c9   sellado a mano
+# Revision: AUDITORIA_2026-10-17.md. Solo el antecedente ya integrado;
+# no se mueve a HEAD: los commits posteriores siguen bajo juicio.
+91eaac2f24349d080444f258c5576456f6374695   sellado a mano tras auditar los 80 commits
 
 # Viejo -> como se llama ahora, y por que. Un alias no es un error del que
 # escribe: es un nombre que se quedo atras, y decirle el nuevo cuesta lo mismo
