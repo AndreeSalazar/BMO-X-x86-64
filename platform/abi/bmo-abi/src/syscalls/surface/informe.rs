@@ -1869,6 +1869,11 @@ pub const LIBOS_VALIDO: u64 = 1 << 63;
 ///                             de STARTCPU del SEC2; 22 CPUCTL | BCR_CTRL << 32
 ///                             en esa foto; 23 LIBOS esperado (IOVA de 32 bits)
 ///                             | se tomo << 63. Sin foto, los tres valen cero.
+///                             24..40 (17-10, GCB2c) LA TRAZA DEL SEC2 al verlo
+///                             parado (`TRACEPC`, como nouveau): 24 `SCTL |
+///                             TRACEIDX << 32 | leida << 63` (cuantas en los
+///                             bits 48..55); 25..40 las 32 primeras entradas,
+///                             dos por palabra, la par en los bits bajos.
 ///   INFO_GPU_GSP_MEM          (con selector: el byte << 8) 8 bytes de lo que el
 ///                             GSP escribe: 0..0x30000 LOGINIT, LOGINTR y
 ///                             LOGRM; detras, GspMem
