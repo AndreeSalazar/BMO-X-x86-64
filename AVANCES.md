@@ -1,5 +1,13 @@
 # AVANCES -- estado de BMO-X (recuperacion de contexto)
 
+> **16-10, MC2b parcial:** mirada relativa de MUNDO en el anfitrion, con
+> modulo pointer reutilizable en TITAN++, sensibilidad fina y cursor oculto.
+> Esc suelta primero; clic recaptura; foco/conmutador/recorte revocan. El
+> kernel solo expone contadores HID sin recorte; DIRECTOR conserva la politica.
+> `gpu laminas` y `save` miden FPS de ventana con intervalo y antiguedad;
+> los 325 fotogramas del parte anterior no permiten deducir FPS.
+> [Controles y prueba pendiente de metal](Ultra_userspace/apps/mundo/CONTROL.md).
+
 > **16-10, cuarta tanda 19:37-19:39:** MUNDO acredita 325 fotogramas GPU
 > prestados, cero CPU; juez distinto en 4/230.400 pixeles, igualdad pendiente.
 > Captura falla seis veces: siete bloques del DIRECTOR y captura pidiendo

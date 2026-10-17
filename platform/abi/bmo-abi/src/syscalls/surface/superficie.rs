@@ -103,6 +103,11 @@ pub const SUP_EV_CONFIGURE: u64 = 0x2000_0000_0000_0000;
 /// positivo); el bit 16, Alt pulsado. Ctrl + rueda no llega: Ctrl es del
 /// escritorio, como toda tecla con Ctrl.
 pub const SUP_EV_RUEDA: u64 = 0x1000_0000_0000_0000;
+/// dx/dy i16 en bits 16..31/32..47 y botones abajo.
+pub const SUP_EV_RELATIVO: u64 = 1 << 59;
+/// Estado +12: solicitud atomica de la app y concesion del DIRECTOR.
+pub const SUP_RATON_PEDIDO: u64 = 1 << 31;
+pub const SUP_RATON_CAPTURADO: u64 = 1 << 30;
 /// `SUP_EV_RUEDA`: con Alt pulsado.
 pub const SUP_RUEDA_ALT: u64 = 1 << 16;
 

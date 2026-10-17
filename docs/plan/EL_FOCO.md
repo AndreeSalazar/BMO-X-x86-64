@@ -1,5 +1,11 @@
 # EL FOCO -- una cosa a la vez, hasta el final (10-10; el orden nuevo, 14-10)
 
+> **MC2b, anfitrion:** raton relativo, cursor oculto al capturar, Esc suelta,
+> clic recaptura y perdida de foco revoca. Modulo chico de TITAN++, sin
+> ceder la entrada fisica. Medicion FPS de ventana incluida en `save`.
+> Probar en metal con kernel/DIRECTOR/MUNDO nuevos; resaltar el bloque sigue
+> pendiente. [Control y limites](../../Ultra_userspace/apps/mundo/CONTROL.md).
+
 > **Cuarta tanda 16-10:** MUNDO SI dibuja en GPU: 325 fotogramas prestados,
 > cero CPU. Quedan 4 pixeles distintos en el juez. Captura se quedo sin
 > cupo de bloques: 1080p ya usa uno temporal en vez de dos, sin cambiar el

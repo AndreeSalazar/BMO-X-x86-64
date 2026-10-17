@@ -168,6 +168,11 @@ pide Cyberpunk por PROTON-X --.
       **Falta el metal de MC2a y O1.** El respaldo CPU ya se vio en metal.
 - [ ] MC2b: resaltar el bloque apuntado y movimiento relativo del raton;
       capturar al jugar y liberar al salir o perder el foco.
+      **Mirada relativa hecha en anfitrion, 16-10:** modulo pointer en TITAN++,
+      cursor oculto al capturar y restaurado al liberar; Esc primero suelta,
+      clic recaptura, foco perdido revoca. Falta probar en metal y resaltar
+      el bloque. `gpu laminas` ya mide intervalos/FPS de ventana.
+      [Control y prueba](../../Ultra_userspace/apps/mundo/CONTROL.md).
 - [ ] MC3: teclas mantenidas, gravedad, salto y colision del cuerpo por ejes.
 - [ ] GPU: recuperar el error concreto de MUNDO y cerrar C1/Q0a3 por causa;
       seguir distinguiendo GPU de CPU. El respaldo no cierra esa meta.

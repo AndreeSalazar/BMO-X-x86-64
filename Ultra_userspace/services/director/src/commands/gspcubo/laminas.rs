@@ -70,6 +70,7 @@ struct Estado {
     copiados: u32,
     /// Respaldo VERRANO CPU: la app sigue visible si el aparato no acepta.
     cpu_frames: u32,
+    frame_rate: bmo_verrano::frame_rate::FrameRate,
     last_tid: u32,
     width: u32,
     height: u32,
@@ -95,6 +96,7 @@ static mut ESTADO: Estado = Estado {
     prestados: 0,
     copiados: 0,
     cpu_frames: 0,
+    frame_rate: bmo_verrano::frame_rate::FrameRate::new(),
     last_tid: 0,
     width: 0,
     height: 0,
@@ -146,6 +148,7 @@ pub(crate) fn vuelta(dsk: &mut Desktop, p: &bmo::Pantalla) -> bool {
         e.imposible = false;
         e.sin_prestar = false;
         e.cpu_frames = 0;
+        e.frame_rate = bmo_verrano::frame_rate::FrameRate::new();
         e.prestados = 0;
         e.copiados = 0;
         e.last_tid = t.tid;
@@ -285,6 +288,7 @@ pub(crate) fn vuelta(dsk: &mut Desktop, p: &bmo::Pantalla) -> bool {
                 e.copiados = e.copiados.wrapping_add(1);
             }
             e.dibujados = e.dibujados.wrapping_add(1);
+            e.frame_rate.observe(now_ms());
             dsk.table.poner_fuente(i, va, s);
             true
         }
@@ -379,6 +383,7 @@ fn cpu_window(e: &mut Estado, dsk: &mut Desktop, t: crate::scene::surface::Lamin
         dsk.tick.repaint_field = true;
     }
     e.cpu_frames = e.cpu_frames.wrapping_add(1);
+    e.frame_rate.observe(now_ms());
     dsk.table.poner_fuente(window, address, sequence);
     true
 }
@@ -410,6 +415,13 @@ pub(crate) fn report(g: &mut Output) {
     g.text(b" fotogramas; prestados "); g.dec(e.prestados as u64);
     g.text(b", copiados "); g.dec(e.copiados as u64);
     g.text(b"; CPU de respaldo: "); g.dec(e.cpu_frames as u64); g.text(b"\n");
+    if let Some(s) = e.frame_rate.sample() {
+        g.text(b"  FPS de ventana (GPU+CPU): "); g.dec(s.milli_fps / 1000); g.text(b".");
+        let fraction = (s.milli_fps % 1000) / 10;
+        if fraction < 10 { g.text(b"0"); } g.dec(fraction);
+        g.text(b"; "); g.dec(s.intervals); g.text(b" intervalos / "); g.dec(s.milliseconds);
+        g.text(b" ms; muestra de hace "); g.dec(now_ms().saturating_sub(s.at)); g.text(b" ms\n");
+    } else { g.text(b"  FPS: sin un segundo de fotogramas nuevos continuos; mueve la camara.\n"); }
     if e.cpu_frames > 0 {
         g.text(b"  Motivo CPU: "); g.text(e.cpu_reason.as_bytes()); g.text(b"\n");
     }
@@ -419,6 +431,16 @@ pub(crate) fn report(g: &mut Output) {
         if let Some(reason) = e.last_reason.as_ref() { g.text(reason.s()); }
     }
     g.text(if e.dicho_distinto { b"  Juez: se detectaron diferencias GPU/CPU; revisar consola.\n" } else { b"  Igualdad GPU/CPU: consultar el juicio Q0a3, no estos contadores.\n" });
+}
+
+fn now_ms() -> u64 {
+    static HZ: core::sync::atomic::AtomicU64 = core::sync::atomic::AtomicU64::new(0);
+    let mut hz = HZ.load(core::sync::atomic::Ordering::Relaxed);
+    if hz == 0 {
+        hz = bmo::info(bmo::INFO_TSC_HZ).max(1000);
+        HZ.store(hz, core::sync::atomic::Ordering::Relaxed);
+    }
+    bmo::ciclos() / (hz / 1000)
 }
 
 /// **El juez**: el fotograma, otra vez por la CPU de VERRANO, contra lo que

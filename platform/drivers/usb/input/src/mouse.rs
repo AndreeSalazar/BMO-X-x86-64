@@ -39,3 +39,22 @@ pub fn buttons() -> u8 {
 pub fn button_changed(old: u8, new: u8, mask: u8) -> bool {
     (old & mask) != (new & mask)
 }
+
+/// Contadores relativos independientes del cursor, con vuelta de u32.
+pub const fn accumulate_relative(old: u64, dx: i16, dy: i16) -> u64 {
+    let x = (old as u32).wrapping_add(dx as i32 as u32);
+    let y = ((old >> 32) as u32).wrapping_add(dy as i32 as u32);
+    x as u64 | (y as u64) << 32
+}
+
+#[cfg(test)]
+mod relative_tests {
+    #[test]
+    fn motion_does_not_stop_at_a_screen_edge() {
+        let mut count = 0;
+        for _ in 0..10000 { count = super::accumulate_relative(count, 100, -100); }
+        assert_eq!(count as u32, 1_000_000);
+        assert_eq!((count >> 32) as u32 as i32, -1_000_000);
+        assert_eq!(super::accumulate_relative(u64::MAX, 1, 1), 0);
+    }
+}

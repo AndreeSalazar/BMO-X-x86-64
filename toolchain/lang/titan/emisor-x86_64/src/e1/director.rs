@@ -81,6 +81,7 @@ impl E1<'_> {
     /// **Una llamada al director**: lo que da (un si/no), o nada (`espera`).
     pub fn director(&mut self, what: Director, args: &[Value], at: At) -> Result<Option<(Place, Class)>, String> {
         match what {
+            Director::RatonCaptura | Director::RatonCapturado => self.entrada(what, args, at).map(Some),
             Director::Lamina => self.lamina(args, at).map(Some),
             Director::Publica => self.publica(args, at).map(Some),
             Director::Espera => self.espera(args).map(|_| None),

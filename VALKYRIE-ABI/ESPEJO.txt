@@ -149,3 +149,6 @@
 0x31 TASK_OP_ATRIL                  BMO_OP_ATRIL                     poner un numero en el atril de la orquesta. Campo 0..3, sin puntero a funcion
 0x32 TASK_OP_TOCAR                  BMO_OP_TOCAR                     tocad: una PARTE del catalogo de bmo-orquesta, BLOQUEA hasta que acaba
 0x33 TASK_OP_ARGUMENTOS             BMO_OP_ARGUMENTOS                
+0x800000000000000 SUP_EV_RELATIVO BMO_SUP_EV_RELATIVO bit 59: deltas HID con signo
+0x80000000 SUP_RATON_PEDIDO BMO_SUP_RATON_PEDIDO bit 31 del estado: solicitud atomica de la app
+0x40000000 SUP_RATON_CAPTURADO BMO_SUP_RATON_CAPTURADO bit 30 del estado: concesion del DIRECTOR

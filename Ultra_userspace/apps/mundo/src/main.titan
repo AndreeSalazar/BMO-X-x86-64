@@ -9,11 +9,12 @@
 #    a d               a un lado y al otro
 #    q e               gira a la izquierda, a la derecha (15 grados)
 #    i k               mira arriba, abajo (hasta 75 grados)
+#    raton             mirada libre (clic dentro para capturar)
+#    Esc               primero suelta el raton; otra vez guarda y sale
 #    r f               sube, baja
 #    x                 quita el bloque que miras (rayo en 3D)
 #    c                 pone uno de tablas delante de el
 #    g                 guarda los bloques en datos/mundo.bmv
-#    Esc               guarda los cambios y cierra
 #
 # ** LO QUE HACE CADA UNO. La CPU (E1) lleva el mundo, la camara en enteros
 # (diezmilesimas de bloque) y ELIGE las caras que miran a la camara -- una
@@ -35,6 +36,7 @@ mod malla
 mod guardado
 mod camera
 mod hud
+mod pointer
 
 # Las caras por fotograma, y los vertices: 6 por cara.
 fn caras_max() -> int
@@ -46,12 +48,12 @@ fn vertices_max() -> int
 fn div(a: int, d: int) -> int
     return (a - a % d) / d
 
-# El seno y el coseno de 0, 15, 30... grados, en milesimas.
+# El seno y el coseno de la orientacion, en milesimas.
 fn seno(k: int) -> int
     return camera.sine(k)
 
 fn coseno(k: int) -> int
-    return seno(k + 6)
+    return camera.cosine(k)
 
 # ** LAS CUENTAS DE UN VERTICE. La camara (cx, cy, cz en diezmilesimas,
 # s y c en milesimas) gira primero en horizontal y despues aplica pitch.
@@ -199,7 +201,8 @@ fn main()
     let tonos = colores()
     let mut mundo = guardado.load(malla.nuevo())
     let mut dirty = false
-    print("MUNDO: WASD anda, Q/E gira, I/K mira arriba/abajo, R/F sube y baja, X quita, C pone, G guarda, Esc guarda y cierra")
+    print("MUNDO: raton mira; clic dentro captura; Esc suelta, otra vez guarda y sale")
+    print("WASD anda, Q/E gira, I/K mira arriba/abajo, R/F sube y baja, X quita, C pone, G guarda")
     let mut caras = malla.caras(mundo)
     # Posicion y orientacion separadas; O1 presta la orientacion al girar.
     let mut cam = camera.initial()
@@ -208,14 +211,25 @@ fn main()
     let mut col: [f32; 1968] = [cero; 1968]
     let mut f = 0
     let mut cambio = true
+    pointer.begin()
     while true
         for n in range(64)
             let que = director.evento()
             if que == 0
                 break
+            if que == 4 and director.botones() % 2 == 1
+                pointer.begin()
+            if que == 7 and pointer.active()
+                let delta = pointer.motion(director.raton_x(), director.raton_y())
+                camera.rotate(mut cam.angles, delta.yaw, delta.pitch)
+                cambio = true
             if que == 3
                 let c = director.codigo()
                 if c == 27
+                    if pointer.active()
+                        pointer.release()
+                        print("MUNDO: raton libre; clic dentro para jugar, Esc para salir")
+                        continue
                     if not dirty
                         return
                     if guardado.save(mundo)

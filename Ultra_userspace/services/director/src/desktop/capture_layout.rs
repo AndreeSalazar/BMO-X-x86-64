@@ -1,5 +1,6 @@
 //! Reparto puro de la captura: un bloque temporal si cabe en una peticion.
 //! Sin ampliar el cupo del kernel; las imagenes grandes conservan dos bloques.
+//! [consumo] NADA -- solo calcula el reparto al solicitar una captura.
 use bmo_imagen::png_escribir as png;
 
 #[derive(Clone, Copy, Debug)]

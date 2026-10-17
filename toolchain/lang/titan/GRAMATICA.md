@@ -1077,9 +1077,13 @@ if director.toma() or director.fichero("datos/ejemplo.lam")
     let b = director.byte(0)                  # uno, o -1 fuera
 let que = director.evento()                   # 0 nada, 1 tecla pulsada, 2 soltada,
                                               # 3 letra, 4 raton, 5 la ventana cambio,
-                                              # 6 la rueda (15-10)
+                                              # 6 la rueda, 7 movimiento relativo
 let tecla = director.codigo()                 # su scancode o su letra (Latin-1)
 let x = director.raton_x()                    # y raton_y(), botones()
+                                              # evento 7: dx/dy con signo
+director.raton_captura(true)                  # solicita; no cede hardware
+if director.raton_capturado()                 # el DIRECTOR concedio (con foco)
+    director.raton_captura(false)             # suelta; el cursor reaparece
 let muescas = director.rueda()                # con signo: arriba +, abajo -. Sola
                                               # o con Alt; Ctrl + rueda es del
                                               # escritorio (como todo Ctrl)

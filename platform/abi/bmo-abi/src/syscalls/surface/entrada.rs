@@ -48,6 +48,8 @@ pub const INPUT_OP_RUEDA: u64 = 0x05;
 /// El kernel ya tenia las dos caras (`bmo_uhid::teclado` compara informes boot
 /// consecutivos): se perdian al cruzar a Ring 3.
 pub const INPUT_OP_EVENTO_TECLA: u64 = 0x06;
+/// Contadores HID sin recorte: X abajo, Y arriba, vuelta u32. No consume.
+pub const INPUT_OP_RELATIVO: u64 = 0x07;
 
 /// Bits de la mascara de [`INPUT_OP_MODIFICADORES`].
 pub const MOD_SHIFT: u8 = 1 << 0;

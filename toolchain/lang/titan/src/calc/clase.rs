@@ -420,6 +420,13 @@ pub(super) fn director(what: Director, args: &[Value], at: At, known: &[Option<C
         }
     };
     match what {
+        Director::RatonCaptura => {
+            if got[0] != Class::Bool {
+                return Err(wrong(args[0].at(), &Class::Bool, &got[0], m.defs(), "la captura pide un bool", "director.raton_captura(true)"));
+            }
+            Ok(Some(Class::Bool))
+        }
+        Director::RatonCapturado => Ok(Some(Class::Bool)),
         Director::Lamina => {
             int(0, "`director.lamina` pide cuantos vertices caben en cada una de sus dos ranuras", "director.lamina(18)")?;
             Ok(Some(Class::Bool))

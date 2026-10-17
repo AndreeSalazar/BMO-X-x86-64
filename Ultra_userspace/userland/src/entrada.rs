@@ -72,6 +72,9 @@ impl Entrada {
         invoke(self.cap, INPUT_OP_EVENTOS, 0, 0, 0).value
     }
 
+    /// Contadores HID independientes del borde del panel.
+    pub fn relativo(&self) -> u64 { invoke(self.cap, INPUT_OP_RELATIVO, 0, 0, 0).value }
+
     /// Las vueltas de rueda desde la ultima vez. Positivo = hacia arriba.
     ///
     /// **Consume**: dos llamadas seguidas sin girar dan cero la segunda. Asi el

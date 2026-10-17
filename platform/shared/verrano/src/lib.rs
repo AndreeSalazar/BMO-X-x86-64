@@ -50,6 +50,7 @@
 #![forbid(unsafe_code)]
 
 pub mod cpu;
+pub mod frame_rate;
 /// V3a: el dibujo con PROGRAMAS, por categorias (recursos, programas,
 /// tuberia, dibujo).
 pub mod dibujo;

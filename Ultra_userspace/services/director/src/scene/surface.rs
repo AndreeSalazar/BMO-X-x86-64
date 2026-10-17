@@ -148,6 +148,7 @@ impl Header {
         // seguro. Decirle que no a una app rota es mas barato que confiar.
         let (mut buzon, mut ranuras) = (campo(base, 6) as u64, campo(base, 7));
         let cabe = buzon >= necesita
+            && (base + buzon) % 4 == 0 // estado atomico alineado a u32
             && ranuras >= 2
             && ranuras & (ranuras - 1) == 0
             && buzon.saturating_add(BUZON_TAG + ranuras as u64 * BUZON_RANURA) <= bytes;
@@ -551,7 +552,21 @@ impl Surface {
             | (dentro as u32) << 8
             | (self.vista as u32) << 16
             | bmo_golpe::configure::TOMADA;
-        unsafe { core::ptr::write_volatile((idx + 12) as *mut u32, est) };
+        let flags = unsafe { &*((idx + 12) as *const core::sync::atomic::AtomicU32) };
+        let _ = flags.try_update(core::sync::atomic::Ordering::Relaxed, core::sync::atomic::Ordering::Relaxed,
+            |old| Some(est | (old & (bmo::SUP_RATON_PEDIDO | bmo::SUP_RATON_CAPTURADO))));
+    }
+
+    /// Peticion y concesion viven en bits reservados del estado del buzon.
+    pub(crate) fn mouse_flags(&self) -> u32 {
+        let Some(cab) = Header::read(self.base, self.bytes).filter(|c| c.ranuras != 0) else { return 0 };
+        unsafe { (&*((self.base + cab.buzon + 12) as *const core::sync::atomic::AtomicU32)).load(core::sync::atomic::Ordering::Relaxed) }
+    }
+    pub(crate) fn mouse_grant(&self, grant: bool) {
+        let Some(cab) = Header::read(self.base, self.bytes).filter(|c| c.ranuras != 0) else { return };
+        let flags = unsafe { &*((self.base + cab.buzon + 12) as *const core::sync::atomic::AtomicU32) };
+        if grant { flags.fetch_or(bmo::SUP_RATON_CAPTURADO, core::sync::atomic::Ordering::Relaxed); }
+        else { flags.fetch_and(!(bmo::SUP_RATON_PEDIDO | bmo::SUP_RATON_CAPTURADO), core::sync::atomic::Ordering::Relaxed); }
     }
 
     pub(crate) fn paint_chrome(&self, p: &bmo::Pantalla) {
@@ -576,6 +591,9 @@ impl Surface {
     /// **La secuencia que la app publico ahora mismo.** La lee FRAPS-X: cada
     /// vez que sube, la app entrego un fotograma. `None` si la cabecera no se lee.
     pub(crate) fn secuencia(&self) -> Option<u32> {
+        // Una app con lamina presenta desde esta fuente, no desde BSUP:
+        // FRAPS debe contar lo que llego a su ventana, tambien por VERRANO.
+        if let Some((_, seq)) = self.fuente { return Some(seq); }
         Header::read(self.base, self.bytes).map(|c| c.sequence)
     }
 

@@ -1208,7 +1208,8 @@ pub extern "C" fn _start() -> ! {
                 dsk.tick.repaint_field = true;
             }
 
-            desktop::mouse::on_pointer(&mut dsk, &p, g.pos, g.wheel, g.ctrl, g.alt_alone);
+            let captured = input.as_ref().is_some_and(|e| desktop::mouse::capture::update(&mut dsk, &p, e, g.pos.botones));
+            if !captured { desktop::mouse::on_pointer(&mut dsk, &p, g.pos, g.wheel, g.ctrl, g.alt_alone); }
         }
 
         // HUD 2: si el foco cambio en esta vuelta (teclado, raton, una app que

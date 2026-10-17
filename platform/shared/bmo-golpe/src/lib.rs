@@ -54,6 +54,7 @@
 //! una ventana que se puede pulsar y "no se ve", o al reves.
 
 #![no_std]
+pub mod relative;
 
 /// El CONFIGURE del buzon: el DIRECTOR le dice a la app el hueco que tiene.
 /// Ver su cabecera (2026-09-12).

@@ -7,6 +7,13 @@
 use super::Machine;
 
 impl Machine {
+    /// Un byte de memoria, para que los tests puedan mirar si el emisor
+    /// escribio donde no debia. Sin esto, un desbordamiento de buffer solo se
+    /// ve cuando ya ha corrompido otra cosa.
+    pub fn read_u8_pub(&self, addr: u64) -> u8 {
+        self.read_u8_mem(addr)
+    }
+
     /// **Lo que un banco deja en memoria ANTES de correr** (2026-09-26: las
     /// matrices del cubo para las de cuatro `flotante32` de INTI). Va por el
     /// mismo camino que el programa, asi que respeta las paginas de solo

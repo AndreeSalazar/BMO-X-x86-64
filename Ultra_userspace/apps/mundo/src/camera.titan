@@ -19,19 +19,27 @@ pub fn initial() -> Camera
 
 # O1: el llamador presta solo el componente de orientacion.
 pub fn turn(mut angles: Angles, yaw: int, pitch: int)
-    angles.yaw = ((angles.yaw + yaw) % 24 + 24) % 24
+    rotate(mut angles, yaw * 150, pitch * 150)
+
+# Decimas de grado: teclado y raton comparten los mismos limites.
+pub fn rotate(mut angles: Angles, yaw: int, pitch: int)
+    angles.yaw = ((angles.yaw + yaw) % 3600 + 3600) % 3600
     angles.pitch = angles.pitch + pitch
-    if angles.pitch > 5
-        angles.pitch = 5
-    if angles.pitch < -5
-        angles.pitch = -5
+    if angles.pitch > 750
+        angles.pitch = 750
+    if angles.pitch < -750
+        angles.pitch = -750
 
 pub fn sine(k: int) -> int
     let t: [int; 24] = [0, 259, 500, 707, 866, 966, 1000, 966, 866, 707, 500, 259, 0, -259, -500, -707, -866, -966, -1000, -966, -866, -707, -500, -259]
-    return t[(k % 24 + 24) % 24]
+    let angle = (k % 3600 + 3600) % 3600
+    let fraction = angle % 150
+    let step = (angle - fraction) / 150
+    let delta = (t[(step + 1) % 24] - t[step]) * fraction
+    return t[step] + (delta - delta % 150) / 150
 
 pub fn cosine(k: int) -> int
-    return sine(k + 6)
+    return sine(k + 900)
 
 pub fn axis(cam: Camera, a: int) -> int
     if a == 0

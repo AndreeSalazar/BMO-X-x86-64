@@ -131,6 +131,8 @@ pub const INPUT_OP_RUEDA: u64 = 0x05;
 ///
 /// **Consume**, como `INPUT_OP_TECLA`: cada evento se entrega una vez.
 pub const INPUT_OP_EVENTO_TECLA: u64 = 0x06;
+/// Dos contadores u32 de desplazamiento HID, sin recorte ni consumo.
+pub const INPUT_OP_RELATIVO: u64 = 0x07;
 
 /// La tiene un proceso de Ring 3?
 ///
@@ -230,6 +232,7 @@ pub fn operation(operation: u64) -> Option<u64> {
             Some((cx << 32) | (cy << 16) | botones as u64)
         }
         INPUT_OP_EVENTOS => Some(eventos as u64),
+        INPUT_OP_RELATIVO => Some(crate::ring0::dev::usb::movimiento_relativo()),
         // Misma fuente que alimentaba al shell (`poll_ascii` drena el puente
         // USB HID y, si no hay, el i8042). No se duplica la cola: se cambia
         // quien la vacia.

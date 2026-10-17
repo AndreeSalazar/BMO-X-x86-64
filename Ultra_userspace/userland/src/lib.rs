@@ -909,6 +909,9 @@ pub const SUP_EV_RATON: u64 = 0x8000_0000_0000_0000;
 pub const SUP_EV_CARACTER: u64 = 0x4000_0000_0000_0000;
 pub const SUP_EV_CONFIGURE: u64 = 0x2000_0000_0000_0000;
 pub const SUP_EV_RUEDA: u64 = 0x1000_0000_0000_0000;
+pub const SUP_EV_RELATIVO: u64 = 1 << 59;
+pub const SUP_RATON_PEDIDO: u32 = 1 << 31;
+pub const SUP_RATON_CAPTURADO: u32 = 1 << 30;
 pub const SUP_RUEDA_ALT: u64 = 1 << 16;
 pub const SUP_ESTADO_VENTANA: u64 = 0;
 pub const SUP_ESTADO_MAXIMIZADA: u64 = 1;
@@ -1571,6 +1574,7 @@ pub const INPUT_OP_RUEDA: u32 = 0x05;
 /// dos se llenan del MISMO sondeo, y leer una no le roba nada a la otra. El
 /// gemelo en C es `BMO_ENTRADA_EVENTO_TECLA` de `<bmo/entrada.h>`.
 pub const INPUT_OP_EVENTO_TECLA: u32 = 0x06;
+pub const INPUT_OP_RELATIVO: u32 = 0x07;
 
 /// Bits de la mascara de modificadores.
 pub const MOD_SHIFT: u8 = 1 << 0;

@@ -12,6 +12,11 @@ contadores se reinician al cambiar de app; se conservan al cerrarla hasta
 observar otra. No abre el aparato ni cambia su estado. La misma consulta
 entra automaticamente en el informe maestro de `save`.
 
+Incluye FPS de ventana medidos sobre intervalos entre dibujos nuevos
+aceptados (GPU+CPU), medida en ms y antiguedad de la muestra. Necesita un
+segundo de actividad; una pausa de mas de un segundo reinicia el intervalo.
+No es el refresco del monitor ni el limite teorico del aparato.
+
 El ultimo rechazo se conserva aunque un intento posterior funcione. Dice
 la fase y el error. Para `Device`, el texto del motivo se captura al fallar;
 el informe no vuelve a consultar un motivo global que pudo cambiar.

@@ -765,6 +765,8 @@ fn target(p: &Program, callee: &str, n: usize, line: usize, col: usize, as_value
             Director::Codigo => "let tecla = director.codigo()",
             Director::RatonX => "let x = director.raton_x()",
             Director::RatonY => "let y = director.raton_y()",
+            Director::RatonCaptura => "director.raton_captura(true)",
+            Director::RatonCapturado => "if director.raton_capturado()",
             Director::Botones => "let b = director.botones()",
             Director::Rueda => "let muescas = director.rueda()",
             Director::Argumento => "let ruta = director.argumento()",

@@ -384,6 +384,10 @@ static mut FIRST_KEY: bool = false;   // ya se grabo la primera tecla en CABINA?
 static mut FIRST_MOUSE: bool = false; // idem para el primer movimiento de mouse // [escribe] bombeo
 /// Vueltas de rueda acumuladas desde la ultima lectura. Se vacia al leerlo.
 static MOUSE_WHEEL: AtomicI32 = AtomicI32::new(0);
+static MOUSE_RELATIVE: core::sync::atomic::AtomicU64 = core::sync::atomic::AtomicU64::new(0);
+
+/// Hecho HID sin recorte al panel; leer no consume ni mueve el cursor.
+pub fn movimiento_relativo() -> u64 { MOUSE_RELATIVE.load(Ordering::Relaxed) }
 static HID_EVENTS: AtomicU32 = AtomicU32::new(0);   // no TOTAL de InputEvents de hid.poll (kbd+mouse)
 
 
@@ -641,6 +645,8 @@ fn repartir_eventos(evs: &[InputEvent]) {
             // "llamamos": acumulamos posicion y botones para el diagnostico y,
             // a futuro, el cursor del compositor.
             InputEventKind::MouseMove => unsafe {
+                let _ = MOUSE_RELATIVE.try_update(Ordering::Relaxed, Ordering::Relaxed,
+                    |old| Some(bmo_input::mouse::accumulate_relative(old, ev.mouse_dx(), ev.mouse_dy())));
                 // ** SE RECORTA EL ACUMULADOR, no solo lo que se lee.
                 //
                 // Antes esto sumaba sin tope y el recorte estaba unicamente en

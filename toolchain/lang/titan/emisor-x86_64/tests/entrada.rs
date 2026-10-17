@@ -27,6 +27,36 @@ fn programa(cuerpo: &str) -> String {
 
 const VENTANA: &str = "    if not director.ventana(64, 32)\n        print(\"sin ventana\")\n        return\n";
 
+#[test]
+fn relative_mouse_is_signed_and_capture_is_acknowledged() {
+    let src = programa(&format!("{}    print(director.raton_capturado())\n    print(director.raton_captura(true))\n    director.espera(16)\n    print(director.raton_capturado())\n    print(director.evento(), \" \", director.raton_x(), \" \", director.raton_y())\n    print(director.raton_captura(false))\n    director.espera(16)\n    print(director.raton_capturado())\n", VENTANA));
+    let mut m = maquina(&src); m.mouse_capture_allowed = true;
+    m.buzon_pendiente.push_back((1 << 59) | 0x100 | ((-123i16) as u16 as u64) << 16 | (32767u64 << 32));
+    let m = run(m, 2_000_000);
+    assert_eq!(m.console, "false\ntrue\ntrue\n7 -123 32767\ntrue\nfalse\n");
+}
+
+#[test]
+fn capture_without_window_is_refused() {
+    let m = run(maquina(&programa("    print(director.raton_captura(true), \" \", director.raton_capturado(), \" \", director.raton_x())\n")), 2_000_000);
+    assert_eq!(m.console, "false false 0\n");
+}
+
+#[test]
+fn releasing_is_immediate_and_preserves_director_state() {
+    let src = programa(&format!("{}    director.raton_captura(true)\n    director.espera(16)\n    director.raton_captura(false)\n    print(director.raton_capturado())\n", VENTANA));
+    let mut m = maquina(&src); m.mouse_capture_allowed = true;
+    let m = run(m, 2_000_000);
+    assert_eq!(m.console, "false\n");
+    let &(base, offset, _, _) = m.ofertas.first().unwrap();
+    let surface = base + offset;
+    let mailbox = surface + m.read_u64(surface + 24) as u32 as u64;
+    let flags = (m.read_u64(mailbox + 8) >> 32) as u32;
+    assert_ne!(flags & (1 << 24), 0, "TOMADA es del DIRECTOR");
+    assert_ne!(flags & (1 << 30), 0, "la app no borra la concesion ajena");
+    assert_eq!(flags & (1 << 31), 0, "solo su solicitud se borra");
+}
+
 /// ** Lo que OFRECE el antenista: se toma, se mide y se lee byte a byte; y
 /// fuera de lo tenido, -1.
 #[test]

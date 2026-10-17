@@ -760,7 +760,7 @@ pub(crate) fn compose(dsk: &mut Desktop, p: &bmo::Pantalla, dead: usize) {
     // una ventana que todavia no existe.
     // Con la 3060 mandando en la pantalla, el cursor NO se pone: su caja
     // sucia se volcaria encima de lo que la tarjeta acaba de escribir.
-    if dsk.tick.ax != u32::MAX && !manda_la_3060 {
+    if dsk.tick.ax != u32::MAX && !manda_la_3060 && !super::mouse::capture::active() {
         // * QUE ESTA DICIENDO EL PUNTERO.
         //
         // Se decide aqui, al final del fotograma, porque es aqui donde ya

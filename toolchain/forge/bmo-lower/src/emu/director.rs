@@ -32,7 +32,7 @@ impl Machine {
     /// BSUP como la lee `scene/surface.rs` (campo 6 = donde empieza el buzon,
     /// campo 7 = ranuras) y avanza la CABEZA; la cola es de la app.
     pub(super) fn repartir_buzon(&mut self) {
-        use bmo_abi::syscalls::surface::{SUP_BUZON_CABECERA, SUP_BUZON_RANURA, SUP_MAGIC, SUP_TOMADA};
+        use bmo_abi::syscalls::surface::{SUP_BUZON_CABECERA, SUP_BUZON_RANURA, SUP_MAGIC, SUP_TOMADA, SUP_RATON_PEDIDO, SUP_RATON_CAPTURADO};
         let Some(&(base, desde, _, _)) = self.ofertas.first() else {
             return;
         };
@@ -43,8 +43,11 @@ impl Machine {
             let s = base + desde;
             let buz = self.read_u32_mem(s + 24) as u64;
             if self.read_u32_mem(s) as u64 == SUP_MAGIC && buz != 0 {
-                let estado = self.read_u64(s + buz + 8);
-                self.write_u64(s + buz + 8, estado | SUP_TOMADA);
+                let mut estado = self.read_u64(s + buz + 8) | (SUP_TOMADA << 32);
+                let requested = estado & ((SUP_RATON_PEDIDO as u64) << 32) != 0;
+                if requested && self.mouse_capture_allowed { estado |= (SUP_RATON_CAPTURADO as u64) << 32; }
+                else { estado &= !((SUP_RATON_CAPTURADO as u64) << 32); }
+                self.write_u64(s + buz + 8, estado);
             }
         }
         for _ in 0..self.buzon_por_vuelta.max(1) {

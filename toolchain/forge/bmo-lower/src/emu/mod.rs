@@ -482,6 +482,8 @@ pub struct Machine {
     /// entre miradas al buzon--, en el buzon de la primera superficie
     /// ofrecida, con la misma aritmetica de anillo que usa `keys/app.rs`.
     pub buzon_pendiente: std::collections::VecDeque<u64>,
+    /// El DIRECTOR de prueba concede captura solo cuando el caso la habilita.
+    pub mouse_capture_allowed: bool,
     /// Cuantos de `buzon_pendiente` se entregan en cada WAIT (1 por defecto):
     /// una RAFAGA, como un teclado rapido o una repeticion (ECCE, 15-10).
     pub buzon_por_vuelta: usize,
@@ -603,6 +605,7 @@ impl Machine {
             prestamo_pendiente: None,
             prestado: None,
             buzon_pendiente: std::collections::VecDeque::new(),
+            mouse_capture_allowed: false,
             buzon_por_vuelta: 1,
             mi_paquete: None,
             mem: HashMap::new(),
@@ -634,13 +637,6 @@ impl Machine {
         }
         self.data_len += bytes.len() as u64;
         addr
-    }
-
-    /// Un byte de memoria, para que los tests puedan mirar si el emisor
-    /// escribio donde no debia. Sin esto, un desbordamiento de buffer solo se
-    /// ve cuando ya ha corrompido otra cosa.
-    pub fn read_u8_pub(&self, addr: u64) -> u8 {
-        self.read_u8_mem(addr)
     }
 
     /// Lee 8 bytes de memoria.

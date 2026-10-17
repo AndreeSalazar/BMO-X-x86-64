@@ -67,10 +67,17 @@ const HAY: u32 = 0x100;
 const PULSADA: u32 = 0x200;
 
 const _: () = assert!(SUP_EV_RATON == 1 << 63 && SUP_EV_CARACTER == 1 << 62 && SUP_EV_CONFIGURE == 1 << 61 && SUP_EV_RUEDA == 1 << 60 && SUP_VISTA_SE_VE == 0);
+const _: () = assert!(bmo_abi::syscalls::surface::SUP_EV_RELATIVO == 1 << 59 && bmo_abi::syscalls::surface::SUP_RATON_PEDIDO == 1 << 31 && bmo_abi::syscalls::surface::SUP_RATON_CAPTURADO == 1 << 30);
 
 /// `and <dst>, <src>` (64 bits).
 fn and_r64_r64(code: &mut Vec<u8>, dst: u8, src: u8) {
     code.extend_from_slice(&[0x48 | if src >= 8 { 4 } else { 0 } | if dst >= 8 { 1 } else { 0 }, 0x21, 0xC0 | (src & 7) << 3 | (dst & 7)]);
+}
+
+/// Solo los programas que piden captura pagan el decodificador relativo.
+pub(super) fn uses_relative_mouse(m: &bmo_titan_front::ir::Module) -> bool {
+    let calls = format!("{:?}", m.functions);
+    calls.contains("RatonCaptura") || calls.contains("RatonCapturado")
 }
 
 impl E1<'_> {
@@ -98,8 +105,10 @@ impl E1<'_> {
             Director::Byte => self.byte(args, at),
             Director::Evento => self.evento(),
             Director::Codigo => self.de_la_cola(COLA_EVENTO, 0, 0xFF, 0),
-            Director::RatonX => self.de_la_cola(COLA_EVENTO, 16, 0xFFFF, 0),
-            Director::RatonY => self.de_la_cola(COLA_EVENTO, 32, 0xFFFF, 0),
+            Director::RatonX => self.mouse_coordinate(16),
+            Director::RatonY => self.mouse_coordinate(32),
+            Director::RatonCaptura => self.mouse_capture(args, at),
+            Director::RatonCapturado => self.mouse_captured(),
             Director::Botones => self.de_la_cola(COLA_EVENTO, 0, 0xFF, 0),
             Director::Rueda => self.rueda(),
             Director::Argumento => self.argumento(),
@@ -127,6 +136,63 @@ impl E1<'_> {
         for j in no {
             self.here(j);
         }
+        Ok((out, Class::Int))
+    }
+
+    fn mouse_flags(&mut self) {
+        self.lea(RSI, RDI, 24);
+        x86::mov_r32_at_reg(&mut self.code, RSI, RSI);
+        x86::add_r64_r64(&mut self.code, RSI, RDI);
+        self.lea(RSI, RSI, 12);
+    }
+
+    fn mouse_capture(&mut self, args: &[Value], at: At) -> Result<(Place, Class), String> {
+        let [enabled] = args else { return Err(format!("linea {}: captura sin bool", at.0)) };
+        let (enabled, _) = self.eval(enabled)?;
+        let out = self.temp(8); self.store_imm(out, 0);
+        let mut no = Vec::new(); self.con_ventana(&mut no);
+        self.mouse_flags();
+        self.load(enabled, R8); x86::shl_r64_imm8(&mut self.code, R8, 31);
+        x86::mov_r32_at_reg(&mut self.code, RAX, RSI);
+        let retry = self.etiqueta();
+        x86::mov_r64_r64(&mut self.code, RDX, RAX);
+        x86::and_r64_imm32(&mut self.code, RDX, 0x7FFF_FFFF);
+        x86::or_r64_r64(&mut self.code, RDX, R8);
+        // lock cmpxchg [rsi], edx: conserva todos los bits del DIRECTOR.
+        self.code.extend_from_slice(&[0xF0, 0x0F, 0xB1, 0x16]);
+        let again = self.jcc(0x85); x86::patch_jump_to(&mut self.code, again, retry);
+        self.store_imm(out, 1);
+        for j in no { self.here(j); }
+        Ok((out, Class::Bool))
+    }
+
+    fn mouse_captured(&mut self) -> Result<(Place, Class), String> {
+        let out = self.temp(8); self.store_imm(out, 0);
+        let mut no = Vec::new(); self.con_ventana(&mut no); self.mouse_flags();
+        x86::mov_r32_at_reg(&mut self.code, RAX, RSI);
+        x86::mov_r64_r64(&mut self.code, RDX, RAX);
+        x86::shr_r64_imm8(&mut self.code, RDX, 31);
+        x86::shr_r64_imm8(&mut self.code, RAX, 30); x86::and_r64_imm32(&mut self.code, RAX, 1);
+        and_r64_r64(&mut self.code, RAX, RDX);
+        self.store(out, RAX);
+        for j in no { self.here(j); }
+        Ok((out, Class::Bool))
+    }
+
+    fn mouse_coordinate(&mut self, shift: u8) -> Result<(Place, Class), String> {
+        if !self.relative_mouse { return self.de_la_cola(COLA_EVENTO, shift, 0xFFFF, 0); }
+        let out = self.temp(8); self.store_imm(out, 0);
+        let mut no = Vec::new(); self.con_ventana(&mut no); self.cola();
+        x86::mov_r64_at_reg_disp32(&mut self.code, RDX, RSI, COLA_EVENTO);
+        x86::mov_r64_r64(&mut self.code, RAX, RDX);
+        x86::shr_r64_imm8(&mut self.code, RAX, shift);
+        x86::and_r64_imm32(&mut self.code, RAX, 0xFFFF);
+        x86::shr_r64_imm8(&mut self.code, RDX, 59); x86::and_r64_imm32(&mut self.code, RDX, 1);
+        let unsigned = self.jcc(0x84);
+        x86::movsx_r64_r16(&mut self.code, RAX, RAX);
+        self.here(unsigned);
+        self.store(out, RAX);
+        for j in no { self.here(j); }
         Ok((out, Class::Int))
     }
 
@@ -442,7 +508,8 @@ impl E1<'_> {
         x86::and_r64_imm32(&mut self.code, RAX, HAY);
         no.push(self.jcc(0x84));
         let mut fin = Vec::new();
-        for (bit, que) in [(63u8, 4i64), (62, 3), (61, 5), (60, 6)] {
+        let events = [(63u8, 4i64), (62, 3), (61, 5), (60, 6), (59, 7)];
+        for &(bit, que) in &events[..if self.relative_mouse { 5 } else { 4 }] {
             x86::mov_r64_r64(&mut self.code, RAX, RDX);
             x86::shl_r64_imm8(&mut self.code, RAX, 63 - bit);
             x86::shr_r64_imm8(&mut self.code, RAX, 63);

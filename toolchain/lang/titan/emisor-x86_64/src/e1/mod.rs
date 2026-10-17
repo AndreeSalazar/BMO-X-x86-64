@@ -188,6 +188,7 @@ pub(crate) struct Fun {
 
 pub(crate) struct E1<'m> {
     pub m: &'m Module,
+    relative_mouse: bool,
     pub forms: Forms<'m>,
     pub code: Vec<u8>,
     /// (campo rel32, funcion destino), de `call` y de `jmp`.
@@ -1030,6 +1031,7 @@ fn written(v: &Value) -> Option<String> {
 /// que alguien llamo, y los NO del final.
 pub fn emit<'m>(m: &'m Module, cuerpos: &'m Cuerpos) -> Result<Emitted, NoE1> {
     let mut e = E1 {
+        relative_mouse: entrada::uses_relative_mouse(m),
         m,
         forms: Forms::new(m),
         code: Vec::new(),
@@ -1183,7 +1185,7 @@ fn uses_director(m: &Module) -> bool {
 /// la letra)?
 fn uses_window(m: &Module) -> bool {
     let s = format!("{:?}", &m.functions);
-    ["Ventana", "Pixel", "Rect", "Fila", "Presenta", "Toma", "Fichero", "Medida", "Byte", "Evento", "Codigo", "RatonX", "RatonY", "Botones", "Rueda", "SeVe", "Letra", "Texto", "Crea", "Escribe", "Cierra", "Espera"].iter().any(|k| s.contains(&format!("what: {}", k)) || s.contains(&format!("Director({}", k)))
+    ["Ventana", "Pixel", "Rect", "Fila", "Presenta", "Toma", "Fichero", "Medida", "Byte", "Evento", "Codigo", "RatonX", "RatonY", "RatonCaptura", "RatonCapturado", "Botones", "Rueda", "SeVe", "Letra", "Texto", "Crea", "Escribe", "Cierra", "Espera"].iter().any(|k| s.contains(&format!("what: {}", k)) || s.contains(&format!("Director({}", k)))
 }
 
 /// Las fn a las que se llega desde `main` (y las de los tipos de un trait).

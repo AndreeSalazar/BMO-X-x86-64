@@ -69,6 +69,7 @@ pub(crate) mod apps;
 pub(crate) mod barra;
 /// El realce de cerrar/minimizar/maximizar, UNA vez y con el Z-order.
 pub(crate) mod realce;
+pub(crate) mod capture;
 
 /// **Lo que una vuelta del puntero sabe antes de repartirla.**
 ///

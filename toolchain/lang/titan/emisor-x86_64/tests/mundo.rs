@@ -287,3 +287,35 @@ fn picking_and_placing_follow_pitch_instead_of_eye_height() {
     let top = 8 + (2 * 16 + 3) * 16 + 8;
     assert_eq!(placed.archivos["datos/mundo.bmv"][top], 6, "tablas sobre el suelo apuntado");
 }
+
+fn published(m: &bmo_lower::emu::Machine) -> Option<Vec<Vertex>> {
+    let &(base, _, bytes, _) = m.ofertas.iter().find(|o| m.read_u64(o.0 + o.1) as u32 == lamina::MAGIA)?;
+    let w: Vec<AtomicU32> = (0..bytes / 4).map(|k| AtomicU32::new(m.read_u64(base + 4 * k) as u32)).collect();
+    let l = Lamina::abrir(&w).unwrap();
+    let mut vertices = vec![Vertex::default(); CAPACIDAD];
+    let Leido::Fotograma { vertices: n, .. } = l.leer(&mut vertices) else { return None };
+    vertices.truncate(n); Some(vertices)
+}
+
+#[test]
+fn captured_mouse_looks_freely_and_escape_releases_before_closing() {
+    let mut m = cargar_bex(&bex()).unwrap(); m.padre = 7; m.mouse_capture_allowed = true;
+    let initial = loop {
+        let (next, exited) = run_acotado(m, 2_000_000); m = next; assert!(!exited);
+        if let Some(v) = published(&m) { break v; }
+    };
+    let event = |dx: i16, dy: i16| (1 << 59) | 0x100 | (dx as u16 as u64) << 16 | (dy as u16 as u64) << 32;
+    m.buzon_pendiente.push_back(event(10, -20));
+    let (mut m, exited) = run_acotado(m, 8_000_000); assert!(!exited);
+    let moved = published(&m).unwrap();
+    assert_ne!(dibuja(&moved, Cull::Back), dibuja(&initial, Cull::Back));
+    assert_eq!(dibuja(&moved, Cull::Back)[(W * H / 2 + W / 2) as usize] & 0xFFFFFF, 0xFFFFFF);
+    m.buzon_pendiente.push_back(event(-10, 20));
+    let (mut m, exited) = run_acotado(m, 8_000_000); assert!(!exited);
+    assert_eq!(dibuja(&published(&m).unwrap(), Cull::Back), dibuja(&initial, Cull::Back));
+    m.buzon_pendiente.push_back(letra(27));
+    let (mut m, exited) = run_acotado(m, 2_000_000); assert!(!exited, "Esc suelta, no cierra");
+    assert!(m.console.contains("raton libre"), "{}", m.console);
+    m.buzon_pendiente.push_back(letra(27));
+    let (m, exited) = run_acotado(m, 2_000_000); assert!(exited && m.exited);
+}

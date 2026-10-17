@@ -339,6 +339,9 @@ pub enum Director {
     /// the mouse of the last event.
     RatonX,
     RatonY,
+    /// Solicitar mirada relativa y consultar la concesion del escritorio.
+    RatonCaptura,
+    RatonCapturado,
     Botones,
     /// `director.rueda()` (15-10, PL9b of PLAN_ECCE): the notches of the last
     /// wheel event, signed -- up is positive. Plain or with Alt: Ctrl + wheel
@@ -406,7 +409,7 @@ pub enum Director {
 }
 
 impl Director {
-    pub const ALL: [Director; 37] = [
+    pub const ALL: [Director; 39] = [
         Director::Lamina,
         Director::Publica,
         Director::Espera,
@@ -427,6 +430,8 @@ impl Director {
         Director::Codigo,
         Director::RatonX,
         Director::RatonY,
+        Director::RatonCaptura,
+        Director::RatonCapturado,
         Director::Botones,
         Director::Rueda,
         Director::Argumento,
@@ -469,6 +474,8 @@ impl Director {
             Director::Codigo => "director.codigo",
             Director::RatonX => "director.raton_x",
             Director::RatonY => "director.raton_y",
+            Director::RatonCaptura => "director.raton_captura",
+            Director::RatonCapturado => "director.raton_capturado",
             Director::Botones => "director.botones",
             Director::Rueda => "director.rueda",
             Director::Argumento => "director.argumento",
@@ -497,6 +504,8 @@ impl Director {
     /// How many values it takes.
     pub fn takes(self) -> usize {
         match self {
+            Director::RatonCaptura => 1,
+            Director::RatonCapturado => 0,
             Director::Presenta | Director::Toma | Director::Cierra | Director::Medida | Director::Evento | Director::Codigo | Director::RatonX | Director::RatonY | Director::Botones | Director::Rueda | Director::Argumento | Director::SeVe | Director::Ms | Director::Contar | Director::SonidoToma | Director::SonidoSuelta => 0,
             Director::Lamina | Director::Espera | Director::Fichero | Director::Crea | Director::Escribe | Director::Byte | Director::Profundidad | Director::Contado | Director::SonidoBanco | Director::SonidoSuena | Director::SonidoCalla => 1,
             Director::Ventana | Director::Fila | Director::Guarda | Director::SonidoPita => 2,

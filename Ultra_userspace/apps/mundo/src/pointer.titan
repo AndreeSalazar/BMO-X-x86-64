@@ -1,0 +1,21 @@
+# Modulo reutilizable: captura cooperativa y sensibilidad del raton.
+# No reclama hardware: el DIRECTOR solo concede a la ventana con foco.
+mod pointer "mirada relativa por el buzon del DIRECTOR"
+use director
+
+pub type LookDelta
+    yaw: int
+    pitch: int
+
+pub fn begin() -> bool
+    return director.raton_captura(true)
+
+pub fn release() -> bool
+    return director.raton_captura(false)
+
+pub fn active() -> bool
+    return director.raton_capturado()
+
+# Tres decimas de grado por cuenta HID, sin aceleracion del escritorio.
+pub fn motion(dx: int, dy: int) -> LookDelta
+    return LookDelta { yaw: dx * 3, pitch: 0 - dy * 3 }
