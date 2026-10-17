@@ -39,7 +39,7 @@ impl BootProbe {
     }
 }
 
-/// **LA FOTO HONDA** (17-10): lo que OpenRM 570.144 senala para comparar un
+/// **LA FOTO HONDA** (17-10): lo que OpenRM 570.144 marca para comparar un
 /// arranque bueno con uno malo, leido JUSTO antes de soltar el booter. Solo
 /// lecturas; cada palabra cruda (un BADF se queda BADF).
 ///    [0] HWCFG2 del SEC2 | del GSP << 32 (el bit 12, la memoria limpiandose)
@@ -56,8 +56,7 @@ pub struct FotoHonda(pub [u64; 8]);
 pub const ECC_L2TLB: u32 = 0x0010_0E78;
 pub const ECC_HUBTLB: u32 = 0x0010_0E8C;
 pub const ECC_FILLUNIT: u32 = 0x0010_0EA0;
-pub const WPR2_ADDR_LO: u32 = 0x001F_A824;
-pub const WPR2_ADDR_HI: u32 = 0x001F_A828;
+pub use crate::aon::{WPR2_HI as WPR2_ADDR_HI, WPR2_LO as WPR2_ADDR_LO};
 
 impl FotoHonda {
     pub fn leer(r: &mut impl Registros, t: &mut impl fa::Reloj) -> Self {
