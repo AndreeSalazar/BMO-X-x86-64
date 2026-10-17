@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="380" viewBox="0 0 1200 380" role="img" aria-labelledby="title desc">
+  <title id="title">BMO-X | Bare Metal Orquestal</title>
+  <desc id="desc">An independent x86-64 system from Lima, Peru. The program declares, the system grants, the kernel verifies. A cyan and violet constellation connects the parts of the orchestra.</desc>
+  <defs>
+    <linearGradient id="sky" x2="1" y2="1">
+      <stop stop-color="#090d18"/>
+      <stop offset=".6" stop-color="#121026"/>
+      <stop offset="1" stop-color="#17182b"/>
+    </linearGradient>
+    <linearGradient id="thread">
+      <stop stop-color="#63e9d5"/>
+      <stop offset="1" stop-color="#b09cff"/>
+    </linearGradient>
+    <radialGradient id="glow">
+      <stop stop-color="#7760cc" stop-opacity=".2"/>
+      <stop offset="1" stop-color="#7760cc" stop-opacity="0"/>
+    </radialGradient>
+    <pattern id="grid" width="48" height="48" patternUnits="userSpaceOnUse">
+      <path d="M48 0H0V48" fill="none" stroke="#b09cff" stroke-opacity=".045"/>
+    </pattern>
+  </defs>
+  <rect x="1" y="1" width="1198" height="378" rx="20" fill="url(#sky)" stroke="#39334e"/>
+  <rect x="2" y="2" width="1196" height="376" rx="19" fill="url(#grid)"/>
+  <circle cx="965" cy="180" r="235" fill="url(#glow)"/>
+  <path d="M60 48H98" stroke="#63e9d5" stroke-width="3"/>
+  <g font-family="Consolas, 'Liberation Mono', monospace">
+    <text x="112" y="53" font-size="12" letter-spacing="2.5" fill="#b8b3ce">INDEPENDENT SYSTEMS / LIMA, PERU</text>
+    <text x="55" y="177" font-size="110" font-weight="700" letter-spacing="-5" fill="#f5f3ff">BMO-X</text>
+    <text x="62" y="220" font-size="24" letter-spacing="2" fill="#c1b4f3">Bare Metal Orquestal</text>
+    <text x="63" y="263" font-size="13" fill="#b6bfd2">The program declares. The system grants. The kernel verifies.</text>
+    <path d="M62 298H715" stroke="#39364f"/>
+    <text x="63" y="332" font-size="12" letter-spacing="1.5" fill="#63e9d5">x86-64</text>
+    <text x="191" y="332" font-size="12" letter-spacing="1.5" fill="#c8bfdc">TWO FROZEN SYSCALLS</text>
+    <text x="466" y="332" font-size="12" letter-spacing="1.5" fill="#c8bfdc">ITS OWN TOOLCHAIN</text>
+  </g>
+  <g fill="none" stroke="url(#thread)">
+    <circle cx="974" cy="184" r="118" stroke-opacity=".15"/>
+    <circle cx="974" cy="184" r="151" stroke-opacity=".15" stroke-dasharray="2 10"/>
+    <path d="M840 102L912 122L974 184L1059 128L1105 211L1028 272L974 184L886 248L840 102" stroke-opacity=".55"/>
+    <path d="M912 122L986 70L1059 128M886 248L926 306L1028 272" stroke-opacity=".3"/>
+    <path d="M974 184L912 122M974 184L886 248M974 184L1028 272" stroke-width="2"/>
+  </g>
+  <g fill="#111322" stroke="#9f91d4" stroke-width="1.5">
+    <circle cx="840" cy="102" r="5"/><circle cx="912" cy="122" r="7"/>
+    <circle cx="986" cy="70" r="4"/><circle cx="1059" cy="128" r="7"/>
+    <circle cx="1105" cy="211" r="5"/><circle cx="1028" cy="272" r="7"/>
+    <circle cx="926" cy="306" r="4"/><circle cx="886" cy="248" r="7"/>
+  </g>
+  <circle cx="974" cy="184" r="23" fill="#161b2b" stroke="#63e9d5" stroke-width="1.5"/>
+  <circle cx="974" cy="184" r="6" fill="#63e9d5"/>
+  <g font-family="Consolas, 'Liberation Mono', monospace" font-size="10" letter-spacing="2" fill="#b6aecb">
+    <text x="818" y="78">DECLARE</text>
+    <text x="1050" y="107">GRANT</text>
+    <text x="1024" y="300">VERIFY</text>
+    <text x="866" y="357" font-size="9" fill="#8f87a5">ONE MACHINE. EVERY LAYER.</text>
+  </g>
+</svg>

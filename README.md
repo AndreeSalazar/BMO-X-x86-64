@@ -1,1440 +1,437 @@
 <p align="center">
-  <img src="docs/arte/bmo-x-gato.jpg" alt="BMO-X -- BMO METAKERNEL" width="320">
+  <img src="docs/arte/readme-orquesta.svg" alt="BMO-X. Bare Metal Orquestal. The program declares. The system grants. The kernel verifies." width="100%">
 </p>
 
-# BMO-X
-
-**A bare-metal orchestrator that boots on real hardware and runs COBOL, C, C++,
-Ada and INTI -- compiled by its own toolchain into its own executable format.
-No LLVM. No GCC. No ELF. No QEMU.** And now a sixth language of its own,
-**TITAN++**, written as text and seen as a graph of nodes, over a filesystem
-that keeps every version and is learning to merge branches the way Git does --
-by whole nodes, not lines.
-
-![status](https://img.shields.io/badge/boots_on-real_hardware-2ea043)
-![cpu](https://img.shields.io/badge/verified_on-Ryzen_5_5600X-2ea043)
-![arch](https://img.shields.io/badge/architecture-x86--64_only-1f6feb)
-![ram](https://img.shields.io/badge/RAM_footprint-5.4_MiB-1f6feb)
-![syscalls](https://img.shields.io/badge/syscalls-2_frozen-1f6feb)
-![languages](https://img.shields.io/badge/native_languages-COBOL_-_C_-_C%2B%2B_-_Ada_-_INTI-8957e5)
-![format](https://img.shields.io/badge/executable_format-BEF2_(own)-8957e5)
-![inti](https://img.shields.io/badge/system_language-INTI-f0883e)
-![titan](https://img.shields.io/badge/TITAN%2B%2B-14_levels_(host)-d29922)
-![estratos](https://img.shields.io/badge/ESTRATOS-every_write_a_version-2ea043)
-![gpu](https://img.shields.io/badge/GPU-RTX_3060_driven_from_scratch-76b900)
-![0x15](https://img.shields.io/badge/case_0x15-solved-76b900)
-![cyberpunk](https://img.shields.io/badge/Cyberpunk_2077-starts_(CPU%2C_16_s%2Fframe)-fcee0a)
-![license](https://img.shields.io/badge/license-Apache_2.0-d29922)
+<h1 align="center">BMO-X</h1>
+<p align="center"><strong>An independent x86-64 system, from the firmware to its own languages.</strong></p>
+<p align="center">Built in Lima, Peru, by Eddi Salazar. Real hardware. Measured results. Explicit limits.</p>
 
 <p align="center">
-  <img src="docs/evidencia/23-globo-del-puntero.png" alt="The BMO-X desktop with the pointer's neon bubble: LA 3060 -- awake, at 49 degrees" width="100%">
+  <a href="#what-runs">What runs</a> &nbsp;&middot;&nbsp;
+  <a href="#mundo">MUNDO</a> &nbsp;&middot;&nbsp;
+  <a href="#titan">TITAN++</a> &nbsp;&middot;&nbsp;
+  <a href="#verrano">VERRANO &amp; RTX 3060</a> &nbsp;&middot;&nbsp;
+  <a href="#try-it-yourself">Build</a> &nbsp;&middot;&nbsp;
+  <a href="#going-deeper">Explore</a>
 </p>
-<p align="center"><sub>The BMO-X desktop. The neon bubble follows the pointer for 20 seconds with
-what the RTX 3060 is doing right now, or a shortcut of the house -- it opens with a
-cartoon bounce, types itself out and closes. Every pixel of it is BMO-X's own code
-(<a href="#the-desktop-talks-back">how this image was made</a>).</sub></p>
-
-## Cyberpunk 2077 starts on BMO-X (2026-10-13)
 
 <p align="center">
-  <img src="docs/evidencia/35-cyberpunk-logo.png" alt="The Cyberpunk 2077 intro logo, drawn inside a BMO-X window by PROTON-X, beside its console" width="100%">
+  <code>Ryzen 5 5600X</code> &nbsp;
+  <code>RTX 3060 12 GB</code> &nbsp;
+  <a href="#case-file-the-booter-that-said-no-0x15"><code>G0 OPEN</code></a> &nbsp;
+  <a href="LICENSE"><code>Apache-2.0</code></a>
 </p>
-<p align="center"><sub>Captured by BMO-X itself (its own <code>capturas/</code>), on the Ryzen 5 5600X,
-2026-10-13 03:39. The window is PROTON-X; the console on the right is what it says about every frame.</sub></p>
 
-**The unmodified Windows `Cyberpunk2077.exe`, read from an NTFS disk and drawing
-its own intro -- with no Windows, no Linux, no Wine and no DXVK underneath.**
-Every layer between the game and the screen is BMO-X's own code:
+BMO-X calls its design **Bare Metal Orquestal**: programs declare what they
+need, the system grants capabilities, and the kernel checks their use.
+Its UEFI boot chain, kernel, desktop, filesystem, native compiler paths and
+executable format are developed together in this repository.
 
-| layer | what does it, here |
-|---|---|
-| the `.exe` and the DLLs it imports | PROTON-X's own PE loader and its own `kernel32`, `ucrt`, `dxgi`... (no code copied from Wine) |
-| Direct3D 12 | PROTON-X translates DXIL shaders and runs the frame |
-| the window, the disk, the threads | the BMO-X kernel and desktop: 12 threads paint the frame in bands |
-| the RTX 3060 | driven from scratch through its GSP (below); the game's draws are **not** on it yet |
+**The machine is the workshop.** TITAN++ builds native applications; VERRANO
+carries their drawing; ESTRATOS preserves their versions; CABINA records what
+happened. MUNDO, a native block game, now exercises that whole path on the Ryzen.
 
-**Why it stands out:** an AAA DirectX 12 game is the hardest client a new system
-can have -- hundreds of Windows functions, compute shaders, HDR render targets.
-Getting its own pixels on the screen is the proof that the loader, the Windows
-layer, the shader translator and the kernel all hold together at once.
-
-**And what is normal about it -- said plainly, because only green counts:**
-
-- It is **not playable**: the CPU draws each frame in about **16 seconds**.
-- The game's draws are **not on the GPU yet**: 228 of 232 batches would pass
-  every gate to the RTX 3060, but its graphics channel was dead before the
-  first one (a Xid) and the 3060 drew 0 of them. Finding who kills it is next.
-- Some compute shaders the translator does not know yet; their `Dispatch`
-  are skipped (the glitches in [this frame](docs/evidencia/36-cyberpunk-intro.png)).
-
-The run, line by line: [`METAL_2026-10-13.md`](docs/metal/METAL_2026-10-13.md);
-the console census of that night: [photo](docs/evidencia/37-cyberpunk-censo.png).
-
-Written from scratch in Rust -- the boot chain, the kernel, the drivers, the
-filesystem, **six native compilers** and the executable format they emit. It
-boots on an AMD Ryzen 5 5600X and occupies **5.4 MiB of 14.8 GiB of RAM**.
-
-**One developer, since 17 April 2026 -- Lima, Peru.**
-
-**One architecture, on purpose.** The name of the kernel directory is
-`Ultra_kernel_x86-64` and that is the whole portability story: BMO-X targets
-x86-64 and nothing else, by decision (2026-09-18). The only architecture-neutral
-code in the tree is the compiler *frontends*; every emitter, every driver and
-every page table is x86-64, and a guardian (`isa`) fails the build if a second
-architecture starts growing inside. ARM or RISC-V would be another repository
-with another name -- not a `#[cfg]`.
+> **El programa DECLARA. El sistema CONCEDE. El kernel solo COMPRUEBA.**
+>
+> Authority is functional, never inherited. A program's handles determine
+> what it can do. The mechanisms and their costs are in
+> [EL ORQUESTAL](docs/identidad/EL_ORQUESTAL.md) and [ARQUITECTURA](ARQUITECTURA.md).
 
 <details>
-<summary><b>En castellano</b> -- que es esto, en un parrafo</summary>
+<summary><strong>En castellano</strong></summary>
 
-BMO-X no es un sistema operativo de proposito general y no aspira a serlo. Un
-sistema operativo **multiplexa**: le miente a cada programa diciendole que esta
-solo en la maquina. BMO-X **orquesta**: cada programa sabe su parte, su entrada
-y lo que cuesta. Por eso la frontera entera con el sistema son **dos syscalls**
---`INVOKE` y `WAIT`-- y no trescientas.
+BMO-X se construye como una maquina propia: arranque UEFI, kernel, escritorio,
+lenguajes, herramientas y formato ejecutable. Su identidad es **Bare Metal
+Orquestal**. Los programas declaran recursos y reciben capacidades explicitas.
 
-La palabra es **BMO: Bare Metal Orquestal**, y no es un SO, un RTOS ni ninguna
-otra caja prestada -- porque una categoria es una promesa que se hace sola, y
-una expectativa que no se cumple es un informe de fallo que no se puede cerrar.
-Multiplexar es ser generoso: un SO lo da todo por defecto y comprueba despues.
-Orquestar es ser **celoso**: aqui no se da nada, se **presta**, y el prestamo
-se acaba cuando el propietario quiere. Los ocho sitios del arbol donde eso esta
-escrito --y las tres cosas que cuesta-- estan en
-[`docs/identidad/EL_ORQUESTAL.md`](docs/identidad/EL_ORQUESTAL.md).
+El foco actual es MUNDO, un juego nativo de bloques en TITAN++ y VERRANO.
+Ya se juega en el Ryzen y hubo una corrida con dibujo por la RTX 3060.
+El arranque de su firmware sigue siendo intermitente: el `0x15` NO esta
+resuelto. La ultima sesion funciono con respaldo CPU, con una muestra de
+19,60 FPS y capturas PNG guardadas por BMO-X.
 
-Desde el 13-10 BMO-X se inspira en el **reino de los hongos (Fungi)**: presta
-y no regala (la micorriza), digiere afuera lo ajeno, crece por la punta, hace
-suelo con lo que paso -- y el kernel es el **lente** de lo que falla: una
-pieza que no sabe decir su fallo en castellano todavia no esta educada
-([`docs/identidad/EL_REINO_FUNGI.md`](docs/identidad/EL_REINO_FUNGI.md)).
-
-Esta escrito desde cero en Rust, en Lima, por una persona: la cadena de
-arranque, el kernel, los drivers, el sistema de ficheros, seis compiladores
-nativos (C, C++, COBOL, Ada, INTI y TITAN++) que no usan LLVM ni GCC, y el
-formato ejecutable que emiten (BEF2, propio: no hay ELF). TITAN++ es el
-lenguaje propio que se escribe como NODOS en F1 (el TALLER), y ESTRATOS --el
-sistema de ficheros-- guarda cada version y mezcla ramas como Git, pero por
-nodos enteros. Arranca en un AMD Ryzen
-5 5600X **de verdad**, no en QEMU.
-
-La documentacion tecnica esta en castellano --`BITACORA.md`, `ARQUITECTURA.md`,
-`AVANCES.md` y todo `docs/`-- y este README en ingles a proposito: es la puerta
-de entrada, y la conversacion de fuera ocurre en ingles. Lo que el sistema
-IMPRIME en pantalla es castellano sin acentos, y eso tiene su propio motivo tecnico
-(ver `CONTRIBUTING.md`).
+El kernel tambien crece como **lente**: bytes en orden, hexadecimal y bits,
+fallos explicados en castellano y un informe que conserva las medidas.
+La inspiracion Fungi y sus mecanismos estan en
+[EL REINO FUNGI](docs/identidad/EL_REINO_FUNGI.md).
+La portada sigue en ingles; la documentacion tecnica y la voz del sistema
+estan en castellano.
 
 </details>
 
-<p align="center">
-  <a href="#-what-the-silicon-has-actually-done">What runs</a> &middot;
-  <a href="#the-rtx-3060-driven-from-scratch">The RTX 3060</a> &middot;
-  <a href="#estratos-titan-and-the-taller">ESTRATOS &amp; TITAN++</a> &middot;
-  <a href="#case-file-the-booter-that-said-no-0x15"><b>Case 0x15</b></a> &middot;
-  <a href="#try-it-yourself">Try it</a> &middot;
-  <a href="#why-it-is-built-this-way">Why</a> &middot;
-  <a href="#what-is-next-and-what-blocks-it">Next</a> &middot;
-  <a href="#going-deeper">Docs</a>
-</p>
-
-> **New -- [ESTRATOS learned Git](#estratos-titan-and-the-taller).** Branches,
-> and a merge that compares whole nodes by their BLAKE3 and asks a person about
-> every conflict -- with a padlock that guards the choice instead of locking the
-> disk. Written and tested on the host; the metal test is next.
->
-> **And [case `0x15`](#case-file-the-booter-that-said-no-0x15).** NVIDIA's own
-> signed booter refused to start the RTX 3060's firmware nine times, with an
-> error code nobody publishes. BMO-X measured every boot until one variable
-> separated good from bad -- and found the cause.
-
 ---
 
-## The one sentence
-
-**Authority is functional, never inherited.** What a process may do comes from
-the handles it holds -- not from who launched it, what it is called, or which
-user is logged in. There is no `root` to inherit from and no ambient permission
-to escalate into.
-
-The teller's process does not *fail a check* on a large transfer. **The
-operation does not exist for it.**
-
-Everything below is a consequence of that sentence, and the four other clauses
-that follow from it are in **[ARQUITECTURA.md](ARQUITECTURA.md)** with the
-mechanism that implements each one -- because a principle with no mechanism
-under it is a slogan.
-
----
-
-## Read this first: the three states
-
-| State | Meaning |
-|---|---|
-| 🟢 **Runs on metal** | Seen working on the real Ryzen, with a photo or a telemetry line |
-| 🟡 **Written, never executed** | Compiles, links, passes its tests -- and no CPU has ever run it |
-| ⚪ **Design only** | Documented, not built |
-
-**Only 🟢 counts as done.** Nothing is green because it *should* work.
-
----
-
-## 🟢 What the silicon has actually done
-
-| | |
-|---|---|
-| Boots UEFI -> Ring 0 -> Ring 3 | kernel up at **47 ms**. The desktop's 1.100 ms nap was removed on 2026-09-08 -- it now waits only if something was **not** handed over; the new figure is not yet measured on metal |
-| Runs its own compilers' output | COBOL, C, C++, Ada and INTI binaries, launched from disk |
-| Its own executable format, on metal | **BEF2** (2026-09-20): a 64-byte header with four fixed regions -- the page permission comes from *where* a region sits, not from a flag -- and a signature that covers the index, every region and every attachment. ELF is gone from the tree; the desktop and DOOM booted on it the day it landed |
-| Three languages in one program | C, C++ and INTI compile to the same `.bo` object and `bmo-enlazar` links them into one `.bex` -- a C `main` calling an INTI function and a C++ class, `42 42 7`, in the host bank |
-| Decimal arithmetic that is exact | a bank batch totalling `$1,135.00` from a file it read |
-| USB keyboard and mouse | xHCI + HID written here, no BIOS help |
-| Disk | AHCI, FAT32 read *and* write, plus **ESTRATOS**, its own copy-on-write volume: the first file saved on the Ryzen on 2026-08-19, and every write since is a version you can go back to without losing what came after ([below](#estratos-titan-and-the-taller)) |
-| A workshop where code is nodes | **F1, the TALLER**: a TITAN++ package drawn as a graph -- every module a node, every `use` a cable, the console line each node prints -- seen on the Ryzen on 2026-09-29 (and it stopped the machine that night; the cause and the fix are in [`PLAN_TALLER.md`](docs/plan/PLAN_TALLER.md)) |
-| 6 cores, 12 threads | SMP bring-up on the Ryzen 5 5600X (6 physical cores, 2 threads each): `12 of 12` threads up -- the BSP and 11 workers |
-| Ring 3 isolation | a fault kills the task; the kernel takes the screen back and prints its last four lines |
-| Traps its own undefined behaviour | INTI `llano` on the Ryzen: overflow, divide-by-zero and bad conversion all caught **in metal** |
-| Plays DOOM | full width with the status bar, 1600x1000 scaled x5, **58 fps** in a window -- every pixel expanded and blitted by the CPU, no GPU. Played to the character's death on 2026-09-20 on the new format and the new C emitter (**-59 %** instructions on the metro, hybrid register calling convention), which no CPU had run before that day. On 2026-09-24, x3 at 960x600 and **~70 fps** in a window, beside the sound panel and the RTX 3060 awake in P0 ([photo](docs/evidencia/22-doom-y-la-3060.jpg)) |
-| All 12 threads doing real work | a kernel-side workload measured at **11,52x** over one thread (6 cores with SMT: the second thread of each core helps because that workload waits on memory, not on the ALUs) |
-| Explains its own crashes in Spanish | a page fault inside the framebuffer prints `ESCRIBIA EN LA PANTALLA QUE YA NO ES SUYA -- fila 231`, not just an address |
-| Both frozen syscalls in use | `WAIT` had **one** call site in the whole repo until 2026-09-08 -- and it was a plain sleep. The compositor is now its first real user, blocking on the hardware beat. ⚠ It still spins when the machine is idle (nobody else is Ready, so the scheduler has nowhere to switch); that is `P2.2` in [`PLAN_EL_PLAZO.md`](docs/plan/PLAN_EL_PLAZO.md) |
-| Survives its own userspace dying | DOOM launched **five times**, Ring 3 killed in between, the system never broke |
-| Measures where its own second goes | the side panel shows the loop rate with a spinning needle, and CABINA the split: `latido N/s  pinta N  cuerpo Nms  puerta Nms` -- frames that painted, working versus waiting for a turn |
-| Photographs itself | `Impr Pant` writes the screen to a 24-bit BMP through its own FAT32 driver, and Windows opens it from the same disk. The first ones, taken on the Ryzen on 2026-09-22, are in [`docs/evidencia/`](docs/evidencia/) -- with the 1.5 s freeze they exposed |
-| Shows images | PNG (own inflate) and JPEG (integer IDCT) decoded and painted in a window on the Ryzen (2026-09-21); zoom is next |
-| Writes its own report | `save` from the desktop: eight chapters (session, machine, memory, consumption, programs, disk, autopsy, what the program wrote) as sheets in `informe/` -- since 2026-10-11 with *why the machine reset last time* (the chipset's reset reason, the MCA banks, the workers' CPU state), plus `DATOS.TXT` -- the same numbers as `capitulo.clave = valor unidad`, one per line, for a machine to read (2026-09-21) |
-| The orchestrator enforces rank | a kernel thread declares `(period, budget)`; the tick charges every turn, a thread that overruns is set aside until its period ends, and `save` prints `incumplio` per thread. Measured on metal the day it landed: the USB bus, `4 ms / 3000 us`, went from 176 overruns to 20 once the real culprit was found |
-| Enumerates USB without freezing the mouse | a mute device on port 1 cost the bus thread **933 ms per attempt**, felt as stutter. Enumeration is now a state machine advanced one step per 4 ms pump; the worst pump measured on the Ryzen went from 932.898 us to **7.922 us** (2026-09-21) |
-| Drives an RTX 3060 with no NVIDIA driver | wakes its GSP firmware, builds the graphics engine's context in its own VRAM, runs SM86 shaders (a Mandelbrot **221x** faster than one Ryzen core, bit-exact), draws triangles with the card's own rasterizer and **paints the whole monitor, 1920x1080 at ~245 fps**. `save mode`: **51 of 51 steps** on the Ryzen (2026-09-24), and **every boot now wakes the card by itself**. See [below](#the-rtx-3060-driven-from-scratch) |
-| Hunts a firmware bug to its cause | NVIDIA's signed booter refused to start the GPU's firmware (`0x15`) nine times, no public meaning, six times in a row on a cold machine. BMO-X measured every boot, good and bad, until **one variable separated them** -- and the variable was its own. [The case](#case-file-the-booter-that-said-no-0x15) |
-| The kernel stack cannot leak silently | 16 KiB was overrun by one syscall path (the desktop died at DOOM launch); it is 40 KiB now, and `pila.py` reads every frame from the disassembly and refuses a build whose deepest path does not fit. Confirmed: DOOM launched, played and closed with `ningun fallo de Ring 3`. It keeps earning its place: on 2026-10-06 it caught the new ESTRATOS merge needing 48 KiB of a 40 KiB stack **before** any CPU ran it |
-
-### Watch it boot
-
-<!-- ===================================================================
-     EL VIDEO DE ARRANQUE VA AQUI.
-
-     Como se pone, en GitHub y sin equivocarse:
-
-       1. Abre una issue nueva en el repo (no hace falta enviarla).
-       2. Arrastra el .mp4 dentro de la caja de texto.
-       3. GitHub lo sube y te devuelve una URL que empieza por
-          https://github.com/user-attachments/assets/...
-       4. Pega esa url SOLA, en su propia linea, justo debajo de este
-          comentario. GitHub la convierte en un reproductor dentro del
-          README -- el enlace de abajo se queda como respaldo.
-       5. Cierra la issue sin enviarla. El fichero ya vive en GitHub.
-
-     [!] NO funciona ![](docs/evidencia/15.mp4): eso no reproduce nada,
-     sale un enlace roto. Y un <video src="..."> tampoco: GitHub lo
-     filtra. El enlace de abajo SI funciona --la pagina del fichero en
-     GitHub lleva reproductor-- pero saca al lector del README, que es
-     justo lo que no quieres el dia que publiques.
-     =================================================================== -->
-
-![BMO-X booting](docs/evidencia/15-arranque.gif)
-
-A short edited piece: title card, then the machine coming up, from the
-firmware's own boot picker to BMO-X. **[Same thing as video, with sound and at
-full size](https://github.com/AndreeSalazar/BMO-X-x86-64/blob/main/docs/evidencia/15.mp4)**
-(7 s, 848x480).
-
-The unbroken take for the sceptic is a different recording and is
-**[described here](docs/evidencia/)** -- it has not been shot yet.
-
-> **Booted by the firmware, not by a loader.** The motherboard's own boot picker
-> lists `BMO-X` next to `Windows Boot Manager` -- no Ventoy, no GRUB, no
-> hypervisor, no QEMU. A system launched from inside a multi-boot loader can be
-> dismissed as a payload; one the firmware itself boots cannot.
->
-> The stills, the test bench and what each one proves:
-> **[docs/evidencia/](docs/evidencia/)**.
-
-**The rescue that makes the rest safe**: `Ctrl+Alt+ESC` returns keyboard *and*
-screen to the kernel from any program, checked at the one point in Ring 0 every
-key passes through. A program that holds both cannot keep the machine hostage --
-whether the cause is malice or a missing `if`.
-
-### Captured by BMO-X itself
-
-![Panel, CABINA and the sound window, captured by BMO-X](docs/evidencia/13-captura-panel-cabina-sonido.png)
-
-Not a photograph: **BMO-X wrote this file**. `Impr Pant` on the Ryzen, the
-screen read back from the compositor's own canvas, saved as a BMP by its own
-FAT32 driver and opened by Windows from the same disk. The side panel, CABINA
-reading the kernel, the sound master and the city wallpaper, all at once. It
-also caught three bugs; they are listed with it in
-**[docs/evidencia/](docs/evidencia/)**.
-
-Photographs, telemetry and the exact dates: **[AVANCES.md](AVANCES.md)**.
-
-### The desktop talks back
-
-![The pointer's bubble, close up: a yellow tag LA 3060, the neon border, the text typing itself out and the time bar](docs/evidencia/24-globo-de-cerca.png)
-
-A bubble follows the pointer for 20 seconds, then waits 45 and comes back on
-the next mouse move: what the RTX 3060 is doing right now (asleep, the step
-still missing, or its temperature) or a shortcut of the house. Dark glass
-with scanlines and a diagonal weave, blended with whatever is underneath; a
-neon border that breathes from cyan to magenta with a four-ring glow and a
-flash running along it; it enters with a cartoon bounce (20 % -> 108 % ->
-100 % in 350 ms), floats, types itself with the two newest letters glitching
-in cyan and magenta, and snaps shut. About 30 frames a second **only while it
-lives**; none otherwise. Code: `scene/globo.rs` paints, `desktop/globo.rs`
-decides.
-
-> **How these two images were made, honestly.** They are not a photo of the
-> monitor yet. The bubble was drawn by the very same `scene/globo.rs`, run on
-> the host against a fake screen that uses BMO-X's real 8x16 font, on top of a
-> capture of the desktop taken on the Ryzen. The photo from the metal replaces
-> them when it exists.
-
----
-
-## The RTX 3060, driven from scratch
-
-<!-- ===================================================================
-     LAS CAPTURAS DE LA 3060 VAN AQUI. Nombres que ya esperan las lineas
-     de abajo (copialas de `capturas/` del disco a `docs/evidencia/`):
-
-       16-3060-blur.png      el gato del fondo y, al lado, desenfocado
-       17-3060-fractal.png   el panel del fractal a pantalla completa
-       18-3060-raster.png    el triangulo del rasterizador (`gpu raster`)
-       19-3060-color.png     el de tres colores (`gpu color`)
-       20-3060-giro.png/gif  la esfera que gira (`gpu giro`)
-       21-3060-pantalla.png  el monitor entero pintado por la 3060
-       22-doom-y-la-3060.jpg DOOM en ventana y la 3060 en el panel (YA ESTA)
-       23/24-globo-*.png     el globo del puntero: RENDER en el anfitrion (YA
-                             ESTA); una foto del metal lo sustituye
-       25-3060-completa-ve5.png  `gpu completa` (11-10): la luz con grano y
-                             la completada por la 3060, 76800 de 76800 x3 (YA ESTA)
-       30..34-estudio-vivo-*.png `sys/estudio.bex` (11-10): la caja de Cornell
-                             en su ventana, "completada en la 3060" (YA ESTAN)
-
-     [!] 26-09: las lineas ![...](16-...) y ![...](17-...) se QUITARON porque
-     esos ficheros no existen y GitHub los pintaba como enlaces rotos. Cuando
-     las capturas esten en docs/evidencia/, se ponen aqui debajo de la tabla.
-     =================================================================== -->
-
-**One consumer card, nothing else: an NVIDIA GeForce RTX 3060 12 GB (GA106).**
-No CUDA, no NVIDIA driver, no Linux underneath. BMO-X wakes the card's own
-GSP firmware (the signed one NVIDIA ships, 570.144) and then talks to it the
-way the open drivers do -- every message byte-checked by a kernel contract
-before it leaves, and every page the card may touch lent through the AMD
-IOMMU, one by one. Anything else the card tries to reach is a page fault --
-`gpu frontera` proves it on demand (never right before the booter: that is
-[the 0x15 story](#case-file-the-booter-that-said-no-0x15)).
-
-What the card has done for BMO-X, each line read back and checked by the CPU:
-
-| | |
-|---|---|
-| Woke the GSP | FWSEC, booter and the 60 MiB GSP-RM image, `GSP_INIT_DONE` in ~200 ms. **Since 2026-09-26 on every boot**: after the cat, an orchestrated panel wakes the card up to `init` and hands over the desktop |
-| First job | the copy engine moved 4 KiB between two VRAM pages -- 1024 of 1024 words |
-| The graphics engine | its golden context built from **our** VRAM (`PROMOTE_CTX` + `AMPERE_B`), then a semaphore only the graphics engine can pay: paid in 45 us |
-| First shader | 32 threads of SM86 machine code, each writing its own word -- 32 of 32 |
-| Painted in the PC's RAM | 128x128 pixels written by 16384 threads into 64 KiB lent by the IOMMU |
-| Blur | a 128x128 piece of **your own screen**, blurred 7x7 by the card -- 16384 of 16384 pixels equal to the CPU's answer, bit for bit |
-| Mandelbrot 512x512 | 262144 threads, up to 256 iterations each: **83 us on the card, 18380 us on one Ryzen core -- 221x** (103x the first day, 176 us) -- and every pixel equal to the CPU's |
-| Triangle, by compute | the three edge functions of a rasterizer in 262144 threads, colours blended by weight |
-| A sphere that spins and bounces | 32 frames, one card job each, light and shadow, every frame equal to the CPU's -- 29 us per frame |
-| **Triangle, by the hardware rasterizer** | `AMPERE_B`: a vertex program and a pixel program in hand-checked SASS, the card's own rasterizer and ROP -- **seen on the metal (2026-09-24 19:43, 50 of 50 steps)** |
-| **Three colours blended by the rasterizer** | per-vertex colour interpolated by `IPA` in the pixel program -- seen on the metal the same boot |
-| **The whole screen** | a Mandelbrot zoom at the monitor's own resolution, every pixel written by the card **straight into the framebuffer the monitor scans** -- the CPU moves no pixel, it only re-checks 1024 per frame. **Seen on the metal (2026-09-24 21:36): 8 of 8 frames at 1920x1080, ~245 fps; ~466 fps on 2026-09-25 once the check left the syscall.** Its first try took the kernel down: the check read the framebuffer through its *physical* address inside a syscall, where that same number is the desktop's own user page -- SMAP said no. It reads through the kernel's physmap now |
-| **The D3D12 cube, without Windows** | the cube from the D3D study, drawn by the card's own rasterizer and **equal to what D3D12 draws on the same 3060 under Windows** -- including one pixel neither side can explain, which is therefore the silicon's (2026-09-25) |
-| **First floating point on the card** | the denoiser of the house path tracer (VE5, an SVGF-style a-trous filter guided by normal, depth and albedo): `FADD`, `FMUL`, `FMNMX`, `FSETP` and `MUFU.RCP` from `ptxas`, run on 320x240 with three passes -- **76800 of 76800 pixels equal to the CPU's answer in every pass** (2026-10-11 04:10). 7.4-7.7 ms per pass, and the card is not the slow part: it reads the block from the PC's RAM over PCIe, which still runs at Gen1. The CPU's own judge, in soft float, takes ~1.4 s per pass. Since the card's reciprocal is not IEEE division, "equal" means within 2e-5, and the tolerance is written next to the judge, not hidden |
-| **ESTUDIO VIVO, a path tracer in a window** | the house RenderMan-style tracer (GGX surfaces, skin by random walk, volumetric fog, triangle meshes behind a SAH BVH) running in Ring 3 with **hardware SSE** for the first time -- before 2026-10-11 every Ring 3 float was soft float -- and **denoised by the RTX 3060 every frame** through a narrow kernel door, a 32-pixel spot judge agreeing each time: **83-114 ms per frame on one core** (2026-10-11 04:16). With `smp all` it should be ~10x faster; that is exactly where the PC reboots (see [below](#what-is-next-and-what-blocks-it)) |
-| Switched off in order | the GSP-RM is told to leave, FWSEC-SB closes, the unload booter takes its protected memory down -- so the next warm boot finds the card clean. Seen on the metal twice (`+wpr2-abajo`, SB error 0); now ~2 s instead of 7, and done by `reboot`, not by `save mode` -- so the card keeps working after the verification. **And proven on 2026-09-26: after a `reboot`, the card arrived cold (no WPR2, GSP stopped) and woke again with no power cut** |
-
-![DOOM in a window, the sound panel, and the side panel with the RTX 3060 awake: gsp LISTO, 49 degrees, P0, PCIe Gen3 x16, 12 GiB GDDR6](docs/evidencia/22-doom-y-la-3060.jpg)
-
-**2026-10-11, the card's first floating point, captured by BMO-X itself**
-(`Impr Pant`, 1920x1080, straight from the framebuffer). Top right, the light
-of the house path tracer with one sample per pixel -- grain -- and beside it
-the same light **completed by the RTX 3060** (VE5, three passes of an
-edge-aware filter in SM86 floating point). The box underneath is the judge:
-`76800 de 76800 pixeles iguales al juez` in each pass, 7.4-7.7 ms per pass on
-the card, ~1.4 s per pass for the CPU recomputing every pixel.
-
-![gpu completa on the Ryzen: the grainy light and the light completed by the RTX 3060, 76800 of 76800 pixels equal to the CPU in all three passes](docs/evidencia/25-3060-completa-ve5.png)
-
-**ESTUDIO VIVO in its own window** -- red and green walls, a diffuse sphere, a
-gold one and a glass one, the light through the ceiling -- traced on ONE core
-with hardware SSE in Ring 3 and completed by the 3060 every frame: **83-114 ms
-per frame**, every line of the log saying `completada en la 3060`. The side
-panel says the truth around it too: `cpu 100%` (one core, flat out), the card
-at P0 and 49 degrees, and **`pcie 1/3 x16`** -- the link is running at Gen1
-out of a possible Gen3 (the A320 board's ceiling; the card itself is Gen4).
-**Gen3 is there, and it is the card's own firmware that picks**: when the
-GSP-RM does not start, the link stays at the Gen3 the BIOS trained (seen
-again on the afternoon of 2026-10-11: `pcie Gen3 x16 de Gen4`); when it runs,
-it drops the link to Gen1 and raises it with the performance level. Under
-BMO-X the card has already worked at Gen3 with the GSP-RM alive (the
-whole-screen copy measured ~12.8 GB/s, 81 % of Gen3, on 2026-09-25), and `gpu
-relojes` now says the link before and after asking the RM for `PERF_BOOST`.
-
-![ESTUDIO VIVO on the Ryzen: a Cornell box with a diffuse, a gold and a glass sphere, traced on one core and completed by the RTX 3060 every frame, 83-114 ms per frame](docs/evidencia/33-estudio-vivo-d.png)
-
-The rest of that session -- every frame of ESTUDIO, RESOLUCION saving
-1920x1080, the TINTA canvas, and MUNDO opening its window **without** its 3D
-blocks yet -- is in [`docs/evidencia/`](docs/evidencia/README.md), section 15.
-
-**How the machine code was obtained, honestly.** The SM86 programs are not
-guessed: they come out of NVIDIA's own `ptxas` and are read back with NVIDIA's
-own `nvdisasm`, both from PyPI. Two instructions CUDA always adds (a stack
-pointer and a memory descriptor, both read from a constant buffer only the
-CUDA driver fills) are replaced by NOPs **keeping their scheduling bits**, and
-the disassembler confirms the result. Integer arithmetic everywhere, so the CPU
-can recompute every pixel exactly: a floating-point FMA on the card and on the
-CPU would round differently, and "almost equal" proves nothing.
-
-**Getting the rasterizer right, honestly.** The first hardware triangle hung
-the channel with a class error (Xid 69). What found it was not guessing: a
-validator that decodes every word of the pushbuffer against NVIDIA's own
-`clc797.h`, one semaphore after every method so the log names the method that
-broke, and a method-by-method comparison against Mesa's NVK and NAK (the
-128-byte v4 shader header of Turing+, the operand order of `AST`, the
-reserved methods NVK never writes). Four boots later: 50 of 50.
-
-**What it is not, yet -- and why Windows looks "ready at once".** The card
-paints the whole monitor, but the *desktop* is still composed by the CPU in
-RAM and copied to the screen, pixel by pixel. Windows feels instant because
-its compositor lives on the GPU; BMO-X's does not, yet. The road, in order,
-each step on top of something that already runs on the metal:
-
-1. **The copy to the screen by the card** -- the copy engine (working since
-   L1d) moves the desktop's canvas to the framebuffer instead of the CPU.
-2. **Windows as textures in VRAM**, blended by the card: shadows, rounded
-   corners, transparency.
-3. **Blur behind the windows** with the shader that already blurs your screen.
-4. **Animations on the vertical blank** (the card already reports it by MSI),
-   then a real page flip.
-
-And for games: depth, many triangles with perspective, a small graphics API
-for Ring 3 programs, and SASS emitted by BMO-X's own compiler instead of
-`ptxas`. The card also still runs at its boot clocks. The whole road, every
-step with its date and its result on the metal:
-**[PLAN_LA_3060.md](docs/plan/PLAN_LA_3060.md)**, and the log of the day:
-**[METAL_2026-09-25.md](docs/metal/METAL_2026-09-25.md)**.
-
----
-
-## AYNI: the CPU is the head, the GPU draws the fat pixels
-
-**Why this exists.** The owner did not ask for more FPS -- FSR already
-upscales, and it is open. He asked for the GPU to **cost less**. Look at what
-DLSS really does and it is a saving: draw fewer pixels, guess the rest. And
-FSR and DLSS are both *directed by the CPU*: the game picks the jitter, the
-resolution and when to call them; the card only does the arithmetic. In
-BMO-X the one directing is not the game but the kernel, through PROTON-X and
-VERRANO, and **it sees every draw**: its triangles, its shaders, which batch
-is the HUD. So the question stops being "how do we guess the missing pixels"
-and becomes **"where do we not spend at all"** -- and that is a question the
-CPU can answer, cheaply, before the card starts.
-
-The RTX 3060 already obeys such an answer in hardware: AMPERE_B has a
-*shading-rate image* (`clc797.h`, `SET_SHADING_RATE_INDEX_SURFACE_*`), one
-cell per 16x16 tile saying "shade every pixel", "once per 2x2", "once per
-4x4" or "not at all", and a `PS_INVOCATIONS` counter that measures the
-saving instead of estimating it. **AYNI** (Quechua: mutual help) writes that
-map. Its head is **UMA**, a neural network small enough to be honest about:
-8 inputs, 16 neurons, 4 outputs, 192 multiplications per tile, on the CPU,
-zero on the GPU. It does not predict colors, it predicts the **error** each
-coarse rate would cause, and learns it from the game itself: a few *master
-tiles* per frame are always shaded in full, and the difference is the
-lesson. Rules the network cannot break sit on top: the HUD is always full,
-a geometry edge only coarsens along itself, no tile stays coarse for more
-than 30 frames.
-
-**Why the dimensions.** The owner's picture was "the 3D is orchestrated by a
-4D, and the CPU guides it". That is literally how it is built: the GPU draws
-one *slice* (3D); the CPU sees the *series* of slices (4D, time -- **PACHA**)
-and the hand that chooses the next one (5D, where the pointer is heading).
-And when he asked whether to go on to 10D, the geometry answered with a
-warning of its own:
-
-![The n-cube from 0D to 10D, each seen along its most symmetric axis: the outline becomes a 2n-gon that approaches a circle, 86.6 % round at 3D and 98.8 % at 10D](docs/arte/dimensiones-hipercubos.png)
-
-Each vertex of that projection is a **sum of n independent directions**, so
-as n grows the cube becomes a round, dense cloud -- the central limit
-theorem, the same reason heights and measurement errors form a bell. It is
-also why more dimensions are not free: in high dimensions everything crowds
-the middle and things become hard to tell apart, and a small network like
-UMA needs more examples for every input it is given. **A new axis enters
-BMO-X only when the master tiles prove it helps.**
-
-![The parallel dimensions of BMO-X, with real data from the AYNI bench: 1D a pixel over time, 2D UMA's map (62 % of the shading work), 3D the slice the GPU draws, 4D the series of slices, 5D the pointer's braking and where it will stop](docs/arte/dimensiones-bmo-x.png)
-
-**The rule of the fifth dimension: predict to SAVE or PREPARE, never to
-ACT.** BMO-X sees the mouse before the game does, and the braking of a hand
-says where it will stop (`v^2/2a`). That buys detail where the eye is going
-and less where it is not. It never moves the pointer, clicks or aims: that
-would change the game, not the cost -- aim assist, and cheating in an online
-game. `mano::predecir` takes the input borrowed and immutable, and a test
-checks it comes out bit-identical.
-
-**Where it stands, honestly.** It runs on the **bench** only
-([`platform/shared/verrano-ayni`](platform/shared/verrano-ayni/src/lib.rs),
-15 tests): 62 % of the shading work on a synthetic scene with the worst
-error inside the threshold, 4 640 instead of 5 120 invocations with the
-5D on. The freshly born UMA *underestimates* steep gradients (0.015 predicted,
-0.026 real), which is exactly why the master tiles tighten the threshold on
-their own. It has **not** touched the card, and the card has not drawn the game yet:
-the first `personal 3060` run on the metal (2026-10-12) never reached
-Cyberpunk -- PROTON-X itself fell first, a panic inside its own panic until
-the stack ran out (the 3060 mode flushed its log before the loader had a
-platform to write it with; fixed the same day). The 3060 drawing the game's
-batches comes first
-([`PLAN_EL_LIBRETO`](docs/plan/PLAN_EL_LIBRETO.md)). The whole plan, with the
-kernel stepping aside while a game runs (Linux's `nohz_full`, read and
-mapped onto this house's own checkboxes):
-**[PLAN_AYNI.md](docs/plan/PLAN_AYNI.md)**, and the log of the day:
-**[METAL_2026-10-12.md](docs/metal/METAL_2026-10-12.md)**.
-
----
-
-## ESTRATOS, TITAN++ and the TALLER
-
-Three pieces that grew together in September and October. Each one is stated
-with its colour, because two of them have not met the metal yet.
+<a id="what-runs"></a>
+## On the real machine
 
 <p align="center">
-  <img src="docs/arte/taller-grafo.png" alt="F1, the TALLER: a TITAN++ package as a graph of nodes, with the EXPLORER on the left and the console line of each node below" width="100%">
+  <img src="docs/evidencia/23-globo-del-puntero.png" alt="BMO-X desktop on the Ryzen, with its RTX 3060 status bubble" width="100%">
+  <br><sub>BMO-X's own desktop and telemetry. Historical capture; GPU availability varies by boot.</sub>
 </p>
-<p align="center"><sub>F1, the TALLER, drawing a TITAN++ package. Drawn by the TALLER's own code
-on the host (<code>cara-taller</code>: the same painter the Ryzen runs, on a
-fake screen) -- not a photo of the monitor.</sub></p>
 
-### ESTRATOS: the filesystem is the database, and now it is Git too
+**Status reviewed: 16 October 2026.** Hardware evidence is from one machine:
+an **AMD Ryzen 5 5600X with an NVIDIA RTX 3060 12 GB**. It does not establish
+support for every x86-64 PC.
 
-**Writing is committing.** Every gesture -- create, save, rename, remove --
-publishes a new *estrato* (a commit) and overwrites nothing; removing a file
-is *no longer naming it*. That already gives three things an ordinary
-filesystem does not have:
+| State | What it means here |
+|:---:|---|
+| **METAL** | Observed on the real Ryzen, or explicitly confirmed by its owner; the evidence states which. |
+| **HOST** | Implemented and checked on the development host; the corresponding hardware test is still pending. |
+| **OPEN** | An unresolved limit, or work that is still planned. |
 
-```text
-   history     every version, newest first, with when and which process
-   mark        a named version is PERMANENT: the collector never drops it
-   go back     ONE new block points at an old root -- reverting 400 GiB costs
-               what reverting an empty disk costs, and what lay in between
-               is kept: it is a revert, not a reset
-```
+| Part of the orchestra | What has been observed | Evidence / limit |
+|---|---|---|
+| **Boot and isolation** | UEFI to Ring 0 to Ring 3; userspace faults reported by the kernel; keyboard and mouse through the USB stack. | [Hardware evidence](docs/evidencia/). |
+| **Native applications** | Programs from the house compilers run as `.bex`; TITAN++ now powers MUNDO. | [MUNDO results](docs/metal/METAL_2026-10-16.md). |
+| **Desktop and tools** | Windows, TINTA, ECCE, image viewing, CABINA, sound controls and reports. | [Captured evidence](docs/evidencia/), [desktop](Ultra_userspace/README.md). |
+| **DOOM** | Played in a window on the CPU; recorded runs include 58 FPS at x5 and about 70 FPS at x3. | Historical runs at different sizes, not a GPU benchmark: [photo](docs/evidencia/22-doom-y-la-3060.jpg). |
+| **ESTRATOS** | Files written and versioned on the real volume. | Branch/merge has host tests; its hardware validation remains separate. [Plan](docs/plan/PLAN_LAS_RAMAS.md). |
+| **RTX 3060** | Successful boots, compute, hardware rasterization, image completion and MUNDO frames. | Boot reliability **G0 remains open**; see [VERRANO](#verrano). |
+| **Self-observation** | PNG screenshots, structured reports and a paged hexadecimal/bit view. | Full-screen PNG confirmed; newer diagnostics still need hardware observation. |
 
-The owner asked whether SQL belonged here. The answer in
-[`PLAN_LOS_DATOS.md`](docs/plan/PLAN_LOS_DATOS.md) is that it already does:
-`COMMIT` is an estrato, `ROLLBACK` is going back, a snapshot is mounting an old
-root. No second store and no SQL engine -- TITAN++ gets a handful of verbs over
-the volume instead.
-
-**And on 2026-10-06 it learned branches and merge** (🟡, the plan is
-[`PLAN_LAS_RAMAS.md`](docs/plan/PLAN_LAS_RAMAS.md)):
+### Captured by the machine itself
 
 <p align="center">
-  <img src="docs/arte/taller-ramas.png" alt="The RAMAS tab: branches principal and pruebas meeting in a merge node with a closed padlock, and four conflicts drawn as split nodes, two of them already chosen" width="100%">
+  <img src="docs/evidencia/25-3060-completa-ve5.png" alt="The RTX 3060 completes a rendered image, beside the pixel comparison report" width="100%">
+  <br><sub>A documented GPU run: image completion with a CPU judge. A successful run is evidence of that workload, not of reliable startup on every boot.</sub>
 </p>
 
-- **A branch is a name for a tip**, kept in a table *outside* the history
-  (like Git's refs). Creating one copies nothing; switching publishes no
-  commit, so two branches never become each other's ancestors by accident.
-- **Merging compares whole NODES by their BLAKE3** -- *what* a file is, not
-  where it sits -- folder by folder, and writes only the folders that change.
-  A file is never merged line by line: a node of ESTRATOS is not necessarily
-  text, and mixing the bytes of two versions gives a file that is neither.
-- **A conflict is a person's call.** The merge runs in two phases: COUNT
-  writes nothing and lists the conflicts; a person picks A, B or neither for
-  each one (a split node in F1); MERGE publishes **one estrato with two
-  parents**.
-- **The padlock guards the choice; it does not lock the disk.** Closed:
-  counted, nothing written, leave and come back without losing a pick.
-  Broken: something else wrote meanwhile, so count again. Locking the volume
-  instead would freeze a game that is saving while a person thinks.
-- **The format grew into bytes v1 left at zero**, so old volumes read the
-  same, and the first branch upgrades **both** superblock copies -- an old
-  kernel then refuses to mount the volume instead of writing over the table.
-- **The kernel runs the same engine the host tests.** No dynamic memory: its
-  tables are borrowed from contiguous frames for the length of one merge. On
-  the host the engine is checked against two other merge implementations
-  over 2.000 random histories, with no difference. That is why it is 🟡 and
-  not 🟢: the merge on the metal, on the data disk, is the owner's next test.
-
-### TITAN++: the language that is drawn as nodes
-
-TITAN++ is the house language for programs a person writes and *sees*: every
-module is a node in F1, every `use` is a cable, and every example in its bank
-is also a ready-made node in F1's TAB menu, Houdini-style.
-
-```text
-   14 levels   fn, let, mut, if, loops, functions, exact dec and tables,
-               lend (mut) and hand over (take) with COBOL's dec(p, s),
-               enum + match, packages, traits, gpu fn, input, lists and maps
-   emitters    its own, to x86-64; a `gpu fn` goes through PROMETEO -- the
-               house Programa, then each library, isolated (the RTX 3060 12G,
-               by its exact device, with SASS sm_86 inside; and the CPU, the
-               reserve) --, judged, and run on the
-               SIMULATED card when it compiles; in a program that reads, on
-               the CPU when it runs; on the card itself, not yet. Its loops
-               have their turns WRITTEN and its calls go in line: a thread
-               ends by construction. It divides EXACTLY, the IEEE bits, on
-               the card too (the card's reciprocal is only an estimate; the
-               division corrects it): `gpu fn` counts the spinning cube --
-               each frame's matrix, its screen and its light --, its 360
-               frames with the reference's exact bits, and `use director`
-               publishes them on VERRANO's lamina. And it DRAWS: a
-               vertex or pixel `gpu fn`, by its signature, glued to
-               VERRANO's pipeline and put in its BSF envelope (the V0 cube,
-               on the host; the metal, next)
-   a judge     ownership checked over the IR, not over the syntax
-   33 laws     each one with the test or the program that enforces it; the
-               build stops if a law loses its proof (`titan-leyes`)
-```
-
-🟡 **Its bank runs in BMO-X's own emulator; on the Ryzen, the two programs
-the build deploys**: 115 programs. The 45 that must work are built, loaded the way the kernel loads
-them, run, and their console compared with the `# sale:` line each one
-carries; the 70 that must fail are each refused with the exact error code
-they name. The first metal steps were taken on 2026-10-08: `run
-titan/hola.bex` printed `hola` on the Ryzen, and `run titan/dos.bex` printed
-its two lines -- a function of its own called from `main`, two texts in one
-`print` ([`METAL_2026-10-08.md`](docs/metal/METAL_2026-10-08.md)). The design and every decision:
-**[TITAN_MAESTRO.md](docs/maestro/TITAN_MAESTRO.md)** and
-**[GRAMATICA.md](toolchain/lang/titan/GRAMATICA.md)**.
-
-### The TALLER (F1): the workshop
-
-```text
-   GRAFO       the package as nodes and cables (UE5-style pins); pulling a
-               cable writes the `use`, and a cycle is refused in red
-   ESPACIO     the same nodes as a 3D sky of planets, the elements, a guide
-   ESTRATOS    the volume's HISTORY (each version a node with its own seal,
-               ENTER twice to go back), its BRANCHES, and a GUIDE to every
-               door the kernel offers -- generated from the ABI's comments,
-               so it cannot drift from the contract
-   TAB         the master nodes: TITAN++'s bank, filtered as you type
-   the editor  two clicks on a node open its code; it saves itself
-```
-
-🟢 the graph, seen on the Ryzen. 🟡 everything added after 2026-09-29 --
-checked by `cara-taller`, which compiles the TALLER's own painter on the host
-and drives it with the same keys, but with no photo of the monitor yet.
-
-**Next, in [`PLAN_LA_BANDEJA.md`](docs/plan/PLAN_LA_BANDEJA.md):** F2 becomes
-the file manager, with a tray of the disks the kernel has profiled, and the
-*"this file is open"* dialog done right. The kernel knows exactly which
-program holds a file (the handle is in its table), so the dialog can **show
-that window**, or **take the handle back** without killing the program -- or
-just say okay. In ESTRATOS the dialog barely appears at all: removing a file
-someone has open never fails, because their handle reads *their* version.
+[Watch the recorded boot](docs/evidencia/15.mp4) &middot;
+[Browse the evidence and its limits](docs/evidencia/README.md)
 
 ---
 
-## Case file: the booter that said no (`0x15`)
+<a id="mundo"></a>
+## MUNDO / a native world, a demanding test
 
-<p align="center"><b>Nine refusals. No public meaning. Eight hypotheses dead. One cause -- and it was ours.</b></p>
+**MUNDO is a block game written in TITAN++, drawing through VERRANO.**
+The owner has played it on the Ryzen: moving through the scene, removing
+and placing blocks, and saving the world. It gives the language, input,
+windowing, persistence and graphics paths a shared, visible workload.
 
-To start its GPU firmware, the 3060 runs a program **signed by NVIDIA** on one of
-its security processors: the *booter*. On 24 and 25 September it answered
-`0x15` instead of `0` -- nine times, **six in a row on a machine that had been
-unplugged**. NVIDIA does not publish what `0x15` means; its own open driver only
-prints *"Booter failed with non-zero error code"*. Nothing here invents that meaning.
-
-**What BMO-X did instead of guessing: it stopped changing things and measured.**
-
-| instrument | what it records, on good boots **and** bad ones |
+| Implemented | Why it matters |
 |---|---|
-| the **autopsy** | before the booter and the instant it stops: both falcons' mailboxes and `CPUCTL` **raw**, the protected region, the scratch register NVIDIA's open drivers read, the booter's metadata page, and the card's PCIe error bits and the IOMMU's fault count |
-| the **metiche** ("the nosy one") | every PCI function's own error log -- Status, PCIe device status, AER -- asked at boot and again later, never cleared, so what is *new this session* stands out |
-| the **recipe** | exactly what the boot was asked to do, so a boot made with the wrong build cannot pass for a result |
+| Native camera, central crosshair and a 3D picking ray | Looking and editing use the same camera orientation. |
+| Relative mouse movement and a hidden captured pointer | The desktop's screen edges no longer bound the game's look direction. |
+| Focus-aware capture | First Esc releases the pointer; clicking inside recaptures; losing focus revokes capture. Another Esc saves and exits. |
+| Reusable TITAN++ modules | Camera components and the [pointer module](Ultra_userspace/apps/mundo/src/pointer.titan) can serve other applications. |
+| Saved block changes | The world has persistence; host tests also exercise corrupt files and write failures. |
+| GPU / CPU counters, rejection reasons and sampled FPS | A visible window no longer has to be mistaken for proof of GPU rendering. |
 
-Eight hypotheses fell, each to a number: a warm card, the handoff bit, a
-miscomputed input, the IOMMU, a bus error, the metadata page as a progress
-clock, the PCIe link speed... What was left was one line:
+**Two sessions, two different results.** Both belong in the record:
 
-```text
-                          bad boots (x6, cold)     good boot
-   GSP mailboxes          0xBADF1002 (no answer)   0x00000000 (cleared by its firmware)
-   scratch at the stop    0x00000000               0x11000000
-```
+| 16 October session | GPU frames | CPU fallback frames | What it establishes |
+|---|---:|---:|---|
+| 19:37-19:39 | **325**, all through borrowed buffers | **0** | The RTX rendered MUNDO in its window. The judge still found **4 different pixels out of 230,400**. |
+| 20:36 | **0** | **1,141** | MUNDO remained usable when GPU firmware startup failed. The FPS sample was **19.60**, over 20 intervals / 1,020 ms. |
 
-**The cause:** BMO-X's own IOMMU self-test (`fuego`, `frontera`) borrowed the
-**GSP falcon's DMA** -- one transfer deliberately aborted by the IOMMU -- a
-moment before the booter had to take that same falcon over.
+That FPS sample is from **CPU fallback**, not the RTX, and is not a whole-session
+average. The GPU/CPU equality goal **Q0a3 is still open**.
 
-```text
-   with the self-test before the booter      3 good, 6 with 0x15
-   without it                                every cold boot good (4 documented)
-   three good in a row by pure luck          1 in 27
-```
+MUNDO is its own native game. The local Minecraft study informed research into
+resources and structure; it does not make this a port of Minecraft, and original
+Minecraft code or assets are not bundled here. Larger worlds, physics, jump,
+collision, textures and targeted-block highlighting remain on the plan.
 
-The self-test left the boot sequence, the kernel now **refuses** it once the
-booter has run, and the autopsy keeps being taken on every boot without anyone
-asking. What is still open is stated too: *which* state inside the falcon the
-booter rejects.
-
-> **For nova-core and nouveau developers:** three facts we have not seen
-> published -- `0x15` arrives with the protected region already *extended* (a
-> mid-booter failure, not a load failure); GSP mailboxes reading `0xBADF1002`
-> at the stop separate it from a good boot; and the `GspFwWprMeta` copy in
-> system memory is **not** modified by the booter even on success. The English
-> summary is in the case file.
-
-**[Read the whole case -> EL_0x15.md](platform/drivers/gpu/ga10x/EL_0x15.md)** -
-[the boots, one per row](platform/drivers/gpu/ga10x/EL_0x15_ARRANQUES.csv) -
-[the card's anatomy](platform/drivers/gpu/ga10x/ANATOMIA.md)
+[Controls](Ultra_userspace/apps/mundo/CONTROL.md) &middot;
+[Source](Ultra_userspace/apps/mundo/src/main.titan) &middot;
+[Plan](docs/plan/PLAN_MUNDO.md) &middot;
+[Measured sessions](docs/metal/METAL_2026-10-16.md)
 
 ---
 
-## Try it yourself
+<a id="titan"></a>
+<a id="estratos-titan-and-the-taller"></a>
+## TITAN++ / small vocabulary, growing capability
 
-### 1. Build it. This touches no disk.
+TITAN++ is a house language for native programs and for the **TALLER**, where
+modules become nodes and imports become cables. Its object model is
+**composition, traits and explicit ownership**.
+
+The latest language work lets an owned function borrow a mutable component,
+including nested fields and trait components. It also constructs new records
+directly in their destination where supported, reducing temporary stack copies.
+Both changes help real applications such as MUNDO without adding new keywords.
+
+| Capability | Current boundary |
+|---|---|
+| Named records, nested components, modules and public declarations | Composition is implemented; class inheritance is not. |
+| Shared behavior through traits | Native trait dispatch currently has a type tag and comparison/jump cost. |
+| Mutable component loans | Owner-level exclusivity remains conservative; partial `take` and disjoint sibling loans are not promised. |
+| Exact decimals and checked indexing | Optimizations must prove a check unnecessary before removing it. |
+| Native x86-64 emission | The native compiler paths use their own emitters rather than LLVM or GCC. The Rust build of BMO-X still uses the Rust toolchain. |
+
+See a complete, checked example: [breakable Stone and Wood](toolchain/lang/titan/ejemplos/nivel10/bloques.titan).
+The implementation and limits are documented in [Objects](toolchain/lang/titan/OBJETOS.md),
+[Grammar](toolchain/lang/titan/GRAMATICA.md) and [TITAN master](docs/maestro/TITAN_MAESTRO.md).
+
+### M3a / fewer instructions, the same safety contract
+
+For insertion-sort of 600 elements, the host instruction meter records:
+
+| Metric | Before | After |
+|---|---:|---:|
+| Executed instructions | 1,186,491 | **824,134** |
+| Memory accesses | 271,528 | **271,528** |
+| Code bytes | 3,625 | **3,530** |
+
+**30.54% fewer instructions in this workload.** The emitter reuses proven
+index bounds; it retains the check when the proof is missing. This is an
+instruction count, not elapsed time or Ryzen cycles.
+[Method, commands and limits](toolchain/tools/metro/M3A_Y_LENTE.md).
+
+### TALLER and ESTRATOS / code you can see, history you can keep
+
+<p align="center">
+  <img src="docs/arte/taller-grafo.png" alt="TALLER renders a TITAN++ package as a graph of modules and connections" width="100%">
+  <br><sub>Rendered by TALLER's painter on the host. This illustration is not a hardware screenshot.</sub>
+</p>
+
+**TALLER** exposes the package as a graph. The basic graph has been seen on the
+Ryzen; later interactions carry their own validation status.
+**ESTRATOS** is the versioned filesystem: writes preserve history, and the
+branch/merge engine compares whole nodes by BLAKE3. Conflicts require a person's
+choice. The host merge tests and a real-volume merge are different milestones.
+
+[TALLER plan](docs/plan/PLAN_TALLER.md) &middot;
+[Branches and merge](docs/plan/PLAN_LAS_RAMAS.md) &middot;
+[Data model](docs/plan/PLAN_LOS_DATOS.md)
+
+---
+
+<a id="verrano"></a>
+<a id="the-rtx-3060-driven-from-scratch"></a>
+## VERRANO / drawing with a witness
+
+VERRANO is BMO-X's drawing API. Native applications submit drawing data through
+its own pipeline and **BSF** shader format, with a CPU reference path and an
+RTX 3060 backend. MUNDO calls VERRANO directly. PROTON-X translates a different
+client: Windows graphics workloads.
+
+The GPU driver is developed here; **NVIDIA's signed firmware is still required**
+and runs on the card. Driving the card from BMO-X does not mean replacing that
+firmware or supporting every GPU.
+
+**Successful runs have demonstrated real GPU work.** Documented workloads
+include bit-checked compute, hardware triangles, full-screen output and image
+completion. On 16 October, a VERRANO reference case matched the CPU and D3D12
+reference; MUNDO later submitted 325 GPU frames through borrowed buffers.
+Each result belongs to its own scene and session.
+
+The 640x360 depth-buffer rejection in MUNDO was traced to local destination
+validation. The correction admits the smaller destination and copies its actual
+rectangle from the fixed surfaces. The subsequent GPU session confirmed that
+path; the four-pixel equality difference remains under investigation.
+
+`gpu laminas` and `save` now distinguish GPU frames, CPU fallback, sampled FPS,
+and the original rejection stage and reason. The counters establish who drew;
+the pixel judge establishes whether the images agree.
+
+[Drawing diagnostics](platform/shared/verrano/DIAGNOSTICO.md) &middot;
+[VERRANO plan](docs/plan/PLAN_VERRANO.md) &middot;
+[Card anatomy](platform/drivers/gpu/ga10x/ANATOMIA.md)
+
+<a id="case-file-the-booter-that-said-no-0x15"></a>
+### Case 0x15 / the unresolved gate
+
+**G0 is open: the GSP firmware does not start reliably.** Earlier removal of
+BMO-X's pre-boot DMA self-tests produced successful boots, but later `0x15`
+failures occurred without those tests and with a recorded cold arrival.
+That earlier result did not close the whole case.
+
+The latest failed session records intact firmware memory, no new IOMMU events,
+and a signed booter that stopped with `MAILBOX0 = 0x15`. The recovery attempt
+also failed to release the protected WPR2 region. Those facts do not establish
+an electrical cause or decode NVIDIA's error code.
+
+The new **host-validated** diagnostic captures the GSP mailboxes and controls
+immediately before the booter starts, alongside the expected LIBOS pointer.
+The report also stops recommending an already-blocked retry. These are
+investigation improvements; **they have not yet fixed or been observed fixing
+startup on the RTX**.
+
+[Current investigation](platform/drivers/gpu/ga10x/DESPERTAR_FIABLE.md) &middot;
+[Case file](platform/drivers/gpu/ga10x/EL_0x15.md) &middot;
+[Boot-by-boot data](platform/drivers/gpu/ga10x/EL_0x15_ARRANQUES.csv)
+
+---
+
+## The kernel as a lens
+
+The system records what failed and keeps the underlying bytes visible.
+`dentro bits` reads a file in bounded pages, preserving byte order and showing
+hexadecimal alongside eight bits per byte. File offsets remain distinct from
+instruction addresses and from the order in which instructions execute.
+
+```text
+dentro bits 0x0 apps/ecce/nucleo.bex
+dentro bits 0x40 apps/ecce/nucleo.bex
+```
+
+The Ryzen session showed 128 consecutive bytes with matching hex and bits.
+It also exposed a truncated offset label, corrected on the host. The corrected
+label, EOF cases and the new raw crash view retain their separate hardware tests.
+[Evidence and remaining checks](docs/metal/LENTE_CRUDA_2026-10-16.md).
+
+Full-screen **1080p PNG capture now works on the machine**: two files were
+saved after the temporary-memory fix. A single temporary allocation avoids
+exhausting the process's block slots. Window and region capture still need
+their own confirmation.
+
+---
+
+## PROTON-X / an ambitious client
+
+<p align="center">
+  <img src="docs/evidencia/35-cyberpunk-logo.png" alt="Cyberpunk 2077 intro displayed inside PROTON-X on BMO-X" width="100%">
+  <br><sub>13 October 2026. Cyberpunk's intro, captured by BMO-X. This is not a claim of playability.</sub>
+</p>
+
+PROTON-X loads Windows PE programs and supplies its own compatibility functions
+and graphics translation. A documented run of **Cyberpunk 2077** displayed its
+intro on BMO-X. That run used CPU rendering, at roughly **16 seconds per frame**;
+its game draws were not successfully rendered by the RTX. **It is not playable.**
+
+GPU startup, graphics-channel recovery and unsupported shader operations remain
+distinct problems. Native MUNDO is the current graphics test vehicle.
+The three retired sample executables (`htriang`, `hframes`, `nbody`) are no
+longer shipped; their shader tests remain, and HelloBundles retains an analytic
+triangle judge.
+
+[Cyberpunk run](docs/metal/METAL_2026-10-13.md) &middot;
+[PROTON-X staircase](docs/plan/PLAN_LA_ESCALERA_PROTON_X.md)
+
+---
+
+## One repository, several instruments
+
+| Instrument | Responsibility |
+|---|---|
+| **Kernel and capabilities** | Resource boundaries, admission, isolation, `INVOKE` and `WAIT`. Two frozen syscall entries; operations live within them. |
+| **DIRECTOR** | Desktop, focus, windows, cooperative input capture and diagnostic reports. |
+| **Six native language paths** | C, C++, COBOL, Ada, INTI and TITAN++, with different maturity levels. |
+| **BEF2 / `.bex`** | The admitted executable container, its regions, attachments and integrity checks. ELF can still be an intermediate build artifact. |
+| **ESTRATOS and TALLER** | Persistent versions and visible program structure. |
+| **VERRANO, BSF and PROMETEO** | Drawing, shader packaging and the house intermediate program. |
+| **AYNI** | Experimental CPU/GPU work distribution; its plans and measurements remain workload-specific. |
+| **CABINA, the meter and the guardians** | Reports, reproducible measurements and build-time checks. |
+
+The design is deliberately x86-64. Other architectures are outside this
+repository's target. The [Fungi inspiration](docs/identidad/EL_REINO_FUNGI.md)
+connects its language of loans, growth and diagnosis to actual mechanisms.
+The contracts and their costs are written in [the FUERO](FUERO/EL_FUERO.md).
+
+---
+
+<a id="try-it-yourself"></a>
+## Build, then choose where to deploy
+
+**The build currently requires Windows and PowerShell.** Rust and the build's
+LLVM utilities are prerequisites; the scripts locate the toolchain they need.
+Read [CONTRIBUTING](CONTRIBUTING.md) before preparing another machine.
+
+Build and run the verification path, without deploying to a boot volume:
 
 ```powershell
 .\bmo.ps1
 ```
 
-That is the whole thing: seventeen compatibility rules, the ASCII sweep, the
-syscall contract across kernel/ABI/userland, four compilers, the kernel, the
-desktop, and thirty programs. About a minute, and **it cannot write to any
-drive** -- deploying is a separate command on purpose. Add `-Rapido` to skip the
-test bench while you iterate.
+To run compilation and verification in separate windows:
 
-### 2. Put it on a USB stick and boot it.
+```powershell
+.\bmo.ps1 -Paralelo
+```
+
+Deployment is a separate action. The following letters are **examples**;
+replace both with the intended FAT32 boot/data volumes:
 
 ```powershell
 .\desplegar.ps1 -Arranque E -Datos E
 ```
 
-**Those two letters are Windows drive letters of the stick you are writing to.**
-Nothing else. They are separate because BMO-X deploys two different things:
+Deployment writes to the selected volumes. Verify their identity first.
+Secure Boot must be disabled for the documented boot procedure. Select BMO-X
+from the motherboard's UEFI boot picker. Hardware beyond the documented Ryzen
+has not been established by this README.
 
-| flag | what lands there | what it must be |
-|---|---|---|
-| `-Arranque` | `EFI\BOOT\BOOTX64.EFI` -- **the entire operating system, one file** | a **FAT32** partition the firmware can boot (an ESP) |
-| `-Datos` | `BMO-DATA\` -- the desktop and the programs | any FAT32 volume BMO-X can read |
+After a normal MUNDO session, these commands retain the relevant evidence:
 
-On a normal USB stick with one FAT32 partition **both are the same letter**, and
-that is the usual case. They stay separate because they are two different risks:
-`-Arranque` decides what the firmware runs, `-Datos` only decides what is on the
-menu. Getting the first wrong and the second right is how you spend an evening
-testing yesterday's kernel without noticing.
-
-> [!] **Check the letter twice.** Whatever is on that drive gets overwritten.
-> `.\bmo.ps1` with no flags is always safe; `.\desplegar.ps1` is the one that
-> writes. That split is the only reason it exists.
->
-> The script refuses an NTFS volume rather than reporting a false success, so
-> pointing it at a Ventoy payload partition fails loudly instead of quietly.
-
-**Three windows instead of one: `-Paralelo`.** Both commands take it:
-
-```powershell
-.\desplegar.ps1 -Si -Arranque A -Datos A -Paralelo
+```text
+gpu laminas
+save
 ```
 
-| window | what it does |
+The new pre-booter diagnostic requires **both a rebuilt kernel and DIRECTOR**.
+One normal session, successful or failed, supplies a useful report; repeated
+reboots are not the default investigation procedure.
+The documented rescue shortcut, **Ctrl+Alt+Esc**, returns keyboard and screen
+control to the kernel.
+
+### Verify the claim you are changing
+
+```powershell
+cargo test --workspace --exclude bmo-kernel
+cargo test -p bmo-titan-x86-64 --test mundo
+```
+
+The build checks source encoding, contracts, module boundaries, stack budgets
+and other project invariants. Test counts change; the output of the current
+run is the record. The last focused GPU / PROTON-X validation passed **670
+host tests**, with the kernel checked and DIRECTOR compiled in release.
+The Linux-only EXE execution bank was not run on this Windows host.
+None of those checks alone proves hardware startup or gameplay.
+
+---
+
+## What is next
+
+The current order keeps the blocking issue visible:
+
+1. **G0: reliable RTX startup.** Compare the new pre-booter snapshot with
+   the saved post-failure state. No guessed voltages or reset sequences.
+2. **Q0a3: image equality.** Isolate the four differing pixels when the GPU
+   is available; preserve the successful borrowed-buffer path.
+3. **MUNDO: the next playable layer.** Targeted-block highlighting, held
+   controls, collision, gravity and jump; then larger worlds and textures.
+4. **TITAN++: mature the existing model.** Measure trait specialization and
+   extend ownership only with explicit rules and tests.
+
+[Current focus](docs/plan/EL_FOCO.md) &middot;
+[MUNDO milestones](docs/plan/PLAN_MUNDO.md) &middot;
+[RTX plan](docs/plan/PLAN_LA_3060.md)
+
+---
+
+<a id="going-deeper"></a>
+## Follow the threads
+
+| Start with | For |
 |---|---|
-| **COMPILAR** (new) | `build.ps1 -BuildOnly -SinGuardianes`: toolchain, Ring 3, kernel, the `.efi` and the `.bex` into `staging` |
-| **VERIFICAR** (new) | `build\verificar.ps1`: the contract, PROTON-X, the test bench and every guardian of `build.ps1` |
-| the one you typed in | waits for both, says how they are going, and **only if both end well** copies `staging` to the drives (`build.ps1 -SoloDiscos`, with every check of `build\discos.ps1` intact) |
+| [FUERO](FUERO/EL_FUERO.md) | Building on the system: what is granted and what is required. |
+| [Architecture](ARQUITECTURA.md) | The mechanisms behind the design. |
+| [Kernel law](FUERO/META-KERNEL_HARD.md) | Constraints, their reasons and their enforcement. |
+| [16 October hardware record](docs/metal/METAL_2026-10-16.md) | MUNDO, GPU sessions, captures and the limits of the evidence. |
+| [TITAN++](docs/maestro/TITAN_MAESTRO.md) / [Object model](toolchain/lang/titan/OBJETOS.md) | Language design, implemented behavior and open work. |
+| [Toolchain](toolchain/README.md) / [Platform](platform/README.md) | Compilers, shared components, ABI and drivers. |
+| [Advances](AVANCES.md) / [Log](BITACORA.md) | Development history and the problems behind changes. |
+| [Documentation index](docs/README.md) / [Evidence](docs/evidencia/README.md) | The deeper plans, recordings and measurements. |
 
-The checks and the build no longer wait for each other, so the time is the
-slowest of the two instead of their sum. If one fails, nothing touches a drive:
-the main window stops, names it, and that window stays open with the reason.
-Without `-Paralelo` everything runs in one window, in order, as always.
+### Contribute and report
 
-### 3. Turn Secure Boot off first.
+The most useful contribution is a precise boot report from another machine:
+CPU, board, the last visible stage and its evidence.
+**Ring 0 is closed to external contributions** under the current project policy;
+application, Ring 3 and Antena work have their own scope.
+See [CONTRIBUTING](CONTRIBUTING.md) and [CODEOWNERS](.github/CODEOWNERS).
 
-**This is the one that will waste your evening otherwise.** `BOOTX64.EFI` is not
-signed by a key your firmware trusts, so a machine with Secure Boot enabled --
-which is most machines shipped in the last decade -- **refuses to load it** and
-says something like `Security Violation`. That is not a bug in BMO-X and there
-is nothing to debug: the firmware never ran a single instruction of it.
+### License and authorship
 
-It is in the BIOS setup, usually under *Boot* or *Security*, and it is one
-toggle. Turn it back on afterwards if you want -- Windows does not care either
-way as long as it was not installed in a mode you are changing.
-
-> Signing the boot chain properly is on the roadmap and blocked behind the same
-> thing everything else is: **cryptography**. Until then, "turn it off" is the
-> honest instruction and not an oversight. See
-> **[SEGURIDAD_MAESTRO.md](docs/maestro/SEGURIDAD_MAESTRO.md)** section 4.3 for
-> why measured boot is *refused* rather than pending.
-
-### 4. Reboot and pick it.
-
-Open the firmware's boot menu -- it is a key pressed right after power-on, and
-which key depends on the board: **F11** on MSI, **F12** on Gigabyte and Lenovo,
-**F8** on ASUS, **F9** on HP, **Esc** on many others. If you miss it, the BIOS
-setup itself (**Del** or **F2**) has a boot-order page that does the same thing.
-
-Pick `BMO-X` and you are in. Click the
-DOOM icon, or type `info`, `cpu`, `mem`, `ls` in the launcher. `Ctrl+Alt+ESC`
-always takes the machine back from whatever is running.
-
-<details>
-<summary><b>No script? Copy two things onto a stick</b></summary>
-
-The build leaves a folder that *is* the layout of a bootable stick, so **copying
-it needs nothing but a file manager** -- Linux, macOS or Windows:
-
-```text
-Ultra_kernel_x86-64/staging/
-    EFI/BOOT/BOOTX64.EFI      <- the whole operating system
-    EFI/BOOT/BMO-MANIFEST.TXT <- sizes and SHA-256, for checking
-    BMO-DATA/                 <- the desktop and the programs
-```
-
-1. Format a USB stick as **FAT32** (not exFAT, not NTFS -- UEFI reads FAT).
-2. Copy **the contents of `staging/`** to the root of the stick, so that the
-   stick ends up with `EFI\BOOT\BOOTX64.EFI` and `BMO-DATA\` at its top level.
-3. That is the whole deployment. There is no bootloader to install, no
-   `grub.cfg`, no initrd, no kernel command line, and nothing to configure.
-
-> **[!] Where `staging/` comes from, said straight.** It is produced by
-> `build.ps1`, and **that script only runs on Windows today** -- it looks for
-> `llvm-objcopy.exe` under `%USERPROFILE%\.rustup` and hardcodes `.exe` paths.
-> So *copying* needs no Windows and *producing* still does, and saying only the
-> first half would be a half-truth.
->
-> The fix is a prebuilt archive, and it is small enough to be silly:
-> **718 KB zipped** for the whole system, the desktop and 28 programs. It goes
-> on the **[Releases](https://github.com/AndreeSalazar/BMO-X-x86-64/releases)** page.
-> If that page is empty when you read this, the archive is not up yet and
-> building on Windows is the only path -- which is worth knowing before you
-> plan an evening around it.
->
-> Making the build itself run on Linux is a small job nobody has done: the Rust
-> side is already cross-platform, it is the PowerShell around it that is not.
-
-**Why it is that simple**: UEFI firmware looks for `EFI\BOOT\BOOTX64.EFI` on any
-FAT volume and runs it. BMO-X *is* that file -- boot chain, kernel and drivers
-in one binary -- so there is nothing left for a bootloader to do. Ventoy, GRUB
-and rEFInd all exist to choose between things and hand off; here there is
-nothing to hand off to.
-
-That also means the firmware's own boot menu lists it directly, next to
-`Windows Boot Manager`, which is what photo 1 in
-**[docs/evidencia/](docs/evidencia/)** shows.
-
-</details>
-
-<details>
-<summary><b>What gets written, why it is that small, and the one command that only reads</b></summary>
-
-### What actually gets written
-
-Measured from a real build, not estimated:
-
-| | bytes | what it is |
-|---|---:|---|
-| `BOOTX64.EFI` | **1.264.640** | boot chain + 2 stages + the Ring 0 kernel. **This one file is the OS** |
-| `sys/d.bex` | 963.232 | the desktop and compositor -- Ring 3, loaded from disk |
-| 38 more programs | 376.465 | C, C++, COBOL, Ada and INTI examples, all compiled here, all BEF2 |
-| `apps/doom.bex` | 731.280 | optional, GPL, built only if the port is present (was 912 KB before the C emitter's September campaign) |
-| `apps/doom1.wad` | 4.196.020 | id Software's shareware data, not ours |
-
-**The operating system is 1,2 MiB.** Not the kernel -- the boot chain, the
-kernel, the drivers, the filesystems, USB, AHCI and the capability engine, in a
-single file the firmware loads. It uses **5,4 MiB of RAM** once running.
-
-### Why it is that small, and it is not cleverness
-
-It is the same rule that shows up everywhere else in this repository:
-
-```text
-   hardware   ->  PROFILED   named exactly; swapping it swaps a table
-   software   ->  CONTRACT   names nobody, so it works for everyone
-```
-
-`amdgpu` is millions of lines because it supports fifteen years of cards:
-runtime block discovery, dozens of firmware sets, a register map per generation.
-**That is the price of being generic, and it is not paid here.** BMO-X carries
-one CPU profile, one xHCI, one AHCI. Add no libc, no dynamic linker, no LLVM
-runtime and no POSIX layer, and 1,16 MiB is just what is left.
-
-The cost is written down and it is real: **this has been verified on exactly one
-machine** -- an AMD Ryzen 5 5600X on an MSI A320M PRO MAX. On yours it may not
-boot at all.
-
-> **If it does not boot, that is the single most useful thing you can send me.**
-> Photograph the screen where it stops, with your CPU and motherboard, and open
-> an issue. A panic from unknown hardware is worth more than a pull request.
-> See **[CONTRIBUTING.md](CONTRIBUTING.md)**.
-
-### And one command that only reads
-
-```powershell
-.\limpiar.ps1
-```
-
-Says what the build trees weigh before you delete anything. Cargo leaves about
-5,7 GB across four workspaces. It deletes nothing unless you add `-Borrar`.
-
-</details>
-
----
-
-## Why it is built this way
-
-Five decisions carry the whole design. Each is stated with what it costs,
-because a trade-off with only one side written down is advertising.
-
-**Two syscalls, frozen.** `INVOKE` and `WAIT`. Everything else -- opening a file,
-reading the mouse, claiming the screen -- is an *operation* on a capability. The
-API grows inside the pair (object kind, operation); the ABI does not move. The
-proof it works is a number: **the doors went 3 -> 2 while the operations went
-22 -> 228.** The system grew and the surface shrank -- and the build prints that
-second number on every run (`228 operaciones del kernel y 209 del userland, todas
-en el contrato`), so it is checked, not claimed.
-*Cost*: every new ability needs a handle kind to hang from, so there is no quick
-way to add "just one syscall".
-
-**Its own compilers, and its own format.** COBOL, C, C++, Ada, INTI and
-TITAN++, straight to machine code and BMO's own **BEF2** container: 64-byte header,
-four regions in fixed slots, one relocation kind, a signature that is *of the
-index* (header and attachment table) and of every region and attachment. No
-LLVM, no libc, no ELF. There *is* a linker now -- `bmo-enlazar`, static only,
-and it joins C, C++ and INTI objects without knowing which language wrote them.
-*Cost*: every bug in every language is ours, and a missing corner of C is found
-by a program that dies, not by a spec.
-
-**An abstraction may save you work; it may not lie.** An unimplemented feature is
-**rejected with a reason, never stubbed to look like it works**. A global the
-compiler cannot evaluate is an error rather than a silent zero. When `info`
-reports 8.4 MiB, that number comes from the kernel and not from the program
-claiming it.
-*Cost*: more paths that say no, and more code to say why.
-
-**Writing *is* committing.** ESTRATOS is copy-on-write: the audit trail is not a
-logging product bolted on, it is what the filesystem leaves behind. The write
-window is **named, per volume**, and the owner's Windows loader is outside every
-one of them.
-*Cost*: space, and a sealing step that has to be deliberate.
-
-**Survive the fall.** A cat falls, breaks something, and walks away. Not the
-absence of failure -- surviving it and being able to say what happened.
-*Cost*: the kernel carries autopsy machinery it hopes never to use.
-
----
+[Apache License 2.0](LICENSE), with notices and third-party material described in
+[NOTICE](NOTICE). NVIDIA firmware and third-party games retain their own terms.
 
 <p align="center">
-  <img src="docs/arte/inti.png" alt="INTI -- habla con la CPU" width="360">
+  <img src="docs/arte/bmo-x-gato.jpg" alt="BMO-X cat emblem" width="100">
+  <br><strong>Eddi Salazar &middot; Lima, Peru</strong>
+  <br>Building BMO-X since 17 April 2026.
+  <br><a href="https://github.com/AndreeSalazar">GitHub</a> &middot; eddi.salazar.dev@gmail.com
 </p>
-
-## The Hopper test and INTI
-
-<details>
-<summary><b>The Hopper test -- does the machine carry the work the human carried by hand?</b></summary>
-
-Grace Hopper's argument was never *"computers should be friendly"*. It was
-sharper than that: **the machine should carry the work the human was carrying
-by hand.** She wrote the first compiler in 1952 after being told computers only
-did arithmetic, and she pushed FLOW-MATIC and then COBOL so a program could be
-*read* by the person who owned the problem.
-
-BMO-X is built by one author, for that author's machine. So the test is a fair
-one to run, and here it is run with evidence rather than with flattery.
-
-### 1. COBOL is native here, and that is not nostalgia
-
-COBOL compiles straight to machine code in this tree -- **226 test rows**, exact
-decimal, and real file I/O. It is the only one of the four front ends that
-exists because *the problem domain asked for it* and not because the language
-is popular.
-
-And the decimal is the part that matters: Hopper's `PICTURE` clause is why
-money can be counted without a float. Ada's Annex F later copied the same idea,
-which is why **Ada's decimal was already paid for** when it arrived here.
-
-### 2. Thirty-three guardians do the remembering
-
-The A-0 automated *translation*. This tree automates *vigilance*. Every build
-runs thirty-three guardians (`toolchain/tools/README.md` lists them) whose only
-job is to say NO with a name: broken document citations, plan boxes that
-cannot be checked, a module that grew past a thousand lines, a device that
-reaches RAM without a census row, a commit scope that does not exist, a kernel
-stack path that does not fit, a second CPU architecture growing in the tree.
-
-One of them guards the language itself. Sources are ASCII and the screen
-speaks Spanish without accents -- and a Spanish word that lost its **tilde
-on the n** is not Spanish with an accent removed, it is a *broken* word:
-the maimed form of *owner* means nothing, and the maimed form of *year* means
-something else entirely. <!-- ene-caida-adrede --> Since 2026-09-21 the build fails on any
-of them and the sweep replaces each with the word that survives whole
-(`propietario`, `medida`, `mostrar`, `agregar`). A fork that switches that
-guardian off stops being BMO-X on its first commit, and that is the point:
-the rules travel inside the tree, not in anyone's memory.
-
-None of that is the author's memory any more. **The machine holds the rules so
-the person can hold the problem** -- which is the same trade the compiler made,
-one floor up.
-
-### 3. The nanosecond, still
-
-Hopper handed out 30 cm wires so people could *see* a nanosecond. This codebase
-has the same reflex written as law: **hardware is PROFILED, never estimated**
-(LEY 24). A door costs 656 measured ticks and the build can show the split
-between fixed cost and work. A `rdtsc` costs 112 ticks. A blit
-is timed against the scan-out, not guessed.
-
-The proof that this is a habit and not a slogan is that **it keeps correcting
-the author**. In September a counter reported 2.467.697 microseconds of device
-silence -- a plausible number, printed by working code. It was wrong: the disk
-was not silent, it was *idle*, and the measurement had never checked whether
-there was outstanding work. No test caught that. The machine did, by printing
-the number where it could be looked at.
-
-### 4. And her most quoted line earned its keep this week
-
-> *The most damaging phrase in the language is: "we've always done it this
-> way."*
-
-Idle cores in BMO-X spun at 100 % because waking them needed an inter-processor
-interrupt, which needed per-CPU state, which was exactly the work the module
-was built to avoid. That reasoning was correct and it was answering the wrong
-question: **those cores were not waiting for an interrupt, they were waiting
-for a memory write.** `MWAITX` sleeps on a write. `hlt` was never the tool --
-it was the habit. Measured on the Ryzen: **57,2 W with all twelve threads up,
-against 58,9 W with one** -- twelve now cost less than one did.
-
-### 5. And the strictness is not the opposite of that -- it is what protects it
-
-This section used to say the comparison *stopped* at strictness. That was the
-wrong reading, and the author corrected it: **strictness is not a departure
-from Hopper's argument, it is the thing that makes it hold.**
-
-You do not delegate to something that can lie to you. The moment a compiler
-quietly emits a stub that looks like it works, or a kernel reports a number the
-program made up, the work comes straight back to the human -- who now has to
-verify everything, which is more work than before the machine helped.
-
-```text
-   strict WITH THE USER      puts obstacles in the way          -> it gets in the way
-   strict WITH ITSELF        refuses to be corrupted            -> you can let go
-```
-
-*** BMO-X is the second one, and the difference is the whole point. The rules
-do not point at the person using the system: **they point inward**. An
-unimplemented feature is refused with a reason instead of stubbed. For sixteen
-days a `.bex` shipped with `sig_algo = 0` and the trust anchor empty -- written
-down as a debt with a name rather than hidden behind a green check, and paid on
-2026-09-10 when the debt turned out to be a missing command rather than missing
-cryptography. The thirty-three guardians exist to say NO to *this codebase*, not to
-its users.
-
-> A system that lets itself be corrupted does not stop working for its owner.
-> It starts working for whoever corrupted it -- and the owner is the last to
-> find out.
-
-That is why the two halves belong together and are not a compromise between
-them: **the machine can carry the work precisely because it will not lie about
-having carried it.** Hopper's delegation needs BMO-X's refusal to be worth
-anything, and the refusal would be pointless bureaucracy without the
-delegation.
-
-### [!] Where it really does differ
-
-Hopper wanted programming open to *anyone*, and the English keywords in COBOL
-were an accessibility argument. BMO-X is not aiming at that: it is one author's
-machine first, and [`FUERO/`](FUERO/) and [REX](toolchain/forge/sem-asm/tables/bmo/) exist so
-third parties
-can build on it **on stated terms**, not so the system fits everyone.
-
-The divergence is the audience. It was never the strictness.
-
-</details>
-
-<details>
-<summary><b>Why INTI exists -- the system language, and why C was demoted</b></summary>
-
-**INTI is the system language of BMO-X.** Python's syntax, assembly's control,
-and a compiler that will not leave a single operation without a rule. It
-compiles straight to `.bex`, it runs on the Ryzen, and its checks reach real
-bytes -- not a document.
-
-### C is not dead here. It was demoted.
-
-C still compiles, is still tested, and stays. It is the only way to run the C
-that already exists in the world, and that is worth keeping. What changed is
-narrower and final: **BMO-X stops writing *new* system code in C.**
-
-The reason is one clause C wrote in 1972 and never revisited. Undefined
-behaviour was a *portability* bargain -- dozens of incompatible machines, tiny
-compilers, and no honest way to say what a signed overflow meant on all of them
-at once. It was the right trade **then**.
-
-Fifty years later the clause had not moved, but what it bought had switched
-sides: the compiler stopped reading it as *"anything may happen"* and started
-reading it as *"this cannot happen, therefore I may delete the code around it."*
-The programmer never agreed to the second reading. He inherited it.
-
-And here the bargain has nothing left to buy: **one machine, one toolchain, and
-every source in the tree.** There is no foreign compiler to stay compatible with
-and no unknown architecture to hold the door open for. Keeping undefined
-behaviour in BMO-X costs everything and purchases nothing.
-
-### The evidence is from this house, not from a paper
-
-The strongest argument for INTI was not argued. It was found:
-
-| what the emulator did | what the silicon actually does |
-|---|---|
-| `cvttsd2si` **saturated** -- `1e30` gave the largest integer, NaN gave zero | returns the most negative value as a sentinel, for both |
-| `imul` **set no flags** | sets `cf` and `of` when the product does not fit |
-
-Both holes sat in the emulator for months while BMO C compiled against them, and
-nobody noticed. **They surfaced the week INTI arrived, and the reason is exact:
-BMO C never emits a `jo`.** There was no one to ask the question.
-
-On **2026-08-22** the question was put to the real Ryzen 5 5600X. The probe line
-`reglas` came back `0x00`: overflow trapped as `1001`, divide-by-zero as `1003`,
-bad conversion as `1012`. **The emulator and the metal agree** -- which is the
-only way "INTI has no undefined behaviour" stops being a claim about an emulator
-we wrote ourselves.
-
-### The cost, stated
-
-The checks cost about **1%**. Three of the four rules that matter reach bytes and
-run; the rest are 🟡 or ⚪ and the tracker says which. `INTI PLENO` -- text,
-lists, tables, exact decimal -- **is not built**, and the compiler refuses to
-emit a signed binary for it rather than emitting one that quietly returns zeros.
-
-### The first tool, and what writing it found (2026-09-12)
-
-`bico.inti` converts BMP and QOI images into BICO, the format the desktop
-paints. It is the job INTI is for: **reading bytes someone else wrote.** The
-famous image-library bugs are lying headers overflowing a buffer; here every
-size from the file is checked against what arrived, arithmetic traps instead of
-wrapping, and the only two unchecked (`crudo`) blocks are counted in the binary.
-Its tests feed it truncated, compressed and 3x60000-pixel files: each gets an
-error code and no output file.
-
-Writing real programs also surfaced **three silent emitter bugs, all present
-since day one**: `and`/`or` emitted nothing (`a and b` returned `a`); the wait
-call went through the wrong gate and spun instead of sleeping; and a variable
-loaded into `r8`-`r10` produced an instruction of the wrong length. Each one
-compiled, ran, and did something else. Each now has a test.
-
-> The design is **[INTI_MAESTRO.md](docs/maestro/INTI_MAESTRO.md)**; who executes
-> the cut is **[PLAN_EL_SILICIO.md](docs/plan/PLAN_EL_SILICIO.md)**; and
-> **[ESTADO.md](toolchain/lang/inti/ESTADO.md)** takes the three claims apart and
-> says which of them is paid for.
-
-</details>
-
----
-
-## What it deliberately does not do
-
-No dynamic linking, no package manager, no accounts, no POSIX layer, and no
-generic drivers: every device is **profiled** -- this CPU, this xHCI, this RTX
-3060 -- never "any card". Some of those are queued and some are refused;
-**[ARQUITECTURA.md](ARQUITECTURA.md)** says which is which and why.
-
-It is also not a Linux, not a hobby OS aiming at POSIX, and not trying to run
-anybody else's binaries. A program for BMO-X is compiled for BMO-X. And it is
-not portable: **x86-64 only**, one repository, one architecture -- the title
-says so and a guardian enforces it.
-
----
-
-## The second objective and cloud local
-
-<details>
-<summary><b>The second objective: the day the AMD card arrives, it gets profiled</b></summary>
-
-The primary objective is banking on BMO-X. This is the one behind it, and it is
-stated here because the *shape* of the work is the point, not the hardware.
-
-> **Target: AMD Radeon RX 9060 XT 16GB** (Navi 44 / GFX1200), declared
-> 2026-08-02 in `platform/drivers/gpu/rdna4/`. Intended as a **Ring 3** driver
-> -- and it would be the **first**: every device driver today is a Rust crate the
-> Ring 0 kernel links. That gap is stated, not glossed over.
-
-### Why this is one day of work and not a project
-
-**BMO-X profiles hardware. It does not write generic drivers.** That is the law
-of the house, and it is why the estimate is not the one people expect:
-
-```text
-   hardware   ->  PROFILE    named exactly; swapping it swaps a table,
-                             never an edit to the kernel
-   software   ->  CONTRACT   names nobody, and therefore works for everyone
-```
-
-`amdgpu` is millions of lines because it supports fifteen years of cards:
-runtime block discovery, dozens of firmware sets, a register map per generation,
-power management for each. **That is the price of being generic, and it is not
-paid here.** What gets written is one device id, one firmware set, one register
-map. The same rule the CPU already follows -- *"swapping the CPU is a profile
-swap, never a kernel edit"* (`cpu_vendor/profile.rs`).
-
-The profile is also what makes the metal **testable**: it says *this card, this
-MAC, this register*, so the answer can be written down before looking and then
-compared. A driver that claims "any AMD card" has no experiment that can confirm
-or refute it.
-
-** So the arrival of the card is the trigger, and the work is filling in a
-profile that is already written and already waiting -- `PROFILE.pci_devices` is
-an empty list today, because **a profile refuses to claim a card it has never
-met**.
-
-### Why AMD, and it is not a preference
-
-The RTX 3060 came first, and that path was **reverse engineering**. With AMD the
-path is open, and that is the whole reason:
-
-| | |
-|---|---|
-| firmware | published in `linux-firmware`, and **redistributable** |
-| the RDNA ISA | **published by AMD** |
-| a reference driver | `amdgpu` is open and **can be read** |
-
-That turns the question from *"is it possible"* into *"how much"*.
-
-### Two goals, kept apart on purpose
-
-| | goal A | goal B |
-|---|---|---|
-| what | **SDMA**, the copy engine | command rings, compute, Vulkan |
-| size | *"the size of the AHCI driver"* | the long road |
-| why A is small | **the display is not touched**: it inherits the linear framebuffer UEFI left and skips DCN entirely | -- |
-| what it buys | the compositor blit -- which at 1600x1000 is DOOM's **entire** deficit | Vulkan in Ring 3 |
-
-Confusing *"make the blit fast"* with *"run Doom Eternal"* is the classic way to
-finish neither.
-
-### And the one piece that is honestly not measured
-
-Goal B has a wall: the **PSP**, the security processor that authenticates the
-microcode before the GPU will run. A profile shrinks *variants*; it does not
-shrink a handshake.
-
-**No number is given for it here, and that is deliberate.** The plan that
-describes it says *"do not write a schedule for this until you have looked at
-it"*, and the house rule is older than the plan: **a device is asked, never
-assumed**. Measuring it costs a day of reading `amdgpu` and counting the steps
--- no hardware, no money -- and until that day the honest answer is *not
-measured*, which is not the same as *long*.
-
-The full reasoning: **[PLAN_VULKAN.md](platform/drivers/gpu/rdna4/PLAN_VULKAN.md)**
-and **[PLAN_EL_ASISTENTE.md](docs/plan/en_pausa/PLAN_EL_ASISTENTE.md)**.
-
-</details>
-
-<details>
-<summary><b>Cloud local: the phone is the antenna</b></summary>
-
-YouTube will not run on BMO-X, and the reason is not the kernel. A video site
-needs HTTPS, a JavaScript engine, a modern codec and synchronized audio, and each
-of those is months of work. **Cloud local** moves all four out of the machine:
-
-```text
-   ANTENNA (an Android phone, or any PC)                 BMO-X
-   the web, TLS, JavaScript, the codec   -- home LAN --> MPEG-1 + MP2 640x360 over TCP,
-   converted live to MPEG-1 + MP2           plain        drawn with pl_mpeg in a window
-```
-
-It is Steam Link turned around: for the web the phone is the powerful machine and
-BMO-X is the screen. No PCIe, no driver for somebody else's GPU, and no POSIX
-smuggled in -- the dirty work stays outside, on a device that already does it.
-
-- **On the phone:** Termux, Python and ffmpeg. The first mode needs no app: the
-  antenna is [`toolchain/tools/antena/antena.py`](toolchain/tools/antena/antena.py),
-  and [`cliente.py`](toolchain/tools/antena/cliente.py) tests it from a PC before
-  BMO-X speaks TCP.
-- **On BMO-X:** TCP on the metal, the `ANTENA/1` protocol
-  ([`platform/shared/bmo-antena`](platform/shared/bmo-antena), tested on the host)
-  and a local MPEG-1 player.
-- **What it refuses to promise:** the channel is not encrypted, so it is for one
-  home LAN and one allowed IP; without the antenna there is no video; and what a
-  video platform's terms allow is the antenna owner's call. The antenna serves
-  files that are already in its folder -- it downloads nothing.
-
-BMO-X keeps **two paths** to the network, and they are split by what each one
-is allowed to accept, not by the wire (both run over `bmo-pila` and the same
-kernel gate):
-
-```text
-   DIRECT    protocols that fit in one page of RFC -- DHCP, DNS, ping (done on
-             the metal), TCP, Gemini, a plain HTTP GET -- against servers that
-             speak BMO-X's language: a repository of SIGNED `.bex`, another
-             BMO-X, a NAS at home. Never JavaScript, never a browser
-   ANTENNA   the web, sessions, codecs, Python: chewed on the phone (or on a
-             stripped-down Linux box) and handed over as simple data, with a
-             quota and a quarantine if the antenna misbehaves
-```
-
-A signed `.bex` may travel in the clear: the signature protects the content,
-TLS would only protect the channel. Anything private stays at home until TLS
-(the wall) exists. And "browsing" without becoming a browser is a third shape
-between text and screen mirroring: the antenna runs the whole browser and sends
-the page **already laid out** -- boxes, text runs, images -- the way Opera Mini
-did in 2005, except the server is your own phone on your own LAN. Measured on
-2026-09-16 in a desktop browser: a Wikipedia article at 640 px is ~2.100 lines and
-90 KB once the page is laid out with BMO-X's own 8x16 font metrics, and the
-reader (`bmo-antena/src/lamina.rs`, 30 tests) accepts every line. And the
-phone already does it by itself: `PAGINA <url>` to a HONOR X7a running the
-antenna in Termux (Chromium inside a proot Debian) returns that Wikipedia
-article laid out in 2.5 s over the LAN (7 s before the antenna stopped
-loading images nobody would see and stopped opening a process per page --
-no optimization, just subtraction; the layout is byte-for-byte the same).
-The desktop does it in 0.5 s. Honest numbers, measured 2026-09-16.
-
-The plan, with a check next to every step:
-**[PLAN_CLOUD_LOCAL.md](docs/plan/PLAN_CLOUD_LOCAL.md)**.
-
-</details>
-
----
-
-## What is next, and what blocks it
-
-The plans are public because an estimate nobody can check is advertising. Each
-row below is **work on top of something that already runs**, except the last one.
-
-| | | blocked by |
-|---|---|---|
-| 🟢 | **Talk to the LAN and to the internet** -- receives, transmits behind a one-time gate with a 4 ms radar, gets its own IP by DHCP, and `ping` is answered by the router and by a server on the internet (2026-09-14) | done on metal |
-| 🟡 | **Give the 12 threads (6 cores) work from Ring 3** -- an app splits its own job across the workers in Ring 3 (the sub-directors, H4.3); on 2026-10-11 the first split ran on the metal and one worker came back cleanly, then the PC reset ~3 ms later. The black box and the reset reason now say how | the `smp all` reset (V9, V10 in [`PLAN_LOS_DOCE_DIRECTORES.md`](docs/plan/PLAN_LOS_DOCE_DIRECTORES.md)) |
-| 🟡 | **A LAN that works and is measured** -- `ping` works; DNS, files and banking terminals against a local server come next | DNS answers, then TCP on the metal |
-| ⚪ | **Cloud local** -- your phone does the web and BMO-X shows it (see below) | TCP on the metal, then a local MPEG-1 player |
-| 🟡 | **Sound** -- the headset is claimed by the enumerator with its descriptor in hand, volume and the isochronous pipe are driven by the bus thread (never from a syscall), the pipe opens itself on claim, and enumeration is done in **two beats** of its own: first the host *listens* to the device at address 0 to learn how it speaks (its EP0 packet), then a clean reset, the address and the papers -- each step justified by the USB and xHCI specs, not by what another host does. Written 2026-09-21; the first image shipped with two extra steps that left keyboard and mouse out, found by reading and removed 2026-09-22 | the next boot: the `save` says whether the 7.1 headset answered |
-| 🟡 | **The desktop composed by the RTX 3060** -- step 1, the copy engine moves the desktop to the screen instead of the CPU; then windows as textures, blur behind them, animations on the vertical blank | one boot per step, each checked pixel by pixel against the CPU |
-| 🟢 | **Games on the GPU, step one** -- **VERRANO V0**, BMO-X's own drawing API: the D3D cube through the card's rasterizer, with two programs shipped ready-made in BMO-X's own shader format (**BSF**) and the vertices in a buffer, **equal bit for bit to D3D12 on Windows** (2026-09-26: 923 us on the card, 1796 us on the CPU). The hang on the way was the card's own report: `Xid 13, Out Of Range Register` -- on Volta and later two registers are burned for the program counter. A SASS judge now checks every program BMO-X sends to the card before it goes | next: the lanes E, M and P of [`PLAN_VERRANO.md`](docs/plan/PLAN_VERRANO.md) -- V1, V1b and V1c were seen 2026-09-26, and since 2026-09-28 the card runs programs from BMO-X's own SM86 emitter (the house Programa, no SPIR-V); the cube's own `cubo.bsf` is still hand-written SASS |
-| 🟡 | **Cyberpunk 2077 through PROTON-X** -- on 2026-10-07 it runs **68 s** on the metal: it opens its window, creates 1.065 pipelines, submits **43 command lists** and **opens the sound** (WASAPI, 48 kHz stereo, through the USB headset). Getting there took a kernel clock that takes the core from a game thread that never lets go (*EXPROPIAR*, like a Linux timer signal) and a Linux-style futex. With `smp all` the PC still reboots; the black box could not say why because the CPU cache was eating its last lines -- fixed the same day, with a per-core board that survives the reset. **On 2026-10-11 that board caught it**: `smp all` alone lives (11 of 11 workers, 11.7 s), and the reset comes ~3 ms after the **first** Ring 3 job is split across them, with nine workers inside their part and one already back cleanly. An audit of the whole path found the workers leave the trampoline **without `CR4.MCE`** (a machine check there powers the PC off) and that waking them twice gave two cores the same identity; the second is fixed, and the next boot reads the reset reason the chipset keeps. Logs: [`METAL_2026-10-07.md`](docs/metal/METAL_2026-10-07.md), [`METAL_2026-10-11.md`](docs/metal/METAL_2026-10-11.md) | the `smp all` reboot (V9, V10), then V6 (a heap chunk over 64 MiB), then the first `Present` painted by the CPU |
-| 🟡 | **ESTRATOS branches and merge on the metal** -- create, switch, count, choose and merge are kernel gestures and F1 drives them; the merge engine matches two other implementations on 2.000 random histories | one test on the data disk, by the owner (`R4c-3` in [`PLAN_LAS_RAMAS.md`](docs/plan/PLAN_LAS_RAMAS.md)) |
-| 🟡 | **TITAN++ on the metal** -- 14 levels; its bank of 115 programs passes in the emulator, and the two the build deploys ran on the Ryzen on 2026-10-08 (`hola.bex` and `dos.bex`) | a program that reads (E1) |
-| ⚪ | **F2, the files** -- every file of every disk in one tree, the disks in a tray, the desktop icons retired, and the *"it is open"* dialog that shows the program's own window | [`PLAN_LA_BANDEJA.md`](docs/plan/PLAN_LA_BANDEJA.md), step B1 |
-| ⚪ | **A local assistant**, running as a Ring 3 app over your own files -- parked by decision; its step 0 (closed decisions over `DATOS.TXT`, no model) needs nothing | `exp`, and the core door |
-| ⛔ | **Anything over the internet** | **cryptography** -- and that is the ceiling |
-
-**The ceiling has a name.** Everything above it is work; cryptography is the one
-piece that is an *invention*. X25519, AES-GCM, SHA-256, X.509 -- written wrong it
-does not fail, it **works and does not protect**.
-
-And it is the same debt twice: the elliptic curve HTTPS needs is the one a signed
-`.bex` needs. **Paying it once collects twice.**
-
-> **[!] This paragraph used to say** *"today `verify_ed25519` says yes to a
-> signature of zeros, and nothing calls it yet"*. **That has been false since
-> 2026-08-24**, when that function was deleted, and real Ed25519 landed the day
-> after. `bmo-firma` verifies against a trust anchor and refuses without one.
->
-> The accurate statement was narrower and still uncomfortable: **the machinery
-> worked and nothing signed shipped through it.** Every `.bex` went out with
-> `sig_algo = 0` -- integrity, not authorship -- and the trust anchor was empty.
-> The gap was never the algorithm; it was that **nothing in the tree could
-> sign**, which is why the writer emitted a zero and the anchor had nothing to
-> hold.
->
-> **Closed on 2026-09-10.** `toolchain/tools/bmo-firmar` signs an already-built
-> `.bex` in place -- the signature is the one block no hash covers, so stamping
-> it moves nothing else, and what gets signed is the binary that was tested
-> rather than a rebuilt sibling. It links `bmo-firma`, the same crate the kernel
-> runs, so "verified on the host" and "verified on the metal" are one claim and
-> not two that resemble each other. The private key never enters the repository:
-> the tool walks the ancestors for a `.git` and refuses. The anchor now holds one
-> key, by name.
->
-> What is still open is honest and small: **no signed `.bex` has booted on the
-> Ryzen yet**, and `exige_firma()` is still `false`. Both are checkboxes with a
-> verification written next to them, in `docs/plan/PLAN_SEGURIDAD.md`.
-
-The full reasoning, with what each piece costs and why:
-**[PLAN_EL_PERFIL_TOTAL.md](docs/plan/terminado/PLAN_EL_PERFIL_TOTAL.md)** (what this
-machine gives without buying anything) and
-**[PLAN_EL_ASISTENTE.md](docs/plan/en_pausa/PLAN_EL_ASISTENTE.md)**.
-
-> **On estimates.** A profile here measures between **600 and 1.900 lines** --
-> that is four measurements, not an opinion: the Ryzen profile is 952, AHCI is
-> 1.103, xHCI is 1.871. Where a number has not been measured, this repository
-> says *not measured* rather than guessing. That is not modesty; a guess written
-> down becomes a fact three months later.
-
----
-
-## How to be suspicious of it
-
-The claim worth checking is not "it works" -- it is that the things marked 🟢
-were seen on the real machine and the things marked 🟡 say so.
-
-- `.\bmo.ps1` builds everything and runs the guards **without touching any
-  disk**: seventeen compatibility rules over 82 cases, sources are ASCII, 2.503
-  document citations resolve, no module grew past its ceiling, and the syscall
-  contract is compared across the kernel, the ABI and the userland runtime --
-  **228 kernel operations and 209 userland ones, none by hand**. Deploying to a
-  USB stick is a separate command, `.\desplegar.ps1`, on purpose.
-- `.\limpiar.ps1` says what the build trees weigh before you delete them.
-- `cargo test --workspace --exclude bmo-kernel` -- **4.812 tests, 0 failures** (counted 2026-10-07, after merging main: PROTON-X and the jueces).
-- `cargo test -p bmo-c-x86-64 probe_` -- **15 axes in 0,61 s**: the census of what
-  the C compiler actually supports, including the rows that are still broken. A
-  census that hides its red rows is worth nothing.
-
-**[CONTRIBUTING.md](CONTRIBUTING.md)** explains the bar for a change, and it is
-two rules: nothing that compiles and does not do what it says -- and **Ring 0 is
-closed to external contributions** (2026-09-17). Drivers and integrations go in
-Ring 3 or on the Antena; the exact list is [`.github/CODEOWNERS`](.github/CODEOWNERS).
-
----
-
-## Going deeper
-
-This README is the summary on purpose. Everything under it has a document,
-because the reason a decision was made is worth more than the decision.
-
-| Document | What is in it |
-|---|---|
-| ★ **[EL_FUERO.md](FUERO/EL_FUERO.md)** | **Start here if you want to build on BMO-X.** What the system grants you, what it demands back, and what it deliberately does not grant. Not an SDK -- a charter |
-| **[META-KERNEL_HARD.md](FUERO/META-KERNEL_HARD.md)** | The law of the machine. A rule exists only if it carries the component that demands it and the number it demands |
-| **[META-APP_HARD.md](FUERO/META-APP_HARD.md)** | The law of an app. What BMO-X demands of anything that wants to be one, and what it gives back |
-| **[META-SDK_HARD.md](FUERO/META-SDK_HARD.md)** | The law of **REX**: the nine `<bmo/...>` headers an app is written with, and the two tests that keep a library from becoming a framework |
-| ★ **[EL_0x15.md](platform/drivers/gpu/ga10x/EL_0x15.md)** | **The 0x15 case file**: the symptom, the instruments, the eight hypotheses that fell and the number that felled each, the cause, and a summary in English for nova-core and nouveau. The boots, one per row: [`EL_0x15_ARRANQUES.csv`](platform/drivers/gpu/ga10x/EL_0x15_ARRANQUES.csv) |
-| **[ANATOMIA.md](platform/drivers/gpu/ga10x/ANATOMIA.md)** | The MSI RTX 3060 12G from the inside: engines, chain of trust, what survives what, and every byte handed to the booter |
-| **[ARQUITECTURA.md](ARQUITECTURA.md)** | The full technical picture: layout, boot path, the operation table, the allocator, the complete status list |
-| **[BITACORA.md](BITACORA.md)** | The build log, episode by episode. **Every bug that cost a day is written down with its root cause** |
-| **[AVANCES.md](AVANCES.md)** | What is done, what is waiting for a boot, and the photographs |
-| **[CONTRIBUTING.md](CONTRIBUTING.md)** | The bar, and why Ring 0 is closed |
-| [Ultra_kernel_x86-64](Ultra_kernel_x86-64/README.md) | Ring 0: boot chain, drivers, filesystems |
-| [Ultra_userspace](Ultra_userspace/README.md) | Ring 3: the runtime and the compositor |
-| [toolchain](toolchain/README.md) | The six native compilers (C, C++, COBOL, Ada, INTI, TITAN++), the linker and the shared backend |
-| **[TITAN_MAESTRO.md](docs/maestro/TITAN_MAESTRO.md)** | TITAN++: why a sixth language, why nodes, and every decision level by level |
-| **[ESTRATOS.md](platform/drivers/storage/estratos/ESTRATOS.md)** | The filesystem, from alpha to 1.0 and on: the format byte by byte, the commit order that cannot lose data, versions, branches and merge |
-| **[PLAN_LAS_RAMAS.md](docs/plan/PLAN_LAS_RAMAS.md)** | Git's ideas by whole nodes: the owner's decisions D1-D5, every step and its test |
-| **[PLAN_TALLER.md](docs/plan/PLAN_TALLER.md)** | F1, the workshop: what was seen on the Ryzen and what the host camera checks |
-| [platform](platform/README.md) | The ABI, the `.bex` container, the drivers as crates |
-| [docs/](docs/) | The master plans: audio, network, SMP, self-healing, DOOM, RAM |
-
----
-
-## License
-
-**Apache License 2.0.** Use it, fork it, ship it, sell it. Patent grant
-included, and no fee of any kind.
-
-Two things it does *not* hand over, and both are in the licence itself:
-
-- **The name.** Section 6 grants no trademark rights. "BMO-X", "ESTRATOS",
-  "BEF", "CABINA" and "INTI" are this project's names -- the code is yours,
-  naming your product after this one is not.
-- **A warranty.** Sections 7 and 8. It is free, it is not guaranteed, and
-  both are true at once.
-
-> **The Base still should not fork -- and that is now a request, not a
-> clause.** Two syscalls, BEF, the Ring 0 kernel. Apache 2.0 lets you change
-> all three, and the reason not to has not changed: with the Base fixed, one
-> audit is worth something to everyone; forked, every audit is worth
-> something to one person. That argument now has to stand on its own, which
-> is the honest place for it. See **[CONTRIBUTING.md](CONTRIBUTING.md)**.
-
-See **[LICENSE](LICENSE)** and **[NOTICE](NOTICE)**.
-
----
-
-Built from scratch in Lima, Peru, by **Eddi Salazar**.
-
-- **Repository**: [github.com/AndreeSalazar](https://github.com/AndreeSalazar)
-- **Contact**: eddi.salazar.dev@gmail.com
-- **Boot report from your own hardware**: see
-  **[CONTRIBUTING.md](CONTRIBUTING.md)** -- it is the single most useful thing
-  anyone can send, and it settles the licence barter in one email.
-
-<!-- TODO Eddi: el enlace al video del Ryzen arrancando va aqui. Sin el, quien
-     lea esto va a asumir QEMU -- que es exactamente lo que el proyecto no es. -->
