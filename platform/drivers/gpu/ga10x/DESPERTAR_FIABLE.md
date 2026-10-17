@@ -1,5 +1,12 @@
 # Despertar fiable de la RTX 3060 12G -- investigacion del 16-10
 
+**Sexta tanda, 23:23:** la foto previa ya llego al metal: MAILBOX0/1
+`3C000000/00000000`, argumentos LIBOS intactos, CPUCTL/BCR `12/1`.
+Despues del booter 0x15 aparecen BADF1002/BADF5620. Se acota el cambio de
+accesibilidad entre ambos momentos; no se demuestra su causa. Lentes de
+shader y ordenes vistas sin GSP; no hubo lamina de app observada.
+[Resultado completo y limites](../../../../docs/metal/METAL_2026-10-16.md).
+
 **Auditoria de protocolo y ASM:** el
 [estudio RTX 3060 / PROTON-X](ESTUDIO_RTX3060_PROTON_X.md) identifica
 G0-MODO: preparacion inicial Falcon en BMO-X frente a RISC-V en OpenRM
@@ -16,7 +23,7 @@ La foto nueva guarda GSP MAILBOX0/1 y CPUCTL/BCR_CTRL ANTES de STARTCPU
 del SEC2, con LIBOS esperado. Solo cuatro lecturas por intento. Permite
 separar argumentos ya inaccesibles/distintos antes del booter de un
 GSP que se vuelve inaccesible despues. No acredita aun causa ni arreglo.
-Disponible en `save` con kernel y DIRECTOR nuevos; G0 sigue abierto.
+Confirmada en `save` a las 23:23; G0 sigue abierto.
 
 **Tercera tanda, 17:06:** GSP activo, INIT_DONE y lienzo 16.384/16.384.
 MUNDO cae a CPU por otro fallo: VRN1 rechazaba su destino 640x360 con Z

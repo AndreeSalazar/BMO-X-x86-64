@@ -129,7 +129,7 @@ para su target. Pasan capas, contrato, censo modular, ASCII, enlaces y planes.
 | Etapa | Estado y evidencia necesaria |
 | --- | --- |
 | Bytes preparados y lector SM86 | Implementados y probados en anfitrion; DIRECTOR enlazado. |
-| Consulta en BMO-X | Pendiente observar salida en el equipo con el DIRECTOR nuevo. |
+| Consulta en BMO-X | Vista a las 23:23 del 16-10: 64 B de bmox-vs y 32 B de plantilla de ordenes; otras paginas/rechazos pendientes. |
 | Copia recuperada del dispositivo | Pendiente una captura autorizada y acotada, despues de finalizacion y antes de reutilizar el recurso. |
 | Identidad de la captura | Pendiente asociar recurso, build y numero de trabajo a preparado/recuperado para compararlos sin mezclar generaciones. |
 | Registros del aparato | Pendiente lista permitida con efectos de lectura conocidos, captura en la puerta autorizada y errores de acceso conservados. |

@@ -131,8 +131,10 @@ Validacion: 602 pruebas Rust aprobadas (incluidos todos los prefijos de
 la plantilla, para detectar cortes), once pruebas del guardian y comprobacion
 del kernel para su target. DIRECTOR release enlazado; pila 45.984/65.536 B,
 marco mayor 19.552 B. Pasan capas, contrato, censo modular, ASCII, enlaces
-y planes. La observacion en el equipo conserva su estado pendiente.
+y planes. La primera observacion en el equipo llego a las 23:23:
+64 bytes de shader y 32 bytes de plantilla, con columnas hex/bits
+contrastadas. [Parte y limites](../../../../docs/metal/METAL_2026-10-16.md).
 
-Pendiente: observar las dos consultas en BMO-X, capturar el envio real con
+Pendiente: observar otras paginas y rechazos en BMO-X, capturar el envio real con
 identidad de recurso/trabajo/build y recuperar resultados tras finalizacion.
 No se declara arreglado G0/0x15 ni la diferencia de cuatro pixeles de Q0a3.

@@ -1,5 +1,10 @@
 # PLAN VERRANO -- la API de dibujo de BMO-X, con el BSF debajo
 
+**23:23, primera observacion en metal:** lentes de shader y ordenes vistas,
+columnas hex/bits contrastadas con los bytes de referencia. GSP ANTES
+legible con LIBOS intacto; despues booter 0x15 y BADF. No se observaron
+laminas de apps en esta tanda. [Evidencia](../metal/METAL_2026-10-16.md).
+
 **16-10, ordenes NVIDIA:** `gpu verrano ordenes [offset]` explica la
 plantilla preparada con categoria, motivo y contexto de clase reconstruido.
 El lector vive en el carril VERDE de `ga10x/src/inspeccion`, vigilado por S7.
@@ -8,7 +13,7 @@ No es captura del ultimo dibujo ni cierre de G0.
 
 **16-10, lente de bytes:** biblioteca comun sin fabricante, lector SM86
 aislado y consulta `gpu verrano bytes` implementados. Pruebas de anfitrion
-y enlace de DIRECTOR; observacion en metal pendiente. Copia recuperada
+y enlace de DIRECTOR; primera ventana observada a las 23:23. Copia recuperada
 de VRAM y registros permitidos siguen pendientes, no se anuncian leidos.
 [Contrato y siguientes etapas](../../platform/shared/bmo-lente-gpu/README.md).
 

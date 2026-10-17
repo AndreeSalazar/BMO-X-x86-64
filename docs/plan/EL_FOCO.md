@@ -26,8 +26,9 @@ de arranque de la GPU ni convierte esa introduccion en un juego jugable.
 | C1: buffers prestados a GPU | 325 fotogramas GPU, cero CPU en la tanda 19:37-19:39 | No acredita igualdad perfecta ni arranque fiable. |
 | Q0a3: igualdad de imagen | Abierto: 4/230.400 pixeles distintos | Se investiga cuando la GPU este disponible. |
 | Captura de pantalla completa | Dos PNG 1080p guardados en la tanda 20:36 | Ventana y recorte conservan su prueba propia. |
-| G0: despertar GSP | Abierto: booter y descargador 0x15 en la ultima tanda | La foto previa nueva aun espera metal. |
-| FPS de MUNDO en la ultima tanda | Muestra CPU de 19,60; 20 intervalos/1.020 ms | No es rendimiento de la RTX ni promedio de la partida. |
+| G0: despertar GSP | Abierto: 0x15 en frio a las 23:23; argumentos legibles e intactos antes del booter | Despues aparecen BADF; causa sin demostrar. |
+| FPS de MUNDO en la ultima tanda con app (20:36) | Muestra CPU de 19,60; 20 intervalos/1.020 ms | A las 23:23 no hubo lamina observada; no hay FPS nuevos. |
+| Lentes GPU preparadas | Vistas a las 23:23: 64 B de shader y 32 B de ordenes; hex/bits contrastados | No es captura de VRAM ni del canal activo; solo esas ventanas. |
 | M3a | Cerrado en anfitrion: -30,54 % de instrucciones al ordenar | No mide ciclos ni segundos en el Ryzen. |
 | Lente de bytes | 128 bytes vistos, hex y bits coinciden | Rotulos corregidos, EOF y autopsia nueva aun requieren observacion. |
 | Cyberpunk | Intro vista el 13-10, unos 16 s/fotograma por CPU | No jugable; dibujo del juego por GPU no acreditado. |
