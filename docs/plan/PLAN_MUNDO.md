@@ -1,5 +1,12 @@
 # PLAN MUNDO -- el Minecraft propio, en TITAN++, por VERRANO
 
+> **Estado vigente 16-10, despues de la tanda 20:36:** MUNDO es juego
+> propio y cliente nativo de prueba, no un port completo de Minecraft.
+> MC1 y guardado confirmados; entrada relativa confirmada por el propietario.
+> C1 visto con 325 fotogramas GPU; Q0a3 conserva cuatro pixeles diferentes.
+> Ultima tanda: 1.141 fotogramas CPU por G0/0x15, muestra 19,60 FPS.
+> Primero [G0](PLAN_LA_3060.md), despues igualdad de imagen y fisica.
+
 > Abierto el 2026-10-11. El orden lo aprobo el propietario el 10-10 (seccion
 > 5h de [`PLAN_LA_TINTA.md`](PLAN_LA_TINTA.md)): TB1 de LA TINTA primero,
 > despues *"minecraft propio en 3D"* para ENSENIAR a VERRANO, e ILLAPA al
@@ -73,14 +80,15 @@ pide Cyberpunk por PROTON-X --.
       de 32. Compilado; el dibujo del mundo pasa en el juez del anfitrion.
       **METAL 16-10, confirmado por el propietario:** probo jugar y verlo
       funcionar: "FUNCIONO MUY BIEN". Se cierra la base funcional de MC1.
-      No se identifica el backend utilizado ni se acredita una comparacion
-      GPU/CPU nueva: el prestamo C1 y su causa siguen abiertos.
+      En esa primera confirmacion no se identifico el backend. La cuarta
+      tanda posterior acredita C1 con 325 fotogramas GPU; Q0a3 sigue abierto.
 - [ ] **MC2 -- mirar arriba y abajo, y la mira.** El cabeceo de la camara
       (otra rotacion en las gpu fn), el bloque apuntado RESALTADO (sus
       aristas en otro color) y el rayo de picar en 3D, no solo a la altura
       de los ojos. El raton gira la camara.
-      **Necesita:** el raton ATRAPADO (movimiento relativo, sin salir de la
-      ventana): hoy el buzon da posiciones absolutas.
+      **16-10:** el raton relativo y la captura estan implementados y los
+      controles fueron confirmados. Falta el bloque resaltado y comprobar
+      en metal los casos especificos de limites y alcance de MC2a.
 - [ ] **MC3 -- la fisica.** Gravedad, saltar, y el jugador como una CAJA
       (no un punto) que choca con los bloques por ejes. Andar con la tecla
       MANTENIDA (eventos 1 y 2, pulsada y soltada), no con la repeticion de
@@ -113,8 +121,8 @@ pide Cyberpunk por PROTON-X --.
 - [ ] **MC7 -- la luz.** La luz del cielo por columna y la de las antorchas
       que se esparce bloque a bloque, como en el juego de verdad; y niebla
       a lo lejos.
-- [ ] **MC8 -- agua y cristal.** Lo transparente necesita MEZCLA en VERRANO
-      (hoy no la hay) y dibujar lo transparente al final, de lejos a cerca.
+- [ ] **MC8 -- agua y cristal.** Integrar la MEZCLA de VERRANO en este juego
+      y dibujar lo transparente al final, de lejos a cerca.
 
 ---
 
@@ -153,7 +161,7 @@ pide Cyberpunk por PROTON-X --.
    MC2..MC4, MC6..MC8         por cerrar --                      --
 ```
 
-## 4. SIGUIENTE TANDA -- control de la camara, antes de ampliar el mundo
+## 4. METAS VIGENTES -- separar entrada, dibujo y fisica
 
 - [x] MC1 funcional en metal, por confirmacion del propietario (16-10).
 - [x] MC5 implementado y probado en el anfitrion, incluidos corrupcion y fallo de disco.
@@ -165,35 +173,44 @@ pide Cyberpunk por PROTON-X --.
       Nueve pruebas pasan, incluidas persistencia, suelo picado y tablas
       colocadas con inclinacion, limites del giro y mira visible. 80 caras
       del mundo (480 vertices) + mira (12), lamina de 492. Usa O1 en la camara.
-      **Falta el metal de MC2a y O1.** El respaldo CPU ya se vio en metal.
-- [ ] MC2b: resaltar el bloque apuntado y movimiento relativo del raton;
-      capturar al jugar y liberar al salir o perder el foco.
+      El juego usa O1 y el propietario confirma los controles nuevos;
+      la comprobacion especifica de alcance, limites y variantes de O1
+      sigue pendiente en metal. El respaldo CPU ya se vio funcionando.
+- [x] MC2b-entrada: movimiento relativo del raton y captura al jugar;
+      liberar al salir o perder el foco. Confirmacion del propietario 16-10.
       **Mirada relativa hecha en anfitrion, 16-10:** modulo pointer en TITAN++,
       cursor oculto al capturar y restaurado al liberar; Esc primero suelta,
       clic recaptura, foco perdido revoca. El propietario confirma los
       controles en metal (tanda 20:36); sigue pendiente resaltar el bloque.
       `gpu laminas` mide intervalos/FPS: muestra CPU de 19,60 en esa tanda.
       [Control y prueba](../../Ultra_userspace/apps/mundo/CONTROL.md).
+- [ ] MC2b-resaltado: mostrar el bloque apuntado por el mismo rayo que
+      quita/coloca. Comprobar que cambia al mirar y desaparece sin objetivo.
 - [ ] MC3: teclas mantenidas, gravedad, salto y colision del cuerpo por ejes.
-- [ ] GPU: recuperar el error concreto de MUNDO y cerrar C1/Q0a3 por causa;
+- [x] GPU-C1: corregir el rechazo 640x360/Z y ver buffers prestados en metal.
+      Cuarta tanda: 325 fotogramas GPU prestados, cero CPU. Cumplido para
+      esa corrida; no equivale a fiabilidad G0 ni a igualdad Q0a3.
+- [ ] GPU-Q0a3: aislar los cuatro pixeles diferentes y cerrar la igualdad;
       seguir distinguiendo GPU de CPU. El respaldo no cierra esa meta.
       **Quinta tanda, 20:36:** capturas 1080p ya guardadas; 1.141 fotogramas
       CPU, cero GPU por G0 (booter y descargador 0x15, WPR2 no baja).
       Prioridad al arranque: foto previa del GSP nueva, pendiente de metal.
       **Cuarta tanda 16-10:** 325 fotogramas GPU prestados, cero CPU;
       C1 acreditado para la corrida. El juez difiere en 4/230.400 pixeles:
-      Q0a3 de igualdad sigue abierto. Captura corregida por cupo en anfitrion;
-      falta su PNG en metal para estudiar esos pixeles.
+      Q0a3 de igualdad sigue abierto. Captura 1080p confirmada despues,
+      pero esa quinta tanda uso CPU y no aporta el caso GPU de esos pixeles.
       **Tercera tanda 16-10:** GSP listo; rechazo local `Vertices` en ambas
       rutas. Reproducido: VRN1 no admitia Z a 640x360. Corregido en anfitrion
       junto con la copia de sombra (solo el rectangulo del destino).
-      Falta el metal con kernel/DIRECTOR nuevos: `gpu laminas`, juez y `save`.
+      Esa tanda pidio metal con kernel/DIRECTOR nuevos; la cuarta ya
+      acredito C1. El cierre que sigue pendiente es Q0a3, no ese rechazo.
 - [ ] Despues MC4: vertices fuera de la pila y trozos; luego texturas,
       luz y transparencia. No aumentar el mundo sobre el limite de 80 caras.
 
-La tanda siguiente es MC2a, con pruebas del anfitrion antes del metal.
-El guardado requiere solo una reapertura para su validacion; no pide
-reinicios repetidos. Cyberpunk mantiene su plan independiente.
+El orden siguiente es G0, Q0a3 y despues resaltado/fisica. El guardado ya
+esta confirmado por el propietario; no se pide repetirlo por rutina.
+Una sesion normal con `gpu laminas` y `save` aporta datos, salga bien o mal
+la RTX. Cyberpunk mantiene su hito y su plan independiente.
 
 **Lo que se prueba en el metal** (y que seria un NO):
 
@@ -206,8 +223,8 @@ reinicios repetidos. Cyberpunk mantiene su plan independiente.
    3  andar hasta la loma (w unas 30 veces), x: un hueco; c: tablas en el
       hueco. NO: no cambia nada
    4  la consola: `[Q0a3] el juez ... la 3060 da lo MISMO` (o un recuento
-      pequenio de pixeles). Si dice DISTINTO con muchos pixeles abajo de la
-      pantalla, es el recorte de cerca de la 3060 (V2b de PLAN_VERRANO)
+      reducido de pixeles). Si dice DISTINTO, conservar el primer pixel,
+      el recuento y la escena; no deducir la causa solo por su posicion.
       Si rechaza, conservar la linea `[VERRANO] dibujo rechazado` con su
       motivo. `[VERRANO CPU]` acredita el respaldo, no el render por GPU.
    5  quitar un bloque, G, Esc y volver a abrir: el hueco sigue. Poner tablas,

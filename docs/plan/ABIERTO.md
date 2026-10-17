@@ -7,8 +7,8 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   887 casillas ABIERTAS en 80 planes
-   691 hechas
+   892 casillas ABIERTAS en 80 planes
+   698 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -99,6 +99,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] la PAGINA DE TITULO (Title:, Credit:, Author:, Draft date:...)
 - ... y 26 mas
 
+## [`EL_FOCO.md`](EL_FOCO.md) -- 25 abiertas, 30 hechas
+
+*EL FOCO -- estado vigente y orden de trabajo*
+
+- [ ] DOC-VIDEO: grabar una sesion reciente de MUNDO con backend visible,
+- [ ] OBS-BUILD: incluir identificacion del commit/build en cada informe;
+- [ ] B1 -- LB7 + LB8: verificar una vez y apartarse. Al admitir un
+- ... y 22 mas
+
 ## [`PLAN_LA_3060_AFINADA.md`](PLAN_LA_3060_AFINADA.md) -- 25 abiertas, 18 hechas
 
 *PLAN LA 3060 AFINADA -- aislar mas, medir, y solo entonces optimizar*
@@ -107,15 +116,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] A4 -- los CARRILES de la 3060: una carpeta que no mezcla
 - [ ] A5 -- cada prestamo a la 3060 dice quien lo devuelve
 - ... y 22 mas
-
-## [`EL_FOCO.md`](EL_FOCO.md) -- 23 abiertas, 30 hechas
-
-*EL FOCO -- una cosa a la vez, hasta el final (10-10; el orden nuevo, 14-10)*
-
-- [ ] B1 -- LB7 + LB8: verificar una vez y apartarse. Al admitir un
-- [ ] en el Ryzen -- run dos veces del mismo .bex: la segunda, lente: ya leido (hoja 6b, fila B1). Cua
-- [ ] B3 -- Q0a1..Q0a4: el cubo de TITAN++ en SU ventana, por la 3060
-- ... y 20 mas
 
 ## [`PLAN_FASE.md`](PLAN_FASE.md) -- 19 abiertas, 3 hechas
 
@@ -270,6 +270,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] Q3 -- el INDICE POR HASH: es L9 de docs/plan/PLAN_LISTAS_Y_MAPAS.md
 - ... y 8 mas
 
+## [`PLAN_MUNDO.md`](PLAN_MUNDO.md) -- 11 abiertas, 7 hechas
+
+*PLAN MUNDO -- el Minecraft propio, en TITAN++, por VERRANO*
+
+- [ ] MC2 -- mirar arriba y abajo, y la mira. El cabeceo de la camara
+- [ ] MC3 -- la fisica. Gravedad, saltar, y el jugador como una CAJA
+- [ ] MC4 -- un mundo grande: trozos. Trozos de 16 x 16 x 16, generados
+- ... y 8 mas
+
 ## [`PLAN_EL_LIBRETO.md`](PLAN_EL_LIBRETO.md) -- 10 abiertas, 1 hechas
 
 *PLAN EL LIBRETO -- Cyberpunk 2077 entra por VERRANO*
@@ -340,15 +349,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] H1 -- LA TECLA DEL GESTOR: CTRL (2026-09-22)
 - [ ] H2 -- EL BORDE DE FOCO Y LOS HUECOS (2026-09-22)
 - [ ] H3 -- LA BARRA LATERAL EN VIVO (2026-09-22)
-- ... y 5 mas
-
-## [`PLAN_MUNDO.md`](PLAN_MUNDO.md) -- 8 abiertas, 0 hechas
-
-*PLAN MUNDO -- el Minecraft propio, en TITAN++, por VERRANO*
-
-- [ ] MC1 -- el mundo de bloques, la camara y picar. Un mundo de
-- [ ] MC2 -- mirar arriba y abajo, y la mira. El cabeceo de la camara
-- [ ] MC3 -- la fisica. Gravedad, saltar, y el jugador como una CAJA
 - ... y 5 mas
 
 ## [`PLAN_COBOL_MAESTRO.md`](PLAN_COBOL_MAESTRO.md) -- 7 abiertas, 1 hechas

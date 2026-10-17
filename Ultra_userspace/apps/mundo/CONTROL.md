@@ -55,7 +55,7 @@ Tanda 16-10 20:36: el propietario confirma los controles; el informe mide
 19,60 FPS en respaldo CPU (20 intervalos/1.020 ms). La RTX no arranco en esa
 sesion. Dos PNG 1080p guardados. Esto no mide la velocidad del camino GPU.
 
-## Verificacion
+## Verificacion del anfitrion de esta implementacion
 
 Pasan las suites de TITAN++ (frente y emisor), ABI, entrada, reparto del foco
 y VERRANO; en particular 12 casos de entrada y 10 del BEX de MUNDO.
@@ -63,7 +63,9 @@ El metro de 72 programas conserva 26.203.892 instrucciones, 4.943.814 accesos
 y 459.777 bytes de codigo. El decodificador relativo solo se emite para
 programas que usan las primitivas de captura; las otras apps no lo pagan.
 Kernel pasa cargo check y MUNDO genera un BEX de 77.598 bytes. DIRECTOR
-compila en release; falta la prueba de todo junto en el Ryzen.
+compila en release. En la quinta tanda el propietario confirma los controles
+y el informe registra sus FPS por CPU; no es una validacion de todas las
+variantes de foco ni del rendimiento de la RTX.
 
 El banco del anfitrion prueba movimiento con signo, solicitud/concesion,
 liberacion inmediata, conserva bits del DIRECTOR y ejecuta el BEX de MUNDO:

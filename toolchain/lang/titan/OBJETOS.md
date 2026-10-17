@@ -72,8 +72,11 @@ rechazo T0085 de un tipo que no cumple el contrato.
       palabras. Dieciseis pruebas comparan E1 con calculo, o verifican el mismo
       rechazo en los dos. Incluyen campos escalares, componentes con monton,
       tabla de 3000 elementos, limites de tipos, modulos y contrato trait.
-      `take` parcial necesita reglas aparte. Falta ejecutar esta tanda O1 en
-      el metal; el juego que el propietario ya probo no usaba esta ampliacion.
+      `take` parcial necesita reglas aparte. La camara de MUNDO ya usa O1
+      y el propietario confirma jugar con los controles nuevos el 16-10.
+      Eso acredita ese uso del componente, no las dieciseis variantes del
+      banco en metal; alias, errores y componentes grandes conservan sus
+      pruebas del anfitrion y sus limites documentados.
 - [ ] O2: especializar llamadas de trait cuando el tipo concreto es conocido;
       comparar instrucciones y bytes contra llamada directa, sin perder T0085.
       Conservar un camino correcto cuando se necesite elegir en ejecucion.

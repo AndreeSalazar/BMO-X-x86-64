@@ -1,5 +1,31 @@
 # docs/ -- el indice, y la regla de donde va cada cosa
 
+## Entradas para retomar el proyecto -- 16-10-2026
+
+| Buscas | Documento que responde |
+| --- | --- |
+| Presentacion y capacidades actuales | [README principal](../README.md). |
+| Orden de trabajo y pruebas siguientes | [EL_FOCO](plan/EL_FOCO.md): G0 -> Q0a3 -> MUNDO. |
+| Cambios recientes y sus motivos | [AVANCES](../AVANCES.md), con commits y limites. |
+| Metas por categoria | [METAS](METAS.md); inventario generado en [ABIERTO](plan/ABIERTO.md). |
+| Lo que de verdad mostro la maquina | [Parte 16-10](metal/METAL_2026-10-16.md), separado de las pruebas del anfitrion. |
+| Aprendizajes del hardware | [BITACORA](../BITACORA.md); una causa pendiente se conserva como pendiente. |
+
+### Recorrido de hitos con evidencia
+
+| Hito | Fecha del registro | Lo que acredita |
+| --- | --- | --- |
+| UEFI, kernel y escritorio | [Serie inicial](evidencia/README.md) | Arranque y herramientas sobre la maquina real; el resumen no asigna una fecha nueva. |
+| DOOM sobre BEF2 | 20-09 | Juego en ventana por CPU; [evidencia](evidencia/README.md). |
+| RTX 3060 dibujando | 24-09 | Trabajos GPU medidos; [anatomia](../platform/drivers/gpu/ga10x/ANATOMIA.md). No demuestra fiabilidad de cada arranque. |
+| TITAN++ ejecutado en el Ryzen | 08-10 | Primeros programas `hola` y `dos`; [parte](metal/METAL_2026-10-08.md). |
+| Introduccion de Cyberpunk 2077 | 13-10 | Compatibilidad y dibujo CPU, unos 16 s/fotograma; [parte](metal/METAL_2026-10-13.md). Aun no jugable. |
+| MUNDO, entrada y capturas | 16-10 | Juego nativo, controles confirmados, una tanda GPU y otra CPU, PNG 1080p; [parte](metal/METAL_2026-10-16.md). |
+
+Esta cronologia no es una grabacion nueva ni acredita cerrar G0. Las fuentes
+son los registros existentes; informes y capturas de A: quedan fuera del repo.
+Debajo se conserva la regla de organizacion de los documentos.
+
 > ## ★ LA LEY VA DELANTE: [`META-KERNEL_HARD.md`](../FUERO/META-KERNEL_HARD.md)
 >
 > **Antes de escribir un documento nuevo aqui, se lee esa.** No es una

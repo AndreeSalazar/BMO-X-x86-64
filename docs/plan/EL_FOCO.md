@@ -1,4 +1,61 @@
-# EL FOCO -- una cosa a la vez, hasta el final (10-10; el orden nuevo, 14-10)
+# EL FOCO -- estado vigente y orden de trabajo
+
+**Actualizado el 16-10-2026.** Este bloque decide el trabajo actual. Las
+notas de tandas anteriores y el plan acumulado conservan su fecha; no
+sustituyen el ultimo resultado. [Indice de documentos](../README.md).
+
+## Ahora: G0, que la RTX arranque de forma fiable
+
+MUNDO es el cliente nativo de prueba. La introduccion de Cyberpunk es un
+hito demostrado y se conserva como tal; retomarlo no desplaza el bloqueo
+de arranque de la GPU ni convierte esa introduccion en un juego jugable.
+
+| Orden | Meta | Evidencia de llegada |
+| --- | --- | --- |
+| 1 | G0: localizar y corregir el arranque intermitente | GSP activo en las corridas de validacion del plan; un cambio de diagnostico no cierra la meta. |
+| 2 | Q0a3: aislar los cuatro pixeles diferentes | Escena comparable, GPU confirmada y juez sin diferencias; conservar C1. |
+| 3 | MUNDO: resaltado, controles mantenidos y fisica | Bloque apuntado visible; salto, gravedad y colision comprobados. |
+| 4 | TITAN++: O2 y maduracion del modelo | Medir especializacion de traits contra llamada directa y conservar rechazos correctos. |
+
+## Lo cumplido y lo que sigue abierto
+
+| Pieza | Estado vigente | Limite |
+| --- | --- | --- |
+| MUNDO funcional y guardado | Confirmados por el propietario el 16-10 | No confirma todos los casos de errores o cortes electricos. |
+| Mirada relativa y captura del puntero | Implementadas; controles confirmados por el propietario | MC2b aun necesita el resaltado del bloque. |
+| C1: buffers prestados a GPU | 325 fotogramas GPU, cero CPU en la tanda 19:37-19:39 | No acredita igualdad perfecta ni arranque fiable. |
+| Q0a3: igualdad de imagen | Abierto: 4/230.400 pixeles distintos | Se investiga cuando la GPU este disponible. |
+| Captura de pantalla completa | Dos PNG 1080p guardados en la tanda 20:36 | Ventana y recorte conservan su prueba propia. |
+| G0: despertar GSP | Abierto: booter y descargador 0x15 en la ultima tanda | La foto previa nueva aun espera metal. |
+| FPS de MUNDO en la ultima tanda | Muestra CPU de 19,60; 20 intervalos/1.020 ms | No es rendimiento de la RTX ni promedio de la partida. |
+| M3a | Cerrado en anfitrion: -30,54 % de instrucciones al ordenar | No mide ciclos ni segundos en el Ryzen. |
+| Lente de bytes | 128 bytes vistos, hex y bits coinciden | Rotulos corregidos, EOF y autopsia nueva aun requieren observacion. |
+| Cyberpunk | Intro vista el 13-10, unos 16 s/fotograma por CPU | No jugable; dibujo del juego por GPU no acreditado. |
+
+## Una tanda util, sin reinicios en serie
+
+Con kernel y DIRECTOR nuevos: uso normal de MUNDO, `gpu laminas` y `save`,
+funcione o falle la RTX. Si falla, comparar `GSP ANTES` con la autopsia
+posterior. Si arranca, consultar tambien el juez de pixeles. No repetir
+`gpu reintentar` cuando el descargador ya dejo WPR2 protegida.
+
+Fuentes: [parte del 16-10](../metal/METAL_2026-10-16.md),
+[diagnostico G0](../../platform/drivers/gpu/ga10x/DESPERTAR_FIABLE.md),
+[controles](../../Ultra_userspace/apps/mundo/CONTROL.md).
+
+## Evidencia y presentacion que faltan
+
+- [ ] DOC-VIDEO: grabar una sesion reciente de MUNDO con backend visible,
+      mirada, captura del puntero y guardado; no existe esa grabacion nueva.
+- [ ] OBS-BUILD: incluir identificacion del commit/build en cada informe;
+      falta implementar y comprobar que corresponde al binario desplegado.
+
+La cronologia enlazada ya esta en el [indice](../README.md). Estas dos
+metas de evidencia no bloquean el analisis del informe actual ni adelantan
+Cyberpunk sobre G0. La portada renovada quedo en `985654ba9`.
+
+<details>
+<summary><strong>Notas previas del 16-10, conservadas como historial</strong></summary>
 
 > **Quinta tanda 16-10, 20:36:** capturas 1080p guardadas; el propietario
 > confirma controles nuevos. MUNDO: 1.141 fotogramas CPU, cero GPU; muestra
@@ -64,6 +121,13 @@
 > 64 bytes por pagina con hex y bits, y el comando para seguir. El juez puro
 > de ventanas pasa sus pruebas; falta la comprobacion en el Ryzen. Hoja de
 > esta tanda: [`LENTE_CRUDA_2026-10-16.md`](../metal/LENTE_CRUDA_2026-10-16.md).
+
+</details>
+
+## Plan acumulado y decisiones anteriores
+
+El estado vigente es el bloque superior. Las consignas siguientes conservan
+su contexto y no piden repetir una prueba ya registrada.
 
 > Peticion del propietario, **2026-10-10**: *"enfoca en algo, terminar eso y
 > luego seguimos [...] me gustaria que enfoques mas en TITAN++ y VERRANO con

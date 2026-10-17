@@ -1,5 +1,11 @@
 # EL ORDEN -- que va primero entre veintidos planes, y por que
 
+> **Vigente al 16-10:** el criterio historico sigue; el orden operativo
+> actual esta en [EL_FOCO](EL_FOCO.md): G0 -> Q0a3 -> MUNDO. Cyberpunk
+> conserva su introduccion demostrada, pero aun no es jugable. Los numeros
+> de planes de la apertura son historicos; los actuales se generan en
+> [ABIERTO](ABIERTO.md). No leer la lista del 10-09 como una tanda nueva.
+
 > Peticion del propietario, **2026-09-10**: *"puedes preparar el plan critico
 > importante? hacer listas, dividir [...] para aplicar inteligente y poco a poco
 > mejorar"*.

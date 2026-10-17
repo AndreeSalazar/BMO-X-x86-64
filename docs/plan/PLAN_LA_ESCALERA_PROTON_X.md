@@ -1,5 +1,14 @@
 # PLAN LA ESCALERA DE PROTON-X -- de HelloWindow a Cyberpunk, una capa por escalon
 
+> **Hito y prioridad actualizados 16-10:** la introduccion de Cyberpunk se
+> vio en metal el 13-10, con dibujo CPU a unos 16 s/fotograma. Acredita
+> cargador, compatibilidad y salida grafica trabajando juntos; NO jugabilidad
+> ni dibujo del juego por RTX. El cliente de prueba actual es MUNDO nativo.
+> G0 (arranque GPU) y Q0a3 (igualdad) van antes de retomar el juego AAA.
+> [Corrida de la intro](../metal/METAL_2026-10-13.md),
+> [orden vigente](EL_FOCO.md). Las casillas y relatos fechados de abajo
+> conservan su contexto; no anulan este hito posterior.
+
 > **16-10, decision del propietario:** retirar htriang.exe, hframes.exe y
 > nbody.exe del repositorio. E1.2, E1.5 y E2.3b conservan su historia abajo,
 > pero sus tres ejecuciones integrales ya no forman parte del banco actual.

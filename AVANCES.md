@@ -1,4 +1,44 @@
-# AVANCES -- estado de BMO-X (recuperacion de contexto)
+# AVANCES -- estado de BMO-X para retomar el trabajo
+
+**Corte vigente: 16-10-2026.** El orden de trabajo vive en
+[EL_FOCO](docs/plan/EL_FOCO.md); esta pagina resume avances y conserva notas.
+Los resultados completos estan en el [parte del metal](docs/metal/METAL_2026-10-16.md).
+
+| Avance | Resultado vigente | Motivo / limite |
+| --- | --- | --- |
+| Cyberpunk 2077 | Intro vista el 13-10; unos 16 s por fotograma por CPU | Hito del cargador, compatibilidad y dibujo; aun no jugable. |
+| MUNDO nativo | Juego y guardado confirmados por el propietario | Cliente de TITAN++ y VERRANO para el foco actual. |
+| TITAN++ O1 | Prestamos de campos/componentes y construccion directa de registros | Probados en anfitrion; MUNDO usa la camara con O1. No acredita todas las variantes en metal. |
+| M3a | Ordenar baja de 1.186.491 a 824.134 instrucciones | -30,54 % en ese caso; no es tiempo de CPU. |
+| Entrada de MUNDO | Raton relativo, cursor oculto, Esc suelta y clic recaptura | Controles confirmados por el propietario; falta resaltado del bloque. |
+| MUNDO por RTX | 325 fotogramas prestados, cero CPU en la cuarta tanda | C1 visto; Q0a3 sigue abierto por 4 pixeles distintos. |
+| Ultima sesion de MUNDO | 1.141 fotogramas CPU, cero GPU; muestra 19,60 FPS | G0 volvio a fallar: no es una medida de velocidad de la RTX. |
+| Captura PNG | Dos 1080p guardados tras corregir el cupo temporal | Solo pantalla completa acreditada en esta tanda. |
+| Lente | Consulta de 128 bytes vista: hex y bits coinciden | Rotulos corregidos en host; autopsia nueva y EOF pendientes. |
+| Portada | README renovado, cabecera propia, navegacion y limites claros | Presentacion comprobada en escritorio y movil; no agrega pruebas de metal. |
+
+## Cambios recientes que explican el estado
+
+| Commit | Cambio y por que |
+| --- | --- |
+| `1252c5709` | O1: prestar componentes y reducir temporales de registros. |
+| `7cbb9650b` | Mirada relativa, captura cooperativa del raton y FPS de ventana. |
+| `c2b766750` | Completar el constructor E1 de una prueba; VERIFICAR ya compila. |
+| `227593ac0` | Retirar tres EXE por decision del propietario y actualizar sus referencias. |
+| `f39e0658a` | Foto GSP previa al booter; explicar un reintento ya bloqueado. No arregla aun G0. |
+| `985654ba9` | Portada actualizada; retira las afirmaciones antiguas de 0x15 resuelto. |
+
+Validacion reciente: 670 pruebas GPU/PROTON-X del anfitrion; kernel comprobado,
+DIRECTOR release y pila 45.984/65.536. El ejecutor integral Linux no se corrio
+en este anfitrion Windows. Informes y capturas originales permanecen fuera
+del repositorio, en A:, por pedido del propietario.
+
+Siguiente: G0 -> Q0a3 -> resaltado/fisica de MUNDO. Las metas por categoria
+estan en [METAS](docs/METAS.md); el inventario generado, en
+[ABIERTO](docs/plan/ABIERTO.md).
+
+<details>
+<summary><strong>Notas anteriores del 16-10: evolucion de las tandas</strong></summary>
 
 > **16-10, MC2b parcial:** mirada relativa de MUNDO en el anfitrion, con
 > modulo pointer reutilizable en TITAN++, sensibilidad fina y cursor oculto.
@@ -88,7 +128,14 @@
 > QUE funciona, QUE falta, DONDE esta cada cosa y COMO se trabaja. Para el
 > detalle cronologico ver los commits y `BITACORA.md`.
 
-**BMO-X** = sistema operativo bare-metal en Rust: **Meta-Kernel** de
+</details>
+
+## Base del proyecto y registro acumulado
+
+Las notas fechadas que siguen conservan su contexto historico. Para el
+estado vigente y las pruebas siguientes, usar el resumen superior.
+
+**BMO-X** = Bare Metal Orquestal en Rust: **Meta-Kernel** de
 **capabilities** con **superficie congelada de 2 syscalls** (`INVOKE`/`WAIT`) +
 operaciones sobre handles; arranca en **hardware real** (MSI A320M PRO MAX + Ryzen 5 5600X),
 sin QEMU. **No es un microkernel: lleva su linaje** --2 syscalls, servicios en

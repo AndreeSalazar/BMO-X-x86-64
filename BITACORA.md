@@ -1,7 +1,8 @@
 # Bitacora de guerra -- BMO-X en hardware real
 
 Episodios de debugging en metal desnudo (MSI A320M PRO MAX + Ryzen 5 5600X),
-sin debugger, sin serial conectado: **solo fotos de la pantalla**. Cada
+sin debugger ni serial conectado: fotos de la pantalla e informes de BMO-X.
+Los primeros episodios dependian solo de las fotos. Cada
 episodio: el sintoma, el culpable, y la moraleja que quedo grabada en el
 codigo.
 
@@ -4629,9 +4630,62 @@ pruebas como un NO.
 
 ---
 
-**Lo que espera al Ryzen (15-10), sin episodio todavia.** Esta bitacora es del
-metal y estas cosas aun no lo han tocado: la lente en castellano, ECCE (la
-carpeta, la mesa, el guion de Final Draft, abrir un `.fou`, el raton), el icono
-de 32 y PROTON-X por dentro. Estan probadas en el anfitrion; la hoja 6b de
-`docs/plan/EL_FOCO.md` dice que mirar y que seria un NO. El episodio se
-escribe cuando el Ryzen conteste.
+## Ep. 88 -- Cyberpunk llega a su introduccion
+
+**2026-10-13, revisado el 16-10.** El ejecutable de Windows muestra su
+introduccion dentro de PROTON-X; BMO-X guarda la imagen de su propia pantalla.
+
+**Resultado**: el cargador, las funciones de compatibilidad, la traduccion
+grafica y la ventana consiguen producir pixeles del juego. La corrida de
+03:29-03:39 registra unos 16 s por fotograma CPU; cero lotes del juego por
+GPU. Es un hito real y aun no se juega.
+
+**Lo que sigue abierto**: canal grafico, traducciones pendientes y arranque
+GSP. No son un unico fallo. El foco posterior es MUNDO nativo para probar
+la base grafica antes de volver al cliente AAA.
+
+**Leccion**: una introduccion visible merece quedar en la historia; la
+jugabilidad necesita su propia prueba. [Corrida](docs/metal/METAL_2026-10-13.md),
+[imagen](docs/evidencia/35-cyberpunk-logo.png).
+
+## Ep. 89 -- Sobraba RAM, faltaba una ranura para la captura
+
+**2026-10-16, tandas 19:37-19:39 y 20:36.** Seis intentos de captura fallan
+con unos 14,6 GiB libres. DIRECTOR ocupa siete bloques y la captura pide dos,
+contra el cupo de ocho por proceso.
+
+**Arreglo**: taller, RGB y salida PNG comparten un bloque temporal cuando
+caben en el limite de una peticion. Se escribe el PNG desde su offset real
+sin aumentar el cupo del kernel. Pruebas en anfitrion y despues dos PNG
+1920x1080 guardados en la maquina, de 55 y 88 KiB.
+
+**Limite**: la tanda acredita pantalla completa; ventana y recorte siguen
+necesitando su comprobacion. **Leccion**: memoria libre y capacidad concedida
+al proceso son medidas distintas. [Datos](docs/metal/METAL_2026-10-16.md).
+
+## Ep. 90 -- Ver el mundo no demuestra que lo dibujo la RTX
+
+**2026-10-16.** Una tanda registra 325 fotogramas GPU prestados y cero CPU.
+La siguiente permite jugar, pero registra 1.141 CPU y cero GPU: el booter
+fallo con 0x15 en frio. La muestra de 19,60 FPS pertenece al respaldo CPU.
+
+**Causa pendiente**: G0 no esta resuelto. Los 4 pixeles distintos del juez
+en la corrida GPU son otra meta, Q0a3. El reintento del arranque malo tampoco
+bajo WPR2: su descargador dio 0x15. Repetir ese mando no vuelve a subir GSP.
+
+**Mejora comprobada en anfitrion**: el informe deja de recomendar el intento
+bloqueado y guarda una foto de los buzones/controles GSP ANTES del booter,
+con LIBOS esperado. Esa foto nueva aun no se ha visto en metal.
+
+**Leccion**: conservar quien dibujo y donde fallo, sin convertir el respaldo
+en aceleracion ni el diagnostico en solucion. [Parte](docs/metal/METAL_2026-10-16.md),
+[investigacion](platform/drivers/gpu/ga10x/DESPERTAR_FIABLE.md).
+
+---
+
+**Lo que espera al Ryzen tras el 16-10.** Foto GSP previa al booter; igualdad
+Q0a3 cuando la RTX este disponible; rotulos corregidos y autopsia cruda de la
+lente. La consulta de 128 bytes ya se vio, los controles de MUNDO fueron
+confirmados y la captura 1080p ya se guardo. Las funciones avanzadas de ECCE
+conservan sus pruebas propias. La siguiente tanda la define
+[EL_FOCO](docs/plan/EL_FOCO.md), sin pedir reinicios repetidos por rutina.

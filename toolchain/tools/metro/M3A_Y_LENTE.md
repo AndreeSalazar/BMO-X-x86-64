@@ -100,14 +100,16 @@ rechaza. Una lectura corta se muestra como INCOMPLETA, nunca como pagina
 completa. Se prueba la particion de 0..257 bytes, las ultimas filas parciales
 y posiciones cerca de `u64::MAX`. El DIRECTOR compila y enlaza; su guardian
 de pila pasa (45.984 de 65.536 B de camino mayor, marco mayor 19.552 B).
-**Falta la consulta real en el Ryzen** (la lista del foco la conserva como
-pendiente). Cada consulta abre de nuevo el fichero: para comparar paginas,
+**Consulta vista en el Ryzen:** dos paginas y 128 bytes con hex/bits iguales.
+Falta observar los rotulos corregidos, EOF y la comparacion con el mismo
+binario del anfitrion. Cada consulta abre de nuevo el fichero: para comparar paginas,
 usar la misma version, sin recompilarla ni sustituirla entre consultas.
 
 ## Lo que sigue faltando, en orden
 
-1. Ver la autopsia cruda y la consulta paginada en el Ryzen: offsets,
-   hexadecimal y bits deben coincidir con el mismo fichero en el anfitrion.
+1. Ver la autopsia cruda y los rotulos corregidos en el Ryzen; completar
+   EOF/cola parcial y comparar con el mismo fichero del anfitrion. La
+   consulta paginada basica y la coincidencia hex/bits ya se observaron.
 2. Dar cobertura a instrucciones FUERA DE LA TABLA cuando aparezcan en un
    binario real. Cada ampliacion necesita su codificacion verificada y su
    prueba; imprimir sus bits no demuestra haberla decodificado.

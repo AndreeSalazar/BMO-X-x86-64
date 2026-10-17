@@ -41,19 +41,28 @@ desborda devuelve `Image` antes de acceder o limpiar el bufer.
 
 ## Prueba siguiente en el metal
 
-Reconstruir el kernel con el arreglo 640x360/Z y el DIRECTOR con este
-diagnostico. Abrir MUNDO, mover la camara y ejecutar `gpu laminas`, luego
-`save`. Buscar fotogramas GPU y el juicio Q0a3: los contadores no sustituyen
-la comparacion de pixeles. Una tanda basta para observar el resultado.
-El despertar intermitente G0/0x15 sigue abierto por separado.
+El arreglo 640x360/Z ya produjo 325 fotogramas GPU prestados y cero CPU en
+la cuarta tanda del 16-10. El juez difirio en 4/230.400 pixeles. La quinta
+tanda, 20:36, volvio a CPU porque el GSP no arranco: 1.141 fotogramas CPU,
+cero GPU, muestra 19,60 FPS sobre 20 intervalos/1.020 ms. El informe
+conserva la antiguedad; no es media de la partida ni rendimiento de RTX.
 
-## Verificacion del anfitrion
+La prueba siguiente necesita kernel y DIRECTOR con la foto GSP ANTES del
+booter. Uso normal de MUNDO, `gpu laminas` y `save`, salga bien o mal G0.
+Si la GPU esta disponible, conservar tambien Q0a3; los contadores no
+sustituyen la comparacion de pixeles. No insistir con reintentar cuando
+el descargador ya dejo WPR2 protegida. No se piden reinicios en serie.
+[Parte y limites](../../../docs/metal/METAL_2026-10-16.md).
+
+## Verificacion del anfitrion en la implementacion inicial
 
 459 pruebas pasan entre VERRANO (25), su trama (44) y el driver (390);
 tambien las 9 de MUNDO. El caso de dimensiones enormes devuelve `Image`
 sin tocar los pixeles. DIRECTOR compila en release y pasa la pila de Ring 3:
 45.984 de 65.536 bytes. Pasan ASCII, enlaces, capas, censo modular y la
-separacion del adaptador GPU. Falta ver los mensajes y contadores en metal;
-no se genero una imagen de arranque ni se acredita aceleracion nueva.
+separacion del adaptador GPU. Es el banco de esa implementacion, no un
+recuento actualizado de todo el proyecto. El diagnostico GPU/CPU y FPS
+ya aparece en los informes del 16-10; la foto previa del booter es posterior
+y conserva su prueba de metal pendiente.
 
 [Plan y metas](../../../docs/plan/PLAN_VERRANO.md).

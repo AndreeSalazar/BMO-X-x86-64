@@ -1,5 +1,25 @@
 # METAS -- lo que BMO-X quiere ser, por categoria: lo abierto y lo cerrado CON MOTIVO
 
+## Estado vigente del foco -- 16-10-2026
+
+Esta tabla actualiza el foco; las entradas fechadas posteriores conservan
+su historia. [EL_FOCO](plan/EL_FOCO.md) decide el orden de trabajo y
+[el parte del metal](metal/METAL_2026-10-16.md) conserva la evidencia.
+
+| Categoria | Meta y estado | Por que / que falta |
+| --- | --- | --- |
+| Compatibilidad | Cyberpunk: hito de introduccion CUMPLIDO | Se vio el 13-10 por CPU, unos 16 s/fotograma. Jugabilidad y dibujo del juego por GPU siguen ABIERTOS. |
+| GPU | G0 ABIERTO y prioritario | Otro 0x15 en frio; descargador sin bajar WPR2. Foto previa implementada, aun sin observar en metal. |
+| VERRANO | C1 VISTO en una corrida; Q0a3 ABIERTO | 325 fotogramas GPU prestados; juez con 4/230.400 pixeles distintos. |
+| Juego nativo | MUNDO funcional y guardado CUMPLIDOS por confirmacion | Raton relativo confirmado; resaltado, controles mantenidos y fisica pendientes. |
+| Captura | Pantalla completa 1080p CUMPLIDA | Dos PNG guardados tras el arreglo temporal. Ventana y recorte aun necesitan prueba propia. |
+| TITAN++ | O1 y M3a implementados y probados | Composicion en uso; -30,54 % instrucciones al ordenar. O2, especializacion de traits, sigue ABIERTA. |
+| Observabilidad | Lente parcialmente vista; identificacion de build ABIERTA | Hex/bits coinciden en 128 bytes; rotulos corregidos, EOF y autopsia pendientes. Falta identificar el binario desplegado en cada informe. |
+| Documentacion | Portada y cronologia actualizadas | Video nuevo de MUNDO aun pendiente; no se declara grabado. |
+
+Una sesion CPU posterior no invalida el dibujo GPU observado antes. Tampoco
+la corrida GPU convierte un arranque intermitente en un problema resuelto.
+
 > Pedido por Eddi el **2026-09-20**: *"organizar las metas que faltan cumplir
 > en categoria, en metas que estan abiertas y otras que estan cerradas con
 > motivo"*.

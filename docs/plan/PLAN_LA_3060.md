@@ -1,5 +1,14 @@
 # PLAN LA 3060 -- la grafica que ya hay, de la sonda al GSP
 
+> **Estado vigente 16-10:** G0 sigue ABIERTO y va primero. Hay dibujo real
+> de MUNDO por la GPU en la cuarta tanda (325 fotogramas prestados), pero
+> la quinta vuelve a fallar en frio: booter 0x15 y descargador 0x15, WPR2
+> sin bajar. Ni un buen arranque ni el diagnostico nuevo cierran fiabilidad.
+> `f39e0658a` guarda GSP ANTES del booter y deja de aconsejar un reintento
+> bloqueado; pasa anfitrion, pendiente de metal. Una sesion normal y `save`.
+> [Evidencia](../metal/METAL_2026-10-16.md),
+> [investigacion vigente](../../platform/drivers/gpu/ga10x/DESPERTAR_FIABLE.md).
+
 > Escrito el **2026-09-23**, el dia que el Ryzen contesto `SE PUEDE`: la linea que
 > barre la RTX 3060 (GA106) se lee por MMIO SIN firmware (`gpu`, 15:22).
 >

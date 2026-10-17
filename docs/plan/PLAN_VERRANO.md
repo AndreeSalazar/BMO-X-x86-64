@@ -6,7 +6,11 @@
 > global posterior. La puerta distingue validacion local de envio al kernel
 > y escalera GPU incompleta. Se corrige tambien el desbordamiento de medida
 > en `check`. [Uso y limites](../../platform/shared/verrano/DIAGNOSTICO.md).
-> La correccion 640x360/Z pasa en anfitrion y espera RTX; C1/Q0a3 siguen abiertos.
+> **Resultado actualizado 16-10:** la correccion 640x360/Z ya llego a RTX:
+> 325 fotogramas prestados, cero CPU. C1 acreditado en esa corrida; Q0a3
+> sigue abierto por 4/230.400 pixeles. La quinta tanda volvio a CPU por
+> G0/0x15, con 1.141 fotogramas y muestra 19,60 FPS. Primero arranque fiable,
+> luego aislar la diferencia de imagen. [Parte](../metal/METAL_2026-10-16.md).
 
 > El propietario (2026-09-25), despues de ver el cubo IGUAL sin Windows:
 > *"vamos con VERRANO pero no olvides con BSF = ese mismo BMO shader format
