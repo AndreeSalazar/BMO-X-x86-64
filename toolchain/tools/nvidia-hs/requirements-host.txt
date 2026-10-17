@@ -1,0 +1,2 @@
+# Opcional, solo anfitrion: no entra en BMO-X ni en sus crates.
+capstone==5.0.9

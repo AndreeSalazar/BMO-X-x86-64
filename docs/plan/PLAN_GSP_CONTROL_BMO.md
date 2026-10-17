@@ -9,6 +9,11 @@ El nombre del crate (`bmo-nvidia-gsp-control`) y de la orden (`gpu control`)
 se conservan. Lo que cambia es la PREGUNTA: ya no es "que hay dentro del GSP"
 sino "como lo gobierna BMO-X".
 
+Pedido posterior del 17-10: el propietario abre tambien la investigacion
+de BROM/HS y reemplazo de firmware. Tiene su [plan NVIDIA separado](../../platform/drivers/gpu/Nvidia/HS_INVESTIGACION.md)
+y un inventario anfitrion de copias; no convierte este supervisor en un
+ejecutor de firmware ni declara demostrada una ruta de carga propia.
+
 ## 1. La idea en una frase
 
 **El GSP ejecuta; BMO-X gobierna.** Gobernar es dar posesion, conceder,
@@ -44,14 +49,13 @@ VERRANO) jamas habla con el GSP; pide al kernel, y el kernel decide.
   los de la tabla del [README del crate](../../platform/drivers/gpu/Nvidia/gsp-control-bmo/README.md)
   (GCB0a). El crate es puro:
   `no_std`, sin `unsafe`, sin MMIO, vigilado por S8 de `la-3060`.
-- **APARCADO -- el estudio del RISC-V del GSP** (antes GCB4). Motivo: no
-  ayuda a gobernar. Lo que se necesita del firmware son sus MENSAJES, no su
-  ISA. Lo retoma: una pregunta de G0 que solo se conteste leyendo su codigo.
-- **APARCADO -- un mini-kernel BMO dentro del GSP** (antes seccion 6).
-  Motivo: el booter y el GSP-RM van firmados por NVIDIA y la cadena de
-  confianza los verifica; no hay ruta demostrada para firmware propio en una
-  RTX de consumo, y gobernar no lo necesita. Lo retoma: una ruta de carga
-  demostrada y documentada por una fuente primaria. Sin eso, no se abre.
+- **Investigacion de codigo GSP/HS, fuera del supervisor** (antes GCB4):
+  el pedido posterior del 17-10 abre su estudio en el plan NVIDIA. Aqui
+  siguen viviendo observaciones y decisiones; no se agrega otra ISA al kernel.
+- **Firmware propio, fuera del supervisor** (antes seccion 6): se investiga
+  por pieza y con evidencia, empezando por copias identificadas. Un prototipo
+  en la tarjeta sigue pendiente de una ruta de carga demostrada para GA106;
+  no se presenta el inventario anfitrion como ese prototipo.
 - **No es un porcentaje de "conocer toda la GPU".** Cada medida declara su
   denominador (RPC catalogados, eventos decodificados, transiciones probadas).
 
