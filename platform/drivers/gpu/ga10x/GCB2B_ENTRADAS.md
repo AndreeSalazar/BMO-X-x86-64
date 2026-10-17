@@ -193,3 +193,37 @@ escribe TRACEIDX y lee TRACEPC. Hasta 32 PC, guardados en los selectores
 siempre el mismo, y si difiere del de un arranque bueno. Eso localiza el
 chequeo del booter que devuelve 0x15 sin tener su codigo.
 
+Primer resultado (17-10 08:34, control con `g0 normal`): SCTL 0x00003002 y
+TRACEIDX 0x021F0000, o sea 31 entradas, y las 31 leen 0. SCTL dice que el
+SEC2 sigue en modo HS despues del halt; en ese modo el silicio de serie
+esconde la traza (lee ceros). **[INFERIDO]** El instrumento queda ciego en
+esta tarjeta mientras el booter sea HS: no localiza el chequeo. Se deja en
+la autopsia porque cuesta 33 lecturas y dice si el SEC2 seguia en HS.
+
+Lo que si acota este arranque, igual que los anteriores: la WPR2 quedo
+EXTENDIDA por el booter a 0x2F4000000..0x2FFEE0000. **[INFERIDO]** El booter
+paso su firma, leyo la WPR meta y monto la WPR2 del GSP-RM; el 0x15 llega
+despues, en la parte que prepara o arranca el GSP, que queda bloqueado
+(0xBADF). Eso apunta a como se le entrega el GSP (Falcon vs RISC-V): E3.
+
+## 7. E3 corrido (17-10 08:59): el modo del GSP no es
+
+Con `g0 riscv` el GSP se entrego como OpenRM: BCR 0x111 (RISC-V, VALID,
+BRFETCH) y el CPUCTL del falcon leyendo 0xBADF5620 ya ANTES del booter, que
+es lo esperado con el nucleo RISC-V elegido. El booter tardo lo mismo
+(246275 us) y devolvio el mismo 0x15, con la misma WPR2 extendida y el GSP
+bloqueado igual. **[CITADO: medicion local]** E3 no cambia el resultado.
+Queda E4 (`seguido`, el hueco de 120 ms) y E1 (el build anterior al 29-09).
+
+## 8. E4 corrido (17-10 09:04), y por que no valio
+
+`g0 corrio: seguido`, pero la autopsia dice `el GSP espero parado 118 ms`:
+el mismo hueco. Juntar las dos llamadas quito la vuelta a Ring 3, que no era
+lo que costaba. Los 118 ms estaban dentro de `booter`: leer y firmar el
+booter, copiarlo al SEC2 y, sobre todo, la huella del vigia sobre los 61 MB
+que la 3060 solo lee. Ahora `booter` se parte en `cargar_booter` y `soltar`;
+con `seguido` el booter se carga en el SEC2 y el vigia mide ANTES de tocar
+el GSP, y entre el GSP arrancado y STARTCPU del SEC2 solo queda `wbinvd`.
+La fila de la autopsia dira el hueco nuevo: si no baja de 118 ms a pocos ms,
+E4 sigue sin probarse.
+
