@@ -22,6 +22,7 @@ pub(crate) mod sugerencias;
 pub(crate) mod disco;
 /// `gpu`: la grafica preguntada en solo lectura (2026-09-23).
 pub(crate) mod gpu;
+pub(crate) mod gspcontrol;
 /// `iommu`: la IOMMU preguntada en solo lectura (M0a, 2026-09-23).
 pub(crate) mod iommu;
 /// `save mode`: la verificacion total de los pasos de la GPU (2026-09-24).

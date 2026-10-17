@@ -68,6 +68,7 @@ const LISTA: &[(&[u8], &[u8])] = &[
     (b"gpu directorio", b"la raiz del espacio de direcciones de la GPU, en tu VRAM"),
     (b"gpu tramo", b"mapear 64 KiB de tu VRAM en el espacio de la GPU"),
     (b"gpu volcado", b"la 3060 lleva tu escritorio a la pantalla, contra la CPU"),
+    (b"gpu control", b"GSP-CONTROL-BMO: etapa, evidencia y datos ausentes; solo consulta"),
     (b"gpu laminas", b"VERRANO: fotogramas GPU/CPU de la ultima app y etapa del ultimo rechazo; solo consulta"),
     (b"gpu cubo", b"el cubo del estudio D3D, por la CPU, igual bit a bit que la 3060 bajo Windows"),
     (b"gpu cubo 3060", b"X5: el mismo cubo dibujado por la 3060 SIN Windows, y su huella contra D3D12"),

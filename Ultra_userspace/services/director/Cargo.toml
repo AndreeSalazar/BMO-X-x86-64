@@ -9,6 +9,7 @@ name = "director"
 path = "src/main.rs"
 
 [dependencies]
+bmo-nvidia-gsp-control = { path = "../../../platform/drivers/gpu/Nvidia/gsp-control-bmo" }
 # `bmo-rtc` vive en drivers/ pero DECLARA `capa: puro` y el guardian L8 lo
 # comprueba: decide fechas y no toca un puerto.
 bmo-rtc = { path = "../../../platform/drivers/rtc" }

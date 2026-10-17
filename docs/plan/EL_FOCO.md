@@ -10,6 +10,10 @@ El [plan GSP-CONTROL-BMO](PLAN_GSP_CONTROL_BMO.md) organiza el supervisor
 NVIDIA, su anatomia progresiva y el estudio del RISC-V del GSP. Empieza
 por contratos y G0; firmware propio interno es una investigacion condicional,
 sin ejecucion demostrada. No desplaza la prioridad de arranque fiable.
+GCB0/GCB1 ya implementados: contrato, supervisor puro con ocho pruebas y
+`gpu control`, incluido en `save`. El resumen indica etapa, datos crudos y
+build/intento ausentes; no arma recuperacion ni cambia el arranque.
+Siguiente: GCB2/G0-MODO, protocolo completo antes de probar otra secuencia.
 
 MUNDO es el cliente nativo de prueba. La introduccion de Cyberpunk es un
 hito demostrado y se conserva como tal; retomarlo no desplaza el bloqueo

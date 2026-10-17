@@ -229,6 +229,10 @@ name = "bmo-monton"
 version = "0.1.0"
 
 [[package]]
+name = "bmo-nvidia-gsp-control"
+version = "0.1.0"
+
+[[package]]
 name = "bmo-orquesta"
 version = "0.1.0"
 
@@ -332,6 +336,7 @@ dependencies = [
  "bmo-iommu-amdvi",
  "bmo-juicio",
  "bmo-lamina",
+ "bmo-nvidia-gsp-control",
  "bmo-pase-gpu",
  "bmo-pila",
  "bmo-radiografia",

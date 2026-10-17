@@ -1,0 +1,8 @@
+[package]
+name = "bmo-nvidia-gsp-control"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+description = "Supervisor puro del GSP: evidencia, estados y fallos conservados"
+
+[dependencies]

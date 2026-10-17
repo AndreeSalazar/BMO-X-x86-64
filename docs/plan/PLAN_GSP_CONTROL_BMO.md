@@ -2,8 +2,9 @@
 
 Pedido del propietario, 16-10-2026: un crate propio en carpeta `Nvidia`,
 que crezca entendiendo el interior de SU RTX 3060 12G, con anatomia,
-carriles, motivos y guardianes. Este documento es el plan; no anuncia un
-administrador ya implementado ni un firmware BMO ejecutandose en el GSP.
+carriles, motivos y guardianes. GCB0 y GCB1 ya tienen contrato, modelo probado
+y diagnostico nativo. El control de acciones aun conserva los propietarios
+actuales; no hay firmware BMO ejecutandose en el GSP.
 
 ## 1. Objetivo y prioridad
 
@@ -49,8 +50,9 @@ y [lector NVIDIA](../../platform/drivers/gpu/ga10x/INSPECCION_NVIDIA.md).
 
 La carpeta elegida por el propietario es
 [`platform/drivers/gpu/Nvidia`](../../platform/drivers/gpu/Nvidia/README.md).
-Nombre propuesto del crate: `bmo-nvidia-gsp-control`, en
-`platform/drivers/gpu/Nvidia/gsp-control-bmo/`. Todavia no existe su Cargo.toml.
+Crate implementado: `bmo-nvidia-gsp-control`, en
+`platform/drivers/gpu/Nvidia/gsp-control-bmo/`. Director consume su diagnostico
+por `gpu control` y `save`; la conexion de eventos completos al aparato sigue pendiente.
 
 ```text
 VERRANO / apps -> ABI y resumen comun, sin fabricante ni acceso a MMIO
@@ -107,9 +109,9 @@ y versionan; un formato desconocido conserva su estado hasta comprobarlo.
 
 ### GCB0 -- especificar antes de controlar
 
-- [ ] GCB0a: inventariar propietarios actuales de LIBOS, arranque, canales,
+- [x] GCB0a: inventariar propietarios actuales de LIBOS, arranque, canales,
       memoria y recuperacion; declarar quien es el unico que ejecuta cada accion.
-- [ ] GCB0b: escribir contrato de observacion/decision con identificacion de
+- [x] GCB0b: escribir contrato de observacion/decision con identificacion de
       tarjeta, firmware, build e intento; conservar desconocido y dato ausente.
 
 Salida: mapa de dependencias y contratos revisables, sin escrituras nuevas.
@@ -117,15 +119,21 @@ El numero de build enlaza con OBS-BUILD de EL_FOCO, no lo cuenta como cumplido.
 
 ### GCB1 -- supervisor chico y comprobable
 
-- [ ] GCB1a: crear el crate propuesto con estados SinPreparar, Preparado,
+- [x] GCB1a: crear el crate propuesto con estados SinPreparar, Preparado,
       Arrancando, Operativo, Fallido y RecuperacionBloqueada; transiciones explicitas.
-- [ ] GCB1b: probar eventos fuera de orden, duplicados, observaciones antiguas,
+- [x] GCB1b: probar eventos fuera de orden, duplicados, observaciones antiguas,
       tiempos agotados y recuperacion no permitida; ningun fallo se anuncia operativo.
 
 Salida: decisiones puras (esperar, siguiente paso permitido, conservar fallo),
 sin ejecutar el efecto. Cada decision lleva motivo y evidencia requerida.
 Los plazos proceden del protocolo existente y su fuente; no se alargan para
 ocultar un fallo. El adaptador conserva propiedad, cerrojos y coste real.
+
+Implementado el 16-10-2026: [contrato e inventario](../../platform/drivers/gpu/Nvidia/gsp-control-bmo/README.md),
+crate puro y consulta `gpu control` incluida en `save`. El consumidor nativo
+usa diagnostico de foto; el modelo con historia exige identidad completa.
+OBS-BUILD e intento no estan disponibles: no se fabrican ni se cierra OBS-BUILD.
+Recuperacion y alimentacion de eventos desde metal siguen pendientes.
 
 ### GCB2 -- resolver el protocolo de arranque, prioridad G0
 

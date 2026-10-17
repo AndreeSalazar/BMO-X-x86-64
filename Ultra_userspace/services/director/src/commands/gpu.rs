@@ -40,6 +40,11 @@ use crate::scene::{paint_status, INK_DIM};
 /// escriben en el hardware, asi que llevan el `save` de antes (modo
 /// automatico), como `iommu encender`. Piden la IOMMU encendida.
 pub(crate) fn gpu(dsk: &mut Desktop, p: &bmo::Pantalla, arg: &[u8]) -> After {
+    if arg == b"control" {
+        super::gspcontrol::report(&mut dsk.out.grid);
+        dsk.field.n = 0;
+        return After::Settle;
+    }
     if arg == b"laminas" {
         super::gspcubo::report_laminas(&mut dsk.out.grid);
         dsk.field.n = 0;
@@ -495,6 +500,7 @@ fn fila_e2(s: &mut Output) {
 
 /// **El cuadro de la grafica.** Lo usan `gpu` y el `save`.
 pub(crate) fn report_gpu(s: &mut Output, rayo: Option<bmo::CuentasRayo>) {
+    super::gspcontrol::report(s);
     section(s, b"grafica -- lo que la tarjeta contesta, en solo lectura");
     let c = bmo::info(bmo::INFO_GPU_CHIP);
     campo(s, b"card");

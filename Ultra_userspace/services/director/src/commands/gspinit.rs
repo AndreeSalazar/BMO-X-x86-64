@@ -182,6 +182,11 @@ pub(crate) fn correr() -> Result<u64, u32> {
 }
 
 /// Lo pregunta `save mode`: el GSP-RM dijo `GSP_INIT_DONE`.
+/// Observacion local: None significa que esta instancia no vio el resultado.
+pub(crate) fn observado() -> Option<bool> {
+    resumen().map(|r| r.init_done)
+}
+
 pub(crate) fn listo() -> bool {
     resumen().map_or(false, |r| r.init_done)
 }

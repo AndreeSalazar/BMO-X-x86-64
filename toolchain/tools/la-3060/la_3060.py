@@ -117,6 +117,10 @@ las esperas, que es la deuda que se quiere bajar):
                    fuentes recursivas, sin unsafe ni build script. La
                    consulta preparada no obtiene acceso al aparato. S2
                    tambien recorre subcarpetas y reconoce nombres AMD.
+    S8 SUPERVISOR (16-10): sin unsafe ni punteros crudos, sin includes ni
+       fuentes desviadas, sin dependencias; todas las variantes se inspeccionan.
+       La consulta de Director solo llama INFO, no ejecuta ordenes de aparato.
+
     S7 LECTOR (16-10): inspeccion/ es un carril VERDE sin Registros, Reloj,
                    MMIO ni firmware; los dos visores preparados no envian
                    ordenes. Recorre tambien las subcarpetas y las pruebas.
@@ -689,6 +693,51 @@ def inspeccion_nvidia(fallos, carpeta=None):
     return len(sources)
 
 
+CONTROL = os.path.join(RAIZ, 'platform', 'drivers', 'gpu', 'Nvidia', 'gsp-control-bmo')
+CONTROL_QUERY = os.path.join(RAIZ, 'Ultra_userspace', 'services', 'director', 'src', 'commands', 'gspcontrol.rs')
+RX_CONTROL_CROSS = re.compile(r'\*\s*(?:const|mut)\b|\binclude(?:_bytes|_str)?\s*!|#\s*\[\s*path\b|\b(?:allow|expect)\s*\(\s*unsafe_code')
+
+
+def gsp_control(fallos, carpeta=None, consulta=None):
+    """S8: el supervisor decide sobre datos; la consulta no ejecuta acciones."""
+    carpeta = CONTROL if carpeta is None else carpeta
+    consulta = CONTROL_QUERY if consulta is None else consulta
+    cargo = os.path.join(carpeta, 'Cargo.toml')
+    try:
+        manifest = tomllib.loads(leer(cargo))
+    except (OSError, tomllib.TOMLDecodeError) as e:
+        fallos.append('S8: manifiesto del supervisor ausente/invalido: %s' % e)
+        return 0
+    if manifest.get('lib', {}).get('path', 'src/lib.rs') != 'src/lib.rs':
+        fallos.append('S8: el supervisor desvia su fuente')
+    if os.path.exists(os.path.join(carpeta, 'build.rs')) or manifest.get('package', {}).get('build', False):
+        fallos.append('S8: el supervisor no admite build script')
+    for section in [manifest] + list(manifest.get('target', {}).values()):
+        if any(section.get(k) for k in ('dependencies', 'dev-dependencies', 'build-dependencies')):
+            fallos.append('S8: el supervisor debe depender solo de core')
+    sources = sorted(glob.glob(os.path.join(carpeta, 'src', '**', '*.rs'), recursive=True))
+    lib = os.path.join(carpeta, 'src', 'lib.rs')
+    body = sin_comentarios(leer(lib)) if os.path.isfile(lib) else ''
+    if not all(re.search(r'^\s*' + re.escape(attr) + r'\s*$', body, re.M)
+               for attr in ('#![no_std]', '#![forbid(unsafe_code)]')):
+        fallos.append('S8: faltan no_std/forbid(unsafe_code) incondicionales')
+    for path in sources:
+        source = leer(path)
+        if RX_LENTE_APARATO.search(sin_comentarios(source)) or RX_CONTROL_CROSS.search(sin_comentarios(source)) or re.search(r'\b(?:std|extern)\b', sin_comentarios(source)):
+            fallos.append('S8: el supervisor adquiere acceso fuera de core: %s' % rel(path))
+        if not re.search(r'^//!\s*\[carril\]\s+VERDE\b', source, re.M):
+            fallos.append('S8: falta carril VERDE en %s' % rel(path))
+        if not re.search(r'^//!\s*\[consumo\]\s+NADA\b', source, re.M):
+            fallos.append('S8: falta consumo NADA en %s' % rel(path))
+    if not os.path.isfile(consulta):
+        fallos.append('S8: falta la consulta nativa del supervisor')
+    else:
+        query = sin_comentarios(leer(consulta))
+        if RX_LENTE_APARATO.search(query) or RX_CONTROL_CROSS.search(query) or re.search(r'bmo::(?!info\b)[a-z_]\w*\s*\(', query):
+            fallos.append('S8: la consulta del supervisor ejecuta una accion de aparato')
+    return len(sources)
+
+
 def main():
     fallos = []
     puerta(fallos)
@@ -706,6 +755,7 @@ def main():
     lente_lectura(fallos)
     lente_lectura(fallos, 'sm86_ordenes.rs')
     n_inspeccion = inspeccion_nvidia(fallos)
+    n_control = gsp_control(fallos)
     z_y_float(fallos)
     medida(fallos)
     giros = esperas()
@@ -724,6 +774,7 @@ def main():
         return 1
     extra = '' if base is None or total == base else ' (bajo de %d: baja la linea base en %s)' % (base, rel(BASE))
     print('S6: lente comun sin fabricante ni acceso a aparatos (%d fuentes); consulta PREPARADA sin ordenes GPU' % n_lente)
+    print('S8: supervisor GSP puro y consulta nativa sin ordenes (%d fuentes)' % n_control)
     print('S7: inspeccion NVIDIA aislada, VERDE, sin autoridad de aparato (%d fuentes)' % n_inspeccion)
     print('clean: la puerta pide MAQUINA; solo la 3060 12G (%s); registros solo en dev/gpu*; %d ordenes y %d motivos iguales en los tres sitios; opt-level 3; el pase NEUTRO en %d ficheros sin NVIDIA; %d ficheros declaran su [estado] y lo que SOBREVIVE tiene un propietario que no escribe; el sobre, la API y VERRANO sin una GPU dentro (%d ficheros) y el juez en la puerta; PROMETEO y TITAN++ sin una tarjeta dentro (%d ficheros); la Z con float parada en sus tres sitios; la medida de la puerta, de la GPU (`puerta::MEDIDA`); %d esperas girando%s'
           % ('/'.join('%04X' % x for x in suyos), n_ordenes, n_motivos, n_neutros, n_aon, n_sobre, n_prometeo, total, extra))

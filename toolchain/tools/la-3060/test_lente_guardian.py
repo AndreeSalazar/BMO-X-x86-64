@@ -101,5 +101,46 @@ class NvidiaInspectionGuard(unittest.TestCase):
             self.assertTrue(failures)
 
 
+
+class ControlGuard(unittest.TestCase):
+    def fixture(self, source='', manifest='', query='', build=False):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            (root/'src').mkdir()
+            (root/'Cargo.toml').write_text('[package]\nname="fixture"\nversion="0.1.0"\n'+manifest, encoding='ascii')
+            (root/'src/lib.rs').write_text('//! [carril] VERDE\n//! [consumo] NADA\n#![no_std]\n#![forbid(unsafe_code)]\n'+source, encoding='ascii')
+            q=root/'query.rs'; q.write_text(query, encoding='ascii')
+            if build: (root/'build.rs').write_text('fn main() {}', encoding='ascii')
+            failures=[]
+            self.assertEqual(guardian.gsp_control(failures,str(root),str(q)),1)
+            return failures
+
+    def test_pure_and_readonly_query(self):
+        self.assertEqual(self.fixture(query='let x=bmo::info(1);'),[])
+
+    def test_actions_and_dependencies_are_rejected(self):
+        for source in ('unsafe { write_volatile(p,v) }', 'use std::fs;', 'extern crate hidden;'):
+            self.assertTrue(self.fixture(source=source))
+        for query in ('bmo::iommu_orden_con(1,0);', 'bmo::ciclos();', 'unsafe { asm!("nop") }'):
+            self.assertTrue(self.fixture(query=query))
+        self.assertTrue(self.fixture(manifest='[dependencies]\nhidden="1"\n'))
+        self.assertTrue(self.fixture(manifest='[target."cfg(windows)".dependencies]\nhidden="1"\n'))
+        self.assertTrue(self.fixture(manifest='[lib]\npath="hidden.rs"\n'))
+        self.assertTrue(self.fixture(build=True))
+
+    def test_variants_pointers_and_external_includes_cannot_hide_access(self):
+        for source in (
+            '#[cfg(feature="hidden")] fn f() { unsafe { asm!("nop") } }',
+            '#[cfg(target_os="none")] fn f(p: *mut u8) {}',
+            'fn f(p: *const u8) {}',
+            'include!("outside.rs");',
+            'include_bytes!("outside.bin");',
+            '#[path="../../outside.rs"] mod hidden;',
+            '#[allow(unsafe_code)] mod hidden {}',
+        ):
+            with self.subTest(source=source):
+                self.assertTrue(self.fixture(source=source))
+                self.assertTrue(self.fixture(query=source))
+
 if __name__ == '__main__':
     unittest.main()

@@ -7,8 +7,8 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   908 casillas ABIERTAS en 81 planes
-   698 hechas
+   904 casillas ABIERTAS en 81 planes
+   702 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -153,15 +153,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] S3 -- EL MEZCLADOR: N fuentes, una salida
 - ... y 14 mas
 
-## [`PLAN_GSP_CONTROL_BMO.md`](PLAN_GSP_CONTROL_BMO.md) -- 16 abiertas, 0 hechas
-
-*PLAN GSP-CONTROL-BMO -- administrar y conocer la RTX desde BMO-X*
-
-- [ ] GCB0a: inventariar propietarios actuales de LIBOS, arranque, canales,
-- [ ] GCB0b: escribir contrato de observacion/decision con identificacion de
-- [ ] GCB1a: crear el crate propuesto con estados SinPreparar, Preparado,
-- ... y 13 mas
-
 ## [`PLAN_LA_BANDEJA.md`](PLAN_LA_BANDEJA.md) -- 16 abiertas, 4 hechas
 
 *PLAN LA BANDEJA -- F2 donde viven TODOS los archivos, F12 el volumen, F1 todo nodos*
@@ -250,6 +241,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] E0 -- LA TAREA IDLE. Prioridad minima, siempre lista, cuerpo
 - [ ] E1 -- EL TIEMPO DE CPU POR TAREA. Un contador en el cambio de contexto
 - [ ] E2 -- (C,T) DECLARADOS Y EL AFORO. Cada tarea trae su compas; el kernel
+- ... y 9 mas
+
+## [`PLAN_GSP_CONTROL_BMO.md`](PLAN_GSP_CONTROL_BMO.md) -- 12 abiertas, 4 hechas
+
+*PLAN GSP-CONTROL-BMO -- administrar y conocer la RTX desde BMO-X*
+
+- [ ] GCB2a: contrastar la preparacion inicial completa con OpenRM 570.144 y
+- [ ] GCB2b: preparar una variante coherente y reversible para G0-MODO,
+- [ ] GCB2c: validar el cambio candidato contra el criterio de G0 del plan
 - ... y 9 mas
 
 ## [`PLAN_TITAN_AFINADO.md`](PLAN_TITAN_AFINADO.md) -- 12 abiertas, 21 hechas
