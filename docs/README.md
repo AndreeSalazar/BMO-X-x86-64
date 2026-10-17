@@ -10,6 +10,7 @@
 | Metas por categoria | [METAS](METAS.md); inventario generado en [ABIERTO](plan/ABIERTO.md). |
 | Lo que de verdad mostro la maquina | [Parte 16-10](metal/METAL_2026-10-16.md), separado de las pruebas del anfitrion. |
 | Aprendizajes del hardware | [BITACORA](../BITACORA.md); una causa pendiente se conserva como pendiente. |
+| Supervisor NVIDIA y estudio del interior del GSP | [GSP-CONTROL-BMO](plan/PLAN_GSP_CONTROL_BMO.md): etapas, potencial, anatomia y limites. |
 
 ### Recorrido de hitos con evidencia
 

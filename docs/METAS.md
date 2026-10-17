@@ -9,7 +9,8 @@ su historia. [EL_FOCO](plan/EL_FOCO.md) decide el orden de trabajo y
 | Categoria | Meta y estado | Por que / que falta |
 | --- | --- | --- |
 | Compatibilidad | Cyberpunk: hito de introduccion CUMPLIDO | Se vio el 13-10 por CPU, unos 16 s/fotograma. Jugabilidad y dibujo del juego por GPU siguen ABIERTOS. |
-| GPU | G0 ABIERTO y prioritario | Otro 0x15 en frio; descargador sin bajar WPR2. Foto previa implementada, aun sin observar en metal. |
+| GPU | G0 ABIERTO y prioritario | A las 23:23 LIBOS era legible e intacto antes del booter; despues 0x15 y BADF. Causa sin demostrar. |
+| Administracion NVIDIA | [GSP-CONTROL-BMO](plan/PLAN_GSP_CONTROL_BMO.md), PLAN ABIERTO | Supervisor puro y anatomia progresiva; futuro crate en Nvidia. Mini-kernel interno condicionado a demostrar viabilidad. |
 | VERRANO | C1 VISTO en una corrida; Q0a3 ABIERTO | 325 fotogramas GPU prestados; juez con 4/230.400 pixeles distintos. |
 | Juego nativo | MUNDO funcional y guardado CUMPLIDOS por confirmacion | Raton relativo confirmado; resaltado, controles mantenidos y fisica pendientes. |
 | Captura | Pantalla completa 1080p CUMPLIDA | Dos PNG guardados tras el arreglo temporal. Ventana y recorte aun necesitan prueba propia. |

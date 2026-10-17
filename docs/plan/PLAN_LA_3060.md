@@ -4,8 +4,9 @@
 > de MUNDO por la GPU en la cuarta tanda (325 fotogramas prestados), pero
 > la quinta vuelve a fallar en frio: booter 0x15 y descargador 0x15, WPR2
 > sin bajar. Ni un buen arranque ni el diagnostico nuevo cierran fiabilidad.
-> `f39e0658a` guarda GSP ANTES del booter y deja de aconsejar un reintento
-> bloqueado; pasa anfitrion, pendiente de metal. Una sesion normal y `save`.
+> `f39e0658a` guarda GSP ANTES del booter; foto vista a las 23:23, argumentos
+> intactos antes y BADF despues. G0 sigue abierto. El
+> [plan GSP-CONTROL-BMO](PLAN_GSP_CONTROL_BMO.md) organiza la continuacion.
 > [Evidencia](../metal/METAL_2026-10-16.md),
 > [investigacion vigente](../../platform/drivers/gpu/ga10x/DESPERTAR_FIABLE.md).
 

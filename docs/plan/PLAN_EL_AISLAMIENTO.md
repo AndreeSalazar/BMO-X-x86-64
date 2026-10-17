@@ -1,5 +1,10 @@
 # PLAN EL AISLAMIENTO -- cada GPU con su emisor, su juez y su puerta
 
+**16-10, supervisor propuesto:** [GSP-CONTROL-BMO](PLAN_GSP_CONTROL_BMO.md)
+reserva `platform/drivers/gpu/Nvidia` para su futuro crate puro. Inventario
+de propietarios antes de implementar; la autoridad de aparato sigue en el
+kernel. Analisis de firmware y mini-kernel interno tienen etapas distintas.
+
 **16-10, ampliacion Mesa/NVIDIA:** `ga10x/src/inspeccion/` separa el lector
 FIFO de motores, memoria y firmware. S7 exige su carril VERDE sin aparato;
 la consulta `gpu verrano ordenes` conserva procedencia CPU. Los campos
