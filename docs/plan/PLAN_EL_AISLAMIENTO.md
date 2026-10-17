@@ -1,5 +1,11 @@
 # PLAN EL AISLAMIENTO -- cada GPU con su emisor, su juez y su puerta
 
+**16-10, lente:** `bmo-lente-gpu` conserva bytes y procedencia sin fabricante;
+VERRANO la publica por `lens`. Interpretacion SM86 y consulta de programas
+preparados quedan bajo el adaptador. Guardian S6 con pruebas negativas;
+S2 incluye subcarpetas de la API. No hay lecturas nuevas de hardware.
+[Uso y limites](../../platform/shared/bmo-lente-gpu/README.md).
+
 > El propietario (2026-09-26), despues del tablero del banco: *"el .bsf es
 > independiente no? [...] el emisor SOLO para GPU RTX 3060 12G ese mismo
 > TIENEN QUE AISLARSE POR COMPLETO porque hay razones y si tengo otra GPU no

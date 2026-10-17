@@ -180,6 +180,10 @@ name = "bmo-lamina"
 version = "0.1.0"
 
 [[package]]
+name = "bmo-lente-gpu"
+version = "0.1.0"
+
+[[package]]
 name = "bmo-lente-x86"
 version = "0.1.0"
 
@@ -391,6 +395,7 @@ name = "bmo-verrano"
 version = "0.1.0"
 dependencies = [
  "bmo-lamina",
+ "bmo-lente-gpu",
 ]
 
 [[package]]

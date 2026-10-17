@@ -113,12 +113,18 @@ las esperas, que es la deuda que se quiere bajar):
                    juego con `--3060` y el censo usan `puerta::MEDIDA`, para
                    que cuando Q0a1 abra otra medida no se queden atras
 
+    S6 LENTE  (16-10): bytes y procedencia sin fabricante ni dependencia;
+                   fuentes recursivas, sin unsafe ni build script. La
+                   consulta preparada no obtiene acceso al aparato. S2
+                   tambien recorre subcarpetas y reconoce nombres AMD.
+
     --check   lo que corre el build
 """
 import glob
 import os
 import re
 import sys
+import tomllib
 from collections import defaultdict
 
 RAIZ = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..'))
@@ -519,7 +525,7 @@ def sobre(fallos):
             m = RX_EMISOR.search(l)
             if m:
                 fallos.append('S1: %s:%d nombra `%s` en el sobre' % (rel(r), n, m.group(1)))
-    api = [os.path.join(API, 'Cargo.toml')] + sorted(glob.glob(os.path.join(API, 'src', '*.rs')))
+    api = [os.path.join(API, 'Cargo.toml')] + sorted(glob.glob(os.path.join(API, 'src', '**', '*.rs'), recursive=True))
     for r in api:
         if not os.path.exists(r):
             continue
@@ -527,9 +533,9 @@ def sobre(fallos):
         t = leer(r)
         lineas = dependencias(r) if r.endswith('.toml') else sin_comentarios(t).split('\n')
         for n, l in enumerate(lineas, 1):
-            m = RX_UNA_GPU.search(l) or RX_EMISOR.search(l)
+            m = RX_UNA_GPU.search(l) or RX_EMISOR.search(l) or RX_TARJETA.search(l) or RX_FABRICANTE.search(l)
             if m:
-                fallos.append('S2: %s:%d nombra `%s` en la API: la API no sabe que GPU hay debajo' % (rel(r), n, m.group(1)))
+                fallos.append('S2: %s:%d nombra `%s` en la API: la API no sabe que GPU hay debajo' % (rel(r), n, m.group(0)))
     for nombre in ('verrano.rs', 'tablero.rs'):
         r = os.path.join(GSPCUBO, nombre)
         if not os.path.exists(r):
@@ -601,6 +607,62 @@ def prometeo(fallos):
     return vistos
 
 
+LENTE = os.path.join(RAIZ, 'platform', 'shared', 'bmo-lente-gpu')
+RX_FABRICANTE = re.compile(r'\b(?:nvidia|amd|radeon|rdna\w*|gcn|cuda|ptx|sm86\w*|ga10\w*|sass|bmo[-_]gpu[-_]\w+|bmo[-_]sm86)\b', re.I)
+
+
+def lente_comun(fallos, carpeta=None):
+    """S6: la lente comun no conoce una tarjeta ni adquiere autoridad."""
+    carpeta = LENTE if carpeta is None else carpeta
+    cargo = os.path.join(carpeta, 'Cargo.toml')
+    if not os.path.isfile(cargo):
+        fallos.append('S6: falta el Cargo.toml de la lente comun')
+        return 0
+    try:
+        manifest = tomllib.loads(leer(cargo))
+    except tomllib.TOMLDecodeError as e:
+        fallos.append('S6: manifiesto de la lente invalido: %s' % e)
+        return 0
+    # Sin dependencias: ni un alias, feature opcional o seccion target puede
+    # esconder un driver. Esta biblioteca solo necesita core.
+    sections = [manifest] + list(manifest.get('target', {}).values())
+    if manifest.get('lib', {}).get('path', 'src/lib.rs') != 'src/lib.rs':
+        fallos.append('S6: la lente comun desvia su fuente fuera de src/lib.rs')
+    if os.path.exists(os.path.join(carpeta, 'build.rs')) or manifest.get('package', {}).get('build', False):
+        fallos.append('S6: la lente comun no admite un build script')
+    for section in sections:
+        for key in ('dependencies', 'build-dependencies', 'dev-dependencies'):
+            if section.get(key):
+                fallos.append('S6: la lente comun tiene %s; su contrato es core sin dependencias' % key)
+    sources = sorted(glob.glob(os.path.join(carpeta, 'src', '**', '*.rs'), recursive=True))
+    if not sources:
+        fallos.append('S6: la lente comun no tiene fuentes: el guardian no mira')
+    for path in sources:
+        text = sin_comentarios(leer(path))
+        if RX_FABRICANTE.search(text):
+            fallos.append('S6: %s conoce un fabricante o ISA de GPU' % rel(path))
+        if re.search(r'\bunsafe\b|\b(?:read_volatile|write_volatile|asm|global_asm)\b', text):
+            fallos.append('S6: %s adquiere acceso a memoria o aparato en la lente comun' % rel(path))
+    lib = os.path.join(carpeta, 'src', 'lib.rs')
+    text = sin_comentarios(leer(lib)) if os.path.isfile(lib) else ''
+    if '#![no_std]' not in text or '#![forbid(unsafe_code)]' not in text:
+        fallos.append('S6: la lente comun debe declarar no_std y forbid(unsafe_code)')
+    return len(sources)
+
+
+def lente_lectura(fallos):
+    """La consulta no debe despertar, enviar ordenes ni sondear registros."""
+    path = os.path.join(GSPCUBO, 'sm86_bytes.rs')
+    if not os.path.isfile(path):
+        fallos.append('S6: falta la consulta de bytes preparada')
+        return
+    text = sin_comentarios(leer(path))
+    if re.search(r'\b(?:unsafe|Bar0|iommu_orden\w*|preparar_hasta|abrir|read_volatile|write_volatile)\b', text):
+        fallos.append('S6: la consulta de bytes obtiene acceso al aparato o lo prepara')
+    if 'Origin::Prepared' not in text or 'Space::Resource' not in text:
+        fallos.append('S6: la consulta debe identificar la copia CPU y el offset del recurso')
+
+
 def main():
     fallos = []
     puerta(fallos)
@@ -614,6 +676,8 @@ def main():
     n_aon = aon(fallos)
     n_sobre = sobre(fallos)
     n_prometeo = prometeo(fallos)
+    n_lente = lente_comun(fallos)
+    lente_lectura(fallos)
     z_y_float(fallos)
     medida(fallos)
     giros = esperas()
@@ -631,6 +695,7 @@ def main():
             print('  ' + f)
         return 1
     extra = '' if base is None or total == base else ' (bajo de %d: baja la linea base en %s)' % (base, rel(BASE))
+    print('S6: lente comun sin fabricante ni acceso a aparatos (%d fuentes); consulta PREPARADA sin ordenes GPU' % n_lente)
     print('clean: la puerta pide MAQUINA; solo la 3060 12G (%s); registros solo en dev/gpu*; %d ordenes y %d motivos iguales en los tres sitios; opt-level 3; el pase NEUTRO en %d ficheros sin NVIDIA; %d ficheros declaran su [estado] y lo que SOBREVIVE tiene un propietario que no escribe; el sobre, la API y VERRANO sin una GPU dentro (%d ficheros) y el juez en la puerta; PROMETEO y TITAN++ sin una tarjeta dentro (%d ficheros); la Z con float parada en sus tres sitios; la medida de la puerta, de la GPU (`puerta::MEDIDA`); %d esperas girando%s'
           % ('/'.join('%04X' % x for x in suyos), n_ordenes, n_motivos, n_neutros, n_aon, n_sobre, n_prometeo, total, extra))
     return 0

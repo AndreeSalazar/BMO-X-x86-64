@@ -1,0 +1,8 @@
+[package]
+name = "bmo-lente-gpu"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+description = "Ventanas de bytes de GPU: procedencia, limites, hex y bits; sin aparato ni ISA"
+
+[dependencies]

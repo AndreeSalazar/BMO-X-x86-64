@@ -1,5 +1,11 @@
 # PLAN VERRANO -- la API de dibujo de BMO-X, con el BSF debajo
 
+**16-10, lente de bytes:** biblioteca comun sin fabricante, lector SM86
+aislado y consulta `gpu verrano bytes` implementados. Pruebas de anfitrion
+y enlace de DIRECTOR; observacion en metal pendiente. Copia recuperada
+de VRAM y registros permitidos siguen pendientes, no se anuncian leidos.
+[Contrato y siguientes etapas](../../platform/shared/bmo-lente-gpu/README.md).
+
 > **16-10, diagnostico del dibujo:** `gpu laminas` ya tiene ruta de orden,
 > sugerencia y resumen automatico en `save`. Separa fotogramas GPU/CPU y
 > conserva etapa y motivo original del rechazo; no vuelve a leer un motivo

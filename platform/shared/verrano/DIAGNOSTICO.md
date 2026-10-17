@@ -1,5 +1,13 @@
 # VERRANO -- saber por que no se dibujo (16-10)
 
+## Lente de bytes preparada
+
+`gpu verrano bytes vs|ps|bmox-vs|bmox-ps [offset decimal]` muestra paginas
+de 64 bytes, hex y bits, sin abrir ni despertar la tarjeta. Los primeros
+128 bytes son SPH; despues se muestran los campos SM86 reconocidos. La
+salida identifica PREPARADO CPU: no es lectura de VRAM ni prueba de envio.
+[Uso, aislamiento, guardianes y pendientes](../bmo-lente-gpu/README.md).
+
 Un juego visible no demuestra que lo dibujo la GPU. MUNDO puede usar el
 backend CPU de la misma API. Tampoco un `Vertices` demuestra que la tarjeta
 rechazo algo: el escritor del paquete puede negarlo antes de la syscall.

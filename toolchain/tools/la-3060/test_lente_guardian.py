@@ -1,0 +1,77 @@
+"""Pruebas negativas S6: demostrar que el guardian rechaza fugas."""
+import importlib.util
+from pathlib import Path
+import tempfile
+import unittest
+
+spec = importlib.util.spec_from_file_location('la_3060', Path(__file__).with_name('la_3060.py'))
+guardian = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(guardian)
+
+
+class LensGuard(unittest.TestCase):
+    def check_fixture(self, source='', manifest='', build_script=False):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            (root / 'src' / 'nested').mkdir(parents=True)
+            (root / 'Cargo.toml').write_text('[package]\nname="fixture"\nversion="0.1.0"\n' + manifest, encoding='utf-8')
+            (root / 'src' / 'lib.rs').write_text('#![no_std]\n#![forbid(unsafe_code)]\n', encoding='utf-8')
+            (root / 'src' / 'nested' / 'reader.rs').write_text(source, encoding='utf-8')
+            if build_script:
+                (root / 'build.rs').write_text('fn main() {}', encoding='utf-8')
+            failures = []
+            self.assertEqual(guardian.lente_comun(failures, str(root)), 2)
+            return failures
+
+    def test_neutral_core_is_accepted(self):
+        self.assertEqual(self.check_fixture('pub fn count(b: &[u8]) -> usize { b.len() }'), [])
+
+    def test_vendor_names_are_rejected_even_in_nested_sources(self):
+        for vendor in ('nvidia', 'AMD', 'rdna3', 'bmo_gpu_ga10x', 'bmo_sm86', 'cuda'):
+            with self.subTest(vendor=vendor):
+                self.assertTrue(self.check_fixture('use ' + vendor + '::decode;'))
+
+    def test_aliased_optional_and_target_dependencies_cannot_hide_driver(self):
+        for manifest in ('[dependencies]\ninnocent={package="driver",version="1",optional=true}\n',
+                         '[target."cfg(windows)".dependencies]\ninnocent="1"\n',
+                         '[build-dependencies]\ninnocent="1"\n'):
+            with self.subTest(manifest=manifest):
+                self.assertTrue(self.check_fixture(manifest=manifest))
+
+    def test_unsafe_access_is_rejected(self):
+        self.assertTrue(self.check_fixture('unsafe { core::ptr::read_volatile(p) };'))
+
+    def test_redirected_library_and_build_scripts_are_rejected(self):
+        self.assertTrue(self.check_fixture(manifest='[lib]\npath="hidden.rs"\n'))
+        self.assertTrue(self.check_fixture(build_script=True))
+
+    def check_query(self, source):
+        with tempfile.TemporaryDirectory() as folder:
+            (Path(folder) / 'sm86_bytes.rs').write_text(source, encoding='utf-8')
+            previous = guardian.GSPCUBO
+            try:
+                guardian.GSPCUBO = folder
+                failures = []
+                guardian.lente_lectura(failures)
+                return failures
+            finally:
+                guardian.GSPCUBO = previous
+
+    def test_query_keeps_prepared_provenance(self):
+        self.assertEqual(self.check_query('let s = (Origin::Prepared, Space::Resource);'), [])
+        self.assertTrue(self.check_query('let s = (Origin::Readback, Space::GpuVirtual);'))
+
+    def test_query_cannot_gain_device_operations(self):
+        for operation in ('iommu_orden(1)', 'preparar_hasta(dsk)', 'unsafe { read_volatile(p) }'):
+            with self.subTest(operation=operation):
+                self.assertTrue(self.check_query('let s = (Origin::Prepared, Space::Resource); ' + operation))
+
+    def test_missing_sources_are_not_success(self):
+        with tempfile.TemporaryDirectory() as folder:
+            failures = []
+            self.assertEqual(guardian.lente_comun(failures, folder), 0)
+            self.assertTrue(failures)
+
+
+if __name__ == '__main__':
+    unittest.main()

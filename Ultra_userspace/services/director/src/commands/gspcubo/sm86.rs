@@ -55,6 +55,11 @@ const SOBRE: &[u8] = include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../
 const BMOX12_VS: &[u8] = include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../../platform/drivers/gpu/ga10x/sombreadores/bmox12_vs.sm86"));
 const BMOX12_PS: &[u8] = include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../../platform/drivers/gpu/ga10x/sombreadores/bmox12_ps.sm86"));
 
+// La lente usa estos mismos programas, pero no abre el aparato ni dibuja.
+#[path = "sm86_bytes.rs"]
+mod bytes_lens;
+pub(super) use bytes_lens::show as bytes;
+
 /// Lo que mide la caja del paquete que se le pasa a [`abrir`]: el paquete
 /// mas grande que el kernel acepta (`tuberia::MAX_PAQUETE`), en paginas.
 pub(super) const CAJA: u64 = (tu::MAX_PAQUETE as u64).div_ceil(4096) * 4096;
@@ -126,6 +131,7 @@ pub(super) struct Opciones {
 /// [`Opciones::de`], y las que la caja sugiere tras `gpu verrano` (una lista,
 /// la misma para las dos cosas: si una deja de entenderse, deja de sugerirse).
 pub(super) const PALABRAS: &[(&[u8], &[u8])] = &[
+    (b"bytes", b"lente sin tocar GPU: gpu verrano bytes vs|ps|bmox-vs|bmox-ps [offset decimal]"),
     (b"bmox12", b"E5: la 3060 transforma e ilumina con los programas de BMOX-12 traducidos por PROTON-X"),
     (b"ligero", b"sin la escalera de diagnostico: los fps de verdad"),
     (b"anillo", b"la CPU envia el fotograma siguiente mientras la tarjeta dibuja este"),

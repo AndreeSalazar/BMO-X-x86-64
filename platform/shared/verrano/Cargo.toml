@@ -5,12 +5,13 @@ edition = "2021"
 description = "VERRANO, la API de dibujo de BMO-X (V0): un fotograma de vertices, y los backends que lo dibujan -- la CPU (el juez) y la 3060. Puro."
 license = "Apache-2.0"
 
-# Solo el trato de la lamina (`bmo-lamina`, puro): la API y el backend CPU
-# son aritmetica sobre buferes que da quien llama. El backend de la 3060 vive
+# El trato de la lamina y la lente de bytes, ambos puros: la API y el
+# backend CPU son aritmetica sobre buferes que da quien llama. El backend vive
 # donde se toca la tarjeta; el juez de los dibujos con programas, con la
 # trama (`bmo-verrano-trama`).
 [dependencies]
 bmo-lamina = { path = "../bmo-lamina" }
+bmo-lente-gpu = { path = "../bmo-lente-gpu" }
 
 [dev-dependencies]
 bmo-cubo = { path = "../bmo-cubo" }

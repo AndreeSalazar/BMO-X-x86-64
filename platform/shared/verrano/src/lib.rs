@@ -51,6 +51,8 @@
 
 pub mod cpu;
 pub mod frame_rate;
+/// Bytes capturados, con procedencia y limites; sin interpretar una ISA.
+pub use bmo_lente_gpu as lens;
 /// V3a: el dibujo con PROGRAMAS, por categorias (recursos, programas,
 /// tuberia, dibujo).
 pub mod dibujo;
