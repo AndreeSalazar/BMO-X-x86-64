@@ -193,3 +193,16 @@ escribe TRACEIDX y lee TRACEPC. Hasta 32 PC, guardados en los selectores
 siempre el mismo, y si difiere del de un arranque bueno. Eso localiza el
 chequeo del booter que devuelve 0x15 sin tener su codigo.
 
+Primer resultado (17-10 08:34, control con `g0 normal`): SCTL 0x00003002 y
+TRACEIDX 0x021F0000, o sea 31 entradas, y las 31 leen 0. SCTL dice que el
+SEC2 sigue en modo HS despues del halt; en ese modo el silicio de serie
+esconde la traza (lee ceros). **[INFERIDO]** El instrumento queda ciego en
+esta tarjeta mientras el booter sea HS: no localiza el chequeo. Se deja en
+la autopsia porque cuesta 33 lecturas y dice si el SEC2 seguia en HS.
+
+Lo que si acota este arranque, igual que los anteriores: la WPR2 quedo
+EXTENDIDA por el booter a 0x2F4000000..0x2FFEE0000. **[INFERIDO]** El booter
+paso su firma, leyo la WPR meta y monto la WPR2 del GSP-RM; el 0x15 llega
+despues, en la parte que prepara o arranca el GSP, que queda bloqueado
+(0xBADF). Eso apunta a como se le entrega el GSP (Falcon vs RISC-V): E3.
+
