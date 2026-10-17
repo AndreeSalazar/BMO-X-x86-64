@@ -206,3 +206,12 @@ paso su firma, leyo la WPR meta y monto la WPR2 del GSP-RM; el 0x15 llega
 despues, en la parte que prepara o arranca el GSP, que queda bloqueado
 (0xBADF). Eso apunta a como se le entrega el GSP (Falcon vs RISC-V): E3.
 
+## 7. E3 corrido (17-10 08:59): el modo del GSP no es
+
+Con `g0 riscv` el GSP se entrego como OpenRM: BCR 0x111 (RISC-V, VALID,
+BRFETCH) y el CPUCTL del falcon leyendo 0xBADF5620 ya ANTES del booter, que
+es lo esperado con el nucleo RISC-V elegido. El booter tardo lo mismo
+(246275 us) y devolvio el mismo 0x15, con la misma WPR2 extendida y el GSP
+bloqueado igual. **[CITADO: medicion local]** E3 no cambia el resultado.
+Queda E4 (`seguido`, el hueco de 120 ms) y E1 (el build anterior al 29-09).
+
