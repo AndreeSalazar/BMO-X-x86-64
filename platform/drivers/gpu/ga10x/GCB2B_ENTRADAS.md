@@ -266,3 +266,7 @@ arranques alternando con `normal`, no en uno.
 
 La traza del SEC2 (secciones 6 y 9) se retiro: lee ceros en buenos y malos.
 
+Resultado de E5 (17-10, propietario): con `reset`, un bueno (10:33, tras un
+reboot en caliente) y varios 0x15. El pulso del RESET no decide el 0x15.
+E6 (`ptimer`) dio 0x15 en el unico arranque probado (sin informe).
+

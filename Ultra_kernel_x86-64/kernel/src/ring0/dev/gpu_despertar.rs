@@ -213,12 +213,6 @@ pub fn gsp_tocado() -> bool {
 }
 
 pub fn despertar() -> Result<u64, u32> {
-    // ** EL 0x15 (EL_0x15.md): el falcon del GSP usado para DMA antes del
-    // booter lo dejaba en un estado que el booter no acepta. No se niega --
-    // a mano es una prueba legitima -- pero queda en la caja negra.
-    if crate::ring0::dev::gpu_prestamo::falcon_gsp_usado() {
-        crate::ring0::cabina::warn("gpu", "L0c3b: el falcon del GSP ya hizo DMA en este arranque (fuego/frontera): el booter puede dar 0x15", 0);
-    }
     if ESTADO.load(Ordering::Acquire) & DESPIERTO_SEC2_ARRANCADO != 0 {
         // El booter ya corrio en este arranque: la WPR2 ya tiene el GSP-RM, y
         // correrlo otra vez sin el booter_unload no se hace. El motivo de
@@ -388,8 +382,7 @@ fn cargar_booter(r: &mut Bar0, booter_fichero: Option<&mut dyn Fichero>) -> Resu
     if booter::firmar(fichero, &b, idx, ucode).is_err() {
         return no(IOMMU_NO_BOOTER_FIRMA);
     }
-    // Prestado UNA vez por arranque: el reintento (`gpu_reintento`) vuelve a
-    // cargar el booter en el mismo bufer, y prestar encima se negaria.
+    // Prestado UNA vez por arranque: prestar encima se negaria.
     if !BOOTER_PRESTADO.swap(true, Ordering::AcqRel) {
         if let Err(m) = io::prestar_gpu(IOVA_BOOTER, base, UCODE_BYTES / PAGINA, false) {
             BOOTER_PRESTADO.store(false, Ordering::Release);
@@ -468,6 +461,7 @@ fn soltar(r: &mut Bar0, c: Cargado, vigia: (u64, u64)) -> Result<u64, u32> {
     AUTOPSIA[17].store(probe.mailboxes, Ordering::Release);
     AUTOPSIA[18].store(probe.controls, Ordering::Release);
     AUTOPSIA[19].store(gpu_libos::IOVA_LIBOS | 1 << 63, Ordering::Release);
+    fotografiar_honda(r);
     if fa::arrancar_con(r, fa::SEC2, Some(c.arranque), Some(m as u32), Some((m >> 32) as u32)).is_err() {
         return no(IOMMU_NO_SEC2);
     }
@@ -543,35 +537,33 @@ fn soltar(r: &mut Bar0, c: Cargado, vigia: (u64, u64)) -> Result<u64, u32> {
 // [17..19]: GSP MAILBOX0/1, CPUCTL/BCR_CTRL y LIBOS esperado | foto << 63.
 static AUTOPSIA: [AtomicU64; 20] = [const { AtomicU64::new(0) }; 20];
 
+// ** LA FOTO HONDA (17-10): E2..E6 no cambiaron el 0x15; lo que lo decide
+// esta dentro de la tarjeta. Justo antes de soltar el booter, solo leido, lo
+// que OpenRM 570.144 mira (`boot_probe::FotoHonda`): la limpieza de memoria
+// de SEC2 y GSP, el DMA del SEC2, los ENGINE, PTIMER y si avanza, los ECC
+// de la MMU y la WPR2. La causa sale de comparar buenos y malos.
+// Selectores 24..31 de `INFO_GPU_DESPIERTO_BUZON`; el 32, si se tomo.
+static HONDA: [AtomicU64; 9] = [const { AtomicU64::new(0) }; 9];
+
+fn fotografiar_honda(r: &mut Bar0) {
+    let f = bmo_gpu_ga10x::arranque::boot_probe::FotoHonda::leer(r, &mut pr::reloj());
+    for (h, v) in HONDA.iter().zip(f.0) {
+        h.store(v, Ordering::Release);
+    }
+    HONDA[8].store(1, Ordering::Release);
+    let c = |t: &'static str, v: u64| crate::ring0::cabina::count("gpu", t, v);
+    c("  ...HONDA: HWCFG2 SEC2 | GSP << 32", f.0[0]);
+    c("  ...HONDA: DMATRFCMD SEC2 | ENGINE SEC2 << 32", f.0[1]);
+    c("  ...HONDA: ENGINE GSP | PLM PTIMER << 32", f.0[2]);
+    c("  ...HONDA: PTIMER TIME_0 | TIME_1 << 32", f.0[3]);
+    c("  ...HONDA: PTIMER avanzo en 10 us (ns)", f.0[4]);
+    c("  ...HONDA: ECC L2TLB | HUBTLB << 32", f.0[5]);
+    c("  ...HONDA: ECC FILLUNIT | WPR2_LO << 32", f.0[6]);
+    c("  ...HONDA: WPR2_HI", f.0[7]);
+}
+
 /// El ucode del booter ya prestado a la 3060 en este arranque.
 static BOOTER_PRESTADO: core::sync::atomic::AtomicBool = core::sync::atomic::AtomicBool::new(false);
-
-/// **El booter se paro con ERROR** y el GSP-RM no arranco: lo unico que el
-/// reintento limpio (`gpu_reintento`) acepta deshacer.
-pub fn booter_fallo() -> bool {
-    let e = ESTADO.load(Ordering::Acquire);
-    let bar0 = crate::ring0::dev::gpu::bar0();
-    if e & DESPIERTO_SEC2_ARRANCADO == 0 || e & DESPIERTO_VISTO != 0 || bar0 == 0 {
-        return false;
-    }
-    let mut r = Bar0(bar0);
-    let sec2_mal = matches!(fa::como_va(&mut r, fa::SEC2), Ok((true, m0, _)) if m0 != 0);
-    let riscv_quieto = !matches!(fa::riscv(&mut r, fa::GSP), Ok((true, _)));
-    sec2_mal && riscv_quieto
-}
-
-/// **A cero** para volver a despertar (el reintento, con la WPR2 ya abajo):
-/// los pasos, la autopsia y los relojes. El bufer del booter y su prestamo se
-/// quedan: son del arranque, no del intento.
-pub fn rearmar() {
-    ESTADO.store(0, Ordering::Release);
-    for a in AUTOPSIA.iter() {
-        a.store(0, Ordering::Release);
-    }
-    BOOTER_TSC.store(0, Ordering::Release);
-    GSP_TSC.store(0, Ordering::Release);
-    crate::ring0::cabina::info("gpu", "L0c3b: el despertar a cero para el REINTENTO (la autopsia de antes queda en cabina)", 0);
-}
 
 /// **El vigia**: `(huella de lo que solo se lee, huella de LIBOS)`, los 8
 /// primeros bytes de cada BLAKE3; 0 si esa parte aun no existe.
@@ -600,7 +592,7 @@ fn bus_3060() -> u64 {
 }
 static BOOTER_TSC: AtomicU64 = AtomicU64::new(0);
 /// GCB2a: cuantas veces se SOLTO el booter desde que arranco la maquina. Es
-/// del arranque, no del intento: `rearmar` no lo borra, y el reintento suma.
+/// del arranque, no del intento.
 static INTENTOS: AtomicU64 = AtomicU64::new(0);
 
 /// `INFO_GPU_INTENTO`: el numero del ultimo intento del booter; 0 = ninguno.
@@ -815,6 +807,9 @@ pub fn info_despierto_buzon(sel: u64) -> u64 {
     }
     if (4..=23).contains(&(sel >> 8)) {
         return AUTOPSIA[(sel >> 8) as usize - 4].load(Ordering::Acquire);
+    }
+    if (24..24 + HONDA.len() as u64).contains(&(sel >> 8)) {
+        return HONDA[(sel >> 8) as usize - 24].load(Ordering::Acquire);
     }
     let bar0 = crate::ring0::dev::gpu::bar0();
     let (falcon, hace_falta) = if sel >> 8 == 1 { (fa::SEC2, DESPIERTO_SEC2_ARRANCADO) } else { (fa::GSP, DESPIERTO_GSP_ARRANCADO) };

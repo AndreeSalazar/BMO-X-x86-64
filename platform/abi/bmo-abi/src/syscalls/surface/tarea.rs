@@ -828,13 +828,7 @@ pub const IOMMU_OP_TRADUCIR_GPU: u64 = 0x07;
 /// M0d: prestarle la pagina de prueba, SOLO LECTURA, en 0x10000000. Pide la
 /// 3060 TRADUCIDA. `Ok` lleva la direccion fisica de la pagina.
 pub const IOMMU_OP_PRESTAR_PRUEBA: u64 = 0x08;
-/// M0d3: la PRUEBA DE FUEGO -- el DMA del falcon del GSP trae la pagina
-/// prestada a su DMEM y se compara. `Ok` lleva las palabras que cuadran (1024).
-/// Pide la 3060 TRADUCIDA, la pagina prestada y el Bus Master de E2.
-pub const IOMMU_OP_GPU_FUEGO: u64 = 0x09;
-/// M0d3: la FRONTERA -- lo mismo desde una direccion NO prestada: `Ok(1)` si
-/// la IOMMU lo paro con un evento con el BDF de la 3060 y esa direccion.
-pub const IOMMU_OP_GPU_FRONTERA: u64 = 0x0A;
+// 0x09 y 0x0A fueron M0d3 (`gpu fuego`, `gpu frontera`), retiradas el 17-10.
 /// L0b: FWSEC -- el kernel juzga el descriptor que empieza en `arg1` (offset en
 /// la ROM). `Ok` lleva cuantos trozos de 4 KiB hay que copiar.
 pub const IOMMU_OP_FWSEC_PREPARAR: u64 = 0x0B;
@@ -1113,18 +1107,8 @@ pub const IOMMU_OP_GPU_DIBUJAR: u64 = 0x48;
 /// a la app de la tarea `arg1` (su tid; 0 = a nadie): sus recetas con un back buffer de
 /// la cadena dibujan en la ventana de la pantalla, sin tocar su RAM.
 pub const IOMMU_OP_GPU_PANTALLA_PARA: u64 = 0x49;
-/// EL REINTENTO LIMPIO DEL GSP (29-09), tras un booter parado con error
-/// (0x15) y el GSP-RM sin arrancar: CERRAR = FWSEC-SB, DESCARGAR = el booter
-/// de descarga (baja la WPR2), SUBIR = con la WPR2 abajo, el despertar a cero
-/// y FWSEC-FRTS otra vez (el escritorio sigue EN SEGUIDA con despertar y el
-/// booter). REINTENTO = como va, en vivo: 0 SB arrancado, 1 su falcon parado,
-/// 2 descargador arrancado, 3 SEC2 parado, 4 la WPR2 abajo, 5 FRTS otra vez,
-/// 6 SB SALTADO (tras el 0x15 el falcon del GSP queda cerrado y no carga);
-/// 8..15 intentos; 32..63 MAILBOX0 del falcon que toque.
-pub const IOMMU_OP_GSP_REINTENTO_CERRAR: u64 = 0x4A;
-pub const IOMMU_OP_GSP_REINTENTO_DESCARGAR: u64 = 0x4B;
-pub const IOMMU_OP_GSP_REINTENTO_SUBIR: u64 = 0x4C;
-pub const IOMMU_OP_GSP_REINTENTO: u64 = 0x4D;
+// 0x4A..0x4D fueron el reintento del GSP tras un 0x15 (29-09), retirado el
+// 17-10: en el metal ni FWSEC-SB ni el booter de descarga bajan la WPR2.
 /// E7: el trabajo ETERNO -- un computo que no acaba nunca, a proposito, en el
 /// canal de GR: lo tiene que CORTAR el vigilante del kernel (el TDR de
 /// BMO-X). `arg1` = la ficha del timbre de GR (la de S3). `Ok(v)`:
@@ -1231,10 +1215,7 @@ pub const IOMMU_NO_PRESTAMO: u32 = 14;
 pub const IOMMU_NO_RELEIDA: u32 = 15;
 /// M0d3: sin el Bus Master de E2 (`gpu vblank`) la 3060 no puede hacer DMA.
 pub const IOMMU_NO_SIN_BUS_MASTER: u32 = 16;
-/// M0d3: el falcon no dejo hacer el DMA; el motivo, en `INFO_GPU_FUEGO`.
-pub const IOMMU_NO_FUEGO: u32 = 17;
-/// M0d3: la pagina de prueba no esta prestada (`gpu prestar`).
-pub const IOMMU_NO_SIN_PRUEBA: u32 = 18;
+// 17 y 18 fueron motivos de M0d3, retirada el 17-10.
 /// L0b: el descriptor de la ROM no es un FWSEC v3 del GSP que quepa.
 pub const IOMMU_NO_FWSEC_DESC: u32 = 19;
 /// L0b: sin PREPARAR, o faltan trozos por copiar.
@@ -1398,9 +1379,7 @@ pub const IOMMU_NO_CANAL_MUERTO: u32 = 90;
 /// `FREE` antes (el 3D, el computo, el canal: en ese orden), el GR esta en uso,
 /// o el `RC_TRIGGERED` viejo sigue en la cola del GSP.
 pub const IOMMU_NO_REVIVIR: u32 = 93;
-/// El reintento limpio del GSP: no hay un booter parado con error que
-/// deshacer, un paso fuera de orden, o la WPR2 no bajo.
-pub const IOMMU_NO_REINTENTO: u32 = 91;
+// 91 fue el motivo del reintento del GSP, retirado el 17-10.
 /// L0c3b: la WPR2 ya EXTENDIDA antes de nuestro booter (otro booter corrio).
 pub const IOMMU_NO_GPU_CALIENTE: u32 = 67;
 /// El fader, en 1/256 dB con signo (`arg1` como `i64`). El kernel lo recorta a

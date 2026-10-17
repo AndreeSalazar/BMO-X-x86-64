@@ -1708,35 +1708,7 @@ pub const IOMMU_EVENTO_BANDERAS_SHIFT: u64 = 36;
 pub const IOMMU_EVENTO_HAY: u64 = 1 << 63;
 pub const INFO_IOMMU_EVENTO_DIR: u64 = 0xB1;
 
-/// # M0d3 (2026-09-24): la PRUEBA DE FUEGO y la FRONTERA
-///
-/// ```text
-///   INFO_GPU_FUEGO        0..10 palabras que cuadran (de 1024) | 11..21 la
-///                         primera que no | 22..25 motivo (1 no contesta, 2 no
-///                         limpia, 3 sin nucleo, 4 DMEM chica, 5 el DMA no
-///                         acaba, 6 sin empezar) | 26..27 seguridad del falcon
-///                         | 28..35 su DMEM en KiB | 36..43 eventos nuevos |
-///                         62 HECHO | 63 intentado
-///   INFO_GPU_FUEGO_LEIDO  la primera palabra que no cuadro | us del DMA << 32
-///   INFO_GPU_FRONTERA     0..3 tipo del evento | 4 evento nuevo | 5 BDF de la
-///                         3060 | 6 la direccion no prestada | 7 el DMA acabo |
-///                         8..11 motivo | 62 HECHO | 63 intentada
-/// ```
-pub const INFO_GPU_FUEGO: u64 = 0xB2;
-pub const FUEGO_PRIMERA_SHIFT: u64 = 11;
-pub const FUEGO_MOTIVO_SHIFT: u64 = 22;
-pub const FUEGO_SEGURIDAD_SHIFT: u64 = 26;
-pub const FUEGO_DMEM_SHIFT: u64 = 28;
-pub const FUEGO_EVENTOS_SHIFT: u64 = 36;
-pub const FUEGO_HECHO: u64 = 1 << 62;
-pub const FUEGO_INTENTADO: u64 = 1 << 63;
-pub const INFO_GPU_FUEGO_LEIDO: u64 = 0xB3;
-pub const INFO_GPU_FRONTERA: u64 = 0xB4;
-pub const FRONTERA_EVENTO: u64 = 1 << 4;
-pub const FRONTERA_BDF: u64 = 1 << 5;
-pub const FRONTERA_DIR: u64 = 1 << 6;
-pub const FRONTERA_DMA_ACABO: u64 = 1 << 7;
-pub const FRONTERA_MOTIVO_SHIFT: u64 = 8;
+// 0xB2..0xB4 fueron M0d3 (`gpu fuego`, `gpu frontera`), retiradas el 17-10.
 
 /// # L0a (2026-09-24): lo que FWSEC necesita, preguntado (todo lectura)
 ///
@@ -1870,6 +1842,12 @@ pub const LIBOS_VALIDO: u64 = 1 << 63;
 ///                             de STARTCPU del SEC2; 22 CPUCTL | BCR_CTRL << 32
 ///                             en esa foto; 23 LIBOS esperado (IOVA de 32 bits)
 ///                             | se tomo << 63. Sin foto, los tres valen cero.
+///                             24..31 (17-10) LA FOTO HONDA, solo leida
+///                             antes de soltar el booter (`boot_probe::
+///                             FotoHonda`): HWCFG2 SEC2|GSP, DMATRFCMD|ENGINE
+///                             del SEC2, ENGINE GSP|PLM PTIMER, TIME_0|TIME_1,
+///                             cuanto avanzo PTIMER en 10 us, ECC L2TLB|HUBTLB,
+///                             ECC FILLUNIT|WPR2_LO, WPR2_HI; 32 = 1 si se tomo.
 ///   INFO_GPU_GSP_MEM          (con selector: el byte << 8) 8 bytes de lo que el
 ///                             GSP escribe: 0..0x30000 LOGINIT, LOGINTR y
 ///                             LOGRM; detras, GspMem

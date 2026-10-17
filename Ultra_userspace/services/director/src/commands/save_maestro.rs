@@ -264,20 +264,13 @@ pub(crate) fn maestro(dsk: &mut Desktop, dest: &[u8], rayo: bmo::CuentasRayo) ->
         }
         None => g.text(b"save mode NUNCA: ni panel ni 3060 al arrancar, a proposito"),
     }
-    let corrio = |v: u64| if v & bmo::FUEGO_INTENTADO != 0 { b"CORRIO" as &[u8] } else { b"no corrio" };
-    g.text(b"; fuego ");
-    g.text(corrio(bmo::info(bmo::INFO_GPU_FUEGO)));
-    g.text(b", frontera ");
-    g.text(corrio(bmo::info(bmo::INFO_GPU_FRONTERA)));
-    g.text(b"; build con la autopsia del bus (26-09)\n");
+    g.byte(b'\n');
     // ** 26-09: la 3060 llego CALIENTE dos o tres veces "en frio". Lo que
     // decide por que -- la foto al sondear y lo que hizo el cargador (el
     // reinicio por el bus) -- va aqui, sin buscarlo en el capitulo 2.
     super::gspsalud::al_llegar(g);
     super::gspsalud::cargador(g);
     super::gsp::fila_despierto(g);
-    // Y el reintento limpio, si se probo (29-09).
-    super::gspreintento::fila(g);
     let r = bmo::info(bmo::INFO_METICHE);
     super::tabla::campo(g, b"metiche");
     g.dec(r >> 32 & 0xFFFF);
