@@ -65,6 +65,7 @@ pub(crate) fn report(s: &mut Output) {
         None => s.text(b"ninguno: el booter no se solto en este arranque"),
     }
     s.byte(b'\n');
+    super::g0::filas(s);
     campo(s, b"limite");
     s.text(if identity.complete() {
         b"identidad completa; foto derivada, sin historia de eventos ni permiso para recuperar.\n" as &[u8]

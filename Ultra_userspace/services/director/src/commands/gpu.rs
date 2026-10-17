@@ -40,6 +40,9 @@ use crate::scene::{paint_status, INK_DIM};
 /// escriben en el hardware, asi que llevan el `save` de antes (modo
 /// automatico), como `iommu encender`. Piden la IOMMU encendida.
 pub(crate) fn gpu(dsk: &mut Desktop, p: &bmo::Pantalla, arg: &[u8]) -> After {
+    if arg == b"g0" || arg.starts_with(b"g0 ") {
+        return super::g0::orden(dsk, &arg[2..]);
+    }
     if arg == b"control" {
         super::gspcontrol::report(&mut dsk.out.grid);
         dsk.field.n = 0;

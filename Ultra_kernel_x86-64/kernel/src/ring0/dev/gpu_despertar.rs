@@ -94,6 +94,59 @@ pub const DESPIERTO_BUZON_SHIFT: u64 = 32;
 
 /// Banderas, firma y motivo; lo vivo se lee en `info_despierto`.
 static ESTADO: AtomicU64 = AtomicU64::new(0);
+
+// == G0: LAS PRUEBAS CONTRA EL 0x15 (17-10, GCB2c de PLAN_GSP_CONTROL_BMO) ==
+//
+// GCB2B_ENTRADAS.md dejo tres diferencias que se pueden probar una a una sin
+// recompilar: el propietario escribe sus palabras en `g0.txt` (o `gpu g0 ...`)
+// y el siguiente arranque las aplica. Sin el fichero, el camino de siempre.
+//
+//    sin-d     E2: el disco Personal (D:) no se monta
+//    riscv     E3: el GSP como OpenRM 570.144 (kgspBootstrap_TU102)
+//    seguido   E4: el booter en la misma llamada que `despertar`
+
+/// Donde vive la eleccion. 8.3, junto a `modo.txt`.
+pub const RUTA_G0: &str = "informe/estado/g0.txt";
+/// Lo pedido y lo usado (`bmo_nvidia_gsp_control::g0`).
+static G0: AtomicU64 = AtomicU64::new(0);
+
+/// **Lo que dice `g0.txt`**, una vez: la fase de arranque lo lee con los
+/// datos montados y pasa sus bytes (`None` si no esta). El driver no abre
+/// ficheros: L8b, `dev` no conecta con `fsys`.
+pub fn fijar_g0(texto: Option<&[u8]>) {
+    use bmo_nvidia_gsp_control::g0;
+    let mut v = g0::MIRADO;
+    if let Some(t) = texto {
+        v |= g0::FICHERO | g0::leer(t);
+    }
+    G0.store(v, Ordering::Release);
+    crate::ring0::cabina::info("gpu", "G0: lo que pide informe/estado/g0.txt (bit 0 riscv, 1 seguido, 2 sin-d; 62 hay fichero)", v);
+}
+
+fn g0_pide(bit: u64) -> bool {
+    G0.load(Ordering::Acquire) & bit != 0
+}
+
+/// E2: el disco Personal se queda sin montar. Lo apunta como USADO.
+pub fn g0_sin_d() -> bool {
+    use bmo_nvidia_gsp_control::g0;
+    let si = g0_pide(g0::SIN_D);
+    if si {
+        G0.fetch_or(g0::SIN_D_USADO, Ordering::AcqRel);
+    }
+    si
+}
+
+/// E4: `despertar` sigue con el booter en la misma llamada.
+pub fn g0_seguido() -> bool {
+    g0_pide(bmo_nvidia_gsp_control::g0::SEGUIDO)
+}
+
+/// `INFO_GPU_G0`: lo pedido (0..7), lo usado (8..15), palabras desconocidas
+/// (16..23), hay fichero (62) y se miro (63).
+pub fn info_g0() -> u64 {
+    G0.load(Ordering::Acquire)
+}
 static BOOTER_F: AtomicU64 = AtomicU64::new(0);
 
 fn apuntar(f: impl FnOnce(u64) -> u64) {
@@ -188,15 +241,50 @@ pub fn despertar() -> Result<u64, u32> {
     let mut t = pr::reloj();
     let boot0 = r.leer(bmo_gpu_ga10x::BOOT_0);
     let l = gpu_libos::IOVA_LIBOS;
-    if let Err(e) = fa::resetear(&mut r, &mut t, fa::GSP, boot0)
-        .and_then(|_| fa::arrancar_con(&mut r, fa::GSP, None, Some(l as u32), Some((l >> 32) as u32)))
-    {
+    let hecho = if g0_pide(bmo_nvidia_gsp_control::g0::RISCV) {
+        // ** E3, G0-MODO (17-10): lo que hace OpenRM 570.144 en
+        // `kgspBootstrap_TU102` -- `kflcnResetIntoRiscv` (reset y BCR_CTRL =
+        // RISC-V, VALID, BRFETCH) y los argumentos de LIBOS en los buzones
+        // (`kgspProgramLibosBootArgsAddr`), SIN arrancar el falcon vacio.
+        crate::ring0::cabina::info("gpu", "G0 E3: el GSP como OpenRM 570.144 -- nucleo RISC-V y buzones, sin STARTCPU", 0);
+        fa::resetear_en_riscv(&mut r, &mut t, fa::GSP).map(|_| {
+            r.escribir(fa::GSP + fa::MAILBOX0, l as u32);
+            r.escribir(fa::GSP + fa::MAILBOX1, (l >> 32) as u32);
+            G0.fetch_or(bmo_nvidia_gsp_control::g0::RISCV_USADO, Ordering::AcqRel);
+        })
+    } else {
+        fa::resetear(&mut r, &mut t, fa::GSP, boot0)
+            .and_then(|_| fa::arrancar_con(&mut r, fa::GSP, None, Some(l as u32), Some((l >> 32) as u32)))
+    };
+    if let Err(e) = hecho {
         crate::ring0::cabina::warn("gpu", "L0c3b: el falcon del GSP no dejo resetearse; motivo", pr::motivo(e));
         return no(IOMMU_NO_GSP_FALCON);
     }
     apuntar(|x| x | DESPIERTO_GSP_ARRANCADO);
     GSP_TSC.store(crate::ring0::task::scheduler::rdtsc(), Ordering::Release);
     Ok(l)
+}
+
+/// **E4, SEGUIDO** (17-10): `despertar` y el booter en la MISMA llamada, como
+/// OpenRM y nova-core, sin volver a Ring 3 en medio (el hueco medido era de
+/// 120 ms). El fichero del booter llega ya abierto, antes de despertar.
+pub fn despertar_seguido(booter_fichero: Option<&mut dyn Fichero>) -> Result<u64, u32> {
+    despertar()?;
+    if !g0_pide(bmo_nvidia_gsp_control::g0::RISCV_USADO) {
+        // El falcon vacio se para en microsegundos; 10 ms de techo.
+        let Ok(mut r) = antes() else { return no(IOMMU_NO_GSP_FALCON) };
+        let mut t = pr::reloj();
+        use bmo_gpu_ga10x::falcon::Reloj;
+        let fin = t.us() + 10_000;
+        while !matches!(fa::como_va(&mut r, fa::GSP), Ok((true, _, _))) {
+            if t.us() >= fin {
+                return no(IOMMU_NO_GSP_FALCON);
+            }
+        }
+    }
+    G0.fetch_or(bmo_nvidia_gsp_control::g0::SEGUIDO_USADO, Ordering::AcqRel);
+    crate::ring0::cabina::info("gpu", "G0 E4: el booter SEGUIDO, en la misma llamada que despertar", 0);
+    booter(booter_fichero)
 }
 
 /// **BOOTER**: 2 del orden, con el GSP ya parado. `Ok(la firma usada)` en
@@ -210,12 +298,17 @@ pub fn booter(booter_fichero: Option<&mut dyn Fichero>) -> Result<u64, u32> {
         Ok(r) => r,
         Err(m) => return no(m),
     };
-    if e & DESPIERTO_GSP_ARRANCADO == 0 || !matches!(fa::como_va(&mut r, fa::GSP), Ok((true, _, _))) {
+    // E3: con el GSP preparado como OpenRM no hay falcon arrancado que
+    // esperar parado; el booter va directo.
+    let riscv = g0_pide(bmo_nvidia_gsp_control::g0::RISCV_USADO);
+    if e & DESPIERTO_GSP_ARRANCADO == 0 || (!riscv && !matches!(fa::como_va(&mut r, fa::GSP), Ok((true, _, _)))) {
         return no(IOMMU_NO_GSP_FALCON);
     }
     // Se paro: queda dicho. Luego el RISC-V lo arranca otra vez y en vivo ya
     // no se ve (metal 24-09 07:10: la fila decia `-gsp` con el GSP despierto).
-    apuntar(|x| x | DESPIERTO_GSP_PARADO);
+    if !riscv {
+        apuntar(|x| x | DESPIERTO_GSP_PARADO);
+    }
 
     // El booter: leido, firmado con la firma del FUSIBLE del SEC2, prestado.
     let Some(f) = booter_fichero else { return no(IOMMU_NO_BOOTER) };

@@ -97,12 +97,29 @@ arma con ellos una identidad completa, y la cabecera de cada `save` dice el
 build del kernel y el del DIRECTOR y si salieron del mismo commit. Lo que
 NO hace todavia: alimentar el modelo con eventos (eso es GCB5b); con la
 identidad completa, esa historia ya se puede abrir sin inventarla.
-- [ ] GCB2b: comparar TODAS las entradas que recibe el booter (FRTS, WPR2,
+**Visto en el metal el 17-10** (build `89E4313C14499A`, intento 1):
+[parte](../metal/METAL_2026-10-17.md).
+- [x] GCB2b: comparar TODAS las entradas que recibe el booter (FRTS, WPR2,
       argumentos de LIBOS, RMARGS, orden y esperas) contra OpenRM 570.144 y
       nova-core, campo a campo, con la diferencia escrita aunque parezca inocua.
+
+Hecho el 17-10: [GCB2B_ENTRADAS](../../platform/drivers/gpu/ga10x/GCB2B_ENTRADAS.md).
+La WPR meta es la de nova-core campo a campo y no cambia entre arranques
+buenos y malos (vigia igual). El procedimiento difiere de OpenRM 570.144 en
+el falcon del GSP antes del booter (G0-MODO) y en el tiempo (533 ms contra
+milisegundos). La tabla de arranques da un cambio de regimen el 29-09 (7 de
+7 buenos antes, 1 de 13 despues; 1 entre 9.700 por azar) que G0-MODO no
+explica: GCB2c empieza por E1, el build anterior a ese dia.
+
 - [ ] GCB2c: cambiar UNA variable a la vez donde GCB2b encuentre diferencia,
       validar contra el criterio de G0 de `PLAN_LA_3060.md` y registrar cada
       arranque en `EL_0x15_ARRANQUES.csv`, salga bien o mal.
+
+17-10, preparado en el anfitrion: E2 (`sin-d`), E3 (`riscv`) y E4
+(`seguido`) se eligen con `gpu g0` sin recompilar y el `save` dice cual
+corrio; E1 es desplegar `a2408875a`. Como se corre cada una:
+[GCB2B_ENTRADAS, seccion 5](../../platform/drivers/gpu/ga10x/GCB2B_ENTRADAS.md).
+Falta el metal: la casilla se cierra con los arranques, no con el codigo.
 
 Salida: causa acotada y correccion reproducible, o hipotesis debilitada con
 resultado registrado. Un arranque bueno aislado no cierra fiabilidad. Las

@@ -300,6 +300,8 @@ const INFO_CPU_CONTADOR: u64 = 0xD9;
 /// OBS-BUILD y el intento del booter (17-10, ver el ABI).
 const INFO_BUILD: u64 = 0xDB;
 const INFO_GPU_INTENTO: u64 = 0xDC;
+/// G0: lo pedido en `g0.txt` y lo que de verdad corrio (17-10, ver el ABI).
+const INFO_GPU_G0: u64 = 0xDD;
 
 // El metro de la puerta: cuantas y cuantos ciclos dentro de `dispatch`. Se
 // leen como delta. Ver `ring0/syscall/meter.rs`.
@@ -1135,6 +1137,7 @@ pub fn campo(n: u64) -> Option<u64> {
         INFO_GPU_LIBOS => crate::ring0::dev::gpu_libos::info_libos(),
         INFO_GPU_DESPIERTO => crate::ring0::dev::gpu_despertar::info_despierto(),
         INFO_GPU_INTENTO => crate::ring0::dev::gpu_despertar::info_intento(),
+        INFO_GPU_G0 => crate::ring0::dev::gpu_despertar::info_g0(),
         // El commit de este Ring 0, armado por `kernel/build.rs`.
         INFO_BUILD => OBS_BUILD,
         INFO_ENTERRADOR => crate::ring0::task::enterrador::cuentas(),

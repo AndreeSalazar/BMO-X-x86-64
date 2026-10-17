@@ -480,6 +480,13 @@ pub fn main(ctx: &mut BootContext) {
     // de arranque sigue montada sin el, y asi se queda.
     splash::intro_paso(70);
     crate::ring0::fsys::fs::mount_data();
+    // ** G0 (17-10, GCB2c): lo que el propietario eligio probar contra el
+    // 0x15, leido UNA vez ahora que los datos estan montados; y despues el
+    // disco Personal (D:), que `sin-d` deja sin montar (E2).
+    let mut g0 = [0u8; 256];
+    let leido = crate::ring0::fsys::fs::load(crate::ring0::dev::gpu_despertar::RUTA_G0, &mut g0).ok();
+    crate::ring0::dev::gpu_despertar::fijar_g0(leido.map(|n| &g0[..n]));
+    crate::ring0::dev::disk::buscar_ajeno();
     // Y lo que la RAM conservo del arranque anterior, al disco: ahora que el
     // disco esta montado y es fiable, que es cuando NO lo estaba al morir.
     crate::ring0::mirador::volcar_caida();

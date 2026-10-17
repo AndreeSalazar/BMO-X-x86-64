@@ -74,6 +74,13 @@ pub(super) fn booter() -> Result<u64, u32> {
     crate::ring0::dev::gpu_despertar::booter(b.as_mut().map(|f| f as &mut dyn Fichero))
 }
 
+/// **E4, SEGUIDO** (17-10): el booter abierto ANTES de despertar, para que
+/// entre el GSP preparado y el booter no haya ni la lectura del fichero.
+pub(super) fn despertar_seguido() -> Result<u64, u32> {
+    let mut b = Fat::abrir(crate::ring0::dev::gpu_despertar::RUTA_BOOTER);
+    crate::ring0::dev::gpu_despertar::despertar_seguido(b.as_mut().map(|f| f as &mut dyn Fichero))
+}
+
 /// **DESCARGADOR** (L0c5): abre `boot_ul.bin` y se lo da al apagado.
 pub(super) fn descargador() -> Result<u64, u32> {
     let mut b = Fat::abrir(crate::ring0::dev::gpu_despertar::RUTA_DESCARGADOR);

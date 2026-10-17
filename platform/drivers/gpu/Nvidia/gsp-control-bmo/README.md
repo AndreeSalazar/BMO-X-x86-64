@@ -1,6 +1,8 @@
 # GSP-CONTROL-BMO -- etapa 1: que la GPU deje evidencia
 
-Parte del gobierno del GSP: el GSP ejecuta, BMO-X gobierna
+Parte del gobierno del GSP: el GSP ejecuta, BMO-X gobierna.
+Desde el 17-10 tambien `g0`: las palabras de `informe/estado/g0.txt` (las
+pruebas E2-E4 de GCB2c), leidas igual por el kernel y por el DIRECTOR
 ([plan](../../../../../docs/plan/PLAN_GSP_CONTROL_BMO.md)).
 
 `bmo-nvidia-gsp-control` es `no_std`, sin dependencias y con `unsafe` prohibido.
