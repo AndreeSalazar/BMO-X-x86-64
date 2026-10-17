@@ -185,7 +185,7 @@ pub(crate) fn motivo(m: u32) -> &'static [u8] {
         bmo::IOMMU_NO_REINTENTO => b"no hay un booter parado con ERROR que deshacer (o un paso fuera de orden): la fila `reintento` y `cabina fallos` dicen cual",
         super::gspreintento::NO_REINTENTO_SB => b"FWSEC-SB no se paro en 5 s: el reintento no sigue (corta la corriente)",
         super::gspreintento::NO_REINTENTO_DESCARGA => b"el booter de descarga no se paro en 5 s: el reintento no sigue",
-        super::gspreintento::NO_REINTENTO_WPR2 => b"el booter de descarga se paro SIN bajar la WPR2: no acepta un GSP que nunca arranco. Queda cortar la corriente",
+        super::gspreintento::NO_REINTENTO_WPR2 => b"el booter de descarga se paro SIN bajar la WPR2; no se puede volver a cargar encima. Guardar el informe; repetir el mando no libera WPR2",
         super::gspreintento::NO_REINTENTO_FRTS => b"FWSEC-FRTS no volvio a montar la WPR2 en 2 s",
         super::gspapagar::NO_APAGAR_NO_DESCARGA => b"el booter de descarga no se paro en 5 s, o se paro sin bajar la WPR2 (su MAILBOX0, en la fila `apagado`)",
         super::gspaguante::NO_AGUANTE_NADA => b"ningun trabajo de la 3060 salio todavia en este arranque: no hay nada que repetir",

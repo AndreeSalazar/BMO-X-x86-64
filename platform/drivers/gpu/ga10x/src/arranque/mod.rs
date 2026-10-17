@@ -9,6 +9,8 @@
 
 /// M0d3: el DMA de un falcon, la prueba de fuego de la traduccion (2026-09-24).
 pub mod falcon;
+/// G0: argumentos y controles del GSP antes de arrancar el booter.
+pub mod boot_probe;
 /// L0a: la VBIOS leida -- donde esta FWSEC y que firma pide (2026-09-24).
 pub mod vbios;
 /// L0b: FWSEC-FRTS preparado -- la orden y la firma, sobre bytes (2026-09-24).

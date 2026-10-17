@@ -1849,7 +1849,10 @@ pub const LIBOS_VALIDO: u64 = 1 << 63;
 ///                             y 19 lo mismo de los argumentos de LIBOS y
 ///                             `rmargs`; 20 los ms desde que arranco FWSEC-FRTS
 ///                             hasta soltar el booter, bit 63 = se tomo (bit
-///                             63 de 4 y 5: se tomo)
+///                             63 de 4 y 5: se tomo); 21 GSP MAILBOX0/1 antes
+///                             de STARTCPU del SEC2; 22 CPUCTL | BCR_CTRL << 32
+///                             en esa foto; 23 LIBOS esperado (IOVA de 32 bits)
+///                             | se tomo << 63. Sin foto, los tres valen cero.
 ///   INFO_GPU_GSP_MEM          (con selector: el byte << 8) 8 bytes de lo que el
 ///                             GSP escribe: 0..0x30000 LOGINIT, LOGINTR y
 ///                             LOGRM; detras, GspMem

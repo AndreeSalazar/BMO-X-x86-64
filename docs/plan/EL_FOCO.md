@@ -1,5 +1,13 @@
 # EL FOCO -- una cosa a la vez, hasta el final (10-10; el orden nuevo, 14-10)
 
+> **Quinta tanda 16-10, 20:36:** capturas 1080p guardadas; el propietario
+> confirma controles nuevos. MUNDO: 1.141 fotogramas CPU, cero GPU; muestra
+> de ventana 19,60 FPS. G0 vuelve a dar 0x15 EN FRIO y el descargador tambien
+> falla: no bajo WPR2. Informe corregido para no insistir con reintentar.
+> Nueva foto del GSP ANTES del booter lista en anfitrion; falta metal.
+> Prioridad: G0 antes de Q0a3; no reinicios repetidos por rutina.
+> [Datos y limite](../metal/METAL_2026-10-16.md).
+
 > **MC2b, anfitrion:** raton relativo, cursor oculto al capturar, Esc suelta,
 > clic recaptura y perdida de foco revoca. Modulo chico de TITAN++, sin
 > ceder la entrada fisica. Medicion FPS de ventana incluida en `save`.

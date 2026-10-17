@@ -720,6 +720,9 @@ fn paso(s: &mut Output, hecho: bool, nombre: &[u8]) {
 /// **La fila `autopsia`** (26-09): las fotos del kernel alrededor del booter,
 /// SALGA BIEN O MAL -- un 0 tambien se apunta, porque la causa del 0x15 sale
 /// de COMPARAR arranques buenos con malos. Todo va a `datos/`.
+#[path = "gsp_probe.rs"]
+mod probe;
+
 fn fila_autopsia(s: &mut Output) {
     let antes = bmo::info(bmo::INFO_GPU_DESPIERTO_BUZON | 4 << 8);
     let parado = bmo::info(bmo::INFO_GPU_DESPIERTO_BUZON | 5 << 8);
@@ -848,12 +851,13 @@ fn fila_autopsia(s: &mut Output) {
             super::datos::anotar(b"gpu booter desde frts", m & 0xFFFF_FFFF, b"ms");
         }
         if (bmo::info(bmo::INFO_GPU_DESPIERTO) >> bmo::DESPIERTO_BUZON_SHIFT) & 0xFFFF_FFFF != 0 && !despierto() {
-            s.text(b" -- prueba `gpu reintentar` (sin reiniciar)");
+            super::gspreintento::hint(s);
         }
         super::datos::anotar(b"gpu booter bsi parado", parado as u32 as u64, b"");
         super::datos::anotar(b"gpu booter us", us, b"us");
         super::datos::anotar(b"gpu booter gsp mailbox0", gsp as u32 as u64, b"");
     }
+    probe::row(s);
     s.with_ink(INK_PLAIN);
     s.byte(b'\n');
 }

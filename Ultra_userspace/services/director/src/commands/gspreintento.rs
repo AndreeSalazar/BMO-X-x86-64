@@ -57,6 +57,21 @@ fn info() -> u64 {
     bmo::iommu_orden_con(bmo::IOMMU_OP_GSP_REINTENTO, 0).unwrap_or(0)
 }
 
+/// El descargador ya se paro y dejo WPR2: repetir no vuelve a ejecutar nada.
+fn blocked() -> bool {
+    let v = info();
+    v & (DESCARGADOR | SEC2_PARADO) == DESCARGADOR | SEC2_PARADO
+        && v & (WPR2_ABAJO | FRTS) == 0
+}
+
+pub(crate) fn hint(s: &mut Output) {
+    s.text(if blocked() {
+        b" -- descarga ya fallo: WPR2 sigue protegida; repetir reintentar no la libera" as &[u8]
+    } else {
+        b" -- prueba `gpu reintentar` (sin reiniciar)"
+    });
+}
+
 /// Esperar, cediendo el turno, hasta `ms`, a que `lee()` cumpla.
 fn esperar(ms: u64, lee: impl Fn() -> u64, cumple: impl Fn(u64) -> bool) -> bool {
     let hz = bmo::info(bmo::INFO_TSC_HZ).max(1000);
@@ -115,6 +130,15 @@ pub(crate) fn orden(dsk: &mut Desktop, p: &bmo::Pantalla) -> After {
         let g = &mut dsk.out.grid;
         g.with_ink(INK_ECHO);
         g.text(b"  el GSP ya desperto en este arranque: no hay nada que reintentar\n");
+        g.with_ink(INK_PLAIN);
+        dsk.field.n = 0;
+        return After::Settle;
+    }
+    if blocked() {
+        let g = &mut dsk.out.grid;
+        g.with_ink(INK_ERR);
+        g.text(b"  La descarga anterior dejo WPR2 protegida; este mando no puede volver a subir el GSP.\n");
+        g.text(b"  Conserva `save`: repetir aqui no cambia el resultado de ese intento.\n");
         g.with_ink(INK_PLAIN);
         dsk.field.n = 0;
         return After::Settle;

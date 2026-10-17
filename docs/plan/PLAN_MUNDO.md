@@ -170,12 +170,16 @@ pide Cyberpunk por PROTON-X --.
       capturar al jugar y liberar al salir o perder el foco.
       **Mirada relativa hecha en anfitrion, 16-10:** modulo pointer en TITAN++,
       cursor oculto al capturar y restaurado al liberar; Esc primero suelta,
-      clic recaptura, foco perdido revoca. Falta probar en metal y resaltar
-      el bloque. `gpu laminas` ya mide intervalos/FPS de ventana.
+      clic recaptura, foco perdido revoca. El propietario confirma los
+      controles en metal (tanda 20:36); sigue pendiente resaltar el bloque.
+      `gpu laminas` mide intervalos/FPS: muestra CPU de 19,60 en esa tanda.
       [Control y prueba](../../Ultra_userspace/apps/mundo/CONTROL.md).
 - [ ] MC3: teclas mantenidas, gravedad, salto y colision del cuerpo por ejes.
 - [ ] GPU: recuperar el error concreto de MUNDO y cerrar C1/Q0a3 por causa;
       seguir distinguiendo GPU de CPU. El respaldo no cierra esa meta.
+      **Quinta tanda, 20:36:** capturas 1080p ya guardadas; 1.141 fotogramas
+      CPU, cero GPU por G0 (booter y descargador 0x15, WPR2 no baja).
+      Prioridad al arranque: foto previa del GSP nueva, pendiente de metal.
       **Cuarta tanda 16-10:** 325 fotogramas GPU prestados, cero CPU;
       C1 acreditado para la corrida. El juez difiere en 4/230.400 pixeles:
       Q0a3 de igualdad sigue abierto. Captura corregida por cupo en anfitrion;

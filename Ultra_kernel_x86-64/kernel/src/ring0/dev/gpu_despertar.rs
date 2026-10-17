@@ -311,6 +311,11 @@ pub fn booter(booter_fichero: Option<&mut dyn Fichero>) -> Result<u64, u32> {
     if frts != 0 {
         AUTOPSIA[16].store(ahora.saturating_sub(frts) / hz / 1000 | 1 << 63, Ordering::Release);
     }
+    // G0: cuatro lecturas, sin reset ni escritura. La foto DESPUES ya existe.
+    let probe = bmo_gpu_ga10x::arranque::boot_probe::BootProbe::read(&mut r);
+    AUTOPSIA[17].store(probe.mailboxes, Ordering::Release);
+    AUTOPSIA[18].store(probe.controls, Ordering::Release);
+    AUTOPSIA[19].store(gpu_libos::IOVA_LIBOS | 1 << 63, Ordering::Release);
     if fa::arrancar_con(&mut r, fa::SEC2, Some(b.arranque()), Some(m as u32), Some((m >> 32) as u32)).is_err() {
         return no(IOMMU_NO_SEC2);
     }
@@ -383,7 +388,8 @@ pub fn booter(booter_fichero: Option<&mut dyn Fichero>) -> Result<u64, u32> {
 //    [16] (29-09) los ms desde que arranco FWSEC-FRTS hasta soltar el
 //         booter, bit 63 = se tomo. EL MOMENTO.
 
-static AUTOPSIA: [AtomicU64; 17] = [const { AtomicU64::new(0) }; 17];
+// [17..19]: GSP MAILBOX0/1, CPUCTL/BCR_CTRL y LIBOS esperado | foto << 63.
+static AUTOPSIA: [AtomicU64; 20] = [const { AtomicU64::new(0) }; 20];
 /// El ucode del booter ya prestado a la 3060 en este arranque.
 static BOOTER_PRESTADO: core::sync::atomic::AtomicBool = core::sync::atomic::AtomicBool::new(false);
 
@@ -464,6 +470,8 @@ fn autopsiar(r: &mut Bar0) {
     c("  ...us desde que arranco (techo: lo que tardo alguien en mirar)", us);
     c("  ...BSI_14 antes | ahora << 32", AUTOPSIA[0].load(Ordering::Acquire) & 0xFFFF_FFFF | (crate::ring0::dev::gpu::info_bsi() & 0xFFFF_FFFF) << 32);
     c("  ...MAILBOX0 del GSP, crudo", gm0 as u64);
+    c("  ...GSP MAILBOX0/1 ANTES del booter", AUTOPSIA[17].load(Ordering::Acquire));
+    c("  ...GSP CPUCTL/BCR_CTRL ANTES del booter", AUTOPSIA[18].load(Ordering::Acquire));
     c("  ...CPUCTL GSP | SEC2 << 32, crudos", gc as u64 | (sc as u64) << 32);
     c("  ...la WPR meta: palabras que cambio el booter (mascara)", AUTOPSIA[5].load(Ordering::Acquire) & 0xFFFF_FFFF);
     c("  ...su verified", AUTOPSIA[6].load(Ordering::Acquire));
@@ -632,7 +640,7 @@ pub fn gsp_tomado() -> bool {
 /// `INFO_GPU_DESPIERTO_BUZON`: MAILBOX0 | MAILBOX1 << 32 (vivo) del GSP, o
 /// con selector 1 (`1 << 8`) del SEC2, si el booter arranco; con selector 2,
 /// como va el secuenciador (L0c4b2c, `info_secuencia`); 3 BAR1; 4..14 la
-/// AUTOPSIA DEL BOOTER (ver `autopsiar`).
+/// AUTOPSIA DEL BOOTER (ver `autopsiar`); 21..23 la foto previa del GSP.
 ///
 /// ** El SEC2 lo trajo el metal (24-09 07:48): el booter se paro con MAILBOX0
 /// = 0x15 donde tres veces antes dio 0. nova-core imprime los DOS buzones al
@@ -644,7 +652,7 @@ pub fn info_despierto_buzon(sel: u64) -> u64 {
     if sel >> 8 == 3 {
         return info_bar1();
     }
-    if (4..=20).contains(&(sel >> 8)) {
+    if (4..=23).contains(&(sel >> 8)) {
         return AUTOPSIA[(sel >> 8) as usize - 4].load(Ordering::Acquire);
     }
     let bar0 = crate::ring0::dev::gpu::bar0();

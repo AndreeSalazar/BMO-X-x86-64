@@ -51,7 +51,9 @@ contadores HID, que no consume ni cambia el cursor. Mover el raton durante
 varios segundos y contra el borde del panel; no debe frenarse el giro.
 Probar Esc, clic, Alt+Tab, cierre y recorte: el puntero debe reaparecer.
 Consultar `gpu laminas` despues de mover y traer `save` y una captura.
-La confirmacion del cursor y FPS reales en el metal queda pendiente.
+Tanda 16-10 20:36: el propietario confirma los controles; el informe mide
+19,60 FPS en respaldo CPU (20 intervalos/1.020 ms). La RTX no arranco en esa
+sesion. Dos PNG 1080p guardados. Esto no mide la velocidad del camino GPU.
 
 ## Verificacion
 

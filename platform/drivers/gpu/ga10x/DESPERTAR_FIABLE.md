@@ -1,5 +1,16 @@
 # Despertar fiable de la RTX 3060 12G -- investigacion del 16-10
 
+**Quinta tanda, 20:36:** otro 0x15 en frio, y `gpu reintentar` tampoco
+libero WPR2 (descargador 0x15; SB no pudo cargar). MUNDO sigue por CPU:
+1.141 fotogramas, muestra de 19,60 FPS. No confundir con la corrida buena
+anterior. El informe ya no recomienda repetir ese mismo intento bloqueado.
+
+La foto nueva guarda GSP MAILBOX0/1 y CPUCTL/BCR_CTRL ANTES de STARTCPU
+del SEC2, con LIBOS esperado. Solo cuatro lecturas por intento. Permite
+separar argumentos ya inaccesibles/distintos antes del booter de un
+GSP que se vuelve inaccesible despues. No acredita aun causa ni arreglo.
+Disponible en `save` con kernel y DIRECTOR nuevos; G0 sigue abierto.
+
 **Tercera tanda, 17:06:** GSP activo, INIT_DONE y lienzo 16.384/16.384.
 MUNDO cae a CPU por otro fallo: VRN1 rechazaba su destino 640x360 con Z
 antes del kernel. Corregido y probado en anfitrion, pendiente de metal.
