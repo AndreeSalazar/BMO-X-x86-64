@@ -97,13 +97,15 @@ static ESTADO: AtomicU64 = AtomicU64::new(0);
 
 // == G0: LAS PRUEBAS CONTRA EL 0x15 (17-10, GCB2c de PLAN_GSP_CONTROL_BMO) ==
 //
-// GCB2B_ENTRADAS.md dejo tres diferencias que se pueden probar una a una sin
-// recompilar: el propietario escribe sus palabras en `g0.txt` (o `gpu g0 ...`)
-// y el siguiente arranque las aplica. Sin el fichero, el camino de siempre.
+// Diferencias con OpenRM que se prueban una a una sin recompilar: el
+// propietario escribe sus palabras en `g0.txt` (o `gpu g0 ...`) y el
+// siguiente arranque las aplica. Sin el fichero, el camino de siempre.
+// (E2, `sin-d`, se retiro tras probarse: el 0x15 salio igual.)
 //
-//    sin-d     E2: el disco Personal (D:) no se monta
 //    riscv     E3: el GSP como OpenRM 570.144 (kgspBootstrap_TU102)
-//    seguido   E4: el booter en la misma llamada que `despertar`
+//    seguido   E4: el booter cargado antes de despertar, sin hueco
+//    reset     E5: el RESET de GSP y SEC2 con diez lecturas por flanco
+//    ptimer    E6: PTIMER en hora antes de FWSEC (tmrSetCurrentTime_GV100)
 
 /// Donde vive la eleccion. 8.3, junto a `modo.txt`.
 pub const RUTA_G0: &str = "informe/estado/g0.txt";
@@ -120,21 +122,43 @@ pub fn fijar_g0(texto: Option<&[u8]>) {
         v |= g0::FICHERO | g0::leer(t);
     }
     G0.store(v, Ordering::Release);
-    crate::ring0::cabina::info("gpu", "G0: lo que pide informe/estado/g0.txt (bit 0 riscv, 1 seguido, 2 sin-d; 62 hay fichero)", v);
+    crate::ring0::cabina::info("gpu", "G0: lo que pide informe/estado/g0.txt (bit 0 riscv, 1 seguido, 3 reset, 4 ptimer; 62 hay fichero)", v);
 }
 
 fn g0_pide(bit: u64) -> bool {
     G0.load(Ordering::Acquire) & bit != 0
 }
 
-/// E2: el disco Personal se queda sin montar. Lo apunta como USADO.
-pub fn g0_sin_d() -> bool {
+/// E5: como se sostiene el RESET de los falcons en el camino del arranque
+/// (FWSEC, GSP y booter). Con `reset`, como OpenRM; lo apunta como USADO.
+pub fn g0_pulso() -> fa::Pulso {
     use bmo_nvidia_gsp_control::g0;
-    let si = g0_pide(g0::SIN_D);
-    if si {
-        G0.fetch_or(g0::SIN_D_USADO, Ordering::AcqRel);
+    if g0_pide(g0::RESET) {
+        G0.fetch_or(g0::RESET_USADO, Ordering::AcqRel);
+        fa::Pulso::Lecturas
+    } else {
+        fa::Pulso::Espera
     }
-    si
+}
+
+/// E6: PTIMER en hora, con la del reloj de la placa, antes de FWSEC-FRTS.
+/// Solo con `ptimer`; si el PLM no deja, no se escribe y la caja negra lo dice.
+pub(crate) fn g0_ptimer(r: &mut Bar0) {
+    use bmo_nvidia_gsp_control::g0;
+    if !g0_pide(g0::PTIMER) {
+        return;
+    }
+    let Some(f) = bmo_rtc::desempaquetar(crate::ring0::dev::clock::ahora()) else {
+        crate::ring0::cabina::warn("gpu", "G0 E6: sin hora de la placa; PTIMER no se toca", 0);
+        return;
+    };
+    let ns = bmo_gpu_ga10x::arranque::ptimer::ns_desde_1970(f.anio, f.mes, f.dia, f.hora, f.minuto, f.segundo);
+    if bmo_gpu_ga10x::arranque::ptimer::poner_hora(r, ns) {
+        G0.fetch_or(g0::PTIMER_USADO, Ordering::AcqRel);
+        crate::ring0::cabina::count("gpu", "G0 E6: PTIMER en hora como OpenRM; segundos desde 1970", ns / 1_000_000_000);
+    } else {
+        crate::ring0::cabina::warn("gpu", "G0 E6: el PLM de PTIMER no deja escribir al nivel 0; no se toca", 0);
+    }
 }
 
 /// E4: `despertar` sigue con el booter en la misma llamada.
@@ -247,13 +271,13 @@ pub fn despertar() -> Result<u64, u32> {
         // RISC-V, VALID, BRFETCH) y los argumentos de LIBOS en los buzones
         // (`kgspProgramLibosBootArgsAddr`), SIN arrancar el falcon vacio.
         crate::ring0::cabina::info("gpu", "G0 E3: el GSP como OpenRM 570.144 -- nucleo RISC-V y buzones, sin STARTCPU", 0);
-        fa::resetear_en_riscv(&mut r, &mut t, fa::GSP).map(|_| {
+        fa::resetear_en_riscv_con(&mut r, &mut t, fa::GSP, g0_pulso()).map(|_| {
             r.escribir(fa::GSP + fa::MAILBOX0, l as u32);
             r.escribir(fa::GSP + fa::MAILBOX1, (l >> 32) as u32);
             G0.fetch_or(bmo_nvidia_gsp_control::g0::RISCV_USADO, Ordering::AcqRel);
         })
     } else {
-        fa::resetear(&mut r, &mut t, fa::GSP, boot0)
+        fa::resetear_con(&mut r, &mut t, fa::GSP, boot0, g0_pulso())
             .and_then(|_| fa::arrancar_con(&mut r, fa::GSP, None, Some(l as u32), Some((l >> 32) as u32)))
     };
     if let Err(e) = hecho {
@@ -379,7 +403,7 @@ fn cargar_booter(r: &mut Bar0, booter_fichero: Option<&mut dyn Fichero>) -> Resu
     let mut t = pr::reloj();
     let boot0 = r.leer(bmo_gpu_ga10x::BOOT_0);
     let a256 = |n: u32| n.next_multiple_of(256);
-    let cargado = fa::resetear(r, &mut t, fa::SEC2, boot0)
+    let cargado = fa::resetear_con(r, &mut t, fa::SEC2, boot0, g0_pulso())
         .and_then(|_| fa::preparar_fbif(r, fa::SEC2))
         .and_then(|_| {
             fa::copiar_etiquetado(r, &mut t, fa::SEC2, IOVA_BOOTER, b.imem.origen, b.imem.destino, a256(b.imem.bytes), true, true, 50_000)
@@ -519,31 +543,6 @@ fn soltar(r: &mut Bar0, c: Cargado, vigia: (u64, u64)) -> Result<u64, u32> {
 // [17..19]: GSP MAILBOX0/1, CPUCTL/BCR_CTRL y LIBOS esperado | foto << 63.
 static AUTOPSIA: [AtomicU64; 20] = [const { AtomicU64::new(0) }; 20];
 
-// ** LA TRAZA DEL BOOTER (17-10, GCB2c): donde se paro el SEC2, por sus
-// ultimas direcciones de codigo (`TRACEPC`, como nouveau al fallar). Se lee
-// UNA vez al verlo parado, salga bien o mal: la causa sale de comparar.
-//    [0]     SCTL | TRACEIDX << 32 | leida << 63 (0 = el falcon no la dio)
-//    [1..17] las primeras 32 entradas, dos por palabra (la par abajo)
-// Selectores 24..41 de `INFO_GPU_DESPIERTO_BUZON`.
-const TRAZA_PCS: usize = 32;
-static TRAZA: [AtomicU64; 1 + TRAZA_PCS / 2] = [const { AtomicU64::new(0) }; 1 + TRAZA_PCS / 2];
-
-fn trazar_sec2(r: &mut Bar0) {
-    let mut pcs = [0u32; TRAZA_PCS];
-    match fa::traza_pc(r, fa::SEC2, &mut pcs) {
-        Ok((sctl, tidx, n)) => {
-            TRAZA[0].store(sctl as u64 | (tidx as u64) << 32 | 1 << 63, Ordering::Release);
-            for (i, par) in pcs.chunks(2).enumerate() {
-                TRAZA[1 + i].store(par[0] as u64 | (par[1] as u64) << 32, Ordering::Release);
-            }
-            crate::ring0::cabina::count("gpu", "  ...TRAZA del SEC2: SCTL | TRACEIDX << 32", sctl as u64 | (tidx as u64) << 32);
-            if n > 0 {
-                crate::ring0::cabina::count("gpu", "  ...TRAZA: la primera entrada | la segunda << 32", TRAZA[1].load(Ordering::Acquire));
-            }
-        }
-        Err(_) => crate::ring0::cabina::info("gpu", "  ...TRAZA del SEC2: el falcon no la dejo leer (PRI)", 0),
-    }
-}
 /// El ucode del booter ya prestado a la 3060 en este arranque.
 static BOOTER_PRESTADO: core::sync::atomic::AtomicBool = core::sync::atomic::AtomicBool::new(false);
 
@@ -566,7 +565,7 @@ pub fn booter_fallo() -> bool {
 /// quedan: son del arranque, no del intento.
 pub fn rearmar() {
     ESTADO.store(0, Ordering::Release);
-    for a in AUTOPSIA.iter().chain(TRAZA.iter()) {
+    for a in AUTOPSIA.iter() {
         a.store(0, Ordering::Release);
     }
     BOOTER_TSC.store(0, Ordering::Release);
@@ -630,7 +629,6 @@ fn autopsiar(r: &mut Bar0) {
     let c = |t: &'static str, v: u64| crate::ring0::cabina::count("gpu", t, v);
     c("AUTOPSIA del booter: MAILBOX0 del SEC2", r.leer(fa::SEC2 + fa::MAILBOX0) as u64);
     c("  ...us desde que arranco (techo: lo que tardo alguien en mirar)", us);
-    trazar_sec2(r);
     c("  ...BSI_14 antes | ahora << 32", AUTOPSIA[0].load(Ordering::Acquire) & 0xFFFF_FFFF | (crate::ring0::dev::gpu::info_bsi() & 0xFFFF_FFFF) << 32);
     c("  ...MAILBOX0 del GSP, crudo", gm0 as u64);
     c("  ...GSP MAILBOX0/1 ANTES del booter", AUTOPSIA[17].load(Ordering::Acquire));
@@ -817,9 +815,6 @@ pub fn info_despierto_buzon(sel: u64) -> u64 {
     }
     if (4..=23).contains(&(sel >> 8)) {
         return AUTOPSIA[(sel >> 8) as usize - 4].load(Ordering::Acquire);
-    }
-    if (24..24 + TRAZA.len() as u64).contains(&(sel >> 8)) {
-        return TRAZA[(sel >> 8) as usize - 24].load(Ordering::Acquire);
     }
     let bar0 = crate::ring0::dev::gpu::bar0();
     let (falcon, hace_falta) = if sel >> 8 == 1 { (fa::SEC2, DESPIERTO_SEC2_ARRANCADO) } else { (fa::GSP, DESPIERTO_GSP_ARRANCADO) };

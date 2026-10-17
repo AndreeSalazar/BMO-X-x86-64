@@ -118,11 +118,12 @@ fn g0_reads_known_words_only() {
     assert_eq!(leer(b""), 0);
     assert_eq!(leer(b"normal\n"), 0);
     assert_eq!(leer(b"riscv"), RISCV);
-    assert_eq!(leer(b"SIN-D, Seguido\r\n"), SIN_D | SEGUIDO);
-    assert_eq!(leer(b"# riscv\nseguido # sin-d"), SEGUIDO);
+    assert_eq!(leer(b"RESET, Seguido\r\n"), RESET | SEGUIDO);
+    assert_eq!(leer(b"# riscv\nptimer # reset"), PTIMER);
+    assert_eq!(desconocidas(leer(b"sin-d")), 1, "E2 retirada");
     let m = leer(b"riscv rsicv sin_d");
     assert_eq!(m & 0xFF, RISCV);
     assert_eq!(desconocidas(m), 2);
     assert_eq!(desconocidas(leer(&[b'x', b' '].repeat(400))), 255);
-    assert_eq!(RISCV_USADO & (RISCV | SEGUIDO | SIN_D), 0);
+    assert_eq!((RISCV_USADO | PTIMER_USADO) & (RISCV | SEGUIDO | RESET | PTIMER), 0);
 }

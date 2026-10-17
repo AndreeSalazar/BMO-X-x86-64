@@ -437,21 +437,15 @@ pub fn init() {
     bmo_block::register(&AHCI_DISK);
     crate::ring0::cabina::info("disk", "contrato de bloques registrado", unsafe { TOTAL_SECTORS });
 
-    // ** N1a: el otro disco del MISMO controlador ya no se busca aqui sino
-    // en `buscar_ajeno`, despues de montar los datos (17-10, E2 de GCB2c):
-    // asi `informe/estado/g0.txt` puede decir `sin-d` antes de tocarlo.
+    // ** N1a: el otro disco del MISMO controlador se busca en `buscar_ajeno`,
+    // despues de montar los datos (17-10, E2 de GCB2c, ya retirada).
 }
 
 /// **N1a: el otro disco del MISMO controlador**, si lo hay: SOLO LECTURA y
 /// nunca registrado como el de BMO-X (ver `ajeno.rs`). Lo llama la fase de
-/// arranque tras montar los datos; con `sin-d` en `g0.txt` no se toca (E2).
+/// arranque tras montar los datos.
 pub fn buscar_ajeno() {
     if !is_ready() {
-        return;
-    }
-    if crate::ring0::dev::gpu_despertar::g0_sin_d() {
-        crate::ring0::cabina::info("disk", "N1a: el disco Personal (D:) NO se monta en este arranque: g0.txt dice sin-d (E2)", 0);
-        ajeno::apagado_por_g0();
         return;
     }
     ajeno::buscar(unsafe { PORT });

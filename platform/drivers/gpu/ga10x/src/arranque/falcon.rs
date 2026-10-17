@@ -174,20 +174,51 @@ fn esperar(
     }
 }
 
+/// **Como se sostiene el RESET del motor** (17-10, G0 `reset`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Pulso {
+    /// 10 us por el reloj de la CPU, como nova-core.
+    Espera,
+    /// Como OpenRM 570.144 (`kgspResetHw_TU102`, `ksec2ResetHw_TU102`): diez
+    /// lecturas de ENGINE tras poner el RESET y otras diez tras quitarlo
+    /// (`FLCN_RESET_PROPAGATION_DELAY_COUNT`). Leer obliga a que la escritura
+    /// haya llegado a la tarjeta; esperar en la CPU no.
+    Lecturas,
+}
+
+/// Cuantas lecturas sostienen cada flanco del RESET con [`Pulso::Lecturas`].
+pub const LECTURAS_DEL_PULSO: u32 = 10;
+
 /// Lo comun a los dos resets: esperar al listo (sin fallar), RESET del motor
 /// y esperar el borrado de su memoria (OpenRM `kflcnPreResetWait`,
 /// `kflcnResetHw`, `kflcnWaitForResetToFinish`).
-fn reset_hw(r: &mut impl Registros, t: &mut impl Reloj, base: u32) -> Result<(), NoFuego> {
+fn reset_hw(r: &mut impl Registros, t: &mut impl Reloj, base: u32, pulso: Pulso) -> Result<(), NoFuego> {
     esperar(r, t, base + HWCFG2, 150, |v| v & HWCFG2_LISTO_RESET != 0)?;
     let e = leer(r, base + ENGINE)?;
     r.escribir(base + ENGINE, e | 1);
-    let desde = t.us();
-    while t.us() < desde + 10 {}
+    sostener(r, t, base, pulso);
     r.escribir(base + ENGINE, e & !1);
+    if pulso == Pulso::Lecturas {
+        sostener(r, t, base, pulso);
+    }
     if !esperar(r, t, base + HWCFG2, 20_000, |v| v & HWCFG2_LIMPIANDO == 0)? {
         return Err(NoFuego::NoLimpia);
     }
     Ok(())
+}
+
+fn sostener(r: &mut impl Registros, t: &mut impl Reloj, base: u32, pulso: Pulso) {
+    match pulso {
+        Pulso::Espera => {
+            let desde = t.us();
+            while t.us() < desde + 10 {}
+        }
+        Pulso::Lecturas => {
+            for _ in 0..LECTURAS_DEL_PULSO {
+                r.leer(base + ENGINE);
+            }
+        }
+    }
 }
 
 /// **RESETEAR PARA EL RISC-V** (OpenRM 570.144 `kflcnResetIntoRiscv_GA102`,
@@ -196,7 +227,12 @@ fn reset_hw(r: &mut impl Registros, t: &mut impl Reloj, base: u32) -> Result<(),
 /// FALCON ni escribir `RM`. nova-core aqui resetea a FALCON; se sigue a
 /// OpenRM, que es el driver de ESTA version del firmware.
 pub fn resetear_en_riscv(r: &mut impl Registros, t: &mut impl Reloj, base: u32) -> Result<(), NoFuego> {
-    reset_hw(r, t, base)?;
+    resetear_en_riscv_con(r, t, base, Pulso::Espera)
+}
+
+/// [`resetear_en_riscv`] con el pulso elegido.
+pub fn resetear_en_riscv_con(r: &mut impl Registros, t: &mut impl Reloj, base: u32, pulso: Pulso) -> Result<(), NoFuego> {
+    reset_hw(r, t, base, pulso)?;
     r.escribir(base + BCR_CTRL, BCR_RISCV | BCR_VALIDO | BCR_BRFETCH);
     Ok(())
 }
@@ -205,7 +241,12 @@ pub fn resetear_en_riscv(r: &mut impl Registros, t: &mut impl Reloj, base: u32) 
 /// (sin fallar: el hardware a veces no lo dice), RESET del motor, esperar el
 /// borrado de su memoria, pedir el nucleo FALCON, y apuntar BOOT_0 en `RM`.
 pub fn resetear(r: &mut impl Registros, t: &mut impl Reloj, base: u32, boot0: u32) -> Result<(), NoFuego> {
-    reset_hw(r, t, base)?;
+    resetear_con(r, t, base, boot0, Pulso::Espera)
+}
+
+/// [`resetear`] con el pulso elegido.
+pub fn resetear_con(r: &mut impl Registros, t: &mut impl Reloj, base: u32, boot0: u32, pulso: Pulso) -> Result<(), NoFuego> {
+    reset_hw(r, t, base, pulso)?;
     let bcr = leer(r, base + BCR_CTRL)?;
     if bcr & BCR_RISCV != 0 {
         r.escribir(base + BCR_CTRL, 0);
@@ -372,31 +413,6 @@ pub fn arrancar_con(
     Ok(())
 }
 
-// -- ** LA TRAZA DEL FALCON (17-10, GCB2c): donde se paro un firmware ------------
-//
-// Un firmware firmado (el booter, FWSEC) no deja leer su memoria, pero el
-// falcon guarda las ULTIMAS direcciones de codigo que ejecuto. Es lo que lee
-// nouveau cuando uno falla (`gm200_flcn_tracepc`): `SCTL`, el indice y, una a
-// una, las entradas de `TRACEPC`. Solo se escribe el indice de lectura.
-
-pub const SCTL: u32 = 0x240;
-pub const TRACEIDX: u32 = 0x148;
-pub const TRACEPC: u32 = 0x14c;
-
-/// **La traza de PC** del falcon en `base`: `(SCTL, TRACEIDX, cuantas)` y las
-/// primeras `pcs.len()` entradas en `pcs`. Un registro que contesta con error
-/// de PRI (el falcon cerrado) es `Err`: no se inventa una traza.
-pub fn traza_pc(r: &mut impl Registros, base: u32, pcs: &mut [u32]) -> Result<(u32, u32, usize), NoFuego> {
-    let sctl = leer(r, base + SCTL)?;
-    let tidx = leer(r, base + TRACEIDX)?;
-    let n = (((tidx >> 16) & 0xFF) as usize).min(pcs.len());
-    for (i, pc) in pcs[..n].iter_mut().enumerate() {
-        r.escribir(base + TRACEIDX, i as u32);
-        *pc = leer(r, base + TRACEPC)?;
-    }
-    Ok((sctl, tidx, n))
-}
-
 /// Se paro ya? `(parado, MAILBOX0, MAILBOX1)`.
 pub fn como_va(r: &mut impl Registros, base: u32) -> Result<(bool, u32, u32), NoFuego> {
     let c = leer(r, base + CPUCTL)?;
@@ -460,42 +476,40 @@ mod pruebas {
     use std::vec;
     use std::vec::Vec;
 
-    /// Un falcon que solo sabe su traza: `TRACEIDX` elige la entrada.
-    struct Traza {
-        pcs: Vec<u32>,
-        idx: u32,
-        cerrado: bool,
-    }
+    /// Un falcon que apunta cada acceso a su ENGINE, y siempre listo y limpio.
+    struct Pulsos(Vec<(char, u32)>);
 
-    impl Registros for Traza {
+    impl Registros for Pulsos {
         fn leer(&mut self, reg: u32) -> u32 {
-            if self.cerrado {
-                return 0xBADF_5620;
-            }
-            match reg - SEC2 {
-                SCTL => 0x3002,
-                TRACEIDX => (self.pcs.len() as u32) << 16 | self.idx,
-                TRACEPC => self.pcs[self.idx as usize],
+            match reg - GSP {
+                ENGINE => {
+                    self.0.push(('r', 0));
+                    0
+                }
+                HWCFG2 => HWCFG2_LISTO_RESET,
                 _ => 0,
             }
         }
         fn escribir(&mut self, reg: u32, v: u32) {
-            if reg - SEC2 == TRACEIDX {
-                self.idx = v;
+            if reg - GSP == ENGINE {
+                self.0.push(('w', v));
             }
         }
     }
 
     #[test]
-    fn la_traza_lee_cada_entrada_por_su_indice() {
-        let mut f = Traza { pcs: vec![0x100, 0x2a4, 0x1f0c], idx: 0, cerrado: false };
-        let mut pcs = [0u32; 8];
-        assert_eq!(traza_pc(&mut f, SEC2, &mut pcs), Ok((0x3002, 3 << 16, 3)));
-        assert_eq!(&pcs[..3], &[0x100, 0x2a4, 0x1f0c]);
-        let mut corta = [0u32; 2];
-        assert_eq!(traza_pc(&mut f, SEC2, &mut corta).map(|t| t.2), Ok(2), "no pasa del hueco que le dan");
-        let mut cerrado = Traza { pcs: vec![1], idx: 0, cerrado: true };
-        assert!(traza_pc(&mut cerrado, SEC2, &mut pcs).is_err(), "un falcon cerrado no da traza inventada");
+    fn el_pulso_de_openrm_lee_diez_veces_cada_flanco() {
+        let mut f = Pulsos(Vec::new());
+        resetear_con(&mut f, &mut Tic(0), GSP, 0, Pulso::Lecturas).unwrap();
+        let diez = vec![('r', 0); LECTURAS_DEL_PULSO as usize];
+        let mut esperado = vec![('r', 0), ('w', 1)];
+        esperado.extend(&diez);
+        esperado.push(('w', 0));
+        esperado.extend(&diez);
+        assert_eq!(f.0, esperado, "la lectura de antes, RESET, diez, sin RESET, diez");
+        let mut g = Pulsos(Vec::new());
+        resetear(&mut g, &mut Tic(0), GSP, 0).unwrap();
+        assert_eq!(g.0, [('r', 0), ('w', 1), ('w', 0)], "el de siempre no lee entre medias");
     }
 
     /// Un falcon: registros, una DMEM de 64 KiB, y una "RAM del PC" vista por

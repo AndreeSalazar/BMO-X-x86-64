@@ -482,7 +482,7 @@ pub fn main(ctx: &mut BootContext) {
     crate::ring0::fsys::fs::mount_data();
     // ** G0 (17-10, GCB2c): lo que el propietario eligio probar contra el
     // 0x15, leido UNA vez ahora que los datos estan montados; y despues el
-    // disco Personal (D:), que `sin-d` deja sin montar (E2).
+    // disco Personal (D:).
     let mut g0 = [0u8; 256];
     let leido = crate::ring0::fsys::fs::load(crate::ring0::dev::gpu_despertar::RUTA_G0, &mut g0).ok();
     crate::ring0::dev::gpu_despertar::fijar_g0(leido.map(|n| &g0[..n]));

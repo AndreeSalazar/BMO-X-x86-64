@@ -773,9 +773,10 @@ pub const BUILD_SUCIO: u64 = 1 << 62;
 pub const BUILD_COMMIT: u64 = (1 << 56) - 1;
 pub const INFO_GPU_INTENTO: u64 = 0xDC;
 /// ** G0 (17-10, GCB2c de PLAN_GSP_CONTROL_BMO): `INFO_GPU_G0`, lo que pide
-/// `informe/estado/g0.txt` y lo que de verdad corrio. Bits 0..2 pedidos
-/// (riscv, seguido, sin-d), 8..10 usados, 16..23 palabras desconocidas, 62 hay
-/// fichero, 63 el kernel ya miro. Las mascaras, en `bmo_nvidia_gsp_control::g0`.
+/// `informe/estado/g0.txt` y lo que de verdad corrio. Bits 0..7 pedidos
+/// (0 riscv, 1 seguido, 3 reset, 4 ptimer; el 2 fue `sin-d`, retirada),
+/// 8..15 usados, 16..23 palabras desconocidas, 62 hay fichero, 63 el kernel
+/// ya miro. Las mascaras, en `bmo_nvidia_gsp_control::g0`.
 pub const INFO_GPU_G0: u64 = 0xDD;
 /// El formato `i` (`INFO_AUDIO_FORMATO | (i << 8)`): alt, canales, bits,
 /// subframe, `wMaxPacketSize`, cuantas frecuencias, si CABE en 1 ms, si es el

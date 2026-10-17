@@ -545,6 +545,8 @@ pub fn fwsec_correr() -> Result<u64, u32> {
         antes | ((fb & crate::ring0::dev::gpu::GPU_FB_SIN_PANTALLA == 0) as u64) << 2 | anuncia_flr() << 3 | (crate::ring0::dev::gpu::info_vga() & 0xFFFF_FFFF) << 32,
         Ordering::Release,
     );
+    // E6: PTIMER en hora antes de FWSEC, como OpenRM (solo con `ptimer`).
+    crate::ring0::dev::gpu_despertar::g0_ptimer(&mut r);
     let ucode = &mut bufer()[..t];
 
     // La orden: FRTS en su region.
@@ -599,7 +601,7 @@ fn firmar_cargar_arrancar(r: &mut Bar0, d: &vb::Descriptor, ucode: &mut [u8], qu
     crate::ring0::cabina::info("gpu", que, 0);
     let mut tr = reloj();
     let boot0 = bmo_gpu_ga10x::Registros::leer(r, bmo_gpu_ga10x::BOOT_0);
-    let cargado = fa::resetear(r, &mut tr, fa::GSP, boot0)
+    let cargado = fa::resetear_con(r, &mut tr, fa::GSP, boot0, crate::ring0::dev::gpu_despertar::g0_pulso())
         .and_then(|_| fa::preparar_fbif(r, fa::GSP))
         .and_then(|_| fa::copiar(r, &mut tr, fa::GSP, IOVA_FWSEC, d.imem_phys_base, d.imem_load_size, true, true, 50_000))
         .and_then(|_| {

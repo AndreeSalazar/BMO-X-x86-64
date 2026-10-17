@@ -10,22 +10,27 @@
 pub const RISCV: u64 = 1 << 0;
 /// E4: el booter en la misma llamada que `despertar`, sin hueco.
 pub const SEGUIDO: u64 = 1 << 1;
-/// E2: el disco Personal (D:) sin montar en este arranque.
-pub const SIN_D: u64 = 1 << 2;
+/// E5: el RESET de los falcons como OpenRM, diez lecturas por flanco.
+pub const RESET: u64 = 1 << 3;
+/// E6: el reloj de la 3060 (PTIMER) en hora antes de FWSEC, como OpenRM.
+pub const PTIMER: u64 = 1 << 4;
 /// Lo que de verdad corrio, puesto por el kernel: un experimento pedido y
 /// no usado (el GSP no llego a despertarse) no cuenta como probado.
 pub const RISCV_USADO: u64 = RISCV << 8;
 pub const SEGUIDO_USADO: u64 = SEGUIDO << 8;
-pub const SIN_D_USADO: u64 = SIN_D << 8;
-/// Palabras que no son ninguna de las tres (bits 16..23, saturado a 255).
+pub const RESET_USADO: u64 = RESET << 8;
+pub const PTIMER_USADO: u64 = PTIMER << 8;
+/// Palabras que no son ninguna de las conocidas (bits 16..23, saturado a 255).
 pub const DESCONOCIDAS_SHIFT: u64 = 16;
 /// El fichero existia y se leyo entero.
 pub const FICHERO: u64 = 1 << 62;
 /// El kernel ya miro (exista o no el fichero).
 pub const MIRADO: u64 = 1 << 63;
 
-/// Las tres palabras, en el orden en que se escriben.
-pub const PALABRAS: [(&[u8], u64); 3] = [(b"sin-d", SIN_D), (b"riscv", RISCV), (b"seguido", SEGUIDO)];
+/// Las palabras, en el orden en que se escriben. `sin-d` (E2, bit 2) se
+/// retiro el 17-10 tras probarse: hoy cuenta como desconocida.
+pub const PALABRAS: [(&[u8], u64); 4] =
+    [(b"riscv", RISCV), (b"seguido", SEGUIDO), (b"reset", RESET), (b"ptimer", PTIMER)];
 
 /// Las palabras del fichero: separadas por espacios, comas o saltos de linea,
 /// sin distinguir mayusculas. Una linea que empieza por `#` es un comentario.

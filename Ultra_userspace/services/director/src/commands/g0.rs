@@ -21,10 +21,11 @@ use crate::scene::output::{Output, INK_ERR, INK_GOOD, INK_PLAIN};
 const RUTA: &[u8] = b"informe/estado/g0.txt";
 
 /// Que hace cada palabra, en una linea.
-const QUE: [(&[u8], &[u8]); 3] = [
-    (b"sin-d", b"E2: el disco Personal (D:) no se monta en ese arranque"),
+const QUE: [(&[u8], &[u8]); 4] = [
     (b"riscv", b"E3: el GSP como OpenRM 570.144 -- nucleo RISC-V y buzones, sin arrancar el falcon vacio"),
-    (b"seguido", b"E4: el booter en la misma llamada que despertar, sin el hueco de 120 ms"),
+    (b"seguido", b"E4: el booter ya cargado en el SEC2 antes de despertar al GSP, sin el hueco de 120 ms"),
+    (b"reset", b"E5: el RESET de GSP y SEC2 como OpenRM, diez lecturas por flanco"),
+    (b"ptimer", b"E6: el reloj de la 3060 (PTIMER) en hora antes de FWSEC, como OpenRM"),
 ];
 
 /// Las palabras de un modo, separadas por espacios; `normal` si ninguna.
@@ -91,7 +92,7 @@ pub(crate) fn orden(dsk: &mut Desktop, args: &[u8]) -> After {
     let modo = g0::leer(pedido);
     if g0::desconocidas(modo) > 0 {
         g.with_ink(INK_ERR);
-        g.text(b"  NO: solo valen sin-d, riscv, seguido o normal; no se guardo nada\n");
+        g.text(b"  NO: solo valen riscv, seguido, reset, ptimer o normal; no se guardo nada\n");
         g.with_ink(INK_PLAIN);
         dsk.field.n = 0;
         return After::Settle;

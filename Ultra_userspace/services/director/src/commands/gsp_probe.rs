@@ -31,26 +31,3 @@ pub(super) fn row(s: &mut Output) {
     datos::anotar(b"gpu booter gsp antes controles", probe.controls, b"");
     datos::anotar(b"gpu booter gsp antes argumentos iguales", probe.arguments_match(expected) as u64, b"");
 }
-
-/// **La traza del SEC2** al verlo parado (selectores 24..40, `TRACEPC`): donde
-/// estaba el booter cuando se rindio. Sin leer, no se escribe nada.
-pub(super) fn traza(s: &mut Output) {
-    let read = |sel: u64| bmo::info(bmo::INFO_GPU_DESPIERTO_BUZON | sel << 8);
-    let cab = read(24);
-    if cab >> 63 == 0 {
-        return;
-    }
-    let n = ((cab >> 48) & 0xFF).min(32);
-    s.text(b"; TRAZA del SEC2: SCTL 0x");
-    s.hex(cab & 0xFFFF_FFFF, 8);
-    s.text(b", ");
-    s.dec(n);
-    s.text(b" PC:");
-    for i in 0..n {
-        let par = read(25 + i / 2);
-        s.text(b" ");
-        s.hex(if i % 2 == 0 { par & 0xFFFF_FFFF } else { par >> 32 }, 5);
-    }
-    datos::anotar(b"gpu booter traza cabecera", cab, b"");
-    datos::anotar(b"gpu booter traza primera", read(25), b"");
-}

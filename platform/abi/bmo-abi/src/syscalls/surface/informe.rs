@@ -661,9 +661,10 @@ pub const BUILD_SUCIO: u64 = 1 << 62;
 pub const BUILD_COMMIT: u64 = (1 << 56) - 1;
 pub const INFO_GPU_INTENTO: u64 = 0xDC;
 /// ** G0 (17-10, GCB2c de PLAN_GSP_CONTROL_BMO): `INFO_GPU_G0`, lo que pide
-/// `informe/estado/g0.txt` y lo que de verdad corrio. Bits 0..2 pedidos
-/// (riscv, seguido, sin-d), 8..10 usados, 16..23 palabras desconocidas, 62 hay
-/// fichero, 63 el kernel ya miro. Las mascaras, en `bmo_nvidia_gsp_control::g0`.
+/// `informe/estado/g0.txt` y lo que de verdad corrio. Bits 0..7 pedidos
+/// (0 riscv, 1 seguido, 3 reset, 4 ptimer; el 2 fue `sin-d`, retirada),
+/// 8..15 usados, 16..23 palabras desconocidas, 62 hay fichero, 63 el kernel
+/// ya miro. Las mascaras, en `bmo_nvidia_gsp_control::g0`.
 pub const INFO_GPU_G0: u64 = 0xDD;
 
 /// -- ** EL METRO DE LA PUERTA -------------------------------------------
@@ -1869,11 +1870,6 @@ pub const LIBOS_VALIDO: u64 = 1 << 63;
 ///                             de STARTCPU del SEC2; 22 CPUCTL | BCR_CTRL << 32
 ///                             en esa foto; 23 LIBOS esperado (IOVA de 32 bits)
 ///                             | se tomo << 63. Sin foto, los tres valen cero.
-///                             24..40 (17-10, GCB2c) LA TRAZA DEL SEC2 al verlo
-///                             parado (`TRACEPC`, como nouveau): 24 `SCTL |
-///                             TRACEIDX << 32 | leida << 63` (cuantas en los
-///                             bits 48..55); 25..40 las 32 primeras entradas,
-///                             dos por palabra, la par en los bits bajos.
 ///   INFO_GPU_GSP_MEM          (con selector: el byte << 8) 8 bytes de lo que el
 ///                             GSP escribe: 0..0x30000 LOGINIT, LOGINTR y
 ///                             LOGRM; detras, GspMem
@@ -1970,7 +1966,6 @@ pub const INFO_METICHE: u64 = 0xC3;
 ///             bufer de quien leia; REBOTADO: por el rebote del disco ajeno)
 ///                 (detalle: 1 leer, 2 no es NTFS, 3 forma, 4 grande)
 ///               8 montado
-///               9 no se busco a proposito: `g0.txt` dice `sin-d` (E2, 17-10)
 /// ```
 ///
 /// ESTRATOS no va aqui: tiene sus propias filas (`INFO_ES_*`).
