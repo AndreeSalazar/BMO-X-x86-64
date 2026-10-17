@@ -977,8 +977,18 @@ pub(crate) fn fila_despierto(s: &mut Output) {
     }
     s.text(b"; su cola ");
     s.dec(cola);
-    s.text(b" mensajes; MAILBOX0 del GSP 0x");
-    s.hex(b & 0xFFFF_FFFF, 8);
+    s.text(b" mensajes; buzon GSP vivo ");
+    // Esta INFO devuelve 0 tanto ante falta/error de lectura como ante dos
+    // buzones cero. No presentarlo como una respuesta valida del firmware.
+    if b == 0 {
+        s.text(b"sin dato distinguible (cero o lectura fallida); ver autopsia");
+    } else {
+        let m0 = b as u32;
+        s.text(if bmo_gpu_ga10x::es_error_pri(m0) {
+            b"MAILBOX0 con error PRI crudo 0x" as &[u8]
+        } else { b"MAILBOX0 crudo 0x" });
+        s.hex(m0 as u64, 8);
+    }
     s.with_ink(INK_ECHO);
     s.text(b"   -> informe/gpu/gsplog.bin");
     s.with_ink(INK_PLAIN);
