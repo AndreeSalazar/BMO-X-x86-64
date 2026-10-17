@@ -485,6 +485,32 @@ pub fn booter(booter_fichero: Option<&mut dyn Fichero>) -> Result<u64, u32> {
 
 // [17..19]: GSP MAILBOX0/1, CPUCTL/BCR_CTRL y LIBOS esperado | foto << 63.
 static AUTOPSIA: [AtomicU64; 20] = [const { AtomicU64::new(0) }; 20];
+
+// ** LA TRAZA DEL BOOTER (17-10, GCB2c): donde se paro el SEC2, por sus
+// ultimas direcciones de codigo (`TRACEPC`, como nouveau al fallar). Se lee
+// UNA vez al verlo parado, salga bien o mal: la causa sale de comparar.
+//    [0]     SCTL | TRACEIDX << 32 | leida << 63 (0 = el falcon no la dio)
+//    [1..17] las primeras 32 entradas, dos por palabra (la par abajo)
+// Selectores 24..41 de `INFO_GPU_DESPIERTO_BUZON`.
+const TRAZA_PCS: usize = 32;
+static TRAZA: [AtomicU64; 1 + TRAZA_PCS / 2] = [const { AtomicU64::new(0) }; 1 + TRAZA_PCS / 2];
+
+fn trazar_sec2(r: &mut Bar0) {
+    let mut pcs = [0u32; TRAZA_PCS];
+    match fa::traza_pc(r, fa::SEC2, &mut pcs) {
+        Ok((sctl, tidx, n)) => {
+            TRAZA[0].store(sctl as u64 | (tidx as u64) << 32 | 1 << 63, Ordering::Release);
+            for (i, par) in pcs.chunks(2).enumerate() {
+                TRAZA[1 + i].store(par[0] as u64 | (par[1] as u64) << 32, Ordering::Release);
+            }
+            crate::ring0::cabina::count("gpu", "  ...TRAZA del SEC2: SCTL | TRACEIDX << 32", sctl as u64 | (tidx as u64) << 32);
+            if n > 0 {
+                crate::ring0::cabina::count("gpu", "  ...TRAZA: la primera entrada | la segunda << 32", TRAZA[1].load(Ordering::Acquire));
+            }
+        }
+        Err(_) => crate::ring0::cabina::info("gpu", "  ...TRAZA del SEC2: el falcon no la dejo leer (PRI)", 0),
+    }
+}
 /// El ucode del booter ya prestado a la 3060 en este arranque.
 static BOOTER_PRESTADO: core::sync::atomic::AtomicBool = core::sync::atomic::AtomicBool::new(false);
 
@@ -507,7 +533,7 @@ pub fn booter_fallo() -> bool {
 /// quedan: son del arranque, no del intento.
 pub fn rearmar() {
     ESTADO.store(0, Ordering::Release);
-    for a in &AUTOPSIA {
+    for a in AUTOPSIA.iter().chain(TRAZA.iter()) {
         a.store(0, Ordering::Release);
     }
     BOOTER_TSC.store(0, Ordering::Release);
@@ -571,6 +597,7 @@ fn autopsiar(r: &mut Bar0) {
     let c = |t: &'static str, v: u64| crate::ring0::cabina::count("gpu", t, v);
     c("AUTOPSIA del booter: MAILBOX0 del SEC2", r.leer(fa::SEC2 + fa::MAILBOX0) as u64);
     c("  ...us desde que arranco (techo: lo que tardo alguien en mirar)", us);
+    trazar_sec2(r);
     c("  ...BSI_14 antes | ahora << 32", AUTOPSIA[0].load(Ordering::Acquire) & 0xFFFF_FFFF | (crate::ring0::dev::gpu::info_bsi() & 0xFFFF_FFFF) << 32);
     c("  ...MAILBOX0 del GSP, crudo", gm0 as u64);
     c("  ...GSP MAILBOX0/1 ANTES del booter", AUTOPSIA[17].load(Ordering::Acquire));
@@ -757,6 +784,9 @@ pub fn info_despierto_buzon(sel: u64) -> u64 {
     }
     if (4..=23).contains(&(sel >> 8)) {
         return AUTOPSIA[(sel >> 8) as usize - 4].load(Ordering::Acquire);
+    }
+    if (24..24 + TRAZA.len() as u64).contains(&(sel >> 8)) {
+        return TRAZA[(sel >> 8) as usize - 24].load(Ordering::Acquire);
     }
     let bar0 = crate::ring0::dev::gpu::bar0();
     let (falcon, hace_falta) = if sel >> 8 == 1 { (fa::SEC2, DESPIERTO_SEC2_ARRANCADO) } else { (fa::GSP, DESPIERTO_GSP_ARRANCADO) };

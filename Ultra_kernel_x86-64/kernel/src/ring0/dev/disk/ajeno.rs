@@ -346,6 +346,12 @@ fn etapa(e: u64, detalle: u64) {
     ETAPA.store(e | detalle << 8, Ordering::Relaxed);
 }
 
+/// E2 de GCB2c (17-10): no se busca porque `g0.txt` dice `sin-d`. Es la
+/// etapa 9, para que el informe no lo confunda con un controlador ausente.
+pub(super) fn apagado_por_g0() {
+    etapa(9, 0);
+}
+
 /// Donde se paro N1a (ver [`ETAPA`]). 0 = no se busco.
 pub fn etapa_n1a() -> u64 {
     ETAPA.load(Ordering::Relaxed)

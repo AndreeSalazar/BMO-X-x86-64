@@ -184,6 +184,7 @@ pub(crate) fn motivo_n1a(etapa: u64) -> (&'static str, Detalle) {
             Detalle::Nada,
         ),
         8 => ("montado", Detalle::Nada),
+        9 => ("apagado a proposito: g0.txt dice sin-d (E2)", Detalle::Nada),
         _ => ("N1a no corrio: sin controlador AHCI", Detalle::Nada),
     }
 }

@@ -121,6 +121,12 @@ corrio; E1 es desplegar `a2408875a`. Como se corre cada una:
 [GCB2B_ENTRADAS, seccion 5](../../platform/drivers/gpu/ga10x/GCB2B_ENTRADAS.md).
 Falta el metal: la casilla se cierra con los arranques, no con el codigo.
 
+17-10, instrumento nuevo: tras un 0x15 la autopsia lee la traza de PC del
+SEC2 (SCTL 0x240, TRACEIDX 0x148, TRACEPC 0x14c, como `gm200_flcn_tracepc`
+de nouveau) y el `save` la escribe como `TRAZA del SEC2`. Comparar la traza
+de un arranque bueno con la de uno malo dice DONDE se para el booter, aunque
+el booter sea cerrado. Si el PRI no deja leerla, el informe lo dice.
+
 Salida: causa acotada y correccion reproducible, o hipotesis debilitada con
 resultado registrado. Un arranque bueno aislado no cierra fiabilidad. Las
 pruebas fisicas se agrupan con usos normales; no se piden reinicios en serie.

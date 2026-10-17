@@ -182,3 +182,14 @@ cd ..\bmo-e1
 Ese build no tiene OBS-BUILD ni `gpu g0`: su `save` no dira el commit, asi
 que la fila del CSV se escribe a mano con `a2408875a`. Al acabar, se vuelve
 al USB de hoy (`git worktree remove ..\bmo-e1` borra la copia).
+
+## 6. La traza del SEC2 (17-10)
+
+Despues de un 0x15, `autopsiar` llama `falcon::traza_pc` sobre el SEC2: lee
+SCTL y TRACEIDX (bits 16..23 = cuantas entradas hay), y para cada indice
+escribe TRACEIDX y lee TRACEPC. Hasta 32 PC, guardados en los selectores
+24..40 de `GPU_DESPIERTO_BUZON`; el `save` los escribe en la linea
+`TRAZA del SEC2`. Lo que se busca: si el ultimo PC de los arranques malos es
+siempre el mismo, y si difiere del de un arranque bueno. Eso localiza el
+chequeo del booter que devuelve 0x15 sin tener su codigo.
+
