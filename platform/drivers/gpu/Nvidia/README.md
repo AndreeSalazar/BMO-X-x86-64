@@ -18,3 +18,9 @@ El [lector LIBOS](libos-bmo/README.md) reune anillo, diccionario ELF y
 fuente de bytes en un crate puro, sin dependencias. GA10x conserva su API
 `inspeccion::libos` mediante reexportacion. El crate corre en la CPU del
 lector; no carga un sistema operativo en el GSP.
+## Investigacion de firmware propio
+
+Pedido del propietario, 17-10: [BROM, HS y reemplazo](HS_INVESTIGACION.md).
+El objetivo de investigacion se amplia al control propio, con evidencia
+por pieza y pasos verificables. La primera entrega inventaria copias en
+el anfitrion; no incorpora firmware propio ni cambia el supervisor puro.
