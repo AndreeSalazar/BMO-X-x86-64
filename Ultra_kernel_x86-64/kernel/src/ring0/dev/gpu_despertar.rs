@@ -462,6 +462,7 @@ fn soltar(r: &mut Bar0, c: Cargado, vigia: (u64, u64)) -> Result<u64, u32> {
     AUTOPSIA[18].store(probe.controls, Ordering::Release);
     AUTOPSIA[19].store(gpu_libos::IOVA_LIBOS | 1 << 63, Ordering::Release);
     fotografiar_honda(r);
+    super::gpu_capture::record(r, intento, bmo_nvidia_gsp_control::capture::BEFORE_BOOTER);
     if fa::arrancar_con(r, fa::SEC2, Some(c.arranque), Some(m as u32), Some((m >> 32) as u32)).is_err() {
         return no(IOMMU_NO_SEC2);
     }
@@ -602,6 +603,8 @@ pub fn info_intento() -> u64 {
 
 /// La foto del SEC2 recien parado, UNA vez por arranque.
 fn autopsiar(r: &mut Bar0) {
+    // El diario es por intento, independiente de la antigua primera autopsia.
+    super::gpu_capture::record(r, info_intento(), bmo_nvidia_gsp_control::capture::HALTED);
     if AUTOPSIA[1].load(Ordering::Acquire) != 0 {
         return;
     }
@@ -799,6 +802,21 @@ pub fn gsp_tomado() -> bool {
 /// = 0x15 donde tres veces antes dio 0. nova-core imprime los DOS buzones al
 /// fallar; aqui solo se veia el primero.
 pub fn info_despierto_buzon(sel: u64) -> u64 {
+    let kind = (sel >> 8) & 255;
+    let base = bmo_nvidia_gsp_control::capture::SELECTOR;
+    if kind == base || kind == base + 1 || kind == base + 3 { return super::gpu_capture::info(sel); }
+    if kind == base + 2 {
+        // Director pide la foto al vencer SU espera. Solo si un booter se
+        // solto y han transcurrido al menos sus 5 s; no cambia ese plazo.
+        let start = BOOTER_TSC.load(Ordering::Acquire);
+        let hz = crate::ring0::task::scheduler::tsc_freq();
+        let bar = super::gpu::bar0();
+        if start != 0 && bar != 0 && hz != 0
+            && crate::ring0::task::scheduler::rdtsc().saturating_sub(start) >= hz.saturating_mul(5) {
+            super::gpu_capture::record(&mut Bar0(bar), info_intento(), bmo_nvidia_gsp_control::capture::WAIT_EXPIRED);
+        }
+        return 0;
+    }
     if sel >> 8 == 2 {
         return info_secuencia();
     }

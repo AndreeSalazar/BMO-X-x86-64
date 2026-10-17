@@ -202,7 +202,7 @@ pub(crate) const PASOS: &[Paso] = &[
         hecho: super::gsp::despierto,
         dar: super::gsp::despertar,
         pide: Some(b"sistema"),
-        consejo: b"`gpu`: la fila `despierto` dice el RISC-V ACTIVO y `gsplog` que el GSP ESCRIBIO; sus logs en informe/gpu/gsplog.bin -- lo siguiente es `cola`, leer lo que dijo",
+        consejo: b"`gpu`: `despierto` dice si se vio RISC-V ACTIVO; `captura GSP` da el conjunto por sesion/intento. PUT cero no demuestra inactividad -- lo siguiente es `cola`",
         repinta: false,
     },
     Paso {

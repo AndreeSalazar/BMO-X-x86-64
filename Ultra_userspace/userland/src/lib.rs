@@ -1291,6 +1291,8 @@ pub const DESPIERTO_VALIDO: u64 = 1 << 15;
 pub const DESPIERTO_MOTIVO_SHIFT: u64 = 16;
 pub const DESPIERTO_BUZON_SHIFT: u64 = 32;
 pub const INFO_GPU_DESPIERTO_BUZON: u64 = 0xC0;
+// Selectores 64..67: captura GSP v1, descrita junto al mismo campo del ABI.
+// 64 cabecera; 65 slot; 66 vencimiento; 67 logs. Datos en mitades con TAG.
 pub const SEC_CARGADO: u64 = 0x40;
 pub const SEC_HECHO: u64 = 0x80;
 pub const SEC_FUERA: u64 = 1;

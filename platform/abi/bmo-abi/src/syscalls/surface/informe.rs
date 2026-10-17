@@ -1868,6 +1868,15 @@ pub const DESPIERTO_VALIDO: u64 = 1 << 15;
 pub const DESPIERTO_MOTIVO_SHIFT: u64 = 16;
 pub const DESPIERTO_BUZON_SHIFT: u64 = 32;
 pub const INFO_GPU_DESPIERTO_BUZON: u64 = 0xC0;
+// Capturas v1: selector (bits 8..15) 64, indice desde bit 16:
+// 0 magia BMOGCAP1, 1 cuenta publicada, 2 perdidas, 3 RTC, 4 TSC de sesion.
+// Cada respuesta de datos es TAG C437CA01 arriba y 32 bits abajo: cero de
+// transporte no es un valor. En 64, mitad en bit 32; indice bits 16..23.
+// 65: slot bits 16..23, indice de media palabra desde bit 24 (74 por foto).
+// 66: observar vencimiento de espera SEC2, solo despues de los 5 s existentes.
+// 67: media palabra de logs (indice desde bit 16), acotada a 196608 bytes.
+// Diario append-only, 32 fotos; mascara presencia/PRI en palabras 8/9.
+// No es garantia de atomicidad del aparato ni nueva autoridad de escritura.
 pub const SEC_CARGADO: u64 = 0x40;
 pub const SEC_HECHO: u64 = 0x80;
 pub const SEC_FUERA: u64 = 1;

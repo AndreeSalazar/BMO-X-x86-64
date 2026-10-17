@@ -1,5 +1,9 @@
 # Booter: hacer explicito el retorno sin inventar su significado
 
+Ampliacion posterior: [capturas por fase e intento](CAPTURAS.md) agrega un
+diario separado en Ring 0 y exportacion asociada. Las restricciones de este
+documento siguen aplicando a la autopsia antigua sin sello, no al nuevo diario.
+
 17-10-2026. Problema: un `0x15` aislado no identifica el componente que lo
 produjo ni explica por que fallo. `gpu control` ya mostraba motivo y buzon;
 esta ampliacion interpreta su disponibilidad y conserva sus dominios.

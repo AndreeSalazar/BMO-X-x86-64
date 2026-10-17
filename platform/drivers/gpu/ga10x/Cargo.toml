@@ -18,6 +18,8 @@ bmo-nvidia-libos = { path = "../Nvidia/libos-bmo" }
 # en un BSF, y el banco lo fabrica y lo lee con el MISMO lector que usara
 # quien dibuja. Estas dependencias no entran en el kernel.
 [dev-dependencies]
+bmo-nvidia-gsp-control = { path = "../Nvidia/gsp-control-bmo" }
+bmo-hash = { path = "../../../shared/bmo-hash" }
 # El codificador de SASS (E2): el juez lo juzga en SUS pruebas (juez.rs).
 bmo-sm86 = { path = "../../../shared/bmo-sm86" }
 # Y lo que EMITE el emisor de PROTON-X (E3): el juez lo juzga aqui.

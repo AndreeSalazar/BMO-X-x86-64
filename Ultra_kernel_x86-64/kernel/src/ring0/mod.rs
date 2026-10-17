@@ -256,6 +256,8 @@ pub mod dev {
     pub mod gpu_trabajo;
     /// L0c3b: el booter en el SEC2 despierta el GSP (2026-09-24).
     pub mod gpu_despertar;
+    /// Capturas de diagnostico por fase e intento; ninguna escritura GPU.
+    pub mod gpu_capture;
     /// L0c5: el GSP apagado en orden, para que el siguiente arranque la encuentre limpia (2026-09-25).
     pub mod gpu_apagar;
     /// P1 (2026-09-25): EL PASE de la GPU -- NEUTRO: el lienzo prestado una vez y

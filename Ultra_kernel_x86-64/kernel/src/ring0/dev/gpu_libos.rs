@@ -287,20 +287,30 @@ pub const VENTANA_TOTAL: u64 = VENTANA_LOGS + lb::GSPMEM_PAGINAS * PAGINA;
 /// contado sobre `0..0x30000` los logs (LOGINIT, LOGINTR, LOGRM) y detras
 /// GspMem. Para leerlo desde el escritorio, como la ROM en L0a. 0 si no hay.
 pub fn info_gsp_mem(sel: u64) -> u64 {
-    let desde = (sel >> 8) & !7;
+    read_mem((sel >> 8) & !7).unwrap_or(0)
+}
+
+/// Copia de logs con presencia explicita, para el transporte de capturas.
+/// Solo palabras alineadas dentro de los tres logs, nunca punteros arbitrarios.
+pub(super) fn capture_log(offset: u64) -> Option<u64> {
+    if offset & 7 != 0 || offset >= VENTANA_LOGS { return None; }
+    read_mem(offset)
+}
+
+fn read_mem(desde: u64) -> Option<u64> {
     let (f, o) = if desde < VENTANA_LOGS {
         (LOGS_F.load(Ordering::Acquire), desde)
     } else if desde < VENTANA_TOTAL {
         (GSPMEM_F.load(Ordering::Acquire), desde - VENTANA_LOGS)
     } else {
-        return 0;
+        return None;
     };
     if f == 0 {
-        return 0;
+        return None;
     }
     // SAFETY: un marco NEUTRO de este fichero, dentro de lo que se pidio; lo
     // escribe la 3060 por DMA, y por eso se lee volatile.
-    unsafe { (crate::ring0::mm::phys_to_virt(f + o) as *const u64).read_volatile() }
+    Some(unsafe { (crate::ring0::mm::phys_to_virt(f + o) as *const u64).read_volatile() })
 }
 
 // == L0c4b1: EL PUNTERO DE LECTURA DE LA CPU (2026-09-24) =====================

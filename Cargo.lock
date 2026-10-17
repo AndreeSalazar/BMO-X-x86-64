@@ -392,6 +392,8 @@ version = "0.1.0"
 dependencies = [
  "bmo-bsf",
  "bmo-cubo",
+ "bmo-hash",
+ "bmo-nvidia-gsp-control",
  "bmo-nvidia-libos",
  "bmo-proton-x",
  "bmo-proton-x-sm86",

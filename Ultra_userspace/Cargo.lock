@@ -339,6 +339,7 @@ dependencies = [
  "bmo-fraps",
  "bmo-golpe",
  "bmo-gpu-ga10x",
+ "bmo-hash",
  "bmo-imagen",
  "bmo-iommu-amdvi",
  "bmo-juicio",

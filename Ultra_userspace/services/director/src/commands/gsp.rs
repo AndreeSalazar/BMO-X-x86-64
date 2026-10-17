@@ -606,9 +606,7 @@ pub(crate) fn fila_libos(s: &mut Output) {
 // Tres ordenes del kernel y tres esperas aqui, cediendo el turno: el GSP se
 // para tras su arranque vacio, el SEC2 se para con el booter hecho, y el
 // RISC-V del GSP se enciende. Salga como salga, lo que el GSP escribio en sus
-// logs se guarda en `informe/gpu/gsplog.bin`: si algo falla, ahi dice por que.
-
-const RUTA_LOG: &[u8] = b"informe/gpu/gsplog.bin";
+// logs se conserva por sesion/intento; sin diccionario no se inventan mensajes.
 /// Los tres logs: 3 x 16 paginas.
 const LOGS_BYTES: u64 = 3 * 16 * 4096;
 /// Donde esta, dentro de `INFO_GPU_GSP_MEM`, el `writePtr` de la cola del GSP:
@@ -638,30 +636,8 @@ fn mem(desde: u64) -> u64 {
     bmo::info(bmo::INFO_GPU_GSP_MEM | desde << 8)
 }
 
-/// Los tres logs del GSP, crudos, a `informe/gpu/gsplog.bin`. `true` si se guardo.
-fn guardar_logs() -> bool {
-    if bmo::info(bmo::INFO_GPU_LIBOS) & bmo::LIBOS_PREPARADO == 0 {
-        return false;
-    }
-    let attempt = bmo::info(bmo::INFO_GPU_INTENTO);
-    let Some(bloque) = bmo::Memoria::request(LOGS_BYTES) else { return false };
-    // SAFETY: el bloque mide LOGS_BYTES, es de este proceso y se escribe aqui
-    // antes de leerse.
-    let b = unsafe { core::slice::from_raw_parts_mut(bloque.base(), LOGS_BYTES as usize) };
-    for o in (0..LOGS_BYTES).step_by(8) {
-        b[o as usize..o as usize + 8].copy_from_slice(&mem(o).to_le_bytes());
-    }
-    // No sobrescribir la copia anterior con ceros por falta de reserva ni
-    // con una lectura que cruzo intentos. No garantiza coherencia de DMA.
-    if bmo::info(bmo::INFO_GPU_LIBOS) & bmo::LIBOS_PREPARADO == 0
-        || bmo::info(bmo::INFO_GPU_INTENTO) != attempt {
-        return false;
-    }
-    match bmo::Archivo::create(RUTA_LOG) {
-        Ok(a) => a.escribir_de(&bloque, 0, LOGS_BYTES) == LOGS_BYTES && a.close(),
-        Err(_) => false,
-    }
-}
+#[path = "gsp_capture.rs"]
+mod capture;
 
 fn despertar_sin_logs() -> Result<u64, u32> {
     if bmo::info(bmo::INFO_GPU_DESPIERTO) & bmo::DESPIERTO_VISTO != 0 {
@@ -680,6 +656,7 @@ fn despertar_sin_logs() -> Result<u64, u32> {
     }
     // nova-core da 2 s al booter; aqui 5, que sube 60 MB a la WPR2.
     if !esperar(5000, |d| d & bmo::DESPIERTO_SEC2_PARADO != 0) {
+        bmo::info(bmo::INFO_GPU_DESPIERTO_BUZON | (bmo_nvidia_gsp_control::capture::SELECTOR + 2) << 8);
         return Err(NO_SEC2_NO_ACABA);
     }
     bmo::iommu_orden(bmo::IOMMU_OP_GSP_ACABAR)?;
@@ -692,7 +669,7 @@ fn despertar_sin_logs() -> Result<u64, u32> {
 /// **`gpu despertar`, y el paso de `save mode`.** Salga como salga, los logs.
 pub(crate) fn despertar() -> Result<u64, u32> {
     let r = despertar_sin_logs();
-    guardar_logs();
+    capture::save();
     r
 }
 
@@ -733,13 +710,13 @@ pub(crate) fn orden_despertar(dsk: &mut Desktop, p: &bmo::Pantalla) -> After {
     match r {
         Ok(_) => {
             g.with_ink(INK_GOOD);
-            g.text(b"  EL GSP DESPERTO: el RISC-V del GSP de tu 3060 esta ACTIVO; sus logs en informe/gpu/gsplog.bin\n");
+            g.text(b"  EL GSP DESPERTO: RISC-V observado ACTIVO; ver fila captura GSP para el guardado\n");
         }
         Err(m) => {
             g.with_ink(INK_ERR);
             g.text(b"  NO: ");
             g.text(super::iommu::motivo(m));
-            g.text(b" -- los logs del GSP, en informe/gpu/gsplog.bin\n");
+            g.text(b" -- ver fila captura GSP para el guardado\n");
         }
     }
     g.with_ink(INK_PLAIN);
@@ -907,6 +884,7 @@ fn fila_autopsia(s: &mut Output) {
 }
 
 pub(crate) fn fila_despierto(s: &mut Output) {
+    capture::row(s);
     let d = bmo::info(bmo::INFO_GPU_DESPIERTO);
     if d & bmo::DESPIERTO_VALIDO == 0 {
         return;
@@ -980,12 +958,15 @@ pub(crate) fn fila_despierto(s: &mut Output) {
         s.text(b"sin reserva LIBOS: no hay muestra; cero no significa log vacio\n");
         return;
     }
-    let (ini, intr, rm) = (mem(0), mem(16 * 4096), mem(32 * 4096));
+    let Some([ini, intr, rm]) = capture::puts() else {
+        s.text(b"PUT sin lectura valida de transporte; no convertir ausencia en cero\n");
+        return;
+    };
     let cola = mem(COLA_GSP_ESCRITO) & 0xFFFF_FFFF;
     let b = bmo::info(bmo::INFO_GPU_DESPIERTO_BUZON);
     let escribio = ini | intr | rm | cola != 0;
     s.with_ink(if escribio { INK_GOOD } else { INK_ECHO });
-    s.text(if escribio { b"punteros no nulos en la RAM prestada: " as &[u8] } else { b"PUT y cola leidos en cero; no prueban inactividad del GSP: " });
+    s.text(if escribio { b"punteros no nulos en la RAM prestada: " as &[u8] } else { b"PUT validos en cero; no prueban inactividad del GSP: " });
     s.with_ink(INK_PLAIN);
     s.text(b"LOGINIT ");
     s.dec(ini);
@@ -1000,14 +981,17 @@ pub(crate) fn fila_despierto(s: &mut Output) {
             s.text(b" palabras (no mensajes)");
         }
     }
-    s.text(b"; su cola ");
-    s.dec(cola);
-    s.text(b" mensajes; buzon GSP vivo ");
+    if cola == 0 {
+        s.text(b"; cola sin dato distinguible (cero o lectura fallida)");
+    } else {
+        s.text(b"; cola cruda "); s.dec(cola);
+    }
+    s.text(b"; buzon GSP vivo ");
     // Esta INFO devuelve 0 tanto ante falta/error de lectura como ante dos
     // buzones cero. No presentarlo como una respuesta valida del firmware.
     readback::mailboxes(s, b);
     s.with_ink(INK_ECHO);
-    s.text(b"   -> informe/gpu/gsplog.bin");
+    s.text(b"   -> conjunto por sesion/intento, ver fila captura GSP");
     s.with_ink(INK_PLAIN);
     s.byte(b'\n');
     super::datos::anotar(b"gpu gsp despierto", d, b"");

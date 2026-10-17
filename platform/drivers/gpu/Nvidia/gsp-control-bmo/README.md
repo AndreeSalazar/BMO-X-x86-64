@@ -1,5 +1,7 @@
 # GSP-CONTROL-BMO -- etapa 1: que la GPU deje evidencia
 
+Capturas por fase e intento: [formato, limites y recogida](CAPTURAS.md).
+
 Ampliacion 17-10: [retorno del booter, dominios y atribucion de autopsia](DIAGNOSTICO_BOOTER.md).
 `gpu control` distingue buzon no cero de lectura no disponible, verifica el
 intento al delimitar la consulta y no atribuye una foto sin sello a reintentos.

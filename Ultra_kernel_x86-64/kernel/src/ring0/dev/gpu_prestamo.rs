@@ -334,6 +334,7 @@ pub fn fwsec_correr() -> Result<u64, u32> {
         Ok(b) => b,
         Err(m) => return no(m),
     };
+    super::gpu_capture::before_frts(&mut Bar0(bar0));
     let w = crate::ring0::dev::gpu::info_wpr2();
     if (w >> 32) as u32 >> 4 != 0 {
         return no(IOMMU_NO_WPR2_YA);
@@ -577,6 +578,7 @@ fn autopsiar_fwsec(r: &mut Bar0) {
     if FWSEC_AUTOPSIA.swap(true, Ordering::AcqRel) {
         return;
     }
+    super::gpu_capture::after_frts(r);
     let w = crate::ring0::dev::gpu::info_wpr2();
     let montada = (w >> 32) as u32 >> 4 != 0;
     let decir = |msg: &str, v: u64| if montada { crate::ring0::cabina::info("gpu", msg, v) } else { crate::ring0::cabina::warn("gpu", msg, v) };
