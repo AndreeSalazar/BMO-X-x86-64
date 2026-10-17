@@ -455,6 +455,7 @@ mod pruebas {
         let m = bmo_titan_front::lower("mod main \"x\"\nfn main()\n    print(1)\n").unwrap();
         let cuerpos = crate::Cuerpos::new();
         let mut e = E1 {
+            relative_mouse: super::super::entrada::uses_relative_mouse(&m),
             m: &m,
             forms: super::super::forma::Forms::new(&m),
             code: Vec::new(),
