@@ -80,11 +80,13 @@ y acceso de aparato en el supervisor; verifica la consulta sin ordenes.
 Rechaza tambien punteros crudos, includes, modulos con path externo y
 permisos locales para unsafe. Recorre fuentes bajo cfg aunque esa variante
 no este activa; Rust aplica forbid(unsafe_code) a todos los modulos compilados.
-Catorce pruebas del guardian incluyen fugas bajo feature y target_os.
+Catorce pruebas del guardian incluyen fugas bajo feature y target_os; S8
+las ejecuta automaticamente en cada --check, tambien desde el build.
 S8 se ejecuta desde `la_3060.py --check`, ya conectado a
 `Ultra_kernel_x86-64/build/guardianes.ps1`: build normal y ventana VERIFICAR
 usan esa lista compartida. Cargo directo aplica forbid, pero no corre Python.
-El alcance nuevo es este supervisor NVIDIA y su consulta, no todos los unsafe
+Sin Python, este guardian obligatorio rechaza el build en vez de aprobar
+sin comprobar. El alcance nuevo es este supervisor NVIDIA y su consulta, no todos los unsafe
 del kernel. Cualquier futuro adaptador que necesite unsafe requiere frontera
 de autoridad, prestamos y vida de memoria propios y su guardian antes de entrar.
 Sus patrones no sustituyen la revision del flujo, la IOMMU ni las pruebas.

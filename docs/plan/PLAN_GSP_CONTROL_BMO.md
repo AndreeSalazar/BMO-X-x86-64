@@ -77,6 +77,9 @@ Implementado el 16-10-2026: [contrato e inventario](../../platform/drivers/gpu/N
 crate puro y `gpu control` incluido en `save`. Hoy solo usa la foto
 (`diagnose`): la ABI no entrega build ni intento, y sin ellos el modelo con
 historia no se abre. Eso lo cierra GCB2a.
+El 17-10 se conecta la autoprueba negativa de S8 a cada check/build; el
+portico NVIDIA es obligatorio, y sin Python no aprueba. La medicion y el
+reparto del banco se documentan en [VERIFICAR](../../toolchain/tools/verificar/README.md).
 
 ### GCB2 -- palanca 1: dar posesion bien (G0, PRIORIDAD)
 

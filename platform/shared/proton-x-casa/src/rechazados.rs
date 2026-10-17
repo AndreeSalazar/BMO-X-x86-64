@@ -23,6 +23,7 @@
 use alloc::string::String;
 use alloc::vec::Vec;
 use core::cell::UnsafeCell;
+use core::sync::atomic::{AtomicBool, Ordering};
 
 struct Estado {
     carpeta: Option<String>,
@@ -31,24 +32,48 @@ struct Estado {
     indice: Vec<(u64, String, String)>,
 }
 
-struct Global(UnsafeCell<Estado>);
-// SAFETY: la casa corre en un hilo a la vez (ver `Global` en lib.rs).
-// [hilos] cerrojo -- estado del proceso que tocan los hilos del juego: necesita un cerrojo (H2.1)
-unsafe impl Sync for Global {}
-static ESTADO: Global = Global(UnsafeCell::new(Estado { carpeta: None, vistos: Vec::new(), indice: Vec::new() }));
-
-fn estado() -> &'static mut Estado {
-    // SAFETY: ver `Global`; nadie guarda la referencia.
-    unsafe { &mut *ESTADO.0.get() }
+struct Global {
+    ocupado: AtomicBool,
+    estado: UnsafeCell<Estado>,
 }
+// SAFETY: solo Acceso::estado crea un &mut, ligado a un Acceso exclusivo.
+// El CAS Acquire admite uno; Drop publica los cambios con Release. Estado es Send.
+// [hilos] hecho -- CAS exclusivo y guardia RAII; la reentrada se rechaza sin girar
+unsafe impl Sync for Global {}
 
-/// **La carpeta de los rechazados de este juego** (la pone la app con el
-/// perfil en ESTRATOS). `None`: no se guarda nada.
-pub fn poner_carpeta(carpeta: Option<String>) {
-    let e = estado();
+impl Global {
+    const fn nuevo() -> Self {
+        Self { ocupado: AtomicBool::new(false), estado: UnsafeCell::new(Estado {
+            carpeta: None, vistos: Vec::new(), indice: Vec::new(),
+        }) }
+    }
+    fn tomar(&self) -> Option<Acceso<'_>> {
+        self.ocupado.compare_exchange(false, true, Ordering::Acquire, Ordering::Relaxed).ok()?;
+        Some(Acceso(self))
+    }
+}
+struct Acceso<'a>(&'a Global);
+impl Acceso<'_> {
+    fn estado(&mut self) -> &mut Estado {
+        // SAFETY: tomar concedio el unico Acceso; la referencia no vive mas que el.
+        unsafe { &mut *self.0.estado.get() }
+    }
+}
+impl Drop for Acceso<'_> {
+    fn drop(&mut self) { self.0.ocupado.store(false, Ordering::Release); }
+}
+static ESTADO: Global = Global::nuevo();
+
+/// La carpeta del juego. False conserva el estado anterior si hay escritura
+/// en curso; no gira ni mantiene un &mut sin propietario durante un callback.
+#[must_use]
+pub fn poner_carpeta(carpeta: Option<String>) -> bool {
+    let Some(mut acceso) = ESTADO.tomar() else { return false; };
+    let e = acceso.estado();
     e.carpeta = carpeta;
     e.vistos.clear();
     e.indice.clear();
+    true
 }
 
 /// FNV-1a de 64 bits de las etapas, en orden.
@@ -67,9 +92,10 @@ pub fn huella(etapas: &[(&str, &[u8])]) -> u64 {
 
 /// **Guardar un sombreador rechazado**: cada etapa (`"cs"`, `"vs"`...) con
 /// sus bytes, y el porque. Devuelve la huella si se escribio ahora; `None`
-/// sin carpeta, si ya se guardo en esta corrida, o si el disco no quiso.
+/// sin carpeta, si ya se guardo, si otro acceso esta en curso o si el disco no quiso.
 pub fn guardar(etapas: &[(&str, &[u8])], porque: &str) -> Option<u64> {
-    let e = estado();
+    let mut acceso = ESTADO.tomar()?;
+    let e = acceso.estado();
     let carpeta = e.carpeta.clone()?;
     let h = huella(etapas);
     if e.vistos.contains(&h) {
@@ -122,6 +148,7 @@ pub fn indice(lista: &[(u64, String, String)]) -> String {
 
 #[cfg(test)]
 mod pruebas {
+    extern crate std;
     use super::*;
 
     #[test]
@@ -142,7 +169,55 @@ mod pruebas {
 
     #[test]
     fn sin_carpeta_no_se_guarda() {
-        poner_carpeta(None);
+        let _ = poner_carpeta(None);
         assert_eq!(guardar(&[("cs", b"x")], "porque"), None);
     }
+
+    #[test]
+    fn acceso_exclusivo_reentrada_y_liberacion() {
+        let global = Global::nuevo();
+        let mut a = global.tomar().unwrap();
+        a.estado().vistos.push(7);
+        assert!(global.tomar().is_none(), "reentrada no espera ni crea otro &mut");
+        drop(a);
+        assert_eq!(global.tomar().unwrap().estado().vistos, [7]);
+    }
+
+    #[test]
+    fn unwinding_libera_el_acceso() {
+        let global = Global::nuevo();
+        let r = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let _a = global.tomar().unwrap();
+            panic!("salida de prueba");
+        }));
+        assert!(r.is_err());
+        assert!(global.tomar().is_some());
+    }
+
+    #[test]
+    fn ocho_hilos_no_pierden_ni_comparten_mutaciones() {
+        let global = std::sync::Arc::new(Global::nuevo());
+        let mut hilos = Vec::new();
+        for hilo in 0..8u64 {
+            let g = global.clone();
+            hilos.push(std::thread::spawn(move || {
+                for n in 0..1000u64 {
+                    loop {
+                        if let Some(mut a) = g.tomar() {
+                            a.estado().vistos.push(hilo * 1000 + n);
+                            break;
+                        }
+                        std::thread::yield_now();
+                    }
+                }
+            }));
+        }
+        for hilo in hilos { hilo.join().unwrap(); }
+        let mut a = global.tomar().unwrap();
+        let v = &mut a.estado().vistos;
+        v.sort_unstable();
+        assert_eq!(v.len(), 8000);
+        assert!(v.iter().copied().eq(0..8000));
+    }
+
 }

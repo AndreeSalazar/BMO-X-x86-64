@@ -383,10 +383,10 @@ foreach ($gen in $genFiles) {
     foreach ($modo in @(@(), @('--paleta'))) {
         Remove-Item $tmp -ErrorAction SilentlyContinue
         Push-Location (Join-Path $root '..')
-        $salida = (cargo run -q -p bmo-maqueta -- @modo $maq $tmp 2>&1 | Out-String)
+        $textoContrato = (cargo run -q -p bmo-maqueta -- @modo $maq $tmp 2>&1 | Out-String)
         Pop-Location
         if (-not (Test-Path $tmp)) {
-            Write-Host $salida
+            Write-Host $textoContrato
             Fail ('el compilador de maqueta no emitio nada para ' + $fuente)
         }
         if ($a -eq (Get-Content $tmp -Raw).Replace($crlf, $lf)) {

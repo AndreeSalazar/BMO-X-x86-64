@@ -504,6 +504,13 @@ opt-level = 3
 opt-level = 3
 [profile.dev.package.bmo-hash]
 opt-level = 3
+# El banco cubo_gira de TITAN++ costo 50,8 s (17-10): el calculo del frontend
+# y el adaptador puro seguian en debug sin optimizar. Solo cambia opt-level;
+# se conservan debug_assertions y overflow-checks del perfil de pruebas.
+[profile.dev.package.bmo-titan-front]
+opt-level = 3
+[profile.dev.package.bmo-titan-prometeo]
+opt-level = 3
 
 [profile.release]
 panic = "abort"

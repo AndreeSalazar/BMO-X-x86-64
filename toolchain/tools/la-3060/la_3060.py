@@ -131,6 +131,7 @@ import glob
 import os
 import re
 import sys
+import subprocess
 import tomllib
 from collections import defaultdict
 
@@ -756,6 +757,14 @@ def main():
     lente_lectura(fallos, 'sm86_ordenes.rs')
     n_inspeccion = inspeccion_nvidia(fallos)
     n_control = gsp_control(fallos)
+    # Las variantes rotas se comprueban en cada build/VERIFICAR, no solo a mano.
+    prueba_control = os.path.join(os.path.dirname(__file__), 'test_lente_guardian.py')
+    try:
+        prueba = subprocess.run([sys.executable, prueba_control], capture_output=True, text=True)
+        if prueba.returncode != 0:
+            fallos.append('S8: autoproteccion del guardian fallo: ' + prueba.stdout + prueba.stderr)
+    except OSError as error:
+        fallos.append('S8: no se pudo ejecutar su autoproteccion: %s' % error)
     z_y_float(fallos)
     medida(fallos)
     giros = esperas()

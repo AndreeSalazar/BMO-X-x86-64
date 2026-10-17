@@ -33,17 +33,17 @@ if ($py) {
     Titulo 'El contrato de compatibilidad'
     $env:PYTHONIOENCODING = 'utf-8'
     # La AUTOPRUEBA primero: una regla que no sabe decir que no, no protege nada.
-    $salida = & $py.Source $contrato --autoprueba
-    if ($LASTEXITCODE -ne 0) { $salida | ForEach-Object { Write-Host "   $_" }; Muere 'las reglas del contrato no saben decir que NO' }
-    $salida | Where-Object { $_ -match 'clean:' } | ForEach-Object { Bien ($_ -replace '^clean: ','') }
-    $salida = & $py.Source $contrato --check
-    if ($LASTEXITCODE -ne 0) { $salida | ForEach-Object { Write-Host "   $_" -ForegroundColor Red }; Muere 'algo entro en la superficie sin pagar el peaje' }
-    $salida | Where-Object { $_ -match 'clean:|\[i\]' } | ForEach-Object { Bien ($_ -replace '^clean: ','') }
+    $textoComprobacion = & $py.Source $contrato --autoprueba
+    if ($LASTEXITCODE -ne 0) { $textoComprobacion | ForEach-Object { Write-Host "   $_" }; Muere 'las reglas del contrato no saben decir que NO' }
+    $textoComprobacion | Where-Object { $_ -match 'clean:' } | ForEach-Object { Bien ($_ -replace '^clean: ','') }
+    $textoComprobacion = & $py.Source $contrato --check
+    if ($LASTEXITCODE -ne 0) { $textoComprobacion | ForEach-Object { Write-Host "   $_" -ForegroundColor Red }; Muere 'algo entro en la superficie sin pagar el peaje' }
+    $textoComprobacion | Where-Object { $_ -match 'clean:|\[i\]' } | ForEach-Object { Bien ($_ -replace '^clean: ','') }
     # EL SELLO DE VALKYRIE. Se GUARDA aqui y se imprime al final, no aqui:
     # una firma va debajo de lo que firma. Si el guardian no lo emitio, esto
     # se queda vacio y el final lo dice -- no se fabrica.
-    $sello  = ($salida | Where-Object { $_ -match '^sello: ' })         -replace '^sello: ',''
-    $selloD = ($salida | Where-Object { $_ -match '^sello-detalle: ' }) -replace '^sello-detalle: ',''
+    $sello  = ($textoComprobacion | Where-Object { $_ -match '^sello: ' })         -replace '^sello: ',''
+    $selloD = ($textoComprobacion | Where-Object { $_ -match '^sello-detalle: ' }) -replace '^sello-detalle: ',''
 } else {
     Write-Host '   [!] python no encontrado: el contrato NO se comprueba' -ForegroundColor Yellow
 }
@@ -59,12 +59,27 @@ $protonx = Join-Path $raiz 'toolchain\tools\proton-x\proton_x.py'
 if (-not (Test-Path $protonx)) { Muere 'guardian MUERTO: falta toolchain\tools\proton-x\proton_x.py' }
 if ($py) {
     Titulo 'PROTON-X: lo que se prueba es lo que se da'
-    $salida = & $py.Source $protonx --autoprueba
-    if ($LASTEXITCODE -ne 0) { $salida | ForEach-Object { Write-Host "   $_" }; Muere 'las reglas de PROTON-X no saben decir que NO' }
-    $salida | Where-Object { $_ -match 'clean:' } | ForEach-Object { Bien ($_ -replace '^clean: ','') }
-    $salida = & $py.Source $protonx --check
-    if ($LASTEXITCODE -ne 0) { $salida | ForEach-Object { Write-Host "   $_" -ForegroundColor Red }; Muere 'PROTON-X: un .exe, un nombre o un numero no esta donde tiene que estar' }
-    $salida | Where-Object { $_ -match 'clean:' } | ForEach-Object { Bien ($_ -replace '^clean: ','') }
+    $textoComprobacion = & $py.Source $protonx --autoprueba
+    if ($LASTEXITCODE -ne 0) { $textoComprobacion | ForEach-Object { Write-Host "   $_" }; Muere 'las reglas de PROTON-X no saben decir que NO' }
+    $textoComprobacion | Where-Object { $_ -match 'clean:' } | ForEach-Object { Bien ($_ -replace '^clean: ','') }
+    $textoComprobacion = & $py.Source $protonx --check
+    if ($LASTEXITCODE -ne 0) { $textoComprobacion | ForEach-Object { Write-Host "   $_" -ForegroundColor Red }; Muere 'PROTON-X: un .exe, un nombre o un numero no esta donde tiene que estar' }
+    $textoComprobacion | Where-Object { $_ -match 'clean:' } | ForEach-Object { Bien ($_ -replace '^clean: ','') }
+}
+
+# El portico demuestra rechazos antes de dar un OK: cobertura, codigo nativo
+# y colisiones de la bandera de fallo, tambien en modo Rapido.
+if ($py) {
+    Titulo 'Autoprueba del portico de verificacion'
+    $testBanco = Join-Path $raiz 'toolchain\tools\verificar\test_banco.py'
+    $testPortico = Join-Path $raiz 'toolchain\tools\verificar\test_banco.ps1'
+    if (-not (Test-Path $testBanco) -or -not (Test-Path $testPortico)) { Muere 'banco: falta su autoprueba' }
+    $textoPortico = & $py.Source $testBanco 2>&1
+    if ($LASTEXITCODE -ne 0) { $textoPortico | ForEach-Object { Write-Host $_ }; Muere 'banco: su reparto no sabe conservar cobertura y fallos' }
+    $shellPortico = (Get-Process -Id $PID).Path
+    $textoPortico = & $shellPortico -NoProfile -File $testPortico 2>&1
+    if ($LASTEXITCODE -ne 0) { $textoPortico | ForEach-Object { Write-Host $_ }; Muere 'banco: su portico no sabe decir NO' }
+    Bien 'reparto completo y rechazos del portico comprobados'
 }
 
 # -- 1. EL BANCO, ANTES QUE NADA ----------------------------------------
@@ -136,7 +151,9 @@ if (-not $Rapido) {
         $antes = $ErrorActionPreference
         $ErrorActionPreference = 'Continue'
         $meta = (cargo metadata --no-deps --format-version 1 2>$null | Out-String | ConvertFrom-Json)
+        $codigoMeta = $LASTEXITCODE
         $ErrorActionPreference = $antes
+        if ($codigoMeta -ne 0 -or -not $meta.packages) { Muere 'banco: cargo metadata no entrego paquetes; no hay cobertura que verificar' }
         $paquetes = $meta.packages | ForEach-Object { $_.name } |
                     Where-Object { -not $noSePueden.ContainsKey($_) } | Sort-Object
         # ** UNA SOLA LLAMADA A CARGO, NO OCHENTA Y DOS (2026-09-21).
@@ -174,18 +191,33 @@ if (-not $Rapido) {
         # envuelve cada linea de stderr en un ErrorRecord y la PARTE al ancho de
         # la consola, con lo que un `Running tests/x.rs (ruta)` pierde la ruta.
         # `cmd` escribe los bytes tal cual.
-        $errBanco = Join-Path $env:TEMP 'bmo_banco_err.txt'
-        $salida = (& cmd /c ('cargo test --workspace --exclude bmo-kernel --no-fail-fast -- -q 2>"' + $errBanco + '"') | Out-String)
-        $ErrorActionPreference = $antes
-        $anuncios = Get-Content $errBanco | Where-Object {
-            $_ -match '^\s*Running ' -or $_ -match '^\s*Doc-tests '
+        # Un log por proceso evita que dos verificaciones mezclen propietarios.
+        $carpetaBanco = Join-Path $raiz 'target\verificacion'
+        New-Item -ItemType Directory -Force -Path $carpetaBanco | Out-Null
+        $idBanco = "banco-$PID-" + [Guid]::NewGuid().ToString('N')
+        $errBanco = Join-Path $carpetaBanco ("$idBanco.stderr.txt")
+        $relojBanco = [Diagnostics.Stopwatch]::StartNew()
+        if ($py) {
+            $bancoRunner = Join-Path $raiz 'toolchain\tools\verificar\banco.py'
+            if (-not (Test-Path -LiteralPath $bancoRunner)) { Muere 'banco: falta su ejecutor; no se omiten pruebas' }
+            $textoComprobacion = (& $py.Source $bancoRunner --logs $carpetaBanco --run-id $idBanco --stderr $errBanco | Out-String)
+        } else {
+            # Sin Python conserva la orden completa anterior, con su mismo banco.
+            $textoComprobacion = (& cmd /c ('cargo test --workspace --exclude bmo-kernel --no-fail-fast -- -q 2>"' + $errBanco + '"') | Out-String)
         }
-        $resultados = ($salida -split "`r?`n") | Where-Object { $_ -match 'test result: ' }
+        $codigoBanco = $LASTEXITCODE
+        $relojBanco.Stop()
+        $ErrorActionPreference = $antes
+        Set-Content -LiteralPath (Join-Path $carpetaBanco ("$idBanco.stdout.txt")) -Value $textoComprobacion -Encoding UTF8
+        $anuncios = @(Get-Content $errBanco | Where-Object {
+            $_ -match '^\s*Running ' -or $_ -match '^\s*Doc-tests '
+        })
+        $resultados = @(($textoComprobacion -split "`r?`n") | Where-Object { $_ -match 'test result: ' })
         $porCrate = @{}
-        foreach ($p in $paquetes) { $porCrate[$p] = @{ pasadas = 0; rojas = 0 } }
+        foreach ($p in $paquetes) { $porCrate[$p] = @{ pasadas = 0; rojas = 0; segundos = 0.0 } }
         $porRuta = @{}
         foreach ($p in $paquetes) { $porRuta[($p -replace '-', '_')] = $p }
-        $compilo = -not ([regex]::IsMatch((Get-Content $errBanco | Out-String), '(?m)^error'))
+        $compilo = ($codigoBanco -eq 0) -and -not ([regex]::IsMatch((Get-Content $errBanco | Out-String), '(?m)^error'))
         if ($compilo -and $anuncios.Count -ne $resultados.Count) {
             Muere "banco: cargo anuncio $($anuncios.Count) binarios y contesto $($resultados.Count) resultados -- no se puede decir de quien es cada fila"
         }
@@ -206,16 +238,30 @@ if (-not $Rapido) {
             if ($resultados[$i] -match 'test result: \w+\. (\d+) passed; (\d+) failed') {
                 $porCrate[$crate].pasadas += [int]$Matches[1]
                 $porCrate[$crate].rojas += [int]$Matches[2]
+                if ($resultados[$i] -match 'finished in ([0-9.]+)s') {
+                    $porCrate[$crate].segundos += [double]::Parse($Matches[1], [Globalization.CultureInfo]::InvariantCulture)
+                }
             }
         }
         if ($sinPropietario -gt 0) { Muere "banco: $sinPropietario binario(s) de pruebas sin crate conocido" }
+        $medidasBanco = @($paquetes | ForEach-Object {
+            [pscustomobject]@{ Paquete = $_; Pasadas = $porCrate[$_].pasadas;
+                Fallos = $porCrate[$_].rojas; Segundos = $porCrate[$_].segundos }
+        })
+        [pscustomobject]@{ Codigo = $codigoBanco; TotalSegundos = $relojBanco.Elapsed.TotalSeconds;
+            Paquetes = $medidasBanco } | ConvertTo-Json -Depth 4 |
+            Set-Content -LiteralPath (Join-Path $carpetaBanco ("$idBanco.json")) -Encoding UTF8
+        Write-Host ('   banco: {0:N1} s de pared (compilacion, ejecucion y documentacion)' -f $relojBanco.Elapsed.TotalSeconds) -ForegroundColor Cyan
+        foreach ($m in ($medidasBanco | Sort-Object Segundos -Descending | Select-Object -First 8)) {
+            Write-Host ('     {0,-38} {1,8:N2} s en pruebas' -f $m.Paquete, $m.Segundos) -ForegroundColor DarkGray
+        }
         $rojasTotal = ($porCrate.Values | ForEach-Object { $_.rojas } | Measure-Object -Sum).Sum
         if ($rojasTotal -gt 0 -or -not $compilo) {
             # Lo que dijo el compilador (stderr) y lo que dijeron las filas (stdout).
             Get-Content $errBanco | Where-Object { $_ -notmatch '^\s*(Running|Doc-tests|Compiling|Finished)' } | ForEach-Object { Write-Host $_ }
-            Write-Host $salida
+            Write-Host $textoComprobacion
             $malos = ($porCrate.Keys | Where-Object { $porCrate[$_].rojas -gt 0 } | Sort-Object) -join ', '
-            Muere "banco: $rojasTotal rojas ($malos), compilo=$compilo"
+            Muere "banco: $rojasTotal rojas ($malos), cargo=$codigoBanco, compilo=$compilo"
         }
         $total = 0
         $sinBanco = @()

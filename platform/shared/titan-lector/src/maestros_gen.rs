@@ -29,7 +29,7 @@ pub static FAMILIES: [&str; 16] = [
 ];
 
 /// Cuantos hay: la TAB mide sus tablas con esto.
-pub const COUNT: usize = 47;
+pub const COUNT: usize = 48;
 
 /// `static`, no `const`: UNA copia en `.rodata`, que Ring 3 lee por indice
 /// sin traerla a una pila de 64 KiB.
@@ -330,6 +330,17 @@ pub static MASTERS: [Master; COUNT] = [
         typed: &[],
         out: &["pide la 3060 y la pantalla, y su .bex lo dice"],
         source: "# sale: pide la 3060 y la pantalla, y su .bex lo dice\n# el Titan.toml PIDE, y la cabecera usa lo pedido: el .bex lleva esos permisos a su manifiesto\nmod main \"un paquete que pide lo que usa\"\nuse gpu, director\n\nfn main()\n    print(\"pide la 3060 y la pantalla, y su .bex lo dice\")\n",
+    },
+    Master {
+        name: "bloques",
+        level: 10,
+        why: "Un comportamiento compartido; cada bloque compone sus datos y reglas.",
+        says: "bloques con composicion y comportamiento",
+        words: &["fn", "let", "mut", "if", "else", "for", "return", "type", "trait"],
+        asks: Permissions::NONE,
+        typed: &[],
+        out: &["piedra: 7 false", "madera: 0 true"],
+        source: "# sale: piedra: 7 false\n# sale: madera: 0 true\n# Un comportamiento compartido; cada bloque compone sus datos y reglas.\nmod main \"bloques con composicion y comportamiento\"\n\ntype Durability\n    remaining: int\n\ntype Stone\n    durability: Durability\n\ntype Wood\n    durability: Durability\n\ntrait Breakable\n    fn remaining(b: Breakable) -> int\n    fn hit(mut b: Breakable, force: int)\n\nfn reduce(mut d: Durability, force: int)\n    if force > 0\n        if force >= d.remaining\n            d.remaining = 0\n        else\n            d.remaining = d.remaining - force\n\ntrait Breakable for Stone\n    fn remaining(b: Stone) -> int\n        return b.durability.remaining\n    fn hit(mut b: Stone, force: int)\n        reduce(mut b.durability, force)\n\ntrait Breakable for Wood\n    fn remaining(b: Wood) -> int\n        return b.durability.remaining\n    fn hit(mut b: Wood, force: int)\n        reduce(mut b.durability, force * 2)\n\nfn mine(mut b: Breakable, force: int) -> bool\n    hit(mut b, force)\n    return remaining(b) == 0\n\nfn main()\n    let mut stone = Stone { durability: Durability { remaining: 10 } }\n    let mut wood = Wood { durability: Durability { remaining: 6 } }\n    let stone_broken = mine(mut stone, 3)\n    let wood_broken = mine(mut wood, 3)\n    print(\"piedra: \", stone.durability.remaining, \" \", stone_broken)\n    print(\"madera: \", wood.durability.remaining, \" \", wood_broken)\n",
     },
     Master {
         name: "formas",

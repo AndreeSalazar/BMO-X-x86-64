@@ -186,7 +186,7 @@ Guardian 'Validating every PROTON-X Sync says its threading class' `
 # Ver toolchain/tools/la-3060/la_3060.py
 Guardian 'Validating the 3060 stays fenced' `
     'toolchain\tools\la-3060\la_3060.py' 'la puerta y el cerco de la 3060' `
-    'la-3060: la 3060 se aflojo (ver arriba)'
+    'la-3060: la 3060 se aflojo (ver arriba)' -Obligatorio
 # ** EL DISCO PERSONAL (29-09, N1a): el kernel lee el NTFS del OTRO SSD SATA
 # (Personal D:, donde esta Cyberpunk 2077) y NUNCA lo escribe; C: (el NVMe)
 # ni se mira. El propietario: "pon guardianes tambien". Dos cerrojos y un

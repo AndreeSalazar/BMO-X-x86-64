@@ -16,6 +16,8 @@
 # siguiente, y `Tiempos` imprime la tabla al final (y tambien si el build
 # muere: ahi es donde mas importa saber cuanto llevaba). Solo mide: no cambia
 # nada de lo que se compila.
+$script:tipoTiempos = 'COMPILAR'
+$script:idTiempos = [Guid]::NewGuid().ToString('N')
 $script:reloj = [Diagnostics.Stopwatch]::StartNew()
 $script:etapas = New-Object System.Collections.ArrayList
 function Step {
@@ -42,6 +44,15 @@ function Tiempos {
     Write-Host '  ------------------------------------------------------------  --------' -ForegroundColor DarkGray
     Write-Host ('  {0,-60}  {1,8:N1}' -f 'TOTAL', $fin) -ForegroundColor White
     Write-Host ''
+    # Persistir el metro permite comparar corridas sin fotografiar la consola.
+    $carpetaTiempos = Join-Path (Split-Path -Parent $root) 'target\verificacion'
+    try {
+        New-Item -ItemType Directory -Force -Path $carpetaTiempos -ErrorAction Stop | Out-Null
+        [pscustomobject]@{ Ventana = $script:tipoTiempos; TotalSegundos = $fin; Etapas = $filas } |
+            ConvertTo-Json -Depth 4 | Set-Content -LiteralPath (Join-Path $carpetaTiempos ("$($script:tipoTiempos)-$PID-$($script:idTiempos).json")) -Encoding UTF8 -ErrorAction Stop
+    } catch {
+        Write-Host ('  [!] no se pudo guardar el tiempo: ' + $_.Exception.Message) -ForegroundColor Yellow
+    }
 }
 # *** `exit` DENTRO DE UN FICHERO CARGADO CON PUNTO SOLO SALE DE ESE FICHERO
 # (2026-10-05). `. contrato.ps1` corre en el ambito de quien lo carga, pero un
@@ -61,7 +72,7 @@ function Hash256 { param($p) (Get-FileHash -LiteralPath $p -Algorithm SHA256).Ha
 # ** LOS GUARDIANES DE PYTHON, en un sitio: habia DOS bloques identicos y el
 # tercero (L6a) seria la tercera. Sin Python se avisa; si falla, el build para.
 function Guardian {
-    param($paso, $script, $queMide, $siFalla)
+    param($paso, $script, $queMide, $siFalla, [switch]$Obligatorio)
     Step $paso
     $ruta = Join-Path (Split-Path -Parent $root) $script
     $py = (Get-Command python -ErrorAction SilentlyContinue)
@@ -71,16 +82,17 @@ function Guardian {
     # avisar de nada, y con tono tranquilizador. El script es del REPO: para.
     if (-not (Test-Path $ruta)) { Fail ('guardian MUERTO: falta ' + $script) }
     if (-not $py) {
+        if ($Obligatorio) { Fail ('guardian obligatorio sin Python: ' + $script + '; no se puede aprobar ' + $queMide) }
         Write-Host ('  [!] python no encontrado: no se comprueba ' + $queMide) -ForegroundColor Yellow
         return
     }
     $env:PYTHONIOENCODING = 'utf-8'
-    $salida = & $py.Source $ruta --check
+    $textoGuardian = & $py.Source $ruta --check
     if ($LASTEXITCODE -ne 0) {
-        $salida | ForEach-Object { Write-Host ('    ' + $_) -ForegroundColor Red }
+        $textoGuardian | ForEach-Object { Write-Host ('    ' + $_) -ForegroundColor Red }
         Fail $siFalla
     }
-    $salida | Where-Object { $_ -match 'clean:' } | ForEach-Object {
+    $textoGuardian | Where-Object { $_ -match 'clean:' } | ForEach-Object {
         Write-Host ('    ' + $_.Trim()) -ForegroundColor DarkGray
     }
 }
