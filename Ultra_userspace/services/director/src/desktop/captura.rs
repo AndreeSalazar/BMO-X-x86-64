@@ -59,6 +59,8 @@
 //! soltar, la capa ya esta quitada: lo que se lee es la pantalla limpia.
 
 use bmo_userland as bmo;
+#[path = "capture_layout.rs"]
+mod capture_layout;
 
 use crate::desktop::{Desktop, Ventana};
 use crate::scene::chrome::Chrome;
@@ -103,9 +105,11 @@ const TROZO: usize = 64 * 1024;
 /// (`png_escribir::Codificador`), y el PNG que sale es el mismo byte a byte.
 struct EnCurso {
     cod: bmo_imagen::png_escribir::Codificador,
-    /// El taller del compresor con la imagen CRUDA detras, y el PNG.
+    /// Taller, imagen cruda y PNG en un bloque; solo las medidas grandes
+    /// piden una salida aparte. Asi una captura 1080p usa UNA ranura.
     trabajo: bmo::Memoria,
-    salida: bmo::Memoria,
+    salida: Option<bmo::Memoria>,
+    png_offset: usize,
     taller_bytes: usize,
     crudo: usize,
     cota: usize,
@@ -143,19 +147,23 @@ fn guardar(dsk: &mut Desktop, p: &bmo::Pantalla, x0: u32, y0: u32, w: u32, h: u3
         return decir(dsk, p, b"  [captura] ya hay una a medias: se guarda al acabar esa\n", false);
     }
     use bmo_imagen::png_escribir as png;
-    let taller_bytes = png::TALLER * 4;
-    let crudo = png::crudo(w, h);
-    let cota = png::cota(w, h);
-    let (Some(trabajo), Some(salida)) = (
-        bmo::Memoria::request((taller_bytes + crudo) as u64),
-        bmo::Memoria::request(cota as u64),
-    ) else {
-        return decir(dsk, p, b"  [captura] sin memoria para la imagen\n", false);
+    let Some(layout) = capture_layout::Layout::new(w, h) else {
+        return decir(dsk, p, b"  [captura] medida fuera de los limites del PNG\n", false);
     };
-    // SAFETY: el bloque `trabajo` mide `taller_bytes + crudo` y su base es de
-    // pagina: el taller son sus primeros `png::TALLER` enteros y lo crudo va
-    // detras, sin solaparse. `salida` mide `cota`.
-    let (taller, crudo_buf, dst) = unsafe { tajos(&trabajo, &salida, taller_bytes, crudo, cota) };
+    let Some(trabajo) = bmo::Memoria::request(layout.work_bytes as u64) else {
+        return sin_memoria(dsk, p, layout.work_bytes);
+    };
+    let salida = if layout.output_bytes == 0 { None } else {
+        let Some(salida) = bmo::Memoria::request(layout.output_bytes as u64) else {
+            return sin_memoria(dsk, p, layout.output_bytes);
+        };
+        Some(salida)
+    };
+    let (taller_bytes, crudo, cota) = (layout.workshop, layout.raw, layout.capacity);
+    let png_offset = layout.png_offset;
+    // SAFETY: Layout reparte rangos disjuntos dentro de las medidas pedidas;
+    // la salida esta detras del crudo o en otro bloque con propietario propio.
+    let (taller, crudo_buf, dst) = unsafe { tajos(&trabajo, salida.as_ref(), taller_bytes, crudo, cota, png_offset) };
 
     // -- LA FOTO, de una vez: fila a fila del lienzo, y sin el cursor --
     //
@@ -198,7 +206,7 @@ fn guardar(dsk: &mut Desktop, p: &bmo::Pantalla, x0: u32, y0: u32, w: u32, h: u3
     let foto = bmo::ciclos() - t0;
     unsafe {
         EN_CURSO = Some(EnCurso {
-            cod, trabajo, salida, taller_bytes, crudo, cota, w, h, t0, foto,
+            cod, trabajo, salida, png_offset, taller_bytes, crudo, cota, w, h, t0, foto,
             obra: 0, cpu: 0, trozos: 0, por_mil: 0,
         });
     }
@@ -207,22 +215,31 @@ fn guardar(dsk: &mut Desktop, p: &bmo::Pantalla, x0: u32, y0: u32, w: u32, h: u3
     }
 }
 
-/// Los tres bufers de una captura, a partir de sus dos bloques.
+/// Los tres bufers de una captura, dentro de uno o dos bloques propios.
 ///
 /// # Safety
-/// `trabajo` mide al menos `taller_bytes + crudo` y `salida` al menos `cota`.
+/// `trabajo` contiene taller y crudo; el PNG cabe desde `png_offset` en el
+/// mismo bloque, sin solaparse, o en `salida` (entonces `png_offset` es cero).
 unsafe fn tajos<'a>(
     trabajo: &'a bmo::Memoria,
-    salida: &'a bmo::Memoria,
+    salida: Option<&'a bmo::Memoria>,
     taller_bytes: usize,
     crudo: usize,
     cota: usize,
+    png_offset: usize,
 ) -> (&'a mut [u32], &'a mut [u8], &'a mut [u8]) {
     (
         core::slice::from_raw_parts_mut(trabajo.base() as *mut u32, taller_bytes / 4),
         core::slice::from_raw_parts_mut(trabajo.base().add(taller_bytes), crudo),
-        core::slice::from_raw_parts_mut(salida.base(), cota),
+        core::slice::from_raw_parts_mut(salida.unwrap_or(trabajo).base().add(png_offset), cota),
     )
+}
+
+fn sin_memoria(dsk: &mut Desktop, p: &bmo::Pantalla, bytes: usize) {
+    let mut t = Linea::new();
+    t.pon(b"  [captura] bloque temporal no concedido: "); t.num(bytes as u64 / 1024);
+    t.pon(b" KiB (cupo por proceso o RAM contigua; ver CABINA)\n");
+    decir(dsk, p, t.bytes(), false);
 }
 
 fn fallo(dsk: &mut Desktop, p: &bmo::Pantalla, e: bmo_imagen::Error) {
@@ -244,7 +261,7 @@ pub(crate) fn avanzar(dsk: &mut Desktop, p: &bmo::Pantalla) {
     let cpu_desde = bmo::info(bmo::INFO_CPU_PROPIO);
     let limite = desde + hz / 1000 * PRESUPUESTO_MS;
     // SAFETY: los bloques de `e` se pidieron con estas medidas en `guardar`.
-    let (taller, crudo_buf, dst) = unsafe { tajos(&e.trabajo, &e.salida, e.taller_bytes, e.crudo, e.cota) };
+    let (taller, crudo_buf, dst) = unsafe { tajos(&e.trabajo, e.salida.as_ref(), e.taller_bytes, e.crudo, e.cota, e.png_offset) };
     let resultado = loop {
         match e.cod.avanzar(crudo_buf, taller, dst, TROZO) {
             Ok(Estado::Sigue { por_mil }) => {
@@ -287,8 +304,11 @@ pub(crate) fn avanzar(dsk: &mut Desktop, p: &bmo::Pantalla) {
 
 /// **El PNG esta entero**: al disco, y los tiempos dichos por separado.
 fn terminar(dsk: &mut Desktop, p: &bmo::Pantalla, e: EnCurso, n_png: usize, hz: u64) {
-    let EnCurso { trabajo, salida, w, h, t0, foto, obra, cpu, trozos, .. } = e;
-    drop(trabajo);
+    let EnCurso { trabajo, salida, png_offset, w, h, t0, foto, obra, cpu, trozos, .. } = e;
+    let (salida, desde_png) = match salida {
+        Some(salida) => { drop(trabajo); (salida, 0) }
+        None => (trabajo, png_offset as u64),
+    };
     let t1 = bmo::ciclos();
     let n = siguiente();
     let mut ruta = *b"capturas/cap00000.png";
@@ -298,7 +318,7 @@ fn terminar(dsk: &mut Desktop, p: &bmo::Pantalla, e: EnCurso, n_png: usize, hz: 
         d /= 10;
     }
     let guardada = match bmo::Archivo::create(&ruta) {
-        Ok(a) => a.escribir_de(&salida, 0, n_png as u64) == n_png as u64 && a.close(),
+        Ok(a) => a.escribir_de(&salida, desde_png, n_png as u64) == n_png as u64 && a.close(),
         Err(_) => false,
     };
     drop(salida);

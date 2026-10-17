@@ -1,5 +1,12 @@
 # AVANCES -- estado de BMO-X (recuperacion de contexto)
 
+> **16-10, cuarta tanda 19:37-19:39:** MUNDO acredita 325 fotogramas GPU
+> prestados, cero CPU; juez distinto en 4/230.400 pixeles, igualdad pendiente.
+> Captura falla seis veces: siete bloques del DIRECTOR y captura pidiendo
+> dos contra un cupo de ocho. Ahora 1080p usa un bloque temporal para taller,
+> RGB y PNG; las medidas grandes conservan dos. Prueba en anfitrion, falta
+> Impr Pant en metal. [Parte](docs/metal/METAL_2026-10-16.md).
+
 > **16-10, VERRANO habla:** `gpu laminas` conectado (antes solo figuraba en
 > un comentario), con contadores por app y ultimo rechazo conservado; entra
 > en `save`. Etapas locales/kernel/GPU y motivo CPU visibles, sin atribuir

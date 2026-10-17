@@ -171,6 +171,10 @@ pide Cyberpunk por PROTON-X --.
 - [ ] MC3: teclas mantenidas, gravedad, salto y colision del cuerpo por ejes.
 - [ ] GPU: recuperar el error concreto de MUNDO y cerrar C1/Q0a3 por causa;
       seguir distinguiendo GPU de CPU. El respaldo no cierra esa meta.
+      **Cuarta tanda 16-10:** 325 fotogramas GPU prestados, cero CPU;
+      C1 acreditado para la corrida. El juez difiere en 4/230.400 pixeles:
+      Q0a3 de igualdad sigue abierto. Captura corregida por cupo en anfitrion;
+      falta su PNG en metal para estudiar esos pixeles.
       **Tercera tanda 16-10:** GSP listo; rechazo local `Vertices` en ambas
       rutas. Reproducido: VRN1 no admitia Z a 640x360. Corregido en anfitrion
       junto con la copia de sombra (solo el rectangulo del destino).
