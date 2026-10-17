@@ -106,10 +106,10 @@ datos() {
 H=D3D12HelloWorld/src
 for m in htriang htexture hcbuffer hframes hbundles; do rm -rf "$m"; done
 construir $H/HelloWindow hwindow.exe
-construir $H/HelloTriangle htriang.exe
+# htriang.exe retirado del banco el 16-10 por pedido del propietario.
 construir $H/HelloTexture htexture.exe
 construir $H/HelloConstBuffers hcbuffer.exe
-construir $H/HelloFrameBuffering hframes.exe
+# hframes.exe retirado; hbundles conserva el triangulo con juez analitico.
 construir $H/HelloBundles hbundles.exe
 
 # E2 de la escalera: una muestra por casilla abierta.
@@ -124,7 +124,7 @@ datos $D dynindex occcity.bin
 # .cso como su proyecto: el CS, y de ParticleDraw.hlsl el VS, el GS y el PS.
 N=D3D12nBodyGravity/src
 rm -rf nbody
-construir $N nbody.exe
+# nbody.exe retirado; se conservan sus shaders para las pruebas de CS/GS.
 sombreador $N nbody nBodyGravityCS cs_6_0 CSMain nBodyGravityCS
 sombreador $N nbody ParticleDraw vs_6_0 VSParticleDraw ParticleDraw_VS
 sombreador $N nbody ParticleDraw gs_6_0 GSParticleDraw ParticleDraw_GS

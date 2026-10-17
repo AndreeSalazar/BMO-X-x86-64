@@ -295,8 +295,9 @@ try {
     # E1.2 a E1.6 y E2 de la ESCALERA (05-10): las muestras de Microsoft que
     # leen sus .cso (y sus datos) de SU carpeta (los Hello los llaman igual
     # todos), cada una en window\<muestra>\ con lo suyo (prueba\muestras\<muestra>).
-    # run sys/proton-x.bex window/htriang/htriang.exe
-    foreach ($muestra in @('htriang', 'htexture', 'hcbuffer', 'hframes', 'hbundles', 'dynindex', 'nbody', 'indirect', 'predica')) {
+    # El propietario retiro htriang, hframes y nbody el 16-10.
+    # run sys/proton-x.bex window/hbundles/hbundles.exe
+    foreach ($muestra in @('htexture', 'hcbuffer', 'hbundles', 'dynindex', 'indirect', 'predica')) {
         $d = Join-Path $dataBase ('window\' + $muestra)
         New-Item -ItemType Directory -Path $d -Force | Out-Null
         Copy-Item (Join-Path (Get-Location) ('platform\shared\proton-x\prueba\' + $muestra + '.exe')) $d -Force

@@ -2063,6 +2063,12 @@ En Windows corre tal cual: una ventana de 1280x720 limpia al azul
 de cada Present es R 0x00 G 0x33 B 0x66, lo que dicen las reglas de D3D12
 para ese color en R8G8B8A8_UNORM.
 
+NOTA 16-10: el propietario retiro htriang.exe, hframes.exe y nbody.exe del
+repositorio y del despliegue. Sus huellas y resultados debajo son historia,
+no tres pruebas vigentes. Se retiran sus tres ejecuciones integrales;
+HelloBundles usa el juez analitico del triangulo y conserva sus 30 Present.
+Los .cso y las pruebas independientes de computo/geometria siguen vigentes.
+
 htriang.exe, htexture.exe, hcbuffer.exe, hframes.exe, hbundles.exe -- los
 demas Hello de Microsoft, con sus sombreadores (05-10)
 

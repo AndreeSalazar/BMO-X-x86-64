@@ -81,15 +81,12 @@ const VUELTAS: &[u8] = include_bytes!("../../proton-x/prueba/vueltas.exe");
 const HWINDOW: &[u8] = include_bytes!("../../proton-x/prueba/hwindow.exe");
 /// E1.2 a E1.6 (05-10): los demas Hello de Microsoft, cada uno en su carpeta
 /// del volumen con sus `.cso` (`tests/corre/muestras.rs`).
-const HTRIANG: &[u8] = include_bytes!("../../proton-x/prueba/htriang.exe");
 const HTEXTURE: &[u8] = include_bytes!("../../proton-x/prueba/htexture.exe");
 const HCBUFFER: &[u8] = include_bytes!("../../proton-x/prueba/hcbuffer.exe");
-const HFRAMES: &[u8] = include_bytes!("../../proton-x/prueba/hframes.exe");
 const HBUNDLES: &[u8] = include_bytes!("../../proton-x/prueba/hbundles.exe");
 /// E2.2 (05-10): DynamicIndexing, el bindless (N5.4).
 const DYNINDEX: &[u8] = include_bytes!("../../proton-x/prueba/dynindex.exe");
 const COMPUTO: &[u8] = include_bytes!("../../proton-x/prueba/computo.exe");
-const NBODY: &[u8] = include_bytes!("../../proton-x/prueba/nbody.exe");
 const INDIRECT: &[u8] = include_bytes!("../../proton-x/prueba/indirect.exe");
 const PREDICA: &[u8] = include_bytes!("../../proton-x/prueba/predica.exe");
 /// N5.13 y N5.14 (05-10): las instancias y los buferes de vertices de varias ranuras.

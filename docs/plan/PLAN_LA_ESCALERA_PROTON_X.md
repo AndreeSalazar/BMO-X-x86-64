@@ -1,5 +1,13 @@
 # PLAN LA ESCALERA DE PROTON-X -- de HelloWindow a Cyberpunk, una capa por escalon
 
+> **16-10, decision del propietario:** retirar htriang.exe, hframes.exe y
+> nbody.exe del repositorio. E1.2, E1.5 y E2.3b conservan su historia abajo,
+> pero sus tres ejecuciones integrales ya no forman parte del banco actual.
+> HelloBundles conserva 30 Present y pasa a juez analitico de D3D12, sin
+> depender de htriang. Se conservan los shaders y sus pruebas de CS/GS.
+> Las reglas del guardian no se modifican. El ejecutor integral Linux no
+> se corrio en este anfitrion Windows.
+
 > Abierto el **2026-10-05**. El propietario, tras doce corridas de Cyberpunk
 > 2077 en el metal: *"PROTON-X refleja perfecto, pero me fui directo al final
 > boss sin darme cuenta. Como solucionamos eso? Eso es MAS FUERTE, no?"*. Y
