@@ -658,7 +658,9 @@ pub extern "C" fn _start() -> ! {
     // A9b: y los mapas de la CPU (lo compilado de cada PSO), en la suya.
     bmo_proton_x_casa::enlaces::poner_carpeta(perfil.as_ref().map(|p| p.mapas.clone()));
     // M1 (14-10): y los sombreadores que la casa no sabe correr, guardados.
-    bmo_proton_x_casa::rechazados::poner_carpeta(perfil.as_ref().map(|p| p.rechazados.clone()));
+    if !bmo_proton_x_casa::rechazados::poner_carpeta(perfil.as_ref().map(|p| p.rechazados.clone())) {
+        bmo::consola("PROTON-X: rechazados ocupado; se conserva la carpeta anterior\n");
+    }
     bmo_proton_x_casa::proceso::poner_exe_con_perfil(
         nombre,
         linea,
