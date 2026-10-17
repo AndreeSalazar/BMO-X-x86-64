@@ -20,11 +20,17 @@ elige la prueba del PROXIMO arranque sin recompilar; E1 es el build
 `a2408875a`. Una variante por arranque y `save`; orden vigente abajo.
 
 Investigacion del 17-10: [OpenRM 570.144 y lector LIBOS](../../platform/drivers/gpu/ga10x/GSP_570144_EVIDENCIA.md).
-E2 ya dio 0x15; E3 sigue pendiente. El firmware del paquete NVIDIA es
+E2 ya dio 0x15. El firmware del paquete NVIDIA es
 identico al instalado y no incluye `.fwlogging*`. Hay lector puro de
 anillos/ELF y diagnostico nativo de diccionario ausente, sin cambiar el
-arranque. El plan de cinco experimentos del estudio ordena ahora E3, E4,
-E1 y las dos comparaciones de estado residual. G0 no se cierra por esto.
+arranque. La bitacora posterior registra 0x15 con E3/E4/E5 y un intento
+E6 sin informe: ninguna variante es una correccion suficiente; no se
+deduce una tasa nueva de una sola corrida. G0 no se cierra por esto.
+
+[Estudio estatico del booter intacto](../../platform/drivers/gpu/ga10x/ESTUDIO_BOOTER_LOAD_570144.md):
+HS de alta entropia y desensamblado comparable al azar; NS y datos originales
+son ceros. No hay rama 0x15 identificada. La foto honda de `9c420bc58` y
+la bitacora de buenos/malos siguen siendo evidencia, no causas demostradas.
 
 Soporte del 17-10: [VERIFICAR y tiempos del build](../../toolchain/tools/verificar/README.md).
 Se conserva el banco completo y se elimina la colision entre texto y bandera
