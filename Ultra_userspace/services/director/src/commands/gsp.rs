@@ -640,12 +640,22 @@ fn mem(desde: u64) -> u64 {
 
 /// Los tres logs del GSP, crudos, a `informe/gpu/gsplog.bin`. `true` si se guardo.
 fn guardar_logs() -> bool {
+    if bmo::info(bmo::INFO_GPU_LIBOS) & bmo::LIBOS_PREPARADO == 0 {
+        return false;
+    }
+    let attempt = bmo::info(bmo::INFO_GPU_INTENTO);
     let Some(bloque) = bmo::Memoria::request(LOGS_BYTES) else { return false };
     // SAFETY: el bloque mide LOGS_BYTES, es de este proceso y se escribe aqui
     // antes de leerse.
     let b = unsafe { core::slice::from_raw_parts_mut(bloque.base(), LOGS_BYTES as usize) };
     for o in (0..LOGS_BYTES).step_by(8) {
         b[o as usize..o as usize + 8].copy_from_slice(&mem(o).to_le_bytes());
+    }
+    // No sobrescribir la copia anterior con ceros por falta de reserva ni
+    // con una lectura que cruzo intentos. No garantiza coherencia de DMA.
+    if bmo::info(bmo::INFO_GPU_LIBOS) & bmo::LIBOS_PREPARADO == 0
+        || bmo::info(bmo::INFO_GPU_INTENTO) != attempt {
+        return false;
     }
     match bmo::Archivo::create(RUTA_LOG) {
         Ok(a) => a.escribir_de(&bloque, 0, LOGS_BYTES) == LOGS_BYTES && a.close(),
@@ -752,7 +762,14 @@ fn paso(s: &mut Output, hecho: bool, nombre: &[u8]) {
 #[path = "gsp_probe.rs"]
 mod probe;
 
+#[path = "gsp_readback.rs"]
+mod readback;
+
 fn fila_autopsia(s: &mut Output) {
+    // soltar actualiza los campos previos; autopsiar conserva la primera parada.
+    if !readback::autopsy(s, bmo::info(bmo::INFO_GPU_INTENTO)) {
+        return;
+    }
     let antes = bmo::info(bmo::INFO_GPU_DESPIERTO_BUZON | 4 << 8);
     let parado = bmo::info(bmo::INFO_GPU_DESPIERTO_BUZON | 5 << 8);
     if antes >> 63 == 0 {
@@ -830,7 +847,7 @@ fn fila_autopsia(s: &mut Output) {
             s.dec(ev & 0xFFFF_FFFF);
             s.text(b" -> ");
             s.dec(ev >> 32);
-            s.text(if ev & 0xFFFF_FFFF == ev >> 32 { b" (el booter no choco con ella)" as &[u8] } else { b" (SUBIERON DURANTE EL BOOTER)" });
+            s.text(if ev & 0xFFFF_FFFF == ev >> 32 { b" (sin incremento observado)" as &[u8] } else { b" (SUBIERON DURANTE EL BOOTER)" });
             super::datos::anotar(b"gpu booter bus antes", ba, b"");
             super::datos::anotar(b"gpu booter bus parado", bp, b"");
             super::datos::anotar(b"gpu booter iommu eventos", ev, b"");
@@ -920,17 +937,25 @@ pub(crate) fn fila_despierto(s: &mut Output) {
     s.text(b"   firma ");
     s.dec((d >> bmo::DESPIERTO_FIRMA_SHIFT) & 3);
     if d & bmo::DESPIERTO_SEC2_ARRANCADO != 0 {
-        s.text(b", MAILBOX0 del SEC2 0x");
-        s.hex(d >> bmo::DESPIERTO_BUZON_SHIFT, 8);
+        if d & bmo::DESPIERTO_SEC2_PARADO != 0 {
+            s.text(b", MAILBOX0 del SEC2 al observar parada 0x");
+            s.hex(d >> bmo::DESPIERTO_BUZON_SHIFT, 8);
+        } else {
+            s.text(b", SEC2 sin parada observada; retorno final no disponible");
+        }
         // MAILBOX1: lo otro que devuelve el booter; nova-core lo imprime
         // tambien (metal 24-09 07:48: MAILBOX0 0x15, y sin su pareja).
-        let m1 = bmo::info(bmo::INFO_GPU_DESPIERTO_BUZON | 1 << 8) >> 32;
-        s.text(b", MAILBOX1 0x");
-        s.hex(m1, 8);
-        super::datos::anotar(b"gpu sec2 mailbox1", m1, b"");
+        let pair = bmo::info(bmo::INFO_GPU_DESPIERTO_BUZON | 1 << 8);
+        s.text(b"; consulta SEC2 ");
+        readback::mailboxes(s, pair);
+        if pair != 0 && !bmo_gpu_ga10x::es_error_pri(pair as u32)
+            && !bmo_gpu_ga10x::es_error_pri((pair >> 32) as u32) {
+            super::datos::anotar(b"gpu sec2 mailbox1", pair >> 32, b"");
+        }
         // ** 0x15: el booter dice que no y deja el GSP cerrado hasta cortar la
         // corriente. El caso: `platform/drivers/gpu/ga10x/EL_0x15.md`.
-        if d >> bmo::DESPIERTO_BUZON_SHIFT & 0xFFFF_FFFF == 0x15 {
+        if d & bmo::DESPIERTO_SEC2_PARADO != 0
+            && d >> bmo::DESPIERTO_BUZON_SHIFT & 0xFFFF_FFFF == 0x15 {
             s.with_ink(INK_ERR);
             s.text(b" = el booter no cargo (0x15): pega la fila `autopsia` (EL_0x15.md)");
             s.with_ink(INK_ECHO);
@@ -980,15 +1005,7 @@ pub(crate) fn fila_despierto(s: &mut Output) {
     s.text(b" mensajes; buzon GSP vivo ");
     // Esta INFO devuelve 0 tanto ante falta/error de lectura como ante dos
     // buzones cero. No presentarlo como una respuesta valida del firmware.
-    if b == 0 {
-        s.text(b"sin dato distinguible (cero o lectura fallida); ver autopsia");
-    } else {
-        let m0 = b as u32;
-        s.text(if bmo_gpu_ga10x::es_error_pri(m0) {
-            b"MAILBOX0 con error PRI crudo 0x" as &[u8]
-        } else { b"MAILBOX0 crudo 0x" });
-        s.hex(m0 as u64, 8);
-    }
+    readback::mailboxes(s, b);
     s.with_ink(INK_ECHO);
     s.text(b"   -> informe/gpu/gsplog.bin");
     s.with_ink(INK_PLAIN);

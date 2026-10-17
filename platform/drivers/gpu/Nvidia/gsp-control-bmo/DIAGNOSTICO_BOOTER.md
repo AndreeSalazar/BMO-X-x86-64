@@ -42,6 +42,13 @@ pueden no observarse y no se crea una historia de eventos.
 la primera parada observada del arranque. `INTENTOS`, en cambio, aumenta
 cuando se suelta otro booter. La foto no contiene ese contador.
 
+Ademas, `soltar` vuelve a escribir los campos previos en ese mismo arreglo.
+Tras un reintento puede haber un ANTES nuevo junto a una PARADA vieja: ni
+siquiera debe tratarse el arreglo entero como una instantanea historica.
+La fila detallada de `gsplog` se omite fuera del intento 1. El resumen de
+`gpu control` conserva su relacion SIN ATRIBUIR. Esto limita la presentacion;
+no corrige la publicacion desde Ring 0 ni garantiza atomicidad entre consultas.
+
 Se puede atribuir la foto al intento 1 si ese sigue siendo el actual y la
 consulta no cambio. Con contador mayor, ausente o cero, la relacion queda
 SIN ATRIBUIR; no se combinan los registros de esa foto con el retorno vivo
@@ -52,6 +59,20 @@ Esta es una mejora de la evidencia, no una explicacion causal del fallo GPU.
 El siguiente cambio de captura, si hace falta, debera sellar cada foto desde
 el propietario Ring 0 y definir su publicacion/coherencia. Esta entrega no
 modifica esa estructura ni agrega selectores a la ABI.
+
+Los selectores vivos 0 y 1 de `INFO_GPU_DESPIERTO_BUZON` devuelven cero
+tanto si faltan datos/falla `como_va` como si ambos buzones son cero. Director
+muestra el par cero como "sin dato distinguible", conserva ambos valores
+cuando el par es no cero y etiqueta un patron PRI en cualquiera de ellos.
+El retorno de `INFO_GPU_DESPIERTO` es distinto: solo publica SEC2_PARADO
+tras `como_va` correcto. Sin ese bit no se imprime su campo cero como retorno
+final. Los selectores 2 y 3 y las caches 4..32 tienen otros contratos.
+
+`INFO_GPU_GSP_MEM` retorna cero sin reserva o fuera de rango. Los offsets
+de logs usados son acotados; la fila exige LIBOS_PREPARADO. El guardado
+comprueba esa reserva antes/despues y que el intento no cambio antes de
+crear el archivo. Sigue sin acreditar coherencia temporal de DMA ni guardar
+una identidad dentro de `gsplog.bin`. La procedencia se conserva por separado.
 
 ## 4. El reloj no localiza una instruccion del firmware
 

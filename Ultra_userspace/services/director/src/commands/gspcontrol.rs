@@ -71,7 +71,11 @@ pub(crate) fn report(s: &mut Output) {
     s.text(match init_done { Some(true) => b"recibido" as &[u8],
         Some(false) => b"no recibido en el intento local", None => b"sin observacion local" });
     s.text(b"; motivo 0x"); s.hex(reason as u64, 2);
-    s.text(b"; SEC2 MAILBOX0 0x"); s.hex(after >> bmo::DESPIERTO_BUZON_SHIFT, 8);
+    if halted {
+        s.text(b"; SEC2 MAILBOX0 0x"); s.hex(after >> bmo::DESPIERTO_BUZON_SHIFT, 8);
+    } else {
+        s.text(b"; SEC2 sin parada observada: retorno final no disponible");
+    }
     s.byte(b'\n');
     campo(s, b"retorno booter");
     s.text(completion.explanation()); s.byte(b'\n');

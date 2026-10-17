@@ -101,6 +101,46 @@ mod g0 { pub fn filas(_: &mut crate::scene::output::Output) {} }
 #[path = "../../../../../../Ultra_userspace/services/director/src/commands/gspcontrol.rs"]
 mod actual_report;
 
+#[path = "../../../../../../Ultra_userspace/services/director/src/commands/gsp_readback.rs"]
+mod actual_readback;
+
+#[test]
+fn live_zero_pair_does_not_become_a_measured_mailbox_zero() {
+    let mut out = scene::output::Output::default();
+    actual_readback::mailboxes(&mut out, 0);
+    let text = String::from_utf8(out.0).unwrap();
+    assert!(text.contains("sin dato distinguible"));
+    assert!(!text.contains("0x00000000"));
+}
+
+#[test]
+fn both_live_words_are_preserved_and_either_pri_word_is_labelled() {
+    for pair in [0xBADF_1002_u64, 0xBADF_5620_0000_0000] {
+        let mut out = scene::output::Output::default();
+        actual_readback::mailboxes(&mut out, pair);
+        let text = String::from_utf8(out.0).unwrap();
+        assert!(text.contains("error PRI"));
+        assert!(text.contains(&format!("{:08X}/0x{:08X}", pair as u32, pair >> 32)));
+    }
+    let mut out = scene::output::Output::default();
+    actual_readback::mailboxes(&mut out, 1 << 32);
+    let text = String::from_utf8(out.0).unwrap();
+    assert!(text.contains("00000000/0x00000001"));
+    assert!(!text.contains("sin dato distinguible"));
+}
+
+#[test]
+fn detailed_autopsy_is_hidden_without_first_attempt_identity() {
+    for attempt in [0, 2, u64::MAX] {
+        let mut out = scene::output::Output::default();
+        assert!(!actual_readback::autopsy(&mut out, attempt));
+        assert!(String::from_utf8(out.0).unwrap().contains("detalle omitido"));
+    }
+    let mut out = scene::output::Output::default();
+    assert!(actual_readback::autopsy(&mut out, 1));
+    assert!(out.0.is_empty());
+}
+
 fn report(code: u32, reason: u32, attempt: u64, attempt_after: u64, halted: bool) -> String {
     DOOR.with(|d| *d.borrow_mut() = Door {
         attempt, attempt_after, attempt_reads: 0, init: Some(false),
