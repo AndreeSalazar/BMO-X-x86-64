@@ -9,7 +9,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-import riscv
+import region_gpu
 
 
 class Fixture(unittest.TestCase):
@@ -22,22 +22,22 @@ class Fixture(unittest.TestCase):
 
 class RegionTests(Fixture):
     def test_exact_region_and_invalid_bounds(self):
-        self.assertEqual(riscv.region(self.path, 1, 2), bytes.fromhex("0510"))
+        self.assertEqual(region_gpu.region(self.path, 1, 2), bytes.fromhex("0510"))
         for offset, length in ((-1, 1), (0, 0), (0, 65537), (4, 1), (3, 2)):
             with self.subTest(offset=offset, length=length), self.assertRaises(ValueError):
-                riscv.region(self.path, offset, length)
+                region_gpu.region(self.path, offset, length)
 
     def test_isa_alignment_and_address_overflow_are_rejected(self):
         for isa, address, data in (("falcon", 0, b"1234"), ("rv32", 2, b"1234"),
                                    ("rv32", 1 << 32, b"1234"), ("rv64", -4, b"1234"),
                                    ("rv64", (1 << 64) - 4, b"12345678")):
             with self.subTest(isa=isa, address=address), self.assertRaises(ValueError):
-                riscv.decode(data, isa, address)
+                region_gpu.decode(data, isa, address)
 
     def test_bad_region_cli_has_no_json(self):
         out, err = io.StringIO(), io.StringIO()
         with redirect_stdout(out), redirect_stderr(err):
-            status = riscv.main([str(self.path), "--isa", "rv64", "--offset", "4",
+            status = region_gpu.main([str(self.path), "--isa", "rv64", "--offset", "4",
                                  "--length", "1", "--address", "0"])
         self.assertEqual(status, 2)
         self.assertEqual(out.getvalue(), "")
@@ -45,7 +45,7 @@ class RegionTests(Fixture):
     def test_missing_optional_decoder_is_an_explained_error(self):
         with patch.dict("sys.modules", {"capstone": None}):
             with self.assertRaisesRegex(ValueError, "falta Capstone"):
-                riscv.decode(self.path.read_bytes(), "rv64", 0)
+                region_gpu.decode(self.path.read_bytes(), "rv64", 0)
 
 
 @unittest.skipUnless(importlib.util.find_spec("capstone"), "requiere requirements-host.txt")
@@ -53,7 +53,7 @@ class DecoderTests(Fixture):
     def test_real_engine_rv32_and_rv64_preserve_bytes_and_address(self):
         data = self.path.read_bytes()
         for isa in ("rv32", "rv64"):
-            result = riscv.decode(data, isa, 0x1000)
+            result = region_gpu.decode(data, isa, 0x1000)
             self.assertEqual(result["stop"], "end")
             self.assertEqual(result["consumed"], 4)
             self.assertEqual(result["region_sha256"], hashlib.sha256(data).hexdigest())
@@ -64,12 +64,12 @@ class DecoderTests(Fixture):
 
     def test_compressed_is_explicit(self):
         data = bytes.fromhex("0100")  # c.nop
-        self.assertEqual(riscv.decode(data, "rv64", 2, True)["consumed"], 2)
-        self.assertEqual(riscv.decode(data, "rv64", 0)["consumed"], 0)
+        self.assertEqual(region_gpu.decode(data, "rv64", 2, True)["consumed"], 2)
+        self.assertEqual(region_gpu.decode(data, "rv64", 0)["consumed"], 0)
 
     def test_unknown_and_truncated_stop_without_skipdata(self):
         for tail in (b"\xff" * 4, b"\x13"):
-            result = riscv.decode(self.path.read_bytes() + tail, "rv64", 0)
+            result = region_gpu.decode(self.path.read_bytes() + tail, "rv64", 0)
             self.assertEqual(result["consumed"], 4)
             self.assertEqual(result["undecoded_hex"], tail.hex())
             self.assertEqual(result["stop"], "unrecognized_or_truncated")
@@ -77,7 +77,7 @@ class DecoderTests(Fixture):
     def test_cli_json_roundtrip(self):
         out = io.StringIO()
         with redirect_stdout(out):
-            status = riscv.main([str(self.path), "--isa", "rv64", "--offset", "0",
+            status = region_gpu.main([str(self.path), "--isa", "rv64", "--offset", "0",
                                  "--length", "4", "--address", "0x1000"])
         self.assertEqual(status, 0)
         result = json.loads(out.getvalue())
