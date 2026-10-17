@@ -7,6 +7,7 @@
 #![forbid(unsafe_code)]
 
 pub mod g0;
+pub mod booter;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum State { Unprepared, Prepared, Starting, Ready, Failed, RecoveryBlocked }

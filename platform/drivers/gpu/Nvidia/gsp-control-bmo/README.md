@@ -1,5 +1,9 @@
 # GSP-CONTROL-BMO -- etapa 1: que la GPU deje evidencia
 
+Ampliacion 17-10: [retorno del booter, dominios y atribucion de autopsia](DIAGNOSTICO_BOOTER.md).
+`gpu control` distingue buzon no cero de lectura no disponible, verifica el
+intento al delimitar la consulta y no atribuye una foto sin sello a reintentos.
+
 Parte del gobierno del GSP: el GSP ejecuta, BMO-X gobierna.
 Desde el 17-10 tambien `g0`: las palabras de `informe/estado/g0.txt` (las
 pruebas E2-E4 de GCB2c), leidas igual por el kernel y por el DIRECTOR
