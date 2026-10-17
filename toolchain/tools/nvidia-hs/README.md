@@ -1,5 +1,7 @@
 # Inventario HS -- las copias antes de las hipotesis
 
+Ampliacion: [laboratorio, sesiones, RISC-V y camino TITAN++](LABORATORIO.md).
+
 Pregunta: con QUE bytes se hizo una investigacion de la RTX 3060 12G?
 Herramienta anfitrion de Python 3, biblioteca estandar, sin aparato ni red.
 Emite JSON en stdout. Las rutas y los binarios no se incluyen en el JSON.

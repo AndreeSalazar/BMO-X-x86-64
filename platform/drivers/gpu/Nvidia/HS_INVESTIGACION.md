@@ -70,6 +70,10 @@ malas no localizan por si solos una instruccion o chequeo.
 
 ## 4. Etapas, cada una con resultado revisable
 
+El [laboratorio y sus recetas](../../../../toolchain/tools/nvidia-hs/LABORATORIO.md)
+prepara registro de sesiones, comparacion y regiones RISC-V con Capstone.
+Separa la base anfitrion del futuro adaptador TITAN++ y de las pruebas GA106.
+
 - [x] HS0: inventariar copias por papel, medida y SHA-256, con identidad
       declarada y ausencias explicitas; comparacion de conjuntos y pruebas.
       Herramienta: [nvidia-hs](../../../../toolchain/tools/nvidia-hs/README.md).
