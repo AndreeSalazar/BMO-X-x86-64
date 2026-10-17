@@ -7,8 +7,8 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   902 casillas ABIERTAS en 81 planes
-   703 hechas
+   900 casillas ABIERTAS en 81 planes
+   705 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -99,15 +99,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] la PAGINA DE TITULO (Title:, Credit:, Author:, Draft date:...)
 - ... y 26 mas
 
-## [`EL_FOCO.md`](EL_FOCO.md) -- 25 abiertas, 30 hechas
-
-*EL FOCO -- estado vigente y orden de trabajo*
-
-- [ ] DOC-VIDEO: grabar una sesion reciente de MUNDO con backend visible,
-- [ ] OBS-BUILD: incluir identificacion del commit/build en cada informe;
-- [ ] B1 -- LB7 + LB8: verificar una vez y apartarse. Al admitir un
-- ... y 22 mas
-
 ## [`PLAN_LA_3060_AFINADA.md`](PLAN_LA_3060_AFINADA.md) -- 25 abiertas, 18 hechas
 
 *PLAN LA 3060 AFINADA -- aislar mas, medir, y solo entonces optimizar*
@@ -116,6 +107,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] A4 -- los CARRILES de la 3060: una carpeta que no mezcla
 - [ ] A5 -- cada prestamo a la 3060 dice quien lo devuelve
 - ... y 22 mas
+
+## [`EL_FOCO.md`](EL_FOCO.md) -- 24 abiertas, 31 hechas
+
+*EL FOCO -- estado vigente y orden de trabajo*
+
+- [ ] DOC-VIDEO: grabar una sesion reciente de MUNDO con backend visible,
+- [ ] B1 -- LB7 + LB8: verificar una vez y apartarse. Al admitir un
+- [ ] en el Ryzen -- run dos veces del mismo .bex: la segunda, lente: ya leido (hoja 6b, fila B1). Cua
+- ... y 21 mas
 
 ## [`PLAN_FASE.md`](PLAN_FASE.md) -- 19 abiertas, 3 hechas
 
@@ -288,15 +288,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] LI2d -- varios render targets y la profundidad (N5.8; V2/M1 de
 - ... y 7 mas
 
-## [`PLAN_GSP_CONTROL_BMO.md`](PLAN_GSP_CONTROL_BMO.md) -- 10 abiertas, 5 hechas
-
-*PLAN GSP-CONTROL-BMO -- gobernar el GSP, no reemplazarlo*
-
-- [ ] GCB2b: comparar TODAS las entradas que recibe el booter (FRTS, WPR2,
-- [ ] GCB2c: cambiar UNA variable a la vez donde GCB2b encuentre diferencia,
-- [ ] GCB3a: decodificar cada evento que ya se nombra (RC_TRIGGERED,
-- ... y 7 mas
-
 ## [`PLAN_LA_DEUDA.md`](PLAN_LA_DEUDA.md) -- 10 abiertas, 7 hechas
 
 *PLAN LA DEUDA -- lo que el arbol debe, medido el 2026-09-17*
@@ -331,6 +322,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] AY1 -- A0, el plazo. Un fotograma por VBlank, empezado tarde.
 - [ ] AY3 -- el mapa en la 3060. La imagen de tasas y su tabla por los
 - [ ] AY4 -- el juez sabe de tasas. El juez de la CPU dibuja con el mismo
+- ... y 6 mas
+
+## [`PLAN_GSP_CONTROL_BMO.md`](PLAN_GSP_CONTROL_BMO.md) -- 9 abiertas, 6 hechas
+
+*PLAN GSP-CONTROL-BMO -- gobernar el GSP, no reemplazarlo*
+
+- [ ] GCB2c: cambiar UNA variable a la vez donde GCB2b encuentre diferencia,
+- [ ] GCB3a: decodificar cada evento que ya se nombra (RC_TRIGGERED,
+- [ ] GCB3b: decodificar los logs LIBOS (LOGINIT, LOGINTR, LOGRM) que
 - ... y 6 mas
 
 ## [`PLAN_PROTON_X.md`](PLAN_PROTON_X.md) -- 9 abiertas, 11 hechas

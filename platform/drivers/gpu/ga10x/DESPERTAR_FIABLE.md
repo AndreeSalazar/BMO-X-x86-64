@@ -1,5 +1,12 @@
 # Despertar fiable de la RTX 3060 12G -- investigacion del 16-10
 
+**17-10, GCB2b:** [lo que recibe el booter](GCB2B_ENTRADAS.md) contra OpenRM
+570.144 y nova-core. El dato es el de nova-core y no cambia entre buenos y
+malos. La tabla de arranques: 7 de 7 buenos hasta el 29-09 06:25, 1 de 13
+desde las 10:09. Algo de esa ventana sube la probabilidad del 0x15, y no es
+G0-MODO (los siete buenos usaron FALCON). Prueba propuesta: E1, el build de
+antes. [Parte del 17-10](../../../../docs/metal/METAL_2026-10-17.md).
+
 **Sexta tanda, 23:23:** la foto previa ya llego al metal: MAILBOX0/1
 `3C000000/00000000`, argumentos LIBOS intactos, CPUCTL/BCR `12/1`.
 Despues del booter 0x15 aparecen BADF1002/BADF5620. Se acota el cambio de
