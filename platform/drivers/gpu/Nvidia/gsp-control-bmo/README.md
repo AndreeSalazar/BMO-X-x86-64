@@ -1,5 +1,8 @@
 # GSP-CONTROL-BMO -- etapa 1: que la GPU deje evidencia
 
+Parte del gobierno del GSP: el GSP ejecuta, BMO-X gobierna
+([plan](../../../../../docs/plan/PLAN_GSP_CONTROL_BMO.md)).
+
 `bmo-nvidia-gsp-control` es `no_std`, sin dependencias y con `unsafe` prohibido.
 Su consumidor real es Director: `gpu control` y el capitulo GPU de `save`.
 El diagnostico conserva datos ausentes y muestra los valores crudos que lo
@@ -93,8 +96,9 @@ verificados. Una copia de prueba con unsafe bajo feature compila con la
 variante inactiva y es rechazada por Rust al activarla; S8 rechaza la fuente
 aunque este inactiva. La copia de prueba queda en target, fuera del commit.
 
-Siguiente: GCB2, contrastar el protocolo inicial completo y preparar una
-variante coherente para G0-MODO. Esta etapa no cambia reset, energia,
-firmware, esperas ni corrige por si misma el 0x15. No requiere otra tanda de
-reinicios para demostrar el contrato puro. El nuevo resumen nativo queda
-pendiente de observar en metal cuando el propietario use su proximo build.
+Siguiente: GCB2 del plan redefinido (17-10, gobernar y no reemplazar):
+entregar build e intento reales para abrir el modelo con historia, y
+comparar las entradas del booter contra OpenRM 570.144. Esta etapa no
+cambia reset, energia, firmware ni esperas, ni corrige por si sola el 0x15.
+El nuevo resumen nativo queda pendiente de observar en metal cuando el
+propietario use su proximo build.

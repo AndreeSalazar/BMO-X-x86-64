@@ -6,14 +6,14 @@ sustituyen el ultimo resultado. [Indice de documentos](../README.md).
 
 ## Ahora: G0, que la RTX arranque de forma fiable
 
-El [plan GSP-CONTROL-BMO](PLAN_GSP_CONTROL_BMO.md) organiza el supervisor
-NVIDIA, su anatomia progresiva y el estudio del RISC-V del GSP. Empieza
-por contratos y G0; firmware propio interno es una investigacion condicional,
-sin ejecucion demostrada. No desplaza la prioridad de arranque fiable.
+El [plan GSP-CONTROL-BMO](PLAN_GSP_CONTROL_BMO.md) se redefinio el 17-10:
+el GSP ejecuta y BMO-X lo GOBIERNA (dar posesion, conceder, pedir, escuchar,
+revocar). El estudio del RISC-V y el firmware propio interno quedan APARCADOS.
 GCB0/GCB1 ya implementados: contrato, supervisor puro con ocho pruebas y
 `gpu control`, incluido en `save`. El resumen indica etapa, datos crudos y
 build/intento ausentes; no arma recuperacion ni cambia el arranque.
-Siguiente: GCB2/G0-MODO, protocolo completo antes de probar otra secuencia.
+Siguiente: GCB2 (G0), build e intento reales y las entradas del booter
+contra OpenRM 570.144 antes de probar otra secuencia.
 
 MUNDO es el cliente nativo de prueba. La introduccion de Cyberpunk es un
 hito demostrado y se conserva como tal; retomarlo no desplaza el bloqueo
