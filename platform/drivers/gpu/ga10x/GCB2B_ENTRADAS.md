@@ -227,3 +227,23 @@ el GSP, y entre el GSP arrancado y STARTCPU del SEC2 solo queda `wbinvd`.
 La fila de la autopsia dira el hueco nuevo: si no baja de 118 ms a pocos ms,
 E4 sigue sin probarse.
 
+## 9. Un arranque bueno con la autopsia entera (17-10 09:21)
+
+Primer bueno con el mismo instrumental que los malos. Lo que BMO-X controla
+sale igual en los dos: GSP ANTES (buzones 0x3C000000/0, CPUCTL/BCR 12/1),
+la huella del vigia sobre los 61 MB que lee la 3060 (0x908311CBC2BAB6E7),
+la WPR meta, el hueco de 119 ms, los 531 ms desde FRTS, la tarjeta fria al
+llegar y el bus. Ni el apagado decide: el de las 08:45 tambien venia de
+apagar y dio 0x15.
+
+Lo que cambia es lo que hace la tarjeta: el booter tarda 247011 us en el
+bueno y 246200-246500 us en los malos. **[INFERIDO]** El 0x15 sale unos
+0,7 ms antes del final, en el ultimo tramo del booter (preparar o soltar el
+GSP-RM), con las mismas entradas. Despues, BSI 0x11000000 en el bueno y 0
+en los malos: efecto, no causa. La traza del SEC2 lee ceros tambien en el
+bueno: confirma que en HS no se ve.
+
+Siguiente: contar. Cada arranque normal con su `save`, bueno o malo, hasta
+tener varios de cada lado con este build; y E1 sigue siendo la unica prueba
+que cambia el codigo de un lado al otro del 29-09.
+
