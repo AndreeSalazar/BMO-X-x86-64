@@ -11,7 +11,7 @@
 pub mod empuje;
 pub mod metodos;
 /// LOGINIT/LOGINTR/LOGRM: evidencia copiada y diccionario ELF, sin aparatos.
-pub mod libos;
+pub use bmo_nvidia_libos as libos;
 
 /// Referencia reproducible: el mismo constructor de VERRANO V0, un
 /// triangulo, sin escalera. Direcciones PLANEADAS, no leidas del aparato.

@@ -9,14 +9,14 @@ description = "Lo que la grafica Ampere (GA10x) CONTESTA: su identidad, el modo 
 name = "bmo_gpu_ga10x"
 path = "src/lib.rs"
 
-# Sin dependencias, y es una propiedad del esquema: este crate recibe los
-# numeros que el kernel LEYO por MMIO y devuelve lo que significan. No toca un
-# registro y no decide nada -- por eso se prueba entero en el anfitrion.
+# La unica dependencia normal es el lector puro de copias LIBOS, extraido
+# de inspeccion/. Ningun tercero ni autoridad de aparato entra por ella.
 [dependencies]
+bmo-nvidia-libos = { path = "../Nvidia/libos-bmo" }
 
 # Solo para el banco (`tests/bsf_sm86.rs`): la tuberia de VERRANO V0 viaja
 # en un BSF, y el banco lo fabrica y lo lee con el MISMO lector que usara
-# quien dibuja. El crate que enlaza el kernel sigue sin dependencias.
+# quien dibuja. Estas dependencias no entran en el kernel.
 [dev-dependencies]
 # El codificador de SASS (E2): el juez lo juzga en SUS pruebas (juez.rs).
 bmo-sm86 = { path = "../../../shared/bmo-sm86" }

@@ -10,6 +10,10 @@ VA del ELF de una tarea. Sin diccionario exacto conserva crudos y se para;
 el firmware publico descargado no incluye `.fwlogging*`. `gpu gsp` muestra
 ese inventario y `save` distingue reserva ausente de PUT cero.
 
+El lector vive en [`bmo-nvidia-libos`](../Nvidia/libos-bmo/README.md).
+`inspeccion::libos` y `elf::Fuente` conservan sus rutas publicas mediante
+reexportacion; el driver conserva la obtencion de copias.
+
 ## Carriles y por que existen
 
 | Pieza | Carril | Motivo de su separacion |

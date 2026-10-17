@@ -243,6 +243,7 @@ members = [
     # leidos por MMIO y sin firmware. Puro: el kernel lee, esto significa.
     "platform/drivers/gpu/ga10x",
     "platform/drivers/gpu/Nvidia/gsp-control-bmo",
+    "platform/drivers/gpu/Nvidia/libos-bmo",
     # La IOMMU de AMD CONTESTA: si esta encendida, que sabe y que tablas tiene.
     # Puro, como la de arriba. Es M0 de docs/plan/PLAN_LA_3060.md.
     "platform/drivers/iommu/amdvi",

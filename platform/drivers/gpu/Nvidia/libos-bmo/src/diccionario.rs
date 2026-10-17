@@ -4,8 +4,7 @@
 //! [carril] VERDE
 //! [consumo] NADA -- consulta explicita de un fichero, sin aparato
 
-use crate::elf::Fuente;
-use super::Diccionario;
+use crate::{Fuente, Diccionario};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Error { Lectura, Formato, Limites, NoMapeada, Ambigua, SinNul }

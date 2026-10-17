@@ -1,11 +1,23 @@
 //! Rechazos del lector LIBOS: bytes sinteticos, sin aparato.
 //! [carril] VERDE
 //! [consumo] NADA -- solo banco solicitado
-extern crate std;
-use super::*;
+use bmo_nvidia_libos::*;
 use diccionario::Elf;
 use std::vec;
 use std::vec::Vec;
+
+#[test]
+fn fuente_rechaza_fuera_de_limites_sin_modificar_destino() {
+    let mut fuente = [1, 2, 3].as_slice();
+    let mut destino = [9; 2];
+    assert!(!fuente.leer(2, &mut destino));
+    assert_eq!(destino, [9; 2]);
+    assert!(!fuente.leer(u64::MAX, &mut destino));
+    assert_eq!(destino, [9; 2]);
+    assert!(fuente.leer(1, &mut destino));
+    assert_eq!(destino, [2, 3]);
+    assert!(fuente.leer(3, &mut []));
+}
 
 fn poner(b:&mut[u8], o:usize, n:u64) { b[o..o+8].copy_from_slice(&n.to_le_bytes()); }
 fn anillo(n:usize, put:u64, palabras:&[u64]) -> Vec<u8> {

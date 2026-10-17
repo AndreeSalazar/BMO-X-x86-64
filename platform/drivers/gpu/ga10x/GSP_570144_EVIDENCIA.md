@@ -217,9 +217,9 @@ incluye garantia temporal de coherencia ni identidad propia de build.
 
 ## Lector incorporado y limites de entrega
 
-**[CITADO: codigo local]** `inspeccion/libos.rs` lee copias del anillo sin
+**[CITADO: codigo local]** `../Nvidia/libos-bmo/src/anillo.rs` lee copias del anillo sin
 unsafe: limites, wrap, cabecera cruda, argc maximo 20 y parada ante
-diccionario ausente/truncado. `libos/diccionario.rs` valida ELF64 LE,
+diccionario ausente/truncado. `../Nvidia/libos-bmo/src/diccionario.rs` valida ELF64 LE,
 tablas acotadas, VA a offset, metadata normal/extendida y cadenas acotadas;
 rechaza BSS y mapeos ambiguos. No accede a MMIO ni tiene autoridad de reset.
 

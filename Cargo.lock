@@ -392,6 +392,7 @@ version = "0.1.0"
 dependencies = [
  "bmo-bsf",
  "bmo-cubo",
+ "bmo-nvidia-libos",
  "bmo-proton-x",
  "bmo-proton-x-sm86",
  "bmo-sm86",
@@ -737,6 +738,10 @@ dependencies = [
 
 [[package]]
 name = "bmo-nvidia-gsp-control"
+version = "0.1.0"
+
+[[package]]
+name = "bmo-nvidia-libos"
 version = "0.1.0"
 
 [[package]]

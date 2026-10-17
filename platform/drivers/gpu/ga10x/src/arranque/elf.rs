@@ -23,23 +23,8 @@
 //! escritorio, `saltar` + `leer_en`; en las pruebas, un `&[u8]`-- y le pide la
 //! cabecera (64 B), la tabla de secciones (64 B cada una) y los nombres.
 
-/// **De donde salen los bytes.** `false` si no se pudo leer ENTERO.
-pub trait Fuente {
-    fn leer(&mut self, desde: u64, dst: &mut [u8]) -> bool;
-}
-
-impl Fuente for &[u8] {
-    fn leer(&mut self, desde: u64, dst: &mut [u8]) -> bool {
-        let Ok(o) = usize::try_from(desde) else { return false };
-        match self.get(o..o.saturating_add(dst.len())) {
-            Some(s) if s.len() == dst.len() => {
-                dst.copy_from_slice(s);
-                true
-            }
-            _ => false,
-        }
-    }
-}
+/// El contrato de bytes compartido con LIBOS; la ruta historica se conserva.
+pub use bmo_nvidia_libos::Fuente;
 
 /// La imagen que se presta al GSP.
 pub const IMAGEN: &[u8] = b".fwimage";
