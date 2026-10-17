@@ -884,6 +884,7 @@ fn fila_autopsia(s: &mut Output) {
         super::datos::anotar(b"gpu booter gsp mailbox0", gsp as u32 as u64, b"");
     }
     probe::row(s);
+    probe::honda(s);
     s.with_ink(INK_PLAIN);
     s.byte(b'\n');
 }

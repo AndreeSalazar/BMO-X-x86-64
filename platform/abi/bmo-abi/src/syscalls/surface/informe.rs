@@ -1842,6 +1842,12 @@ pub const LIBOS_VALIDO: u64 = 1 << 63;
 ///                             de STARTCPU del SEC2; 22 CPUCTL | BCR_CTRL << 32
 ///                             en esa foto; 23 LIBOS esperado (IOVA de 32 bits)
 ///                             | se tomo << 63. Sin foto, los tres valen cero.
+///                             24..31 (17-10) LA FOTO HONDA, solo leida
+///                             antes de soltar el booter (`boot_probe::
+///                             FotoHonda`): HWCFG2 SEC2|GSP, DMATRFCMD|ENGINE
+///                             del SEC2, ENGINE GSP|PLM PTIMER, TIME_0|TIME_1,
+///                             cuanto avanzo PTIMER en 10 us, ECC L2TLB|HUBTLB,
+///                             ECC FILLUNIT|WPR2_LO, WPR2_HI; 32 = 1 si se tomo.
 ///   INFO_GPU_GSP_MEM          (con selector: el byte << 8) 8 bytes de lo que el
 ///                             GSP escribe: 0..0x30000 LOGINIT, LOGINTR y
 ///                             LOGRM; detras, GspMem

@@ -461,6 +461,7 @@ fn soltar(r: &mut Bar0, c: Cargado, vigia: (u64, u64)) -> Result<u64, u32> {
     AUTOPSIA[17].store(probe.mailboxes, Ordering::Release);
     AUTOPSIA[18].store(probe.controls, Ordering::Release);
     AUTOPSIA[19].store(gpu_libos::IOVA_LIBOS | 1 << 63, Ordering::Release);
+    fotografiar_honda(r);
     if fa::arrancar_con(r, fa::SEC2, Some(c.arranque), Some(m as u32), Some((m >> 32) as u32)).is_err() {
         return no(IOMMU_NO_SEC2);
     }
@@ -535,6 +536,31 @@ fn soltar(r: &mut Bar0, c: Cargado, vigia: (u64, u64)) -> Result<u64, u32> {
 
 // [17..19]: GSP MAILBOX0/1, CPUCTL/BCR_CTRL y LIBOS esperado | foto << 63.
 static AUTOPSIA: [AtomicU64; 20] = [const { AtomicU64::new(0) }; 20];
+
+// ** LA FOTO HONDA (17-10): E2..E6 no cambiaron el 0x15; lo que lo decide
+// esta dentro de la tarjeta. Justo antes de soltar el booter, solo leido, lo
+// que OpenRM 570.144 mira (`boot_probe::FotoHonda`): la limpieza de memoria
+// de SEC2 y GSP, el DMA del SEC2, los ENGINE, PTIMER y si avanza, los ECC
+// de la MMU y la WPR2. La causa sale de comparar buenos y malos.
+// Selectores 24..31 de `INFO_GPU_DESPIERTO_BUZON`; el 32, si se tomo.
+static HONDA: [AtomicU64; 9] = [const { AtomicU64::new(0) }; 9];
+
+fn fotografiar_honda(r: &mut Bar0) {
+    let f = bmo_gpu_ga10x::arranque::boot_probe::FotoHonda::leer(r, &mut pr::reloj());
+    for (h, v) in HONDA.iter().zip(f.0) {
+        h.store(v, Ordering::Release);
+    }
+    HONDA[8].store(1, Ordering::Release);
+    let c = |t: &'static str, v: u64| crate::ring0::cabina::count("gpu", t, v);
+    c("  ...HONDA: HWCFG2 SEC2 | GSP << 32", f.0[0]);
+    c("  ...HONDA: DMATRFCMD SEC2 | ENGINE SEC2 << 32", f.0[1]);
+    c("  ...HONDA: ENGINE GSP | PLM PTIMER << 32", f.0[2]);
+    c("  ...HONDA: PTIMER TIME_0 | TIME_1 << 32", f.0[3]);
+    c("  ...HONDA: PTIMER avanzo en 10 us (ns)", f.0[4]);
+    c("  ...HONDA: ECC L2TLB | HUBTLB << 32", f.0[5]);
+    c("  ...HONDA: ECC FILLUNIT | WPR2_LO << 32", f.0[6]);
+    c("  ...HONDA: WPR2_HI", f.0[7]);
+}
 
 /// El ucode del booter ya prestado a la 3060 en este arranque.
 static BOOTER_PRESTADO: core::sync::atomic::AtomicBool = core::sync::atomic::AtomicBool::new(false);
@@ -781,6 +807,9 @@ pub fn info_despierto_buzon(sel: u64) -> u64 {
     }
     if (4..=23).contains(&(sel >> 8)) {
         return AUTOPSIA[(sel >> 8) as usize - 4].load(Ordering::Acquire);
+    }
+    if (24..24 + HONDA.len() as u64).contains(&(sel >> 8)) {
+        return HONDA[(sel >> 8) as usize - 24].load(Ordering::Acquire);
     }
     let bar0 = crate::ring0::dev::gpu::bar0();
     let (falcon, hace_falta) = if sel >> 8 == 1 { (fa::SEC2, DESPIERTO_SEC2_ARRANCADO) } else { (fa::GSP, DESPIERTO_GSP_ARRANCADO) };
