@@ -60,6 +60,11 @@ del mismo largo. Para un estudio reproducible, usar una copia estable.
 
 ## Bibliotecas y aislamiento
 
+Ampliacion NVIDIA: `gpu verrano ordenes [offset decimal]` muestra una
+plantilla de ordenes con categoria y motivo; el contexto se reconstruye
+desde el inicio. [Carriles, fuentes Mesa y limites](../../drivers/gpu/ga10x/INSPECCION_NVIDIA.md).
+No representa el ultimo dibujo de una app ni una captura del canal real.
+
 ```text
 VERRANO::lens  -> bmo-lente-gpu: copias, procedencia, hex, bits, comparacion
 adaptador     -> ga10x::sass::lente: campos SM86 del decodificador del juez

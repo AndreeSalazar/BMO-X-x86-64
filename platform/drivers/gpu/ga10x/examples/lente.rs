@@ -38,7 +38,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             match lente::read(b, at - header) {
                 Ok(i) => {
                     words += 1;
-                    writeln!(out, "SASS +{at:016x} lo={:016x} hi={:016x} op={:03x} forma={} guarda={}", i.lo, i.hi, i.opcode, i.form, i.guard)?;
+                    writeln!(out, "SASS +{at:016x} lo={:016x} hi={:016x} enc={:03x} base={:03x} forma={} guarda={} yield={} reuse={:x}", i.lo, i.hi, i.encoding, i.opcode, i.form, i.guard, i.yield_hint as u8, i.reuse_mask)?;
                     if let Some(d) = i.decoded {
                         writeln!(out, "  LEIDA sin juicio; stall={} wb={} rb={} wait={:02x}; escribe={:?} lee={:?}", d.stall, d.write_barrier, d.read_barrier, d.wait_mask, d.writes, d.reads)?;
                     } else { unknown += 1; writeln!(out, "  DESCONOCIDA; bytes conservados")?; }

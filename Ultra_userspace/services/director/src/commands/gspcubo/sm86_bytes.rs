@@ -64,7 +64,8 @@ pub(crate) fn show(dsk: &mut Desktop, args: &[u8]) -> After {
             if at < header as u64 { continue; } // Cabecera: no es SASS.
             match lente::read(word, at - header as u64) {
                 Ok(i) => {
-                    let _ = writeln!(out, "SASS +{at:04x}: op={:03x} forma={} guarda={}", i.opcode, i.form, i.guard);
+                    let _ = writeln!(out, "SASS +{at:04x}: enc={:03x} base={:03x} forma={} guarda={}", i.encoding, i.opcode, i.form, i.guard);
+                    let _ = writeln!(out, "  yield={} reuse={:x} (campos crudos SM86)", i.yield_hint as u8, i.reuse_mask);
                     if let Some(d) = i.decoded {
                         let _ = writeln!(out, "  leida; stall={} wb={} rb={} wait={:02x}; sin juicio de programa", d.stall, d.write_barrier, d.read_barrier, d.wait_mask);
                     } else { let _ = out.write_str("  DESCONOCIDA: conserva todos sus bytes\n"); }

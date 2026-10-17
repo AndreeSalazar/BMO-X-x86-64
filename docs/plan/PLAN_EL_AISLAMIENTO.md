@@ -1,5 +1,11 @@
 # PLAN EL AISLAMIENTO -- cada GPU con su emisor, su juez y su puerta
 
+**16-10, ampliacion Mesa/NVIDIA:** `ga10x/src/inspeccion/` separa el lector
+FIFO de motores, memoria y firmware. S7 exige su carril VERDE sin aparato;
+la consulta `gpu verrano ordenes` conserva procedencia CPU. Los campos
+SM86 incluyen codificacion completa, yield y reuse, sin cambiar emision.
+[Motivos y limites](../../platform/drivers/gpu/ga10x/INSPECCION_NVIDIA.md).
+
 **16-10, lente:** `bmo-lente-gpu` conserva bytes y procedencia sin fabricante;
 VERRANO la publica por `lens`. Interpretacion SM86 y consulta de programas
 preparados quedan bajo el adaptador. Guardian S6 con pruebas negativas;

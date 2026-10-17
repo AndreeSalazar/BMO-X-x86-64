@@ -73,5 +73,33 @@ class LensGuard(unittest.TestCase):
             self.assertTrue(failures)
 
 
+class NvidiaInspectionGuard(unittest.TestCase):
+    def fixture(self, extra='', header='VERDE'):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            for name in ('mod.rs', 'empuje.rs', 'metodos.rs'):
+                (root / name).write_text('//! [carril] ' + header + '\n//! [consumo] NADA\n', encoding='utf-8')
+            (root / 'nested').mkdir()
+            (root / 'nested' / 'extra.rs').write_text('//! [carril] VERDE\n//! [consumo] NADA\n' + extra, encoding='utf-8')
+            failures = []
+            self.assertEqual(guardian.inspeccion_nvidia(failures, folder), 4)
+            return failures
+
+    def test_reader_can_only_interpret_copies(self):
+        self.assertEqual(self.fixture('pub fn count(w: &[u32]) -> usize { w.len() }'), [])
+
+    def test_hardware_authority_is_rejected_in_nested_reader(self):
+        for leak in ('use crate::Registros;', 'use crate::arranque::falcon;', 'unsafe { core::ptr::read_volatile(p) }', 'iommu_orden(1);'):
+            with self.subTest(leak=leak):
+                self.assertTrue(self.fixture(leak))
+
+    def test_changing_the_lane_or_losing_the_reader_is_rejected(self):
+        self.assertTrue(self.fixture(header='ROJO'))
+        with tempfile.TemporaryDirectory() as folder:
+            failures = []
+            self.assertEqual(guardian.inspeccion_nvidia(failures, folder), 0)
+            self.assertTrue(failures)
+
+
 if __name__ == '__main__':
     unittest.main()

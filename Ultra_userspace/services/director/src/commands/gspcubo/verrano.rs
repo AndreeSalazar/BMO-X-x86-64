@@ -70,6 +70,9 @@ pub(crate) fn orden(dsk: &mut Desktop, p: &bmo::Pantalla, resto: &[u8]) -> After
     // recortarlo, `sinldg` no se reconocia nunca y el 26-09 06:33 corrio el
     // programa normal con ese nombre. Se recorta aqui, una vez, para todos.
     let resto = resto.trim_ascii();
+    if resto.split(u8::is_ascii_whitespace).any(|w| w == b"ordenes") {
+        return destino::orders(dsk, resto);
+    }
     if resto.split(u8::is_ascii_whitespace).any(|w| w == b"bytes") {
         return destino::bytes(dsk, resto);
     }

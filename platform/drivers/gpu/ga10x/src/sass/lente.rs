@@ -18,8 +18,14 @@ pub struct Instruction {
     pub lo: u64,
     pub hi: u64,
     pub opcode: u16,
+    /// Campo completo de NAK (0..12). `opcode` conserva la base de 9 bits.
+    pub encoding: u16,
     pub form: u8,
     pub guard: u8,
+    /// Bit 109 de SM86; se muestra sin imponer una politica de planificacion.
+    pub yield_hint: bool,
+    /// Bits 122..126: mascara cruda de reutilizacion, no una medida de cache.
+    pub reuse_mask: u8,
     /// Solo cuando el decodificador del juez reconoce la palabra completa.
     pub decoded: Option<Decoded>,
 }
@@ -50,7 +56,7 @@ pub fn read(bytes: &[u8], offset: u64) -> Result<Instruction, Error> {
         wait_mask: i.mascara, writes: i.escribe, reads: i.lee,
         branch: i.salto, exit: i.fin, memory: i.memoria,
     });
-    Ok(Instruction { offset, lo, hi, opcode: (lo & 0x1ff) as u16, form: (lo >> 9 & 7) as u8, guard: (lo >> 12 & 15) as u8, decoded })
+    Ok(Instruction { offset, lo, hi, opcode: (lo & 0x1ff) as u16, encoding: (lo & 0xfff) as u16, form: (lo >> 9 & 7) as u8, guard: (lo >> 12 & 15) as u8, yield_hint: hi & (1 << 45) != 0, reuse_mask: (hi >> 58 & 15) as u8, decoded })
 }
 
 #[cfg(test)]
@@ -80,5 +86,19 @@ mod tests {
         for n in 0..16 { assert_eq!(read(&[0; 16][..n], 0), Err(Error::Truncated)); }
         assert_eq!(read(&[0; 16], 1), Err(Error::Misaligned));
         assert!(read(&[0; 16], u64::MAX - 15).is_ok());
+    }
+    #[test]
+    fn nak_common_fields_are_raw_even_for_unknown_instructions() {
+        // Campos 0..12, 109 y 122..126 del informe NAK (9d007d0187).
+        let lo = 0x0fffu64;
+        for reuse in 0..16u64 {
+            for hint in [false, true] {
+                let hi = reuse << 58 | (hint as u64) << 45;
+                let mut bytes = [0; 16]; bytes[..8].copy_from_slice(&lo.to_le_bytes()); bytes[8..].copy_from_slice(&hi.to_le_bytes());
+                let i = read(&bytes, 0).unwrap();
+                assert_eq!(i.encoding, i.opcode | (i.form as u16) << 9);
+                assert_eq!((i.encoding, i.yield_hint, i.reuse_mask), (0xfff, hint, reuse as u8));
+            }
+        }
     }
 }

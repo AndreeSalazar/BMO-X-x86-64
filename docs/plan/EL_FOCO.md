@@ -34,6 +34,10 @@ de arranque de la GPU ni convierte esa introduccion en un juego jugable.
 
 ## Una tanda util, sin reinicios en serie
 
+La ampliacion [Mesa/NVIDIA](../../platform/drivers/gpu/ga10x/INSPECCION_NVIDIA.md)
+permite estudiar `gpu verrano ordenes` sin GSP. Es una plantilla preparada,
+no un envio observado; G0 y Q0a3 conservan su evidencia de metal propia.
+
 La [lente de GPU](../../platform/shared/bmo-lente-gpu/README.md) agrega
 `gpu verrano bytes vs 128` con DIRECTOR nuevo, incluso sin GSP. Muestra
 codigo preparado en CPU, no una lectura del aparato; observar esa salida

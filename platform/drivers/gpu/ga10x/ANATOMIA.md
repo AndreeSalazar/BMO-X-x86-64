@@ -1,6 +1,7 @@
 # ANATOMIA -- la RTX 3060 12G de MSI del propietario, por dentro
 
 Lectura complementaria del 16-10:
+[inspeccion NVIDIA y carriles](INSPECCION_NVIDIA.md),
 [arranque, PROTON-X y ensamblado SM86](ESTUDIO_RTX3060_PROTON_X.md).
 Separa capacidad fisica, contratos del emisor y pruebas pendientes.
 

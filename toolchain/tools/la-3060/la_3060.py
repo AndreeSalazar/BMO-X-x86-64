@@ -117,6 +117,9 @@ las esperas, que es la deuda que se quiere bajar):
                    fuentes recursivas, sin unsafe ni build script. La
                    consulta preparada no obtiene acceso al aparato. S2
                    tambien recorre subcarpetas y reconoce nombres AMD.
+    S7 LECTOR (16-10): inspeccion/ es un carril VERDE sin Registros, Reloj,
+                   MMIO ni firmware; los dos visores preparados no envian
+                   ordenes. Recorre tambien las subcarpetas y las pruebas.
 
     --check   lo que corre el build
 """
@@ -650,9 +653,9 @@ def lente_comun(fallos, carpeta=None):
     return len(sources)
 
 
-def lente_lectura(fallos):
+def lente_lectura(fallos, nombre='sm86_bytes.rs'):
     """La consulta no debe despertar, enviar ordenes ni sondear registros."""
-    path = os.path.join(GSPCUBO, 'sm86_bytes.rs')
+    path = os.path.join(GSPCUBO, nombre)
     if not os.path.isfile(path):
         fallos.append('S6: falta la consulta de bytes preparada')
         return
@@ -661,6 +664,29 @@ def lente_lectura(fallos):
         fallos.append('S6: la consulta de bytes obtiene acceso al aparato o lo prepara')
     if 'Origin::Prepared' not in text or 'Space::Resource' not in text:
         fallos.append('S6: la consulta debe identificar la copia CPU y el offset del recurso')
+
+
+INSPECCION = os.path.join(RAIZ, 'platform', 'drivers', 'gpu', 'ga10x', 'src', 'inspeccion')
+RX_LENTE_APARATO = re.compile(r'\b(?:unsafe|Registros|Reloj|Bar0|read_volatile|write_volatile|asm|global_asm|iommu_orden\w*|preparar_hasta)\b|core::ptr|crate::(?:arranque|rm|memoria)::')
+
+
+def inspeccion_nvidia(fallos, carpeta=None):
+    """S7: leer el formato no concede la autoridad de ejecutar o sondear."""
+    carpeta = INSPECCION if carpeta is None else carpeta
+    required = ('mod.rs', 'empuje.rs', 'metodos.rs')
+    for name in required:
+        if not os.path.isfile(os.path.join(carpeta, name)):
+            fallos.append('S7: falta inspeccion/%s; el lector debe conservar sus piezas explicitas' % name)
+    sources = sorted(glob.glob(os.path.join(carpeta, '**', '*.rs'), recursive=True))
+    for path in sources:
+        source = leer(path)
+        if not re.search(r'^//!\s*\[carril\]\s+VERDE\b', source, re.M):
+            fallos.append('S7: %s debe declarar su carril VERDE' % rel(path))
+        if not re.search(r'^//!\s*\[consumo\]\s+NADA\b', source, re.M):
+            fallos.append('S7: %s debe declarar consulta sin trabajo en reposo' % rel(path))
+        if RX_LENTE_APARATO.search(sin_comentarios(source)):
+            fallos.append('S7: %s introduce acceso al aparato en la inspeccion de copias' % rel(path))
+    return len(sources)
 
 
 def main():
@@ -678,6 +704,8 @@ def main():
     n_prometeo = prometeo(fallos)
     n_lente = lente_comun(fallos)
     lente_lectura(fallos)
+    lente_lectura(fallos, 'sm86_ordenes.rs')
+    n_inspeccion = inspeccion_nvidia(fallos)
     z_y_float(fallos)
     medida(fallos)
     giros = esperas()
@@ -696,6 +724,7 @@ def main():
         return 1
     extra = '' if base is None or total == base else ' (bajo de %d: baja la linea base en %s)' % (base, rel(BASE))
     print('S6: lente comun sin fabricante ni acceso a aparatos (%d fuentes); consulta PREPARADA sin ordenes GPU' % n_lente)
+    print('S7: inspeccion NVIDIA aislada, VERDE, sin autoridad de aparato (%d fuentes)' % n_inspeccion)
     print('clean: la puerta pide MAQUINA; solo la 3060 12G (%s); registros solo en dev/gpu*; %d ordenes y %d motivos iguales en los tres sitios; opt-level 3; el pase NEUTRO en %d ficheros sin NVIDIA; %d ficheros declaran su [estado] y lo que SOBREVIVE tiene un propietario que no escribe; el sobre, la API y VERRANO sin una GPU dentro (%d ficheros) y el juez en la puerta; PROMETEO y TITAN++ sin una tarjeta dentro (%d ficheros); la Z con float parada en sus tres sitios; la medida de la puerta, de la GPU (`puerta::MEDIDA`); %d esperas girando%s'
           % ('/'.join('%04X' % x for x in suyos), n_ordenes, n_motivos, n_neutros, n_aon, n_sobre, n_prometeo, total, extra))
     return 0

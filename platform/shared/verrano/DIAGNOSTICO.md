@@ -2,6 +2,11 @@
 
 ## Lente de bytes preparada
 
+`gpu verrano ordenes [offset decimal]` agrega la plantilla NVIDIA de un
+triangulo: paquetes, metodos, categorias y motivos; paginas de 32 bytes.
+La lectura empieza desde cero para conservar contexto aunque se muestre
+otra pagina. [Separacion y limites](../../drivers/gpu/ga10x/INSPECCION_NVIDIA.md).
+
 `gpu verrano bytes vs|ps|bmox-vs|bmox-ps [offset decimal]` muestra paginas
 de 64 bytes, hex y bits, sin abrir ni despertar la tarjeta. Los primeros
 128 bytes son SPH; despues se muestran los campos SM86 reconocidos. La

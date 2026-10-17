@@ -59,6 +59,9 @@ const BMOX12_PS: &[u8] = include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/..
 #[path = "sm86_bytes.rs"]
 mod bytes_lens;
 pub(super) use bytes_lens::show as bytes;
+#[path = "sm86_ordenes.rs"]
+mod orders_lens;
+pub(super) use orders_lens::show as orders;
 
 /// Lo que mide la caja del paquete que se le pasa a [`abrir`]: el paquete
 /// mas grande que el kernel acepta (`tuberia::MAX_PAQUETE`), en paginas.
@@ -132,6 +135,7 @@ pub(super) struct Opciones {
 /// la misma para las dos cosas: si una deja de entenderse, deja de sugerirse).
 pub(super) const PALABRAS: &[(&[u8], &[u8])] = &[
     (b"bytes", b"lente sin tocar GPU: gpu verrano bytes vs|ps|bmox-vs|bmox-ps [offset decimal]"),
+    (b"ordenes", b"lente de la plantilla NVIDIA preparada: gpu verrano ordenes [offset decimal]"),
     (b"bmox12", b"E5: la 3060 transforma e ilumina con los programas de BMOX-12 traducidos por PROTON-X"),
     (b"ligero", b"sin la escalera de diagnostico: los fps de verdad"),
     (b"anillo", b"la CPU envia el fotograma siguiente mientras la tarjeta dibuja este"),

@@ -1,5 +1,11 @@
 # PLAN VERRANO -- la API de dibujo de BMO-X, con el BSF debajo
 
+**16-10, ordenes NVIDIA:** `gpu verrano ordenes [offset]` explica la
+plantilla preparada con categoria, motivo y contexto de clase reconstruido.
+El lector vive en el carril VERDE de `ga10x/src/inspeccion`, vigilado por S7.
+No es captura del ultimo dibujo ni cierre de G0.
+[Fuentes Mesa/NVIDIA y limites](../../platform/drivers/gpu/ga10x/INSPECCION_NVIDIA.md).
+
 **16-10, lente de bytes:** biblioteca comun sin fabricante, lector SM86
 aislado y consulta `gpu verrano bytes` implementados. Pruebas de anfitrion
 y enlace de DIRECTOR; observacion en metal pendiente. Copia recuperada
