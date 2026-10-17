@@ -13,3 +13,10 @@ El supervisor ejecuta en la CPU x86-64 de BMO-X.
 El [driver GA10x](../ga10x/ANATOMIA.md), sus emisores, jueces y lectores
 conservan sus propietarios. Esta carpeta aporta gobierno, sin duplicar
 el controlador ni ejecutar firmware BMO dentro del GSP.
+
+## Investigacion de firmware propio
+
+Pedido del propietario, 17-10: [BROM, HS y reemplazo](HS_INVESTIGACION.md).
+El objetivo de investigacion se amplia al control propio, con evidencia
+por pieza y pasos verificables. La primera entrega inventaria copias en
+el anfitrion; no incorpora firmware propio ni cambia el supervisor puro.
