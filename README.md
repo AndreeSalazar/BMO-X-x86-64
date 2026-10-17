@@ -336,6 +336,9 @@ Build and run the verification path, without deploying to a boot volume:
 .\bmo.ps1
 ```
 
+Verification now records phase and package timings and preserves the complete test bank.
+See [verification and build timing](toolchain/tools/verificar/README.md).
+
 To run compilation and verification in separate windows:
 
 ```powershell

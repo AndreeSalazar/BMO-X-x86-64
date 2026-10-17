@@ -32,7 +32,7 @@ $raiz = Split-Path -Parent $root
 
 function Titulo($m) { Write-Host "`n== $m" -ForegroundColor Cyan }
 function Bien($m)   { Write-Host "   OK  $m" -ForegroundColor DarkGray }
-function Muere($m)  { Write-Host "   [X] $m" -ForegroundColor Red; $script:salida = 1; exit 1 }
+function Muere($m)  { Write-Host "   [X] $m" -ForegroundColor Red; $script:salida = 1; Tiempos; exit 1 }
 # Lo que dejo un `exit` de un fichero cargado con punto (ver `Fail` en comun.ps1).
 $script:salida = $null
 
@@ -45,6 +45,11 @@ Write-Host 'BMO-X -- VERIFICAR (a la vez que la ventana COMPILAR)' -ForegroundCo
 # del final buscaba una carpeta con ese nombre (05-10, en `bmo.ps1 -Paralelo`).
 $rutaSello = $Sello
 
+# El reloj incluye el banco: antes se inicializaba DESPUES y lo ocultaba.
+. (Join-Path $PSScriptRoot 'comun.ps1')
+$script:tipoTiempos = 'VERIFICAR'
+Step 'Contrato, PROTON-X y banco del anfitrion'
+
 # Lo de `bmo.ps1`: el contrato, PROTON-X y el banco. Deja `$sello`.
 $sello = ''
 $selloD = ''
@@ -52,7 +57,6 @@ $selloD = ''
 if ($null -ne $script:salida) { exit $script:salida }
 
 # Lo de `build.ps1`: sus guardianes y el contrato de las tablas.
-. (Join-Path $PSScriptRoot 'comun.ps1')
 . (Join-Path $PSScriptRoot 'guardianes.ps1')
 if ($null -ne $script:salida) { exit $script:salida }
 . (Join-Path $PSScriptRoot 'contrato.ps1')

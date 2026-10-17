@@ -1,6 +1,6 @@
 # EL FOCO -- estado vigente y orden de trabajo
 
-**Actualizado el 16-10-2026.** Este bloque decide el trabajo actual. Las
+**Actualizado el 17-10-2026.** Este bloque decide el trabajo actual. Las
 notas de tandas anteriores y el plan acumulado conservan su fecha; no
 sustituyen el ultimo resultado. [Indice de documentos](../README.md).
 
@@ -14,6 +14,12 @@ GCB0/GCB1 ya implementados: contrato, supervisor puro con ocho pruebas y
 `gpu control`, incluido en `save`. El resumen indica etapa, datos crudos y
 build/intento ausentes; no arma recuperacion ni cambia el arranque.
 Siguiente: GCB2/G0-MODO, protocolo completo antes de probar otra secuencia.
+
+Soporte del 17-10: [VERIFICAR y tiempos del build](../../toolchain/tools/verificar/README.md).
+Se conserva el banco completo y se elimina la colision entre texto y bandera
+de fallo que terminaba la verificacion antes de los guardianes. NVIDIA exige
+su guardian disponible; S8 ejecuta sus pruebas negativas en cada check.
+Este trabajo no cierra G0 ni cambia firmware, reset, energia o recuperacion.
 
 MUNDO es el cliente nativo de prueba. La introduccion de Cyberpunk es un
 hito demostrado y se conserva como tal; retomarlo no desplaza el bloqueo

@@ -134,6 +134,9 @@ crate puro y consulta `gpu control` incluida en `save`. El consumidor nativo
 usa diagnostico de foto; el modelo con historia exige identidad completa.
 OBS-BUILD e intento no estan disponibles: no se fabrican ni se cierra OBS-BUILD.
 Recuperacion y alimentacion de eventos desde metal siguen pendientes.
+El 17-10 se conecta la autoprueba negativa de S8 a cada check/build; el
+portico NVIDIA es obligatorio, y sin Python no aprueba. La medicion y el
+reparto del banco se documentan en [VERIFICAR](../../toolchain/tools/verificar/README.md).
 
 ### GCB2 -- resolver el protocolo de arranque, prioridad G0
 
