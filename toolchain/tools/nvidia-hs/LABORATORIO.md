@@ -5,6 +5,9 @@ las sesiones y las regiones RISC-V tienen salidas JSON versionadas. El
 lector ELF/LIBOS sigue siendo el existente; no se reescribe en Python.
 No hay todavia una receta completa para sustituir el firmware de GA106.
 
+Antes de otro ensayo: [revision de los partes existentes](REVISION_EVIDENCIA.md),
+incluida la unidad de observacion y las comparaciones que faltan.
+
 ## 1. Elementos y propietarios
 
 | Elemento | Herramienta / propietario | Resultado y limite |
