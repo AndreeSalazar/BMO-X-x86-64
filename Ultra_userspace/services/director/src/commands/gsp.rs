@@ -21,6 +21,7 @@ use bmo_gpu_ga10x::booter::{self as bt, Booter, NoBooter, Riscv};
 use bmo_gpu_ga10x::elf::{self, Fuente, NoElf, Seccion};
 use bmo_gpu_ga10x::vbios as vb;
 use bmo_gpu_ga10x::wpr::{self, Mapa, Radix3};
+use bmo_gpu_ga10x::inspeccion::libos::{self as log, diccionario};
 use bmo_userland as bmo;
 
 use super::tabla::campo;
@@ -62,6 +63,8 @@ struct Resumen {
     leidos: u64,
     fusible_reg: u32,
     fusible: u32,
+    /// Inventario del archivo real; None si no se pudo validar su ELF.
+    logs: Option<u8>,
 }
 
 static mut RESUMEN: Option<Resumen> = None;
@@ -118,12 +121,25 @@ pub(crate) fn leer() -> Result<u64, u32> {
             fusible = bmo::info(bmo::INFO_GPU_FUSIBLE | (reg as u64) << 8) as u32;
         }
     }
-    let r = Resumen { cargador, descargador, bootloader, imagen, firma, leidos, fusible_reg, fusible };
+    let logs = inventario_logs();
+    let r = Resumen { cargador, descargador, bootloader, imagen, firma, leidos, fusible_reg, fusible, logs };
     // SAFETY: como `resumen`.
     unsafe {
         *core::ptr::addr_of_mut!(RESUMEN) = Some(r);
     }
     listo(&r).ok_or(NO_GSP_INCOMPLETO)
+}
+
+fn inventario_logs() -> Option<u8> {
+    let a = bmo::Archivo::reflejar(GSP_RM).ok()?;
+    let n = a.size();
+    let mut e = diccionario::Elf::nuevo(Reflejo(a, 0), n).ok()?;
+    let mut cuantos = 0;
+    for i in 0..e.secciones() {
+        let s = e.seccion(i).ok()?;
+        if s.nombre[..s.n].starts_with(b".fwlogging") { cuantos += 1; }
+    }
+    Some(cuantos)
 }
 
 /// El reparto de la VRAM con lo que dijeron el bootloader y el GSP-RM.
@@ -333,6 +349,13 @@ pub(crate) fn fila(s: &mut Output) {
             s.byte(b'\n');
         }
     }
+    campo(s, b"log ELF");
+    match r.logs {
+        Some(0) => s.text(b"sin .fwlogging*: falta el diccionario; no se inventan mensajes LIBOS"),
+        Some(n) => { s.dec(n as u64); s.text(b" secciones .fwlogging*; falta validar el ELF de cada tarea"); }
+        None => s.text(b"inventario no verificable; no equivale a diccionario ausente"),
+    }
+    s.byte(b'\n');
     let Some(m) = mapa(&r) else { return };
     campo(s, b"mapa");
     s.text(b"wpr2 ");
@@ -938,12 +961,16 @@ pub(crate) fn fila_despierto(s: &mut Output) {
     fila_autopsia(s);
     // Lo que el GSP escribio: los punteros de sus logs y de su cola.
     campo(s, b"gsplog");
+    if bmo::info(bmo::INFO_GPU_LIBOS) & bmo::LIBOS_PREPARADO == 0 {
+        s.text(b"sin reserva LIBOS: no hay muestra; cero no significa log vacio\n");
+        return;
+    }
     let (ini, intr, rm) = (mem(0), mem(16 * 4096), mem(32 * 4096));
     let cola = mem(COLA_GSP_ESCRITO) & 0xFFFF_FFFF;
     let b = bmo::info(bmo::INFO_GPU_DESPIERTO_BUZON);
     let escribio = ini | intr | rm | cola != 0;
     s.with_ink(if escribio { INK_GOOD } else { INK_ECHO });
-    s.text(if escribio { b"el GSP ESCRIBIO en tu RAM: " as &[u8] } else { b"el GSP no ha escrito nada: " });
+    s.text(if escribio { b"punteros no nulos en la RAM prestada: " as &[u8] } else { b"PUT y cola leidos en cero; no prueban inactividad del GSP: " });
     s.with_ink(INK_PLAIN);
     s.text(b"LOGINIT ");
     s.dec(ini);
@@ -951,6 +978,13 @@ pub(crate) fn fila_despierto(s: &mut Output) {
     s.dec(intr);
     s.text(b", LOGRM ");
     s.dec(rm);
+    if let Ok(r) = log::resumen_put(ini, 65536) {
+        if r.sobrescritas != 0 {
+            s.text(b"; LOGINIT sobrescribio al menos ");
+            s.dec(r.sobrescritas);
+            s.text(b" palabras (no mensajes)");
+        }
+    }
     s.text(b"; su cola ");
     s.dec(cola);
     s.text(b" mensajes; MAILBOX0 del GSP 0x");

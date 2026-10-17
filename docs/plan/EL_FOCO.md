@@ -11,13 +11,20 @@ el GSP ejecuta y BMO-X lo GOBIERNA (dar posesion, conceder, pedir, escuchar,
 revocar). El estudio del RISC-V y el firmware propio interno quedan APARCADOS.
 GCB0/GCB1 ya implementados: contrato, supervisor puro con ocho pruebas y
 `gpu control`, incluido en `save`. El resumen indica etapa, datos crudos y
-build/intento ausentes; no arma recuperacion ni cambia el arranque.
+build/intento disponibles tras GCB2a; no arma recuperacion ni cambia el arranque.
 GCB2a visto en el metal el 17-10 (build e intento en `save`). GCB2b hecho:
 [lo que recibe el booter](../../platform/drivers/gpu/ga10x/GCB2B_ENTRADAS.md).
 El dato coincide con nova-core; el 0x15 cambio de regimen el 29-09 (7 de 7
 buenos antes, 1 de 13 despues). GCB2c preparado: `gpu g0 sin-d|riscv|seguido`
 elige la prueba del PROXIMO arranque sin recompilar; E1 es el build
-`a2408875a`. Orden propuesto: E1, E2, E3, E4; una por arranque y `save`.
+`a2408875a`. Una variante por arranque y `save`; orden vigente abajo.
+
+Investigacion del 17-10: [OpenRM 570.144 y lector LIBOS](../../platform/drivers/gpu/ga10x/GSP_570144_EVIDENCIA.md).
+E2 ya dio 0x15; E3 sigue pendiente. El firmware del paquete NVIDIA es
+identico al instalado y no incluye `.fwlogging*`. Hay lector puro de
+anillos/ELF y diagnostico nativo de diccionario ausente, sin cambiar el
+arranque. El plan de cinco experimentos del estudio ordena ahora E3, E4,
+E1 y las dos comparaciones de estado residual. G0 no se cierra por esto.
 
 Soporte del 17-10: [VERIFICAR y tiempos del build](../../toolchain/tools/verificar/README.md).
 Se conserva el banco completo y se elimina la colision entre texto y bandera

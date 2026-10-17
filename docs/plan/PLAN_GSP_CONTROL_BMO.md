@@ -138,10 +138,20 @@ pruebas fisicas se agrupan con usos normales; no se piden reinicios en serie.
       con sus campos, en `save` y CABINA; el que no se entienda se dice crudo.
 - [ ] GCB3b: decodificar los logs LIBOS (`LOGINIT`, `LOGINTR`, `LOGRM`) que
       hoy van crudos a `gsplog.bin`. Primero confirmar contra OpenRM 570.144
-      donde viven sus cadenas de formato (se espera que en la imagen del
-      firmware) y leerlas de la copia que ya se carga, sin meter firmware al arbol.
+      donde viven sus cadenas de formato y leer el diccionario de la misma
+      build si esta disponible, sin meter firmware al arbol.
+      Avance 17-10: [paquete original e investigacion](../../platform/drivers/gpu/ga10x/GSP_570144_EVIDENCIA.md)
+      confirman SHA-256 identico y diccionario ausente del binario publico.
+      Lector puro de anillo/ELF, metadata normal/extendida, ocho pruebas y
+      ejemplo anfitrion implementados; Director muestra el inventario real.
+      Siguen faltando diccionario de la misma build, formatos completos y
+      muestra con registros; no se marca cerrada esta casilla.
 - [ ] GCB3c: decir en el informe, despues de un 0x15, si el GSP llego a
       escribir algo en `LOGINIT` o no. Un log vacio tambien es un dato.
+      Avance 17-10: Director distingue reserva ausente de PUT cero y no
+      equipara este ultimo con inactividad total. La copia actual contiene
+      PUT cero y tablas de paginas iniciales, sin registros publicados;
+      sigue faltando identificar/coherenciar la captura por intento.
 
 Salida: el GSP explica sus fallos en la voz del sistema. Es el kernel como
 LENTE aplicado a la tarjeta.

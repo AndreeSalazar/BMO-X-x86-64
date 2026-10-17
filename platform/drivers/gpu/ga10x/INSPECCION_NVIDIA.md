@@ -4,6 +4,12 @@ Pregunta del propietario (16-10-2026): aplicar lo aprendido de Mesa, con
 NVIDIA aislado, carriles y motivos propios. Esta ampliacion interpreta
 copias preparadas. No agrega un kernel paralelo ni cambia firmware o resets.
 
+Ampliacion 17-10: [LIBOS y evidencia de 570.144](GSP_570144_EVIDENCIA.md).
+El lector de copias tambien entiende el anillo, metadata normal/extendida y
+VA del ELF de una tarea. Sin diccionario exacto conserva crudos y se para;
+el firmware publico descargado no incluye `.fwlogging*`. `gpu gsp` muestra
+ese inventario y `save` distingue reserva ausente de PUT cero.
+
 ## Carriles y por que existen
 
 | Pieza | Carril | Motivo de su separacion |
