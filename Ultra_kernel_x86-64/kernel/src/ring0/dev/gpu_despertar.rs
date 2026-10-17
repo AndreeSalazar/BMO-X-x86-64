@@ -269,10 +269,22 @@ pub fn despertar() -> Result<u64, u32> {
 /// OpenRM y nova-core, sin volver a Ring 3 en medio (el hueco medido era de
 /// 120 ms). El fichero del booter llega ya abierto, antes de despertar.
 pub fn despertar_seguido(booter_fichero: Option<&mut dyn Fichero>) -> Result<u64, u32> {
+    // Metal 17-10 09:04: con solo juntar las dos llamadas el hueco seguia en
+    // 118 ms -- no era Ring 3, era el booter: leerlo, firmarlo, copiarlo al
+    // SEC2 y la huella de los 61 MB que vigila. Todo eso va ANTES de tocar el
+    // GSP; entre el GSP arrancado y el booter suelto solo queda `wbinvd`.
+    if ESTADO.load(Ordering::Acquire) & DESPIERTO_SEC2_ARRANCADO != 0 {
+        return Err(IOMMU_NO_YA_DESPIERTO);
+    }
+    let mut r = match antes() {
+        Ok(r) => r,
+        Err(m) => return no(m),
+    };
+    let cargado = cargar_booter(&mut r, booter_fichero)?;
+    let vigia = huellas();
     despertar()?;
     if !g0_pide(bmo_nvidia_gsp_control::g0::RISCV_USADO) {
         // El falcon vacio se para en microsegundos; 10 ms de techo.
-        let Ok(mut r) = antes() else { return no(IOMMU_NO_GSP_FALCON) };
         let mut t = pr::reloj();
         use bmo_gpu_ga10x::falcon::Reloj;
         let fin = t.us() + 10_000;
@@ -281,10 +293,11 @@ pub fn despertar_seguido(booter_fichero: Option<&mut dyn Fichero>) -> Result<u64
                 return no(IOMMU_NO_GSP_FALCON);
             }
         }
+        apuntar(|x| x | DESPIERTO_GSP_PARADO);
     }
     G0.fetch_or(bmo_nvidia_gsp_control::g0::SEGUIDO_USADO, Ordering::AcqRel);
-    crate::ring0::cabina::info("gpu", "G0 E4: el booter SEGUIDO, en la misma llamada que despertar", 0);
-    booter(booter_fichero)
+    crate::ring0::cabina::info("gpu", "G0 E4: el booter ya en el SEC2 antes de despertar; se suelta seguido", 0);
+    soltar(&mut r, cargado, vigia)
 }
 
 /// **BOOTER**: 2 del orden, con el GSP ya parado. `Ok(la firma usada)` en
@@ -310,7 +323,20 @@ pub fn booter(booter_fichero: Option<&mut dyn Fichero>) -> Result<u64, u32> {
         apuntar(|x| x | DESPIERTO_GSP_PARADO);
     }
 
-    // El booter: leido, firmado con la firma del FUSIBLE del SEC2, prestado.
+    let cargado = cargar_booter(&mut r, booter_fichero)?;
+    soltar(&mut r, cargado, huellas())
+}
+
+/// Lo que deja `cargar_booter`: el booter firmado y ya en el SEC2, sin soltar.
+struct Cargado {
+    idx: u32,
+    arranque: u32,
+}
+
+/// El booter leido, firmado con la firma del fusible, prestado y copiado al
+/// SEC2. No toca el GSP: E4 lo hace antes de despertarlo.
+fn cargar_booter(r: &mut Bar0, booter_fichero: Option<&mut dyn Fichero>) -> Result<Cargado, u32> {
+    let no = |m: u32| no(m).and(Err::<Cargado, u32>(m));
     let Some(f) = booter_fichero else { return no(IOMMU_NO_BOOTER) };
     if BOOTER_F.load(Ordering::Acquire) == 0 {
         // La 3060 lo leera por DMA: NEUTRO.
@@ -353,19 +379,26 @@ pub fn booter(booter_fichero: Option<&mut dyn Fichero>) -> Result<u64, u32> {
     let mut t = pr::reloj();
     let boot0 = r.leer(bmo_gpu_ga10x::BOOT_0);
     let a256 = |n: u32| n.next_multiple_of(256);
-    let cargado = fa::resetear(&mut r, &mut t, fa::SEC2, boot0)
-        .and_then(|_| fa::preparar_fbif(&mut r, fa::SEC2))
+    let cargado = fa::resetear(r, &mut t, fa::SEC2, boot0)
+        .and_then(|_| fa::preparar_fbif(r, fa::SEC2))
         .and_then(|_| {
-            fa::copiar_etiquetado(&mut r, &mut t, fa::SEC2, IOVA_BOOTER, b.imem.origen, b.imem.destino, a256(b.imem.bytes), true, true, 50_000)
+            fa::copiar_etiquetado(r, &mut t, fa::SEC2, IOVA_BOOTER, b.imem.origen, b.imem.destino, a256(b.imem.bytes), true, true, 50_000)
         })
         .and_then(|_| {
-            fa::copiar(&mut r, &mut t, fa::SEC2, IOVA_BOOTER + b.dmem.origen as u64, b.dmem.destino, a256(b.dmem.bytes), false, false, 50_000)
+            fa::copiar(r, &mut t, fa::SEC2, IOVA_BOOTER + b.dmem.origen as u64, b.dmem.destino, a256(b.dmem.bytes), false, false, 50_000)
         });
     if let Err(e) = cargado {
         crate::ring0::cabina::warn("gpu", "L0c3b: el SEC2 no dejo cargar el booter; motivo", pr::motivo(e));
         return no(IOMMU_NO_SEC2);
     }
-    fa::brom(&mut r, fa::SEC2, b.pkc_data_offset(), b.engine_id_mask, b.ucode_id);
+    fa::brom(r, fa::SEC2, b.pkc_data_offset(), b.engine_id_mask, b.ucode_id);
+    Ok(Cargado { idx: idx as u32, arranque: b.arranque() })
+}
+
+/// Suelta el booter ya cargado: la foto de antes, `wbinvd` y STARTCPU.
+/// `vigia` es la huella de lo que la 3060 solo lee, tomada por quien llama.
+fn soltar(r: &mut Bar0, c: Cargado, vigia: (u64, u64)) -> Result<u64, u32> {
+    let idx = c.idx;
     let m = IOVA_WPR_META;
     // La foto [0] de la autopsia, y el reloj del booter.
     AUTOPSIA[0].store(crate::ring0::dev::gpu::info_bsi(), Ordering::Release);
@@ -384,7 +417,7 @@ pub fn booter(booter_fichero: Option<&mut dyn Fichero>) -> Result<u64, u32> {
     // que no sea suya ni registros.
     // EL VIGIA (29-09): la huella de lo que la 3060 solo lee, ANTES. Va
     // antes del `wbinvd` y del reloj: no retrasa al booter respecto a ellos.
-    let (inmutable, libos) = huellas();
+    let (inmutable, libos) = vigia;
     AUTOPSIA[12].store(inmutable, Ordering::Release);
     AUTOPSIA[14].store(libos, Ordering::Release);
     crate::ring0::cabina::info("gpu", "L0c3b: el vigia: huella de lo que la 3060 solo lee, antes del booter", inmutable);
@@ -407,11 +440,11 @@ pub fn booter(booter_fichero: Option<&mut dyn Fichero>) -> Result<u64, u32> {
         AUTOPSIA[16].store(ahora.saturating_sub(frts) / hz / 1000 | 1 << 63, Ordering::Release);
     }
     // G0: cuatro lecturas, sin reset ni escritura. La foto DESPUES ya existe.
-    let probe = bmo_gpu_ga10x::arranque::boot_probe::BootProbe::read(&mut r);
+    let probe = bmo_gpu_ga10x::arranque::boot_probe::BootProbe::read(r);
     AUTOPSIA[17].store(probe.mailboxes, Ordering::Release);
     AUTOPSIA[18].store(probe.controls, Ordering::Release);
     AUTOPSIA[19].store(gpu_libos::IOVA_LIBOS | 1 << 63, Ordering::Release);
-    if fa::arrancar_con(&mut r, fa::SEC2, Some(b.arranque()), Some(m as u32), Some((m >> 32) as u32)).is_err() {
+    if fa::arrancar_con(r, fa::SEC2, Some(c.arranque), Some(m as u32), Some((m >> 32) as u32)).is_err() {
         return no(IOMMU_NO_SEC2);
     }
     apuntar(|x| x | DESPIERTO_SEC2_ARRANCADO);

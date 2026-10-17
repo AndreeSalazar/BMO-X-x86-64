@@ -215,3 +215,15 @@ es lo esperado con el nucleo RISC-V elegido. El booter tardo lo mismo
 bloqueado igual. **[CITADO: medicion local]** E3 no cambia el resultado.
 Queda E4 (`seguido`, el hueco de 120 ms) y E1 (el build anterior al 29-09).
 
+## 8. E4 corrido (17-10 09:04), y por que no valio
+
+`g0 corrio: seguido`, pero la autopsia dice `el GSP espero parado 118 ms`:
+el mismo hueco. Juntar las dos llamadas quito la vuelta a Ring 3, que no era
+lo que costaba. Los 118 ms estaban dentro de `booter`: leer y firmar el
+booter, copiarlo al SEC2 y, sobre todo, la huella del vigia sobre los 61 MB
+que la 3060 solo lee. Ahora `booter` se parte en `cargar_booter` y `soltar`;
+con `seguido` el booter se carga en el SEC2 y el vigia mide ANTES de tocar
+el GSP, y entre el GSP arrancado y STARTCPU del SEC2 solo queda `wbinvd`.
+La fila de la autopsia dira el hueco nuevo: si no baja de 118 ms a pocos ms,
+E4 sigue sin probarse.
+
