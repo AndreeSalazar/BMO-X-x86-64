@@ -165,9 +165,11 @@ Lo que hace cada una por dentro:
 
 | palabra | donde | que cambia |
 | --- | --- | --- |
-| `sin-d` | `disk::buscar_ajeno`, tras montar los datos | no busca ni monta el disco Personal; `personal` y `D:\` dicen que no hay disco |
+| `sin-d` | RETIRADA el 17-10 tras E2 (0x15 igual) | hoy cuenta como palabra desconocida |
 | `riscv` | `gpu_despertar::despertar` y `booter` | `resetear_en_riscv` (BCR = 0x111) y los buzones, sin STARTCPU; el booter no espera un falcon parado |
-| `seguido` | `op_gsp::despertar_seguido` | abre el booter ANTES, despierta, espera el falcon parado (10 ms de techo) y suelta el booter en la misma syscall |
+| `seguido` | `gpu_despertar::despertar_seguido` | carga el booter en el SEC2 y toma la huella ANTES de despertar; luego despierta y lo suelta (desde `4e7895bab`) |
+| `reset` | `falcon::resetear_con` en FWSEC, GSP y booter | E5: el RESET con diez lecturas de ENGINE por flanco, como `kgspResetHw_TU102` |
+| `ptimer` | `gpu_prestamo::fwsec_correr`, antes de FWSEC | E6: PTIMER en hora (TIME_1 y luego TIME_0) si el PLM deja, como `tmrSetCurrentTime_GV100` |
 
 E1 no necesita codigo: es otro build. En Windows, sin tocar el arbol de hoy:
 
@@ -226,4 +228,41 @@ con `seguido` el booter se carga en el SEC2 y el vigia mide ANTES de tocar
 el GSP, y entre el GSP arrancado y STARTCPU del SEC2 solo queda `wbinvd`.
 La fila de la autopsia dira el hueco nuevo: si no baja de 118 ms a pocos ms,
 E4 sigue sin probarse.
+
+## 9. Un arranque bueno con la autopsia entera (17-10 09:21)
+
+Primer bueno con el mismo instrumental que los malos. Lo que BMO-X controla
+sale igual en los dos: GSP ANTES (buzones 0x3C000000/0, CPUCTL/BCR 12/1),
+la huella del vigia sobre los 61 MB que lee la 3060 (0x908311CBC2BAB6E7),
+la WPR meta, el hueco de 119 ms, los 531 ms desde FRTS, la tarjeta fria al
+llegar y el bus. Ni el apagado decide: el de las 08:45 tambien venia de
+apagar y dio 0x15.
+
+Lo que cambia es lo que hace la tarjeta: el booter tarda 247011 us en el
+bueno y 246200-246500 us en los malos. **[INFERIDO]** El 0x15 sale unos
+0,7 ms antes del final, en el ultimo tramo del booter (preparar o soltar el
+GSP-RM), con las mismas entradas. Despues, BSI 0x11000000 en el bueno y 0
+en los malos: efecto, no causa. La traza del SEC2 lee ceros tambien en el
+bueno: confirma que en HS no se ve.
+
+Siguiente: contar. Cada arranque normal con su `save`, bueno o malo, hasta
+tener varios de cada lado con este build; y E1 sigue siendo la unica prueba
+que cambia el codigo de un lado al otro del 29-09.
+
+## 10. E5 y E6, las dos diferencias con OpenRM (17-10)
+
+Una revision contra OpenRM 570.144 dejo dos diferencias de verdad, ya en
+`gpu g0`:
+
+- **E5 `reset`**: OpenRM sostiene el RESET de cada falcon con diez lecturas
+  de ENGINE tras ponerlo y otras diez tras quitarlo; BMO-X esperaba 10 us en
+  la CPU. Leer obliga a que la escritura llegue a la tarjeta. Se aplica a los
+  tres resets del arranque (FWSEC, GSP y booter), no a SEC2 por separado.
+- **E6 `ptimer`**: OpenRM pone en hora PTIMER antes de FWSEC si el PLM deja
+  escribir al nivel 0. BMO-X no lo tocaba.
+
+Con una tasa de aprox. 1 bueno de cada 4-8, una prueba se mide en varios
+arranques alternando con `normal`, no en uno.
+
+La traza del SEC2 (secciones 6 y 9) se retiro: lee ceros en buenos y malos.
 

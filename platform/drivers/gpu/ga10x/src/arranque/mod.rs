@@ -11,6 +11,8 @@
 pub mod falcon;
 /// G0: argumentos y controles del GSP antes de arrancar el booter.
 pub mod boot_probe;
+/// E6 (17-10): el reloj de la 3060 en hora, como OpenRM antes del booter.
+pub mod ptimer;
 /// L0a: la VBIOS leida -- donde esta FWSEC y que firma pide (2026-09-24).
 pub mod vbios;
 /// L0b: FWSEC-FRTS preparado -- la orden y la firma, sobre bytes (2026-09-24).
