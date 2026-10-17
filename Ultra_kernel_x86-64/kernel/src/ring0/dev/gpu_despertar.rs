@@ -811,7 +811,8 @@ pub fn info_despierto_buzon(sel: u64) -> u64 {
         let start = BOOTER_TSC.load(Ordering::Acquire);
         let hz = crate::ring0::task::scheduler::tsc_freq();
         let bar = super::gpu::bar0();
-        if start != 0 && bar != 0 && hz != 0
+        if ESTADO.load(Ordering::Acquire) & DESPIERTO_SEC2_ARRANCADO != 0
+            && start != 0 && bar != 0 && hz != 0
             && crate::ring0::task::scheduler::rdtsc().saturating_sub(start) >= hz.saturating_mul(5) {
             super::gpu_capture::record(&mut Bar0(bar), info_intento(), bmo_nvidia_gsp_control::capture::WAIT_EXPIRED);
         }
