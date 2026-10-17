@@ -141,3 +141,44 @@ Una variable cada vez, y el propietario decide cuantos arranques gasta.
 
 En todas: kernel y DIRECTOR del mismo build, `save` al final, salga bien o
 mal, y una fila nueva en el CSV con su build (OBS-BUILD ya lo escribe).
+
+## 5. Como se corre cada prueba (17-10, ya en el arbol)
+
+E2, E3 y E4 estan en el build de hoy, detras de un interruptor que se cambia
+**sin recompilar**: una palabra por prueba en `informe/estado/g0.txt`, que el
+kernel lee al montar los datos. Sin el fichero, el arranque de siempre.
+
+```text
+   gpu g0                 lo pedido, lo que corrio y que hace cada palabra
+   gpu g0 sin-d           E2 en el proximo arranque
+   gpu g0 riscv           E3
+   gpu g0 seguido         E4
+   gpu g0 normal          vuelve al de siempre
+```
+
+Por cada prueba: `gpu g0 <palabra>`, `reboot` (o apagar y encender, como
+siempre), usar la maquina normal, y `save`. El `save` dice en `GSP-CONTROL-BMO`
+las filas `g0 pedido` y `g0 corrio`: una prueba pedida que no llego a correr
+no cuenta. Una palabra cada vez; dos juntas no dicen cual fue.
+
+Lo que hace cada una por dentro:
+
+| palabra | donde | que cambia |
+| --- | --- | --- |
+| `sin-d` | `disk::buscar_ajeno`, tras montar los datos | no busca ni monta el disco Personal; `personal` y `D:\` dicen que no hay disco |
+| `riscv` | `gpu_despertar::despertar` y `booter` | `resetear_en_riscv` (BCR = 0x111) y los buzones, sin STARTCPU; el booter no espera un falcon parado |
+| `seguido` | `op_gsp::despertar_seguido` | abre el booter ANTES, despierta, espera el falcon parado (10 ms de techo) y suelta el booter en la misma syscall |
+
+E1 no necesita codigo: es otro build. En Windows, sin tocar el arbol de hoy:
+
+```powershell
+git fetch origin
+git worktree add ..\bmo-e1 a2408875a
+cd ..\bmo-e1
+.\bmo.ps1
+.\desplegar.ps1 -Arranque <letra> -Datos <letra>   # mejor en OTRO USB
+```
+
+Ese build no tiene OBS-BUILD ni `gpu g0`: su `save` no dira el commit, asi
+que la fila del CSV se escribe a mano con `a2408875a`. Al acabar, se vuelve
+al USB de hoy (`git worktree remove ..\bmo-e1` borra la copia).

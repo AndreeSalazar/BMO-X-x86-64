@@ -6,6 +6,8 @@
 #![no_std]
 #![forbid(unsafe_code)]
 
+pub mod g0;
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum State { Unprepared, Prepared, Starting, Ready, Failed, RecoveryBlocked }
 

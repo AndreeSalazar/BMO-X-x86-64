@@ -526,6 +526,7 @@ dependencies = [
  "bmo-mmio-juicio",
  "bmo-net",
  "bmo-ntfs",
+ "bmo-nvidia-gsp-control",
  "bmo-orquesta",
  "bmo-particiones",
  "bmo-pase-gpu",

@@ -634,11 +634,17 @@ fn despertar_sin_logs() -> Result<u64, u32> {
     if bmo::info(bmo::INFO_GPU_DESPIERTO) & bmo::DESPIERTO_VISTO != 0 {
         return Ok(1);
     }
+    // G0 (17-10): con `seguido` el kernel suelta el booter en la misma
+    // llamada; con `riscv` el falcon del GSP no se arranca, asi que no hay
+    // parada que esperar. Sin `g0.txt`, el camino de siempre.
+    let g0 = bmo::info(bmo::INFO_GPU_G0);
     bmo::iommu_orden(bmo::IOMMU_OP_GSP_DESPERTAR)?;
-    if !esperar(2000, |d| d & bmo::DESPIERTO_GSP_PARADO != 0) {
-        return Err(NO_GSP_NO_PARA);
+    if g0 & bmo_nvidia_gsp_control::g0::SEGUIDO == 0 {
+        if g0 & bmo_nvidia_gsp_control::g0::RISCV == 0 && !esperar(2000, |d| d & bmo::DESPIERTO_GSP_PARADO != 0) {
+            return Err(NO_GSP_NO_PARA);
+        }
+        bmo::iommu_orden(bmo::IOMMU_OP_GSP_BOOTER)?;
     }
-    bmo::iommu_orden(bmo::IOMMU_OP_GSP_BOOTER)?;
     // nova-core da 2 s al booter; aqui 5, que sube 60 MB a la WPR2.
     if !esperar(5000, |d| d & bmo::DESPIERTO_SEC2_PARADO != 0) {
         return Err(NO_SEC2_NO_ACABA);

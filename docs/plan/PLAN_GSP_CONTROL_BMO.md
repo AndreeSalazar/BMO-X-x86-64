@@ -115,6 +115,12 @@ explica: GCB2c empieza por E1, el build anterior a ese dia.
       validar contra el criterio de G0 de `PLAN_LA_3060.md` y registrar cada
       arranque en `EL_0x15_ARRANQUES.csv`, salga bien o mal.
 
+17-10, preparado en el anfitrion: E2 (`sin-d`), E3 (`riscv`) y E4
+(`seguido`) se eligen con `gpu g0` sin recompilar y el `save` dice cual
+corrio; E1 es desplegar `a2408875a`. Como se corre cada una:
+[GCB2B_ENTRADAS, seccion 5](../../platform/drivers/gpu/ga10x/GCB2B_ENTRADAS.md).
+Falta el metal: la casilla se cierra con los arranques, no con el codigo.
+
 Salida: causa acotada y correccion reproducible, o hipotesis debilitada con
 resultado registrado. Un arranque bueno aislado no cierra fiabilidad. Las
 pruebas fisicas se agrupan con usos normales; no se piden reinicios en serie.

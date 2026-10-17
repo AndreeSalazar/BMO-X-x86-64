@@ -111,3 +111,18 @@ fn favourable_recovery_does_not_unlock_a_blocked_session() {
     assert_eq!(s.state(),State::RecoveryBlocked);
     assert_eq!(s.first_failure(),Some(Failure::Reported(0x15)));
 }
+
+#[test]
+fn g0_reads_known_words_only() {
+    use crate::g0::*;
+    assert_eq!(leer(b""), 0);
+    assert_eq!(leer(b"normal\n"), 0);
+    assert_eq!(leer(b"riscv"), RISCV);
+    assert_eq!(leer(b"SIN-D, Seguido\r\n"), SIN_D | SEGUIDO);
+    assert_eq!(leer(b"# riscv\nseguido # sin-d"), SEGUIDO);
+    let m = leer(b"riscv rsicv sin_d");
+    assert_eq!(m & 0xFF, RISCV);
+    assert_eq!(desconocidas(m), 2);
+    assert_eq!(desconocidas(leer(&[b'x', b' '].repeat(400))), 255);
+    assert_eq!(RISCV_USADO & (RISCV | SEGUIDO | SIN_D), 0);
+}
