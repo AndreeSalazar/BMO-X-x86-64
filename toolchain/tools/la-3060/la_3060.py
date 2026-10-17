@@ -694,9 +694,47 @@ def inspeccion_nvidia(fallos, carpeta=None):
     return len(sources)
 
 
+LIBOS = os.path.join(RAIZ, 'platform', 'drivers', 'gpu', 'Nvidia', 'libos-bmo')
 CONTROL = os.path.join(RAIZ, 'platform', 'drivers', 'gpu', 'Nvidia', 'gsp-control-bmo')
 CONTROL_QUERY = os.path.join(RAIZ, 'Ultra_userspace', 'services', 'director', 'src', 'commands', 'gspcontrol.rs')
 RX_CONTROL_CROSS = re.compile(r'\*\s*(?:const|mut)\b|\binclude(?:_bytes|_str)?\s*!|#\s*\[\s*path\b|\b(?:allow|expect)\s*\(\s*unsafe_code')
+
+
+def libos_copias(fallos, carpeta=None):
+    """S9: extraer el lector de GA10x no le concede dependencias ni aparato."""
+    carpeta = LIBOS if carpeta is None else carpeta
+    try:
+        manifest = tomllib.loads(leer(os.path.join(carpeta, 'Cargo.toml')))
+    except (OSError, tomllib.TOMLDecodeError) as error:
+        fallos.append('S9: manifiesto LIBOS ausente/invalido: %s' % error)
+        return 0
+    if manifest.get('lib', {}).get('path', 'src/lib.rs') != 'src/lib.rs':
+        fallos.append('S9: LIBOS desvia su fuente')
+    if os.path.exists(os.path.join(carpeta, 'build.rs')) or manifest.get('package', {}).get('build', False):
+        fallos.append('S9: LIBOS no admite build script')
+    for section in [manifest] + list(manifest.get('target', {}).values()):
+        if any(section.get(k) for k in ('dependencies', 'dev-dependencies', 'build-dependencies')):
+            fallos.append('S9: LIBOS debe depender solo de core')
+    src = os.path.join(carpeta, 'src')
+    for name in ('lib.rs', 'anillo.rs', 'diccionario.rs', 'fuente.rs'):
+        if not os.path.isfile(os.path.join(src, name)):
+            fallos.append('S9: falta LIBOS src/%s' % name)
+    lib = os.path.join(src, 'lib.rs')
+    body = sin_comentarios(leer(lib)) if os.path.isfile(lib) else ''
+    for attr in ('#![no_std]', '#![forbid(unsafe_code)]'):
+        if not re.search(r'^\s*' + re.escape(attr) + r'\s*$', body, re.M):
+            fallos.append('S9: LIBOS necesita %s incondicional' % attr)
+    sources = sorted(glob.glob(os.path.join(src, '**', '*.rs'), recursive=True))
+    for path in sources:
+        source = leer(path)
+        code = sin_comentarios(source)
+        if RX_LENTE_APARATO.search(code) or RX_CONTROL_CROSS.search(code) or re.search(r'\b(?:std|extern)\b', code):
+            fallos.append('S9: LIBOS adquiere acceso fuera de core: %s' % rel(path))
+        if not re.search(r'^//!\s*\[carril\]\s+VERDE\b', source, re.M):
+            fallos.append('S9: falta carril VERDE en %s' % rel(path))
+        if not re.search(r'^//!\s*\[consumo\]\s+NADA\b', source, re.M):
+            fallos.append('S9: falta consumo NADA en %s' % rel(path))
+    return len(sources)
 
 
 def gsp_control(fallos, carpeta=None, consulta=None):
@@ -756,6 +794,7 @@ def main():
     lente_lectura(fallos)
     lente_lectura(fallos, 'sm86_ordenes.rs')
     n_inspeccion = inspeccion_nvidia(fallos)
+    n_libos = libos_copias(fallos)
     n_control = gsp_control(fallos)
     # Las variantes rotas se comprueban en cada build/VERIFICAR, no solo a mano.
     prueba_control = os.path.join(os.path.dirname(__file__), 'test_lente_guardian.py')
@@ -785,6 +824,7 @@ def main():
     print('S6: lente comun sin fabricante ni acceso a aparatos (%d fuentes); consulta PREPARADA sin ordenes GPU' % n_lente)
     print('S8: supervisor GSP puro y consulta nativa sin ordenes (%d fuentes)' % n_control)
     print('S7: inspeccion NVIDIA aislada, VERDE, sin autoridad de aparato (%d fuentes)' % n_inspeccion)
+    print('S9: LIBOS aislado, sin dependencias ni autoridad de aparato (%d fuentes)' % n_libos)
     print('clean: la puerta pide MAQUINA; solo la 3060 12G (%s); registros solo en dev/gpu*; %d ordenes y %d motivos iguales en los tres sitios; opt-level 3; el pase NEUTRO en %d ficheros sin NVIDIA; %d ficheros declaran su [estado] y lo que SOBREVIVE tiene un propietario que no escribe; el sobre, la API y VERRANO sin una GPU dentro (%d ficheros) y el juez en la puerta; PROMETEO y TITAN++ sin una tarjeta dentro (%d ficheros); la Z con float parada en sus tres sitios; la medida de la puerta, de la GPU (`puerta::MEDIDA`); %d esperas girando%s'
           % ('/'.join('%04X' % x for x in suyos), n_ordenes, n_motivos, n_neutros, n_aon, n_sobre, n_prometeo, total, extra))
     return 0

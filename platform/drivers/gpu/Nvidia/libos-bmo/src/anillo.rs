@@ -7,8 +7,6 @@
 //! libos_log.h::libosLogMetadata. Sin diccionario no se adivina argc ni
 //! se buscan supuestos registros en palabras que pueden ser argumentos.
 
-pub mod diccionario;
-
 pub const MAX_ARGS: usize = 20;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -107,6 +105,3 @@ impl<'a> Lector<'a> {
         Ok(Some(Registro { timestamp, metadata_va, argumentos, cuantos }))
     }
 }
-
-#[cfg(test)]
-mod pruebas;

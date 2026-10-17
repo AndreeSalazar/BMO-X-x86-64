@@ -1,4 +1,4 @@
-# Nvidia -- GSP-CONTROL-BMO
+# Nvidia -- gobierno y lectores de copias
 
 El gobierno del GSP desde BMO-X: el GSP ejecuta, BMO-X gobierna. El
 [crate puro](gsp-control-bmo/README.md) implementa el contrato, seis estados
@@ -13,3 +13,8 @@ El supervisor ejecuta en la CPU x86-64 de BMO-X.
 El [driver GA10x](../ga10x/ANATOMIA.md), sus emisores, jueces y lectores
 conservan sus propietarios. Esta carpeta aporta gobierno, sin duplicar
 el controlador ni ejecutar firmware BMO dentro del GSP.
+
+El [lector LIBOS](libos-bmo/README.md) reune anillo, diccionario ELF y
+fuente de bytes en un crate puro, sin dependencias. GA10x conserva su API
+`inspeccion::libos` mediante reexportacion. El crate corre en la CPU del
+lector; no carga un sistema operativo en el GSP.

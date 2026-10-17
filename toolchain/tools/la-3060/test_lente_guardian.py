@@ -142,5 +142,48 @@ class ControlGuard(unittest.TestCase):
                 self.assertTrue(self.fixture(source=source))
                 self.assertTrue(self.fixture(query=source))
 
+class LibosGuard(unittest.TestCase):
+    def fixture(self, extra='', manifest='', build=False):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            (root/'src/nested').mkdir(parents=True)
+            (root/'Cargo.toml').write_text('[package]\nname="fixture"\nversion="0.1.0"\n'+manifest, encoding='ascii')
+            header = '//! [carril] VERDE\n//! [consumo] NADA\n'
+            for name in ('lib.rs', 'anillo.rs', 'diccionario.rs', 'fuente.rs'):
+                text = header + ('#![no_std]\n#![forbid(unsafe_code)]\n' if name == 'lib.rs' else '')
+                (root/'src'/name).write_text(text, encoding='ascii')
+            (root/'src/nested/extra.rs').write_text(header+extra, encoding='ascii')
+            if build:
+                (root/'build.rs').write_text('fn main() {}', encoding='ascii')
+            failures = []
+            self.assertEqual(guardian.libos_copias(failures, str(root)), 5)
+            return failures
+
+    def test_pure_reader_is_accepted(self):
+        self.assertEqual(self.fixture('pub fn count(b: &[u8]) -> usize { b.len() }'), [])
+
+    def test_device_access_in_inactive_variant_is_rejected(self):
+        for leak in ('use crate::Registros;', 'use std::fs;', 'fn f(p: *const u8) {}',
+                     'include!("outside.rs");', '#[path="../../outside.rs"] mod hidden;',
+                     '#[allow(unsafe_code)] mod hidden {}', 'unsafe { asm!("nop") }'):
+            with self.subTest(leak=leak):
+                self.assertTrue(self.fixture('#[cfg(feature="hidden")]\n' + leak))
+
+    def test_dependencies_and_build_escape_are_rejected(self):
+        for manifest in ('[dependencies]\nhidden="1"\n',
+                         '[target."cfg(windows)".dependencies]\nalias={package="hidden",version="1"}\n',
+                         '[dev-dependencies]\nhidden="1"\n',
+                         '[lib]\npath="outside.rs"\n'):
+            with self.subTest(manifest=manifest):
+                self.assertTrue(self.fixture(manifest=manifest))
+        self.assertTrue(self.fixture(build=True))
+
+    def test_missing_reader_cannot_pass(self):
+        with tempfile.TemporaryDirectory() as folder:
+            failures = []
+            self.assertEqual(guardian.libos_copias(failures, folder), 0)
+            self.assertTrue(failures)
+
+
 if __name__ == '__main__':
     unittest.main()

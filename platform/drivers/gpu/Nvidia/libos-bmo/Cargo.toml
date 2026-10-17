@@ -1,0 +1,9 @@
+[package]
+name = "bmo-nvidia-libos"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+description = "Lectores puros de copias LIBOS NVIDIA: anillos, ELF y metadata"
+
+# Solo core. No es el sistema operativo LIBOS ni carga firmware.
+[dependencies]
