@@ -1,5 +1,9 @@
 # ANATOMIA -- la RTX 3060 12G de MSI del propietario, por dentro
 
+Lectura complementaria del 16-10:
+[arranque, PROTON-X y ensamblado SM86](ESTUDIO_RTX3060_PROTON_X.md).
+Separa capacidad fisica, contratos del emisor y pruebas pendientes.
+
 > Pedido por el propietario (26-09), tras el quinto 0x15 del booter: *"AISLAR
 > BRUTALMENTE los archivos por completo y poner guias con reglas ... estudiar
 > que esta hecho en GPU RTX 3060 12G de MSI ... que explican que son en todo la

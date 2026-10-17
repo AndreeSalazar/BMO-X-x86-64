@@ -34,6 +34,10 @@ de arranque de la GPU ni convierte esa introduccion en un juego jugable.
 
 ## Una tanda util, sin reinicios en serie
 
+La [auditoria RTX 3060 / PROTON-X](../../platform/drivers/gpu/ga10x/ESTUDIO_RTX3060_PROTON_X.md)
+agrega G0-MODO como hipotesis de protocolo inicial y localiza el limite Z
+de PROTON-X/VRN2. Son hallazgos de codigo; no cierran G0 ni Q0a3.
+
 Con kernel y DIRECTOR nuevos: uso normal de MUNDO, `gpu laminas` y `save`,
 funcione o falle la RTX. Si falla, comparar `GSP ANTES` con la autopsia
 posterior. Si arranca, consultar tambien el juez de pixeles. No repetir

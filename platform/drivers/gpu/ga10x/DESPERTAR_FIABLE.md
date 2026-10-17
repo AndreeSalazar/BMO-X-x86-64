@@ -1,5 +1,12 @@
 # Despertar fiable de la RTX 3060 12G -- investigacion del 16-10
 
+**Auditoria de protocolo y ASM:** el
+[estudio RTX 3060 / PROTON-X](ESTUDIO_RTX3060_PROTON_X.md) identifica
+G0-MODO: preparacion inicial Falcon en BMO-X frente a RISC-V en OpenRM
+570.144. Es una hipotesis, no la causa demostrada del 0x15. Cambiar solo
+el reset romperia las esperas actuales; el estudio define la comparacion
+del protocolo completo. Tambien separa el limite Z de PROTON-X de G0.
+
 **Quinta tanda, 20:36:** otro 0x15 en frio, y `gpu reintentar` tampoco
 libero WPR2 (descargador 0x15; SB no pudo cargar). MUNDO sigue por CPU:
 1.141 fotogramas, muestra de 19,60 FPS. No confundir con la corrida buena
