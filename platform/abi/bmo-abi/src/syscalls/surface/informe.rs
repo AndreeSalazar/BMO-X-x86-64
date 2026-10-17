@@ -1965,6 +1965,7 @@ pub const INFO_METICHE: u64 = 0xC3;
 ///             bufer de quien leia; REBOTADO: por el rebote del disco ajeno)
 ///                 (detalle: 1 leer, 2 no es NTFS, 3 forma, 4 grande)
 ///               8 montado
+///               9 no se busco a proposito: `g0.txt` dice `sin-d` (E2, 17-10)
 /// ```
 ///
 /// ESTRATOS no va aqui: tiene sus propias filas (`INFO_ES_*`).

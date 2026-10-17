@@ -451,6 +451,7 @@ pub fn buscar_ajeno() {
     }
     if crate::ring0::dev::gpu_despertar::g0_sin_d() {
         crate::ring0::cabina::info("disk", "N1a: el disco Personal (D:) NO se monta en este arranque: g0.txt dice sin-d (E2)", 0);
+        ajeno::apagado_por_g0();
         return;
     }
     ajeno::buscar(unsafe { PORT });
