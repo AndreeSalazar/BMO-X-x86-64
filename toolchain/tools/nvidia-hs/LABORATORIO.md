@@ -15,7 +15,7 @@ incluida la unidad de observacion y las comparaciones que faltan.
 | VBIOS, booter, GSP, diccionario, logs, informe | `inventario.py` | Bytes y SHA-256; el papel es declarado |
 | Sesion buena o fallida | `sesion.py` | Identidad, contexto, diferencias y ausencias; no causa |
 | ELF y anillos LIBOS | ejemplo Rust `libos` de GA10x | Formatos ya comprobados; exige diccionario de la misma build |
-| Region RISC-V identificada | `riscv.py` + Capstone | Bytes, instrucciones, version del decoder y cola sin interpretar |
+| Region RISC-V identificada | `region_gpu.py` + Capstone | Bytes, instrucciones, version del decoder y cola sin interpretar |
 | Falcon / HS / BROM | estudio separado | No se pasa al decoder RISC-V; variante y acceso pendientes |
 | Shader SM86 / FIFO | inspectores GA10x existentes | Otro lenguaje y otro procesador, no firmware GSP |
 | Captura MMIO/DMA | kernel y puertas existentes | Un lector anfitrion no adquiere esa responsabilidad |
@@ -66,7 +66,7 @@ Capstone es opcional y SOLO del anfitrion. Entorno reproducible probado:
 ```powershell
 python -m venv .venv-gpu
 .venv-gpu/Scripts/python -m pip install -r toolchain/tools/nvidia-hs/requirements-host.txt
-.venv-gpu/Scripts/python toolchain/tools/nvidia-hs/riscv.py C:/copias/code.bin --isa rv64 --offset 0 --length 64 --address 0x1000 > region.json
+.venv-gpu/Scripts/python toolchain/tools/nvidia-hs/region_gpu.py C:/copias/code.bin --isa rv64 --offset 0 --length 64 --address 0x1000 > region.json
 .venv-gpu/Scripts/python -m unittest discover -s toolchain/tools/nvidia-hs -p "test_*.py" -v
 ```
 
