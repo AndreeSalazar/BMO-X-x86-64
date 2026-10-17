@@ -14,13 +14,16 @@ pub(crate) fn report(s: &mut Output) {
     let libos = bmo::info(bmo::INFO_GPU_LIBOS);
     let init_done = super::gspinit::observado();
     let after = bmo::info(bmo::INFO_GPU_DESPIERTO);
+    // GCB2a: el commit del kernel y el numero del intento del booter.
+    let build = super::obs_build::kernel();
+    let attempt = bmo::info(bmo::INFO_GPU_INTENTO);
     let valid = after & bmo::DESPIERTO_VALIDO != 0;
     let reason = ((after >> bmo::DESPIERTO_MOTIVO_SHIFT) & 0xFF) as u32;
     let identity = Identity {
         device: (chip & bmo::GPU_HALLADA != 0).then_some(chip),
         firmware: (firmware & bmo::GSP_VALIDO != 0).then_some(hash),
-        build: None,
-        attempt: None,
+        build: (build & bmo::BUILD_VALIDO != 0).then_some(build),
+        attempt: (attempt != 0).then_some(attempt),
     };
     let state = diagnose(Snapshot {
         prepared: (libos & bmo::LIBOS_VALIDO != 0)
@@ -55,9 +58,19 @@ pub(crate) fn report(s: &mut Output) {
     campo(s, b"identidad");
     s.text(b"tarjeta "); optional(s, identity.device);
     s.text(b"; firmware-huella "); optional(s, identity.firmware);
-    s.text(b"; build e intento: NO DISPONIBLES\n");
+    s.text(b"; build "); super::obs_build::escribir(s, build);
+    s.text(b"; intento ");
+    match identity.attempt {
+        Some(n) => { s.dec(n); s.text(b" desde el arranque"); }
+        None => s.text(b"ninguno: el booter no se solto en este arranque"),
+    }
+    s.byte(b'\n');
     campo(s, b"limite");
-    s.text(b"foto derivada; sin historia ligada ni permiso para recuperar. Siguiente: protocolo G0-MODO.\n");
+    s.text(if identity.complete() {
+        b"identidad completa; foto derivada, sin historia de eventos ni permiso para recuperar.\n" as &[u8]
+    } else {
+        b"identidad incompleta; foto derivada, sin historia ni permiso para recuperar.\n"
+    });
 }
 
 fn optional(s: &mut Output, value: Option<u64>) {

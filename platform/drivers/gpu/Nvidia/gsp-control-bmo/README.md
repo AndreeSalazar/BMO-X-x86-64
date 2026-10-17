@@ -40,7 +40,9 @@ y tiempo monotono pertenecen a esa misma sesion. Una identidad distinta,
 un numero repetido con contenido distinto o un tiempo anterior se rechazan.
 Un duplicado exacto del ultimo evento aceptado es idempotente.
 
-Hoy la ABI no entrega build e intento fiables. Director lo imprime y utiliza
+Desde el 17-10 (GCB2a) la ABI entrega build (`INFO_BUILD`, el commit del
+kernel) e intento (`INFO_GPU_INTENTO`, las veces que se solto el booter en
+este arranque); faltan verse en metal. Aun asi Director utiliza
 solo `diagnose(Snapshot)`: una foto derivada, sin inventar una historia de
 transiciones. Dos lecturas iguales delimitan la consulta, pero no prueban
 atomicidad ni excluyen cambios intermedios. El INIT_DONE es un hecho local
@@ -98,9 +100,9 @@ verificados. Una copia de prueba con unsafe bajo feature compila con la
 variante inactiva y es rechazada por Rust al activarla; S8 rechaza la fuente
 aunque este inactiva. La copia de prueba queda en target, fuera del commit.
 
-Siguiente: GCB2 del plan redefinido (17-10, gobernar y no reemplazar):
-entregar build e intento reales para abrir el modelo con historia, y
-comparar las entradas del booter contra OpenRM 570.144. Esta etapa no
+Siguiente: GCB2b del plan redefinido (17-10, gobernar y no reemplazar):
+comparar las entradas del booter contra OpenRM 570.144. GCB2a (build e
+intento reales) esta en el anfitrion. Esta etapa no
 cambia reset, energia, firmware ni esperas, ni corrige por si sola el 0x15.
 El nuevo resumen nativo queda pendiente de observar en metal cuando el
 propietario use su proximo build.

@@ -299,6 +299,8 @@ pub fn booter(booter_fichero: Option<&mut dyn Fichero>) -> Result<u64, u32> {
     crate::ring0::cabina::info("gpu", "L0c3b: H3, la cache de la CPU escrita a la RAM (wbinvd) antes del booter", 0);
     let ahora = crate::ring0::task::scheduler::rdtsc();
     BOOTER_TSC.store(ahora, Ordering::Release);
+    let intento = INTENTOS.fetch_add(1, Ordering::AcqRel) + 1;
+    crate::ring0::cabina::count("gpu", "L0c3b: intento del booter (GCB2a)", intento);
     // [11] H4 y H5: cuanto espero el GSP parado, y el disco al soltarlo.
     let hz = (crate::ring0::task::scheduler::tsc_freq() / 1_000_000).max(1);
     let hueco = ahora.saturating_sub(GSP_TSC.load(Ordering::Acquire)) / hz;
@@ -446,6 +448,14 @@ fn bus_3060() -> u64 {
     crate::ring0::dev::gpu::bdf().map_or(0, |(b, d, f)| crate::ring0::dev::metiche::una(b, d, f))
 }
 static BOOTER_TSC: AtomicU64 = AtomicU64::new(0);
+/// GCB2a: cuantas veces se SOLTO el booter desde que arranco la maquina. Es
+/// del arranque, no del intento: `rearmar` no lo borra, y el reintento suma.
+static INTENTOS: AtomicU64 = AtomicU64::new(0);
+
+/// `INFO_GPU_INTENTO`: el numero del ultimo intento del booter; 0 = ninguno.
+pub fn info_intento() -> u64 {
+    INTENTOS.load(Ordering::Acquire)
+}
 
 /// La foto del SEC2 recien parado, UNA vez por arranque.
 fn autopsiar(r: &mut Bar0) {

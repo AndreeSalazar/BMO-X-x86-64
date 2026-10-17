@@ -649,6 +649,17 @@ pub const INFO_GPU_RC_TEXTO: u64 = 0xD7;
 /// corre la calibracion (~3 ms, UNA vez). Sin contadores, 0.
 pub const INFO_CPU_CONTADORES: u64 = 0xD8;
 pub const INFO_CPU_CONTADOR: u64 = 0xD9;
+/// ** OBS-BUILD y el INTENTO (17-10, GCB2a de PLAN_GSP_CONTROL_BMO).
+/// `INFO_BUILD`: el commit con que se compilo ESTE kernel -- bit 63 valido
+/// (git contesto), bit 62 SUCIO (habia cambios sin commit), `[0..56)` los 14
+/// primeros digitos hex. 0 = desconocido, nunca un commit inventado.
+/// `INFO_GPU_INTENTO`: cuantas veces se solto el booter de la 3060 desde que
+/// arranco la maquina (el reintento suma; `rearmar` no lo borra). 0 = ninguna.
+pub const INFO_BUILD: u64 = 0xDB;
+pub const BUILD_VALIDO: u64 = 1 << 63;
+pub const BUILD_SUCIO: u64 = 1 << 62;
+pub const BUILD_COMMIT: u64 = (1 << 56) - 1;
+pub const INFO_GPU_INTENTO: u64 = 0xDC;
 
 /// -- ** EL METRO DE LA PUERTA -------------------------------------------
 ///

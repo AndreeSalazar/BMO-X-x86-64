@@ -83,9 +83,20 @@ reparto del banco se documentan en [VERIFICAR](../../toolchain/tools/verificar/R
 
 ### GCB2 -- palanca 1: dar posesion bien (G0, PRIORIDAD)
 
-- [ ] GCB2a: entregar al supervisor build e intento reales (OBS-BUILD de
+- [x] GCB2a: entregar al supervisor build e intento reales (OBS-BUILD de
       EL_FOCO y un contador de intentos del kernel) para que cada arranque,
       bueno o malo, quede como una sesion con historia y no solo como una foto.
+
+Hecho en el anfitrion el 17-10, falta verlo en el metal. `INFO_BUILD`
+(0xDB): el commit con que se compilo el kernel, armado por `kernel/build.rs`
+(`Ultra_kernel_x86-64/build/obs_build.rs`) en cada build; bit SUCIO si habia
+cambios sin commit, y 0 si git no contesto -- nunca un commit inventado.
+`INFO_GPU_INTENTO` (0xDC): cuantas veces se solto el booter desde que
+arranco la maquina; el reintento suma y `rearmar` no lo borra. `gpu control`
+arma con ellos una identidad completa, y la cabecera de cada `save` dice el
+build del kernel y el del DIRECTOR y si salieron del mismo commit. Lo que
+NO hace todavia: alimentar el modelo con eventos (eso es GCB5b); con la
+identidad completa, esa historia ya se puede abrir sin inventarla.
 - [ ] GCB2b: comparar TODAS las entradas que recibe el booter (FRTS, WPR2,
       argumentos de LIBOS, RMARGS, orden y esperas) contra OpenRM 570.144 y
       nova-core, campo a campo, con la diferencia escrita aunque parezca inocua.
