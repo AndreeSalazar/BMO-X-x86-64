@@ -466,6 +466,23 @@ pub fn read_package_into<S: Source>(src: &mut S, root: &[u8], buf: &mut [u8], ou
             b"sonido" => Some((NodeKind::Director, SONIDO_NAME, SONIDO_PURPOSE, Permission::Sound)),
             _ => None,
         };
+        // A module of the house library (`use casa.medida`): it lives in the
+        // compiler, not in the package, so it is drawn as a node of BMO-X --
+        // and asks for nothing: what it talks to, the APP's manifest asks.
+        if used.as_bytes().starts_with(crate::header::HOUSE) {
+            let id = match out.graph.find(used.as_bytes()) {
+                Some(id) => Some(id),
+                None => {
+                    let (x, y) = place(&mut auto, used.as_bytes(), max_depth + 1);
+                    out.graph.add(Node::new(NodeKind::Director, Lang::None, core::str::from_utf8(used.as_bytes()).unwrap_or(""), HOUSE_PURPOSE, x, y)).ok()
+                }
+            };
+            match id {
+                Some(t) => edge(out, user, t),
+                None => out.problem(ProblemKind::Full, used.as_bytes(), b""),
+            }
+            continue;
+        }
         let target = match special {
             Some((kind, name, purpose, perm)) => {
                 // U2 in its smallest form: using the 3060 or the screen
@@ -492,6 +509,9 @@ pub fn read_package_into<S: Source>(src: &mut S, root: &[u8], buf: &mut [u8], ou
     }
     out.tree_order();
 }
+
+/// What a house module's node says it is.
+const HOUSE_PURPOSE: &str = "de la casa: la libreria de TITAN++";
 
 /// Where every package starts.
 pub const MAIN: &[u8] = b"src/main.titan";
@@ -685,6 +705,15 @@ pub(crate) mod tests {
         assert_eq!(kinds(&got), [ProblemKind::MissingModule]);
         assert_eq!(got.problems()[0].describe().as_bytes(), b"main declara mod rock y su fichero no esta");
         assert!(got.graph.find(b"physics").is_some() && got.graph.find(b"rock").is_none());
+    }
+
+    #[test]
+    fn a_house_module_is_a_node_of_bmo_x_and_asks_for_nothing() {
+        let t = Table::seed().put("titan/asteroids/src/rock.titan", "mod rock \"x\"\nuse casa.cifras\n");
+        let got = read(&mut { t });
+        assert_eq!(kinds(&got), []);
+        let house = got.graph.find(b"casa.cifras").expect("the house node is drawn");
+        assert_eq!(got.graph.node(house).unwrap().kind, NodeKind::Director);
     }
 
     #[test]

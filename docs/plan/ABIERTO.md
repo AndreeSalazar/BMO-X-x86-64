@@ -1,14 +1,14 @@
 <!-- GENERADO por toolchain/tools/planes. No se edita a mano. -->
 
-# LO QUE FALTA -- las casillas abiertas de los 90 planes
+# LO QUE FALTA -- las casillas abiertas de los 91 planes
 
 > Generado por `toolchain/tools/planes`. **El build comprueba que
 > este fichero y los planes dicen lo mismo**, asi que no puede
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   900 casillas ABIERTAS en 81 planes
-   705 hechas
+   900 casillas ABIERTAS en 82 planes
+   709 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -63,14 +63,14 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] V3a -- VERRANO POR CATEGORIAS: el dibujo con PROGRAMAS (11-10,
 - ... y 42 mas
 
-## [`PLAN_ILLAPA.md`](PLAN_ILLAPA.md) -- 36 abiertas, 0 hechas
+## [`PLAN_ILLAPA.md`](PLAN_ILLAPA.md) -- 33 abiertas, 3 hechas
 
 *PLAN ILLAPA -- el motor de CGI en tiempo real de BMO-X: motor grafico + Houdini propio, en TITAN*
 
 - [ ] IL0 -- las decisiones de la seccion 8, contestadas por el propietario
-- [ ] IL1 -- gpu fn CON VECINOS: leer celdas de OTRA tabla por indice y bucles acotados, en el lenguaj
-- [ ] IL2 -- LA REJILLA DE VECINOS: cada particula a su celda, ordenadas por celda (un conteo y un ord
-- ... y 33 mas
+- [ ] IL4 -- LO UNIFICADO: tela, cuerpo blando y rigido como restricciones sobre las MISMAS particulas
+- [ ] IL5 -- glTF: un lector puro (malla, esqueleto, pesos de la piel y animacion), con su banco en el
+- ... y 30 mas
 
 ## [`PLAN_LA_LUDOTECA.md`](PLAN_LA_LUDOTECA.md) -- 32 abiertas, 15 hechas
 
@@ -486,15 +486,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] 5 el emisor pierde los caminos del monton y de los objetos; los docs
 - ... y 3 mas
 
-## [`PLAN_LAS_LIBRERIAS.md`](PLAN_LAS_LIBRERIAS.md) -- 6 abiertas, 8 hechas
-
-*PLAN LAS LIBRERIAS -- TITAN++, el modelo general; cada GPU, una libreria (la primera: SM86, la R*
-
-- [ ] LB0 -- LAS DECISIONES de la seccion 4, contestadas por el
-- [ ] LB2 -- TITAN++ EN EL RYZEN, y la lamina de INTI. Un arranque, en
-- [ ] LB6 -- LA gpu fn QUE DIBUJA. Una gpu fn de VERTICE y una de PIXEL,
-- ... y 3 mas
-
 ## [`PLAN_LAS_RAMAS.md`](PLAN_LAS_RAMAS.md) -- 6 abiertas, 10 hechas
 
 *PLAN LAS RAMAS -- ESTRATOS como Git: guias, plantillas, ramas y mezcla por NODOS*
@@ -558,6 +549,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] D3 -- DMA directo al bloque prestado + PRD multiples
 - ... y 2 mas
 
+## [`PLAN_LAS_LIBRERIAS.md`](PLAN_LAS_LIBRERIAS.md) -- 5 abiertas, 9 hechas
+
+*PLAN LAS LIBRERIAS -- TITAN++, el modelo general; cada GPU, una libreria (la primera: SM86, la R*
+
+- [ ] LB0 -- LAS DECISIONES de la seccion 4, contestadas por el
+- [ ] LB2 -- TITAN++ EN EL RYZEN, y la lamina de INTI. Un arranque, en
+- [ ] LB6 -- LA gpu fn QUE DIBUJA. Una gpu fn de VERTICE y una de PIXEL,
+- ... y 2 mas
+
 ## [`PLAN_LA_ANTENA_AOT.md`](PLAN_LA_ANTENA_AOT.md) -- 5 abiertas, 0 hechas
 
 *PLAN LA ANTENA AOT -- el HONOR, optimizado al extremo y en un lenguaje de verdad nativo*
@@ -610,6 +610,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] Paso 0b -- el lanzador que inyecta en el juego
 - [ ] Paso 1 -- las DLL del juego y las que llegan tarde
 - [ ] Paso 2 -- las vigiladas, con sus datos
+- ... y 1 mas
+
+## [`PLAN_LAS_PUERTAS_PROFUNDAS.md`](PLAN_LAS_PUERTAS_PROFUNDAS.md) -- 4 abiertas, 0 hechas
+
+*PLAN LAS PUERTAS PROFUNDAS -- que la CPU hable mas directo, porque el kernel lo deja*
+
+- [ ] PP0 -- las decisiones de la seccion 4, contestadas por el propietario.
+- [ ] PP3 -- un MSR de una lista blanca, por invoca. Una op de Ring 0
+- [ ] PP2 -- rdpmc desde Ring 3 (CR4.PCE).
 - ... y 1 mas
 
 ## [`PLAN_LA_LENTE.md`](PLAN_LA_LENTE.md) -- 4 abiertas, 0 hechas

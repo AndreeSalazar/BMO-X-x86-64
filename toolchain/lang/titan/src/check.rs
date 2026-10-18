@@ -19,8 +19,9 @@ use crate::tree::{Arm, Expr, Mode, Program, Stmt, Ty};
 
 /// What the library gives: `print` (level 0), `len` (6), and `lee` -- the
 /// line typed on the program's own console (E1, `docs/plan/PLAN_LA_ENTRADA.md`)
-/// -- and the lists and maps of level 13 (`docs/plan/PLAN_LISTAS_Y_MAPAS.md`).
-const LIBRARY: [&str; 12] = ["print", "len", "lee", "numero", "byte", "lamina", "push", "pop", "put", "get", "has", "remove"];
+/// -- the lists and maps of level 13 (`docs/plan/PLAN_LISTAS_Y_MAPAS.md`),
+/// and the whole division of ints, `div` and `rem` (18-10).
+const LIBRARY: [&str; 14] = ["print", "len", "lee", "numero", "byte", "lamina", "push", "pop", "put", "get", "has", "remove", "div", "rem"];
 
 /// The library's fn of lists and maps (level 13): how many values each takes,
 /// whether it CHANGES its first one (then it goes lent: `push(mut l, x)`), and
@@ -862,7 +863,9 @@ fn target(p: &Program, callee: &str, n: usize, line: usize, col: usize, as_value
         return Ok(());
     }
     let own = p.functions.iter().find(|g| g.name == callee);
-    if own.is_none() && !LIBRARY.contains(&callee) {
+    // `celda` is the library's only inside a gpu fn, and does not take the
+    // name from values (`let celda` stays a value's name): LB9.
+    if own.is_none() && !LIBRARY.contains(&callee) && callee != "celda" && callee != "piso" {
         let known = LIBRARY.iter().copied().chain(p.functions.iter().filter(|g| !g.name.contains('<')).map(|g| g.name.as_str())).chain(p.traits.iter().flat_map(|t| t.methods.iter().map(|s| s.name.as_str())));
         let near = known.min_by_key(|k| distance(k, callee)).filter(|k| distance(k, callee) <= 3);
         return Err(Message::new(
@@ -870,7 +873,7 @@ fn target(p: &Program, callee: &str, n: usize, line: usize, col: usize, as_value
             line,
             col,
             &format!("`{}` no existe", callee),
-"no es una `fn` de este fichero, ni un caso de sus `enum`, ni de la biblioteca (la biblioteca, hoy, es `print`, `len`, `lee`, `numero` y las de listas y mapas: `push`, `pop`, `put`, `get`, `has`, `remove`)",
+"no es una `fn` de este fichero, ni un caso de sus `enum`, ni de la biblioteca (la biblioteca, hoy, es `print`, `len`, `lee`, `numero`, `div`, `rem` y las de listas y mapas: `push`, `pop`, `put`, `get`, `has`, `remove`)",
             &match near {
                 Some(k) => format!("quisiste decir `{}`?", k),
                 None => format!("define `fn {}()` en este fichero, o usa `print`", callee),
@@ -916,6 +919,39 @@ fn target(p: &Program, callee: &str, n: usize, line: usize, col: usize, as_value
             }
             if !as_value {
                 return Err(Message::new(Code::Result, line, col, "`lamina(...)` da una lamina, y aqui nadie la guarda", "pedir RAM que nadie tiene en la mano es pedirla para nada", "guardala: let mut l = lamina(4096)"));
+            }
+            return Ok(());
+        }
+        if callee == "piso" {
+            // IL2 (18-10): `piso(x)` -- the floor of an f32 (gpu.rs and the
+            // calculation say where it may be); one value in, an f32 out.
+            if n != 1 {
+                return Err(Message::new(Code::Args, line, col, &format!("`piso` pide 1 valor, y aqui se le dan {}", n), "`piso(x)` da el entero de abajo de un f32", "let c = piso(x / h)"));
+            }
+            if !as_value {
+                return Err(Message::new(Code::Result, line, col, "`piso(...)` da un numero, y aqui nadie lo guarda", "el piso se perderia", "let c = piso(x / h)"));
+            }
+            return Ok(());
+        }
+        if callee == "celda" {
+            // LB9 (18-10): `celda()` -- the thread of a gpu fn (gpu.rs says
+            // where it may be); nothing in, an f32 out.
+            if n != 0 {
+                return Err(Message::new(Code::Args, line, col, &format!("`celda` no pide valores, y aqui se le dan {}", n), "`celda()` dice que celda cuenta este hilo de la gpu fn", "let i = celda()"));
+            }
+            if !as_value {
+                return Err(Message::new(Code::Result, line, col, "`celda()` da un numero, y aqui nadie lo guarda", "el numero del hilo se perderia", "let i = celda()"));
+            }
+            return Ok(());
+        }
+        if callee == "div" || callee == "rem" {
+            // `div(a, b)` / `rem(a, b)` (18-10): the whole division of two
+            // ints, Euclid's -- the remainder never negative.
+            if n != 2 {
+                return Err(Message::new(Code::Args, line, col, &format!("`{}` pide 2 valores, y aqui se le dan {}", callee, n), "`div` y `rem` dividen UN numero entero entre otro", &format!("{}(a, b)", callee)));
+            }
+            if !as_value {
+                return Err(Message::new(Code::Result, line, col, &format!("`{}(...)` da un numero, y aqui nadie lo guarda", callee), "la cuenta se perderia nada mas hacerse", &format!("guardalo: let q = {}(a, b)", callee)));
             }
             return Ok(());
         }

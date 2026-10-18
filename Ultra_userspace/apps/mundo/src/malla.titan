@@ -60,7 +60,7 @@ pub fn caras(mundo: [byte]) -> [int]
     for k in range(256)
         push(mut mascara, 0)
     for cara in range(6)
-        let a = (cara - cara % 2) / 2
+        let a = div(cara, 2)
         let positiva = cara % 2 == 1
         let u = (a + 1) % 3
         let v = (a + 2) % 3

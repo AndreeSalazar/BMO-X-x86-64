@@ -15,6 +15,14 @@ Los resultados completos estan en el [parte del metal](docs/metal/METAL_2026-10-
 | Ultima sesion de MUNDO | 1.141 fotogramas CPU, cero GPU; muestra 19,60 FPS | G0 volvio a fallar: no es una medida de velocidad de la RTX. |
 | Captura PNG | Dos 1080p guardados tras corregir el cupo temporal | Solo pantalla completa acreditada en esta tanda. |
 | Lente | Consulta de 128 bytes vista: hex y bits coinciden | Rotulos corregidos en host; autopsia nueva y EOF pendientes. |
+| TITAN++ `div` / `rem` | Division entera de Euclides en la biblioteca, sin palabras nuevas | Anfitrion: 860.169 -> 290.169 instrucciones (-66 %) en un bucle frente a la fn a mano; las apps aun no migran. |
+| TITAN++ la casa | `use casa.medida`: modulos compartidos dentro del compilador | ECCE, RESOLUCION, TINTA y `nivel11/ventana` dejan su copia de `medida.titan`; salida de sus pruebas identica. |
+| TITAN++ O3 + O4 | Cuerpos por defecto en un trait; listas y mapas de un trait | La primera red de nodos de ILLAPA (HO1) en el banco: calculo == E1 == Python. |
+| MC4 (a) | gpu fn y `publica` sobre listas del monton; MUNDO de 80 a 126 caras | Mismos pixeles en sus pruebas; falta el metal y subir los 768 vertices del DIRECTOR. |
+| LB9 | `gpu fn` con VECINAS: `campo: [f32]` entera, `celda()`, fuera 0 (DL9); la primera densidad de un fluido (IL1) | Las dos tarjetas, la casa y el calculo con los mismos bits; E1 la corre en la CPU. Sin tocar Ring 0; en la 3060 de verdad espera a LB8. |
+| IL3 | La sangre: PBF en 2D (densidad, lambda, presion artificial, vorticidad, XSPH), 64 gotas en 40 pasos | La presa cae y conserva su densidad (0.915 media, 1.154 la mayor); un espejo en Python da lo mismo. |
+| Reducciones | `use casa.suma`: total, punto, mayor, menor en la GPU, por bloques de 64 | 5000 celdas en tres pasos, los bits de Python; la rejilla y la densidad suman en la GPU. |
+| IL2 | `piso(x)` en gpu fn; la rejilla de vecinos: orden bitonico y busqueda binaria, sin atomicos | 128 gotas: las mismas 332 vecinas que a mano (y que Python); en la 3060 de verdad espera a LB8. |
 | Portada | README renovado, cabecera propia, navegacion y limites claros | Presentacion comprobada en escritorio y movil; no agrega pruebas de metal. |
 
 ## Cambios recientes que explican el estado

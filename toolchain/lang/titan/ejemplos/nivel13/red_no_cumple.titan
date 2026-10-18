@@ -1,0 +1,19 @@
+# espera: T0085
+# una lista de un trait recibe CUALQUIER tipo que lo cumpla, y solo esos:
+# un numero no sabe `aplica`
+mod main "un nodo que no es nodo"
+
+trait Nodo
+    fn aplica(n: Nodo, x: int) -> int
+
+type Doble
+    k: int
+
+trait Nodo for Doble
+    fn aplica(d: Doble, x: int) -> int
+        return x * d.k
+
+fn main()
+    let red: [Nodo] = [Doble { k: 2 }, 7]
+    for n in red
+        print(aplica(n, 3))

@@ -1,0 +1,5 @@
+[package]
+name = "listas_gpu"
+
+[permissions]
+gpu = "compute"

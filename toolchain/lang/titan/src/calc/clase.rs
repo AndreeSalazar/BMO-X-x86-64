@@ -322,10 +322,17 @@ pub(super) fn cpu_f32(v: &Value, known: &[Option<Class>], m: &Module) -> Result<
             cpu_f32(x, known, m)
         }
         Value::Round(x, _, _) | Value::Repeat(x, _, _) | Value::Field(x, _, _) | Value::Len(x, _) | Value::Is(x, _, _, _) | Value::Payload(x, _, _, _, _) => cpu_f32(x, known, m),
-        Value::Index(b, i, _) => {
+        Value::Index(b, i, at) => {
+            // LB9: a cell chosen by an f32 is a gpu fn's; the CPU does not
+            // count with an f32 (D2), and an index is a count
+            if class(i, known, m)? == Class::F32 {
+                return Err(f32_here(*at, "elige una celda", "en la CPU una celda se elige con un int: el f32 cuenta dentro de una gpu fn (su vecina, `campo[celda() + 1.0]`)"));
+            }
             cpu_f32(b, known, m)?;
             cpu_f32(i, known, m)
         }
+        // IL2: `piso(x)` counts with an f32: a gpu fn's
+        Value::Lib(Lib::Piso, _, at) => Err(f32_here(*at, "se cuenta (`piso`)", "la CPU cuenta con dec exacto (PLAN_EL_CENTAURO D2): el piso de un f32 es de una gpu fn")),
         Value::Call(_, items, _) | Value::Table(items, _) | Value::Record(_, items, _) | Value::Variant(_, _, items, _) | Value::Lib(_, items, _) => items.iter().try_for_each(|x| cpu_f32(x, known, m)),
         Value::Map(items, _) => items.iter().try_for_each(|(k, v)| cpu_f32(k, known, m).and_then(|_| cpu_f32(v, known, m))),
         _ => Ok(()),
@@ -378,25 +385,41 @@ pub(super) fn gpu_call(func: usize, args: &[Value], at: At, known: &[Option<Clas
         ));
     }
     let ret = of_ty(g.ret.as_ref().expect("gpu: a gpu fn gives a value"), m.defs());
-    let got: Vec<Class> = args.iter().map(|a| class(a, known, m)).collect::<Result<_, _>>()?;
-    let wants: Vec<Class> = g.params.iter().map(|(_, t)| of_ty(t, m.defs())).collect();
+    let all: Vec<Class> = args.iter().map(|a| class(a, known, m)).collect::<Result<_, _>>()?;
+    // ** LB9 (18-10): lo que va a una lista `[f32]` va ENTERO -- todos los
+    // hilos la leen --; lo demas, celda a celda, y eso dice cuantos hilos.
+    let entera = |t: &Ty| crate::gpu::entera(t);
+    for ((a, c), (_, t)) in args.iter().zip(&all).zip(&g.params) {
+        if entera(t) && *c != Class::List(Box::new(Class::F32)) {
+            return Err(wrong(a.at(), &Class::List(Box::new(Class::F32)), c, m.defs(), &format!("`{}` lee esta lista ENTERA, celda a celda por su numero", g.name), "dale una lista de f32: let mut campo: [f32] = []"));
+        }
+    }
+    let got: Vec<Class> = all.iter().zip(&g.params).filter(|(_, (_, t))| !entera(t)).map(|(c, _)| c.clone()).collect();
+    let wants: Vec<Class> = g.params.iter().filter(|(_, t)| !entera(t)).map(|(_, t)| of_ty(t, m.defs())).collect();
     if got.iter().zip(&wants).all(|(c, w)| c == w) {
         return Ok(ret);
     }
-    let n = match got.first() {
-        Some(Class::Table(_, n)) => *n,
-        _ => 0,
-    };
-    let cells = got.iter().zip(&wants).all(|(c, w)| matches!(c, Class::Table(inner, k) if *k == n && **inner == *w));
+    // ** 18-10: un valor SUELTO entre tablas o listas llega igual a cada
+    // celda (la camara de un fotograma): no hace falta repetirlo en una tabla.
+    let n = got.iter().find_map(|c| if let Class::Table(_, n) = c { Some(*n) } else { None }).unwrap_or(0);
+    let cells = got.iter().zip(&wants).all(|(c, w)| c == w || matches!(c, Class::Table(inner, k) if *k == n && **inner == *w));
     if n > 0 && cells {
         return Ok(Class::Table(Box::new(ret), n));
+    }
+    // ** MC4 (18-10): LISTAS que crecen, del largo que tengan al correr --
+    // las tablas viven en la pila; una lista, en el monton. Todas del mismo
+    // largo, que se mira al correr (T0072: si no, se leeria una celda que
+    // no esta).
+    let lists = got.iter().any(|c| matches!(c, Class::List(_)));
+    if lists && got.iter().zip(&wants).all(|(c, w)| c == w || matches!(c, Class::List(inner) if **inner == *w)) {
+        return Ok(Class::List(Box::new(ret)));
     }
     let want: Vec<String> = wants.iter().map(|w| w.short(m.defs())).collect();
     Err(Message::new(
         Code::WrongType,
         at.0,
         at.1,
-        &format!("`{}` se aplica a valores ({}) o a tablas de esos valores, todas del mismo largo", g.name, want.join(", ")),
+        &format!("`{}` se aplica a valores ({}), o a tablas o a listas de esos valores, todas del mismo largo", g.name, want.join(", ")),
         &format!("aqui llega: {}", got.iter().map(|c| c.short(m.defs())).collect::<Vec<_>>().join(", ")),
         &format!("una celda de cada tabla por hilo: {}(xs, ys) con xs, ys de [f32; n]", g.name),
     ))
@@ -568,11 +591,14 @@ pub(super) fn director(what: Director, args: &[Value], at: At, known: &[Option<C
             int(1, "lo segundo, cuantos vertices del fotograma van en las tablas", "director.publica(f, n, posiciones, colores)")?;
             match (&got[2], &got[3]) {
                 (Class::Table(a, n), Class::Table(b, k)) if **a == Class::F32 && **b == Class::F32 && n == k && *n > 0 && n % 4 == 0 => Ok(Some(Class::Bool)),
+                // MC4 (18-10): o dos LISTAS de f32, del largo que tengan al
+                // correr: si `n` vertices no caben en las dos, `false`
+                (Class::List(a), Class::List(b)) if **a == Class::F32 && **b == Class::F32 => Ok(Some(Class::Bool)),
                 (a, b) => Err(Message::new(
                     Code::WrongType,
                     at.0,
                     at.1,
-                    "`director.publica` lleva los vertices en dos tablas de f32 del mismo largo: sus posiciones y sus colores, cuatro f32 por vertice",
+                    "`director.publica` lleva los vertices en dos tablas de f32 del mismo largo, o en dos listas de f32: sus posiciones y sus colores, cuatro f32 por vertice",
                     &format!("aqui llega: {} y {}", a.short(m.defs()), b.short(m.defs())),
                     "let mut posiciones: [f32; 72] = [0.0; 72]  (18 vertices: x, y, z, w de cada uno; los colores, r, g, b, a)",
                 )),
@@ -761,6 +787,12 @@ pub fn class(v: &Value, known: &[Option<Class>], m: &Module) -> Result<Class, Me
         Value::Repeat(item, n, _) => Class::Table(Box::new(class(item, known, m)?), *n),
         Value::Index(b, i, at) => {
             let bc = class(b, known, m)?;
+            // ** LB9 (18-10): a VECINA -- inside a gpu fn a whole `[f32]` is
+            // read by an f32 cell number (`campo[celda() + 1.0]`); outside,
+            // 0. The CPU never counts with that f32 (cpu_f32 says so).
+            if bc == Class::List(Box::new(Class::F32)) && class(i, known, m)? == Class::F32 {
+                return Ok(Class::F32);
+            }
             step_class(&bc, &PathStep::Index((**i).clone()), known, m, *at)?
         }
         Value::Field(b, name, at) => field_class(&class(b, known, m)?, name, *at, m)?,
@@ -871,7 +903,18 @@ pub fn class(v: &Value, known: &[Option<Class>], m: &Module) -> Result<Class, Me
                         Class::Int
                     }
                 }
-                "%" if a == Class::Int && b == Class::Int => Class::Int,
+                "%" | "div" | "rem" if a == Class::Int && b == Class::Int => Class::Int,
+                "div" | "rem" => {
+                    let odd = if a != Class::Int { a } else { b };
+                    return Err(Message::new(
+                        Code::Mixed,
+                        at.0,
+                        at.1,
+                        &format!("`{}` divide numeros enteros, y aqui hay {}", op, odd.name(types)),
+                        "la division entera da un cociente y un resto enteros: un decimal se divide EXACTO con `/`",
+                        "divide un `dec` con `/`, o pasa ints: div(7, 2)",
+                    ))
+                }
                 "%" if numbers => {
                     return Err(Message::new(
                         Code::Mixed,
@@ -950,12 +993,40 @@ pub fn class(v: &Value, known: &[Option<Class>], m: &Module) -> Result<Class, Me
 /// when its values are not what it works with.
 fn lib_class(lib: Lib, args: &[Value], at: At, known: &[Option<Class>], m: &Module) -> Result<Class, Message> {
     let types = m.defs();
+    if lib == Lib::Celda {
+        return Ok(Class::F32);
+    }
+    // IL2: `piso(x)` of an f32 is an f32
+    if lib == Lib::Piso {
+        let x = class(&args[0], known, m)?;
+        if x != Class::F32 {
+            return Err(Message::new(Code::WrongType, at.0, at.1, &format!("`piso` es de un f32, y aqui le llega {}", x.name(types)), "`piso(x)` da el entero de abajo de un f32, dentro de una gpu fn", "let c = piso(x / h)"));
+        }
+        return Ok(Class::F32);
+    }
     let first = class(&args[0], known, m)?;
     let arg = |k: usize| class(&args[k], known, m);
     let not_one = |what: &str, example: &str| Message::new(Code::WrongType, at.0, at.1, &format!("`{}` es de {}, y aqui le llega {}", lib.name(), what, first.name(types)), &format!("`{}` trabaja con {}", lib.name(), what), example);
     let cell = |want: &Class, got: Class, k: usize, what: &str| -> Result<(), Message> {
         if fits(want, &got) {
             return Ok(());
+        }
+        // ** O4 (18-10): a list or a map of a TRAIT holds any value whose
+        // type keeps it -- each with its own type -- or says, in one
+        // sentence, which does not (T0085).
+        if let Class::Trait(t) = want {
+            if keeps(&got, *t, types) {
+                return Ok(());
+            }
+            let tn = &m.traits[*t].name;
+            return Err(Message::new(
+                Code::NotImpl,
+                args[k].at().0,
+                args[k].at().1,
+                &format!("{} no cumple `trait {}`", got.short(types), tn),
+                &format!("{}: cabe cualquier valor que sepa hacer lo que {} promete, y {} no dice como", what, tn, got.short(types)),
+                &format!("dile como: trait {} for {}", tn, got.short(types)),
+            ));
         }
         Err(wrong(args[k].at(), want, &got, types, what, "dale un valor de esa clase"))
     };
@@ -989,6 +1060,7 @@ fn lib_class(lib: Lib, args: &[Value], at: At, known: &[Option<Class>], m: &Modu
                 _ => Class::Bool,
             }
         }
+        Lib::Celda | Lib::Piso => unreachable!("lib_class: celda and piso are said above"),
         Lib::Turn => match &first {
             Class::Table(t, _) | Class::List(t) => (**t).clone(),
             Class::Map(k, _) => (**k).clone(),

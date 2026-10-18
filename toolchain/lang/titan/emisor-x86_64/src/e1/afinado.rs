@@ -548,7 +548,7 @@ impl E1<'_> {
     }
 
     pub(super) fn cuenta_a_rax(&mut self, op: &str, a: &Value, b: &Value, at: (usize, usize)) -> Result<bool, String> {
-        if !matches!(op, "+" | "-" | "*" | "/" | "%") || (op == "/" && self.lenient > 0) {
+        if !matches!(op, "+" | "-" | "*" | "/" | "%" | "div" | "rem") || (op == "/" && self.lenient > 0) {
             return Ok(false);
         }
         let entero = |c: &Class| matches!(c, Class::Int | Class::Byte);
@@ -789,6 +789,12 @@ pub(super) fn cota(v: &Value, m: &[Option<i64>]) -> Option<i64> {
                     _ => None,
                 },
                 "%" if ca? >= 0 && matches!(&**b, Value::Int(k, _) if *k > 0) => Some(0),
+                // Euclides: el resto nunca es negativo, sea `a` lo que sea
+                "rem" => Some(0),
+                "div" => match &**b {
+                    Value::Int(k, _) if *k > 0 && ca? >= 0 => Some(ca? / *k),
+                    _ => None,
+                },
                 "/" => match &**b {
                     Value::Int(k, _) if *k > 0 && ca? >= 0 => Some(ca? / *k),
                     _ => None,

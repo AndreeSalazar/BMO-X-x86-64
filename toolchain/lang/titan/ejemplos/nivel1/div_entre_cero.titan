@@ -1,0 +1,7 @@
+# espera: T0061
+# `div` tampoco divide entre cero
+mod main "reparte"
+
+fn main()
+    let cero = 0
+    print(div(10, cero))

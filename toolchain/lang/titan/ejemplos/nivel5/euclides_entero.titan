@@ -1,0 +1,27 @@
+# espera: BIEN
+# sale: de -20 a 20 entre 7: -17874
+# sale: diez giros de -15 grados: 25650
+# sale: el bloque de -1 es el -1
+# `div` y `rem` dentro de fn de enteros, con negativos: el piso de una
+# coordenada y la vuelta de un angulo, sin `(a - a % d) / d` a mano.
+mod main "el piso y la vuelta"
+
+fn bloque(x: int) -> int
+    return div(x, 10000)
+
+fn vuelta(angulo: int) -> int
+    return rem(angulo, 3600)
+
+fn parte(i: int, d: int) -> int
+    return div(i, d) * 1000 + rem(i, d)
+
+fn main()
+    let mut total = 0
+    for i in range(-20, 21)
+        total = total + parte(i, 7)
+    print("de -20 a 20 entre 7: ", total)
+    let mut giros = 0
+    for k in range(10)
+        giros = giros + vuelta(-150 * k)
+    print("diez giros de -15 grados: ", giros)
+    print("el bloque de -1 es el ", bloque(-1))

@@ -14,18 +14,8 @@
 mod main "NAVEGAR: la pagina que maqueta la antena, pintada en una ventana"
 use director
 mod lamina
-
-fn fondo() -> int
-    return 1315860
-
-fn titulo() -> int
-    return 16777215
-
-fn gris() -> int
-    return 13421772
-
-fn aviso() -> int
-    return 16755200
+use casa.colores
+use casa.letrero
 
 # La ventana de la pagina, y la del mensaje.
 fn ancho_pagina() -> int
@@ -47,43 +37,26 @@ fn linea_4() -> text
     return "Enciende la antena en la misma red (toolchain/tools/antena)."
 
 fn dibuja_mensaje()
-    director.rect(0, 0, 480, 112, fondo())
-    director.texto(8, 8, linea_1(), 1, titulo())
-    director.texto(8, 32, linea_2(), 1, aviso())
-    director.texto(8, 48, linea_3(), 1, gris())
-    director.texto(8, 64, linea_4(), 1, gris())
-    director.texto(8, 88, "Esc cierra.", 1, gris())
+    director.rect(0, 0, 480, 112, colores.fondo())
+    director.texto(8, 8, linea_1(), 1, colores.titulo())
+    director.texto(8, 32, linea_2(), 1, colores.aviso())
+    director.texto(8, 48, linea_3(), 1, colores.gris())
+    director.texto(8, 64, linea_4(), 1, colores.gris())
+    director.texto(8, 88, "Esc cierra.", 1, colores.gris())
     director.presenta()
-
-# Un numero de hasta cinco cifras, sin ceros delante.
-fn pon_numero(x: int, y: int, n: int, c: int) -> int
-    let mut px = x
-    let mut potencia = 10000
-    let mut empezo = false
-    while potencia >= 1
-        let resto = n % (potencia * 10)
-        let cifra = (resto - resto % potencia) / potencia
-        if cifra != 0 or empezo or potencia == 1
-            px = director.letra(px, y, 48 + cifra, 1, c)
-            empezo = true
-        if potencia == 1
-            potencia = 0
-        else
-            potencia = potencia / 10
-    return px
 
 fn dibuja_rechazo(rechazo: int)
     let linea = rechazo % 65536
     let codigo = (rechazo - linea) / 65536
-    director.rect(0, 0, ancho_pagina(), 40, fondo())
-    let mut x = director.texto(8, 8, "LAMINA rechazada: ", 1, aviso())
-    x = director.texto(x, 8, lamina.nombre(codigo), 1, aviso())
-    x = director.texto(x, 8, ", linea ", 1, aviso())
-    x = pon_numero(x, 8, linea, aviso())
-    director.texto(8, 24, "no se finge una pagina. Esc cierra.", 1, gris())
+    director.rect(0, 0, ancho_pagina(), 40, colores.fondo())
+    let mut x = director.texto(8, 8, "LAMINA rechazada: ", 1, colores.aviso())
+    x = director.texto(x, 8, lamina.nombre(codigo), 1, colores.aviso())
+    x = director.texto(x, 8, ", linea ", 1, colores.aviso())
+    x = letrero.numero(x, 8, linea, colores.aviso())
+    director.texto(8, 24, "no se finge una pagina. Esc cierra.", 1, colores.gris())
 
 fn dibuja_pagina(largo: int, desliz: int)
-    director.rect(0, 0, ancho_pagina(), alto_pagina(), fondo())
+    director.rect(0, 0, ancho_pagina(), alto_pagina(), colores.fondo())
     let rechazo = lamina.pinta(largo, desliz, alto_pagina())
     if rechazo != 0
         dibuja_rechazo(rechazo)

@@ -291,6 +291,13 @@ fn wrong(at: At, want: &Class, got: &Class, types: Defs, what: &str, how: &str) 
 /// the day they disagreed, one of them would say it.
 pub trait Device: Send {
     fn run(&mut self, m: &Module, func: usize, cells: Vec<Vec<u32>>) -> Result<Vec<u32>, DeviceNo>;
+    /// ** LB9 (18-10): one that looks at its neighbours -- `cells`, its values
+    /// cell by cell; `enteras`, its whole lists (`run_gpu_vecinas`). A device
+    /// that does not know how says so: never runs it as if it had no lists.
+    fn run_vecinas(&mut self, m: &Module, func: usize, cells: Vec<Vec<u32>>, enteras: Vec<Vec<u32>>) -> Result<Vec<u32>, DeviceNo> {
+        let _ = (cells, enteras);
+        Err(DeviceNo::Failure(format!("`gpu fn {}` mira a sus vecinas, y este aparato todavia no sabe correrlo (LB9)", m.functions[func].name)))
+    }
 }
 
 /// ** WHY A `Device` DID NOT RUN A `gpu fn` -- and the two are not the same
@@ -350,7 +357,7 @@ pub fn fold_with(m: &Module, device: Option<&mut dyn Device>) -> Result<Module, 
         std::thread::Builder::new()
             .stack_size(STACK)
             .spawn_scoped(sc, move || {
-                let mut r = Run { m, steps: 0, depth: 0, flat: Vec::new(), seen: m.functions.iter().map(|f| vec![false; f.blocks.len()]).collect(), last_turn: (0, 0), lenient: 0, device };
+                let mut r = Run { m, steps: 0, depth: 0, flat: Vec::new(), seen: m.functions.iter().map(|f| vec![false; f.blocks.len()]).collect(), last_turn: (0, 0), lenient: 0, device, celda: 0 };
                 r.call(m.entry, Vec::new(), (m.functions[m.entry].line, 1)).map(|_| r)
             })
             .expect("a thread for the run")
@@ -386,7 +393,7 @@ pub fn unfolded(m: &Module) -> Result<Module, Message> {
 pub fn run_gpu(m: &Module, func: usize, cells: &[Vec<u32>]) -> Result<Vec<u32>, Message> {
     let f = &m.functions[func];
     let n = cells.first().map(|c| c.len()).unwrap_or(0);
-    let mut r = Run { m, steps: 0, depth: 0, flat: Vec::new(), seen: m.functions.iter().map(|f| vec![false; f.blocks.len()]).collect(), last_turn: (0, 0), lenient: 0, device: None };
+    let mut r = Run { m, steps: 0, depth: 0, flat: Vec::new(), seen: m.functions.iter().map(|f| vec![false; f.blocks.len()]).collect(), last_turn: (0, 0), lenient: 0, device: None, celda: 0 };
     let mut out = Vec::with_capacity(n);
     for i in 0..n {
         let args = f.params.iter().zip(cells).map(|((_, t), c)| if *t == Ty::Bool { Const::Bool(c[i] != 0) } else { Const::F32(c[i]) }).collect();
@@ -399,6 +406,52 @@ pub fn run_gpu(m: &Module, func: usize, cells: &[Vec<u32>]) -> Result<Vec<u32>, 
         r.steps = 0;
     }
     Ok(out)
+}
+
+/// ** LB9 (18-10): a gpu fn that looks at its NEIGHBOURS, run by the
+/// CALCULATION: `cells` are those of its values that go cell by cell (in the
+/// order of its parameters, the whole lists left out), `enteras` its whole
+/// lists; thread `i` knows `celda() == i`. The reference its cards meet.
+pub fn run_gpu_vecinas(m: &Module, func: usize, cells: &[Vec<u32>], enteras: &[Vec<u32>]) -> Result<Vec<u32>, Message> {
+    let f = &m.functions[func];
+    let n = cells.first().map(|c| c.len()).unwrap_or(0);
+    let mut r = Run { m, steps: 0, depth: 0, flat: Vec::new(), seen: m.functions.iter().map(|f| vec![false; f.blocks.len()]).collect(), last_turn: (0, 0), lenient: 0, device: None, celda: 0 };
+    let mut out = Vec::with_capacity(n);
+    for i in 0..n {
+        let (mut c, mut e) = (cells.iter(), enteras.iter());
+        let args = f
+            .params
+            .iter()
+            .map(|(_, t)| match t {
+                t if crate::gpu::entera(t) => Const::List(Ty::F32, e.next().map(|x| x.iter().map(|b| Const::F32(*b)).collect()).unwrap_or_default()),
+                Ty::Bool => Const::Bool(c.next().is_some_and(|x| x[i] != 0)),
+                _ => Const::F32(c.next().map_or(0, |x| x[i])),
+            })
+            .collect();
+        r.celda = i as u32;
+        let (result, _) = r.call(func, args, (f.line, 1))?;
+        out.push(match result {
+            Some(Const::F32(b)) => b,
+            Some(Const::Bool(b)) => b as u32,
+            _ => 0,
+        });
+        r.steps = 0;
+    }
+    Ok(out)
+}
+
+/// ** LB9: does this gpu fn look at its neighbours -- a whole list among its
+/// values, or a `celda()` in its body --? Then it is written as COMPUTE.
+pub fn con_vecinas(f: &Function) -> bool {
+    f.params.iter().any(|(_, t)| crate::gpu::entera(t))
+        || f.blocks.iter().any(|b| {
+            b.ops.iter().any(|op| match op {
+                Op::Let { value, .. } | Op::Set { value, .. } => value.uses_celda(),
+                Op::SetAt { value, path, .. } => value.uses_celda() || path.iter().any(|s| matches!(s, PathStep::Index(i) if i.uses_celda())),
+                Op::Call { args, .. } | Op::Write { parts: args, .. } | Op::Director { args, .. } => args.iter().any(Value::uses_celda),
+                Op::Drop { .. } => false,
+            }) || matches!(&b.end, End::Return(Some(v)) | End::Branch { cond: v, .. } if v.uses_celda())
+        })
 }
 
 /// ** A `gpu fn` that DRAWS (LB6), run by the CALCULATION on its cells: each
@@ -429,7 +482,7 @@ pub fn run_gpu_dibujo(m: &Module, func: usize, celdas: &[Vec<[u32; 4]>]) -> Resu
         Some((_, Ty::Named(n))) => Some(ty_of(n).expect("gpu: the type exists")),
         _ => None,
     };
-    let mut r = Run { m, steps: 0, depth: 0, flat: Vec::new(), seen: m.functions.iter().map(|f| vec![false; f.blocks.len()]).collect(), last_turn: (0, 0), lenient: 0, device: None };
+    let mut r = Run { m, steps: 0, depth: 0, flat: Vec::new(), seen: m.functions.iter().map(|f| vec![false; f.blocks.len()]).collect(), last_turn: (0, 0), lenient: 0, device: None, celda: 0 };
     let mut out = Vec::with_capacity(celdas.len());
     for e in celdas {
         let n = m.types[entra].fields.len();
@@ -509,6 +562,8 @@ struct Run<'m, 'd> {
     /// Inside a `round(...)`: a division that does not end is carried to
     /// SCALE decimals, for `round` to cut where it SAYS (level 7).
     lenient: u32,
+    /// LB9 (18-10): the thread of the gpu fn being run, what `celda()` says.
+    celda: u32,
 }
 
 impl Run<'_, '_> {
@@ -644,23 +699,40 @@ impl Run<'_, '_> {
     /// what the function left in it; a `take` one is gone.
     fn call_with(&mut self, func: usize, args: &[Value], at: At, known: &mut Vec<Option<Const>>) -> Result<Option<Const>, Message> {
         let vals = args.iter().map(|a| self.ev(a, known)).collect::<Result<Vec<_>, _>>()?;
-        // ** A `gpu fn` applied to TABLES (level 11, D1): one cell of each
-        // per thread -- here, one call per cell, in order. The 3060 runs
-        // them at once; the result is the same, cell by cell.
-        if self.m.functions[func].gpu && self.device.is_some() {
-            return self.on_device(func, vals, at).map(Some);
+        // ** MC4 (18-10): a gpu fn on LISTS is the same cell by cell: the
+        // lists go as tables (so the 3060 of the oracle still runs them) and
+        // the result comes back a list. Of one length, or T0072.
+        // ** LB9 (18-10): one that looks at its NEIGHBOURS: its whole lists go
+        // whole to every thread, and each thread knows its `celda()`.
+        if self.m.functions[func].gpu && con_vecinas(&self.m.functions[func]) {
+            return self.vecinas(func, vals, at).map(Some);
         }
-        if self.m.functions[func].gpu && vals.iter().any(|v| matches!(v, Const::Table(_))) {
-            let n = match &vals[0] {
-                Const::Table(items) => items.len(),
-                _ => 0,
-            };
-            let mut out = Vec::with_capacity(n);
-            for i in 0..n {
-                let cell: Vec<Const> = vals.iter().map(|v| if let Const::Table(items) = v { items[i].clone() } else { v.clone() }).collect();
-                out.push(self.call(func, cell, at)?.0.expect("gpu: a gpu fn gives a value"));
+        if self.m.functions[func].gpu && vals.iter().any(|v| matches!(v, Const::List(..))) {
+            let lens: Vec<usize> = vals.iter().filter_map(|v| if let Const::List(_, items) = v { Some(items.len()) } else { None }).collect();
+            if lens.iter().any(|n| *n != lens[0]) {
+                return Err(Message::new(
+                    Code::Outside,
+                    at.0,
+                    at.1,
+                    &format!("`{}` recibe listas de largos distintos: {}", self.m.functions[func].name, lens.iter().map(|n| n.to_string()).collect::<Vec<_>>().join(", ")),
+                    "una celda de cada lista por hilo: con una mas corta, el hilo que sobra leeria una celda que no esta",
+                    "dale listas del mismo largo: len(xs) == len(ys)",
+                ));
             }
-            return Ok(Some(Const::Table(out)));
+            let ret = if self.m.functions[func].ret == Some(Ty::Bool) { Ty::Bool } else { Ty::F32 };
+            if lens[0] == 0 {
+                return Ok(Some(Const::List(ret, Vec::new())));
+            }
+            let tables = vals.into_iter().map(|v| if let Const::List(_, items) = v { Const::Table(items) } else { v }).collect();
+            // a value alone goes to every cell, the gpu_cells way
+            let out = match self.gpu_cells(func, tables, at)? {
+                Const::Table(items) => items,
+                other => unreachable!("a gpu fn on tables gives a table, not {:?}", other),
+            };
+            return Ok(Some(Const::List(ret, out)));
+        }
+        if self.m.functions[func].gpu && (self.device.is_some() || vals.iter().any(|v| matches!(v, Const::Table(_)))) {
+            return self.gpu_cells(func, vals, at).map(Some);
         }
         let (result, finals) = self.call(func, vals, at)?;
         for (a, back) in args.iter().zip(finals) {
@@ -685,6 +757,71 @@ impl Run<'_, '_> {
     /// ** A `gpu fn` run by the DEVICE (level 11, G3): its cells, by their
     /// bits, and back. A value that is not a table is one cell; tables give
     /// one cell per thread.
+    /// ** LB9: a gpu fn that looks at its neighbours, on these values: the
+    /// whole lists apart; the rest, cell by cell (lists, tables or a value
+    /// alone), which says how many threads. By its device, or here.
+    fn vecinas(&mut self, func: usize, vals: Vec<Const>, at: At) -> Result<Const, Message> {
+        let f = &self.m.functions[func];
+        let whole: Vec<bool> = f.params.iter().map(|(_, t)| crate::gpu::entera(t)).collect();
+        let por_celda: Vec<&Const> = vals.iter().zip(&whole).filter(|(_, w)| !**w).map(|(v, _)| v).collect();
+        let items = |v: &Const| match v {
+            Const::List(_, x) | Const::Table(x) => Some(x.len()),
+            _ => None,
+        };
+        let lens: Vec<usize> = por_celda.iter().filter_map(|v| items(v)).collect();
+        if lens.iter().any(|n| *n != lens[0]) {
+            return Err(Message::new(Code::Outside, at.0, at.1, &format!("`{}` recibe listas de largos distintos: {}", f.name, lens.iter().map(|n| n.to_string()).collect::<Vec<_>>().join(", ")), "una celda de cada lista por hilo: con una mas corta, el hilo que sobra leeria una celda que no esta", "dale listas del mismo largo: len(xs) == len(ys)"));
+        }
+        let n = lens.first().copied().unwrap_or(1);
+        let bits = |c: &Const| match c {
+            Const::F32(b) => *b,
+            Const::Bool(b) => *b as u32,
+            _ => 0,
+        };
+        let cells: Vec<Vec<u32>> = por_celda.iter().map(|v| match v {
+            Const::List(_, x) | Const::Table(x) => x.iter().map(bits).collect(),
+            one => vec![bits(one); n],
+        }).collect();
+        let enteras: Vec<Vec<u32>> = vals.iter().zip(&whole).filter(|(_, w)| **w).map(|(v, _)| match v {
+            Const::List(_, x) => x.iter().map(bits).collect(),
+            _ => Vec::new(),
+        }).collect();
+        let name = f.name.clone();
+        let ret_bool = f.ret == Some(Ty::Bool);
+        let forma = por_celda.iter().find(|v| items(v).is_some()).map(|v| matches!(v, Const::List(..)));
+        let m = self.m;
+        let out = match self.device.as_mut() {
+            Some(d) => d.run_vecinas(m, func, cells, enteras).map_err(|no| match no {
+                DeviceNo::Limit(said) => said,
+                DeviceNo::Failure(why) => Message::new(Code::GpuBody, at.0, at.1, &format!("la GPU no pudo correr `{}`", name), &format!("es un fallo de su tarjeta -- su emisor, su juez o su simulador -- o del oraculo, no del programa: {}", why), "avisa con este programa"),
+            })?,
+            None => run_gpu_vecinas(m, func, &cells, &enteras)?,
+        };
+        let back: Vec<Const> = out.into_iter().map(|b| if ret_bool { Const::Bool(b != 0) } else { Const::F32(b) }).collect();
+        Ok(match forma {
+            Some(true) => Const::List(if ret_bool { Ty::Bool } else { Ty::F32 }, back),
+            Some(false) => Const::Table(back),
+            None => back.into_iter().next().unwrap_or(Const::F32(0)),
+        })
+    }
+
+    /// ** A `gpu fn` applied to TABLES (level 11, D1): one cell of each per
+    /// thread -- by its device if there is one, or here, one call per cell,
+    /// in order. The 3060 runs them at once; the result is the
+    /// same, cell by cell.
+    fn gpu_cells(&mut self, func: usize, vals: Vec<Const>, at: At) -> Result<Const, Message> {
+        if self.device.is_some() {
+            return self.on_device(func, vals, at);
+        }
+        let n = vals.iter().find_map(|v| if let Const::Table(items) = v { Some(items.len()) } else { None }).unwrap_or(0);
+        let mut out = Vec::with_capacity(n);
+        for i in 0..n {
+            let cell: Vec<Const> = vals.iter().map(|v| if let Const::Table(items) = v { items[i].clone() } else { v.clone() }).collect();
+            out.push(self.call(func, cell, at)?.0.expect("gpu: a gpu fn gives a value"));
+        }
+        Ok(Const::Table(out))
+    }
+
     fn on_device(&mut self, func: usize, vals: Vec<Const>, at: At) -> Result<Const, Message> {
         let m = self.m;
         let table = vals.iter().any(|v| matches!(v, Const::Table(_)));
@@ -768,6 +905,13 @@ impl Run<'_, '_> {
             Value::Index(b, i, at) => {
                 let table = self.ev(b, known)?;
                 let idx = self.ev(i, known)?;
+                // ** LB9 (18-10): a NEIGHBOUR, by an f32 cell number: the
+                // conversion of the house Programa (`f32 as i32`: towards
+                // zero, a NaN is 0), and outside the list, 0 (DL9)
+                if let (Const::List(_, items), Const::F32(k)) = (&table, &idx) {
+                    let k = f32::from_bits(*k) as i32;
+                    return Ok(usize::try_from(k).ok().and_then(|k| items.get(k)).cloned().unwrap_or(Const::F32(0)));
+                }
                 cell(&table, &idx, *at)?.clone()
             }
             Value::Field(b, name, _) => match self.ev(b, known)? {

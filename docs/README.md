@@ -10,6 +10,7 @@
 | Metas por categoria | [METAS](METAS.md); inventario generado en [ABIERTO](plan/ABIERTO.md). |
 | Lo que de verdad mostro la maquina | [Parte 16-10](metal/METAL_2026-10-16.md), separado de las pruebas del anfitrion. |
 | Aprendizajes del hardware | [BITACORA](../BITACORA.md); una causa pendiente se conserva como pendiente. |
+| Lo que cada app pide a TITAN++, hasta ILLAPA | [LAS_APPS](../toolchain/lang/titan/LAS_APPS.md): lo hecho, lo que falta y de quien es; la casa en [casa/](../toolchain/lang/titan/casa/README.md). |
 | Gobierno del GSP (el GSP ejecuta, BMO-X gobierna) | [GSP-CONTROL-BMO](plan/PLAN_GSP_CONTROL_BMO.md): contrato y supervisor inicial implementados; `gpu control` explica etapa y datos ausentes. |
 
 ### Recorrido de hitos con evidencia
@@ -282,6 +283,7 @@ mano, y mientras tanto la deuda tiene nombre.
 | [`PLAN_LA_CARA_VIAJA.md`](plan/PLAN_LA_CARA_VIAJA.md) | la maquetacion como DATO, y que pasa si viaja |
 | [`PLAN_SEGURIDAD.md`](plan/PLAN_SEGURIDAD.md) | las casillas de su MAESTRO, medidas contra el codigo |
 | [`PLAN_EL_SILICIO.md`](plan/PLAN_EL_SILICIO.md) | que el PERFIL de INTI decida quien ejecuta las reglas: el programa o la CPU |
+| [`PLAN_LAS_PUERTAS_PROFUNDAS.md`](plan/PLAN_LAS_PUERTAS_PROFUNDAS.md) | que una tarea use un puerto, `rdpmc` o un MSR de una lista blanca porque el kernel le abre ESA puerta (Ring 0, del propietario); el Puente al Metal de TALK-CPU como laboratorio, y `inti-hex` entre las dos casas |
 | [`PLAN_EL_PERFIL_TOTAL.md`](plan/terminado/PLAN_EL_PERFIL_TOTAL.md) | **todo lo que esta maquina da sin comprar nada**: el inventario perfilado, el plan total de la red, y donde esta el techo |
 | [`PLAN_AUDIO.md`](plan/PLAN_AUDIO.md) | las casillas de su MAESTRO. **Hoy BMO-X controla el volumen y no puede emitir una muestra** |
 | [`PLAN_EL_ASISTENTE.md`](plan/en_pausa/PLAN_EL_ASISTENTE.md) | **fusiona cuatro documentos**: que falta para que una IA local corra dentro de BMO-X, y donde estan de verdad los meses |

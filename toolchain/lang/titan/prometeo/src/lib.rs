@@ -169,6 +169,11 @@ pub struct Kernel<'t> {
     /// ** LB6: lo que DIBUJA, si es de vertice o de pixel (`params` y `ret`
     /// son de las celdas: aqui, vacios).
     pub dibujo: Option<Dibujo>,
+    /// ** LB9: cuantas listas ENTERAS mira, si es un COMPUTO (una gpu fn que
+    /// mira a sus vecinas): `params` son entonces los que llegan celda a
+    /// celda, y sus UAV van en ese orden, las enteras detras y el resultado
+    /// al final.
+    pub vecinas: Option<usize>,
 }
 
 impl Kernel<'_> {
@@ -227,6 +232,8 @@ fn escribir(m: &Module, func: usize) -> Result<(Programa, Vec<(usize, usize)>, O
         return Err(Failure::writer(format!("`{}` no es una gpu fn", f.name)));
     }
     match forma(m, func) {
+        // ** LB9 (18-10): la que mira a sus vecinas, como un COMPUTO.
+        Forma::Celda if bmo_titan_front::calc::con_vecinas(f) => escribe::computo(m, func).map(|(p, d)| (p, d, None)),
         Forma::Celda => escribe::celda(m, func).map(|(p, d)| (p, d, None)),
         forma => dibujo::programa(m, func, forma).map(|(p, d, x)| (p, d, Some(x))),
     }
@@ -255,10 +262,12 @@ fn sitio(m: &Module, f: &Function) -> (String, usize) {
 pub fn write<'t>(m: &Module, func: usize, tarjeta: &'t dyn Tarjeta) -> Result<Kernel<'t>, Failure> {
     let f = &m.functions[func];
     let (programa, donde, dibujo) = escribir(m, func)?;
+    let vecinas = (dibujo.is_none() && bmo_titan_front::calc::con_vecinas(f)).then(|| f.params.iter().filter(|(_, t)| bmo_titan_front::gpu::entera(t)).count());
     let (params, ret) = match &dibujo {
         // Lo que dibuja no tiene celdas: sus elementos los dice `dibujo`.
         Some(_) => (Vec::new(), Kind::F32),
-        None => (f.params.iter().map(|(_, t)| kind_of(t)).collect::<Result<_, _>>()?, kind_of(f.ret.as_ref().expect("escribir() lo miro"))?),
+        // LB9: las listas enteras no son celdas: van aparte (`vecinas`).
+        None => (f.params.iter().filter(|(_, t)| !bmo_titan_front::gpu::entera(t)).map(|(_, t)| kind_of(t)).collect::<Result<_, _>>()?, kind_of(f.ret.as_ref().expect("escribir() lo miro"))?),
     };
     let (file, line) = sitio(m, f);
     let en = |para| {
@@ -288,7 +297,7 @@ pub fn write<'t>(m: &Module, func: usize, tarjeta: &'t dyn Tarjeta) -> Result<Ke
     };
     let oraculo = en(Para::Oraculo)?;
     let viaje = en(Para::Viaje)?;
-    Ok(Kernel { name: f.name.clone(), file, line, params, ret, programa, donde, tarjeta, oraculo, viaje, dibujo })
+    Ok(Kernel { name: f.name.clone(), file, line, params, ret, programa, donde, tarjeta, oraculo, viaje, dibujo, vecinas })
 }
 
 /// **SU juez, ESTRICTO**, sobre los dos codigos: el de la tarjeta que lo
@@ -297,6 +306,11 @@ pub fn write<'t>(m: &Module, func: usize, tarjeta: &'t dyn Tarjeta) -> Result<Ke
 /// palabras y en la linea de la gpu fn.
 pub fn judge(k: &Kernel) -> Result<(), String> {
     let no = |por: String| format!("{}, linea {} (gpu fn `{}`): el juez de {} dijo que no -- {}", k.file, k.line, k.name, k.tarjeta.ficha().nombre, por);
+    // ** LB9: un computo, con los permisos del computo (sus UAV, sujetos).
+    if k.vecinas.is_some() {
+        k.tarjeta.juzgar_computo(&k.programa, &k.oraculo, Para::Oraculo).map_err(&no)?;
+        return k.tarjeta.juzgar_computo(&k.programa, &k.viaje, Para::Viaje).map_err(&no);
+    }
     k.tarjeta.juzgar(&k.oraculo, Para::Oraculo).map_err(&no)?;
     k.tarjeta.juzgar(&k.viaje, Para::Viaje).map_err(&no)
 }
@@ -415,11 +429,90 @@ fn compare(m: &Module, func: usize, k: &Kernel, cells: &[Vec<u32>], what: &str) 
     Ok(suya)
 }
 
+// ---- LB9: la que mira a sus VECINAS, un computo ---------------------------------------
+
+/// Los UAV de un computo de vecinas: las celdas de cada valor, las listas
+/// enteras, y la salida (de lo que mide la primera), en ese orden.
+fn uavs_de(cells: &[Vec<u32>], enteras: &[Vec<u32>]) -> (Vec<Vec<u32>>, usize, u32) {
+    let n = cells.first().map(|c| c.len()).unwrap_or(0);
+    let mut uavs: Vec<Vec<u32>> = cells.iter().chain(enteras).cloned().collect();
+    uavs.push(vec![0; n]);
+    (uavs, n, (n as u32).div_ceil(escribe::HILOS))
+}
+
+/// **El ORACULO de un computo**: el codigo de la tarjeta, por SU simulador,
+/// un hilo por celda. `cells[k]`, las celdas del valor `k` que llega celda a
+/// celda; `enteras[j]`, la lista entera `j`.
+pub fn run_vecinas(k: &Kernel, cells: &[Vec<u32>], enteras: &[Vec<u32>]) -> Result<Vec<u32>, String> {
+    let (mut uavs, _, grupos) = uavs_de(cells, enteras);
+    k.tarjeta.simular_computo(&k.programa, &k.oraculo, grupos, &mut uavs)?;
+    Ok(uavs.pop().unwrap_or_default())
+}
+
+/// El mismo computo por el INTERPRETE de la casa (`Programa::despachar`).
+pub fn run_casa_vecinas(k: &Kernel, cells: &[Vec<u32>], enteras: &[Vec<u32>]) -> Vec<u32> {
+    use bmo_prometeo::bufer::{Rebanadas, Uav};
+    let (uavs, _, grupos) = uavs_de(cells, enteras);
+    let mut bytes: Vec<Vec<u8>> = uavs.iter().map(|u| u.iter().flat_map(|x| x.to_le_bytes()).collect()).collect();
+    {
+        let mut vistas: Vec<Option<Uav>> = bytes.iter_mut().zip(&uavs).map(|(b, u)| Some(Uav { bytes: b, formato: 0, paso: 4, elementos: u.len() as u32, contador: None, rebanadas: Rebanadas::PLANA })).collect();
+        let rec = bmo_prometeo::textura::Recursos { texturas: &[], muestreadores: &[], buferes: &[], dinamicas: None };
+        k.programa.despachar([grupos, 1, 1], &[], &rec, &mut vistas);
+    }
+    bytes.pop().unwrap_or_default().chunks_exact(4).map(|w| u32::from_le_bytes([w[0], w[1], w[2], w[3]])).collect()
+}
+
+/// ** LA BATERIA DE VECINAS: las celdas de la de bordes (cada valor por sus
+/// 18) y cada lista entera MAS CORTA que los hilos -- los ultimos miran
+/// fuera, y fuera es 0 (DL9) --, con los bordes en otro orden. Mas de un
+/// grupo de hilos siempre: lo que cruza de un grupo a otro, tambien.
+pub fn bateria_vecinas(params: &[Kind], enteras: usize, obra: u64) -> (Vec<Vec<u32>>, Vec<Vec<u32>>) {
+    let mut cells = battery_de(params, obra);
+    let minimo = 2 * escribe::HILOS as usize + 3;
+    for c in cells.iter_mut() {
+        let base = c.clone();
+        while c.len() < minimo {
+            c.push(base[c.len() % base.len()]);
+        }
+    }
+    let n = cells.first().map(|c| c.len()).unwrap_or(0);
+    let listas = (0..enteras).map(|j| (0..n.saturating_sub(3 + j)).map(|i| BORDES[(i * 7 + 3 * j + 1) % BORDES.len()].to_bits()).collect()).collect();
+    (cells, listas)
+}
+
+/// **La comparacion de un computo**: por la tarjeta, por la casa y por el
+/// calculo; la primera celda que no da lo mismo, dicha con su hilo y las
+/// tres respuestas.
+fn compare_vecinas(m: &Module, func: usize, k: &Kernel, cells: &[Vec<u32>], enteras: &[Vec<u32>], what: &str) -> Result<Vec<u32>, String> {
+    let suya = run_vecinas(k, cells, enteras)?;
+    let casa = run_casa_vecinas(k, cells, enteras);
+    let calc = bmo_titan_front::calc::run_gpu_vecinas(m, func, cells, enteras).map_err(|e| format!("el calculo: {}", e.what))?;
+    if suya.len() != calc.len() || casa.len() != calc.len() {
+        return Err(format!("{}, linea {} (gpu fn `{}`): con {} {} da {} celdas, la casa {} y el calculo {}", k.file, k.line, k.name, what, k.tarjeta.ficha().nombre, suya.len(), casa.len(), calc.len()));
+    }
+    for i in 0..suya.len() {
+        if !same_cell(suya[i], calc[i], k.ret) || !same_cell(casa[i], calc[i], k.ret) {
+            let show = |bits: u32, kind: Kind| if kind == Kind::F32 { format!("{:?}", f32::from_bits(bits)) } else { (bits != 0).to_string() };
+            let input: Vec<String> = cells.iter().zip(&k.params).map(|(c, kind)| show(c[i], *kind)).collect();
+            return Err(format!(
+                "{}, linea {} (gpu fn `{}`): con {}, en la celda {} ({}), {} da {}, la casa {} y el calculo {} -- una cuenta, varias respuestas: no hay .bex",
+                k.file, k.line, k.name, what, i, input.join(", "), k.tarjeta.ficha().nombre, show(suya[i], k.ret), show(casa[i], k.ret), show(calc[i], k.ret)
+            ));
+        }
+    }
+    Ok(suya)
+}
+
 /// **La bateria de bordes** de una gpu fn, por los tres: sus celdas, o (LB6)
 /// los elementos de lo que dibuja.
 pub fn verify(m: &Module, func: usize, k: &Kernel) -> Result<usize, String> {
     if let Some(d) = &k.dibujo {
         return dibujo::verify(m, func, k, d);
+    }
+    if let Some(n) = k.vecinas {
+        let (cells, enteras) = bateria_vecinas(&k.params, n, m.functions[func].obra);
+        compare_vecinas(m, func, k, &cells, &enteras, "la bateria de vecinas")?;
+        return Ok(cells.first().map(|c| c.len()).unwrap_or(0));
     }
     let cells = battery_de(&k.params, m.functions[func].obra);
     compare(m, func, k, &cells, "la bateria de bordes")?;
@@ -446,10 +539,10 @@ impl<'t> Oracle<'t> {
     pub fn written(&self) -> usize {
         self.written.len()
     }
-}
 
-impl bmo_titan_front::calc::Device for Oracle<'_> {
-    fn run(&mut self, m: &Module, func: usize, cells: Vec<Vec<u32>>) -> Result<Vec<u32>, DeviceNo> {
+    /// La gpu fn `func`, escrita UNA vez en cada tarjeta, juzgada y pasada
+    /// por su bateria; las que ya estan, como estan.
+    fn escribe_una(&mut self, m: &Module, func: usize) -> Result<(), DeviceNo> {
         if !self.written.contains_key(&func) {
             if self.tarjetas.is_empty() {
                 return Err(DeviceNo::Failure(SIN_TARJETAS.to_string()));
@@ -467,6 +560,13 @@ impl bmo_titan_front::calc::Device for Oracle<'_> {
             }
             self.written.insert(func, ks);
         }
+        Ok(())
+    }
+}
+
+impl bmo_titan_front::calc::Device for Oracle<'_> {
+    fn run(&mut self, m: &Module, func: usize, cells: Vec<Vec<u32>>) -> Result<Vec<u32>, DeviceNo> {
+        self.escribe_una(m, func)?;
         // Las celdas REALES del programa, por cada tarjeta, la casa y el calculo.
         let mut first = None;
         for k in &self.written[&func] {
@@ -474,7 +574,23 @@ impl bmo_titan_front::calc::Device for Oracle<'_> {
                 // El calculo no la llama (`gpu_call` lo dice): esto es la red.
                 return Err(DeviceNo::Failure(format!("`gpu fn {}` dibuja: no se llama, la pone a dibujar VERRANO (LB7)", k.name)));
             }
+            if k.vecinas.is_some() {
+                // El calculo la llama con sus listas (`run_vecinas`): esto es la red.
+                return Err(DeviceNo::Failure(format!("`gpu fn {}` mira a sus vecinas: se corre con sus listas enteras (LB9)", k.name)));
+            }
             let celdas = compare(m, func, k, &cells, "las celdas del programa").map_err(DeviceNo::Failure)?;
+            first.get_or_insert(celdas);
+        }
+        Ok(first.expect("al menos una tarjeta: se miro al escribir"))
+    }
+
+    /// ** LB9: la que mira a sus vecinas, igual: cada tarjeta, la casa y el
+    /// calculo, sobre las celdas y las listas enteras del programa.
+    fn run_vecinas(&mut self, m: &Module, func: usize, cells: Vec<Vec<u32>>, enteras: Vec<Vec<u32>>) -> Result<Vec<u32>, DeviceNo> {
+        self.escribe_una(m, func)?;
+        let mut first = None;
+        for k in &self.written[&func] {
+            let celdas = compare_vecinas(m, func, k, &cells, &enteras, "las celdas del programa").map_err(DeviceNo::Failure)?;
             first.get_or_insert(celdas);
         }
         Ok(first.expect("al menos una tarjeta: se miro al escribir"))
@@ -487,3 +603,5 @@ mod pruebas;
 mod pruebas_bucles;
 #[cfg(test)]
 mod pruebas_dibujo;
+#[cfg(test)]
+mod pruebas_vecinas;

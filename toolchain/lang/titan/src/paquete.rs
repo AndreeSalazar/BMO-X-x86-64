@@ -221,6 +221,43 @@ pub fn load(root: &str, src: &str, read: &mut dyn FnMut(&str) -> Option<String>)
                 return Err(pkg.locate(m));
             }
         }
+        // ** THE HOUSE (`casa.rs`, 18-10): a `use casa.x` brings the house
+        // module `x` into the package once, as one more file; its own `use`s
+        // are followed in turn, like a child's.
+        let uses = pkg.files[i].program.uses.clone();
+        for u in uses {
+            let Some(name) = crate::casa::short(&u.name) else { continue };
+            let path = crate::casa::path(name);
+            if pkg.files.iter().any(|f| f.path == path) {
+                continue;
+            }
+            let Some(text) = crate::casa::source(name) else {
+                let m = Message::new(
+                    Code::Unknown,
+                    u.line,
+                    u.col,
+                    &format!("no hay un modulo `{}` en la casa", u.name),
+                    &format!("la libreria de la casa trae: {}", crate::casa::names().join(", ")),
+                    &match crate::casa::names().into_iter().min_by_key(|k| distance(k, name)).filter(|k| distance(k, name) <= 2) {
+                        Some(k) => format!("quisiste decir `use casa.{}`?", k),
+                        None => "si es del paquete, sin `casa.`: use nave".to_string(),
+                    },
+                );
+                return Err(pkg.locate(m));
+            };
+            if let Some(other) = pkg.files.iter().find(|f| f.program.module == name) {
+                let m = Message::new(
+                    Code::Twice,
+                    u.line,
+                    u.col,
+                    &format!("el modulo `{}` esta dos veces en el paquete", name),
+                    &format!("ya es {}, y `use {}` trae el de la casa: `{}.algo()` no sabria a cual ir", other.path, u.name, name),
+                    "usa el de la casa y borra el tuyo, o llama al tuyo de otra forma",
+                );
+                return Err(pkg.locate(m));
+            }
+            add(&mut pkg, path, text.to_string())?;
+        }
         i += 1;
     }
     Ok(pkg)
@@ -579,6 +616,22 @@ fn join_inner(pkg: &Package) -> Result<Program, Message> {
             if f.program.uses[..k].iter().any(|v| v.name == u.name) {
                 return Err(Message::new(Code::Twice, u.line, u.col, &format!("`use {}` esta dos veces", u.name), "un cable, una vez", "deja uno"));
             }
+            let house = crate::casa::is_house(&f.path);
+            if house && crate::casa::short(&u.name).is_none() && !SYSTEM.iter().any(|s| s.0 == u.name) {
+                // The house is below every app (L8): it cannot lean on one.
+                return Err(Message::new(
+                    Code::Unknown,
+                    u.line,
+                    u.col,
+                    &format!("`{}` es de la casa y usa `{}`, que no es de la casa", f.program.module, u.name),
+                    "un modulo de la casa sirve a TODAS las apps: no puede depender de los modulos de una",
+                    &format!("use casa.{}, o un nodo de BMO-X (director, sonido, gpu)", u.name),
+                ));
+            }
+            if house && !f.program.children.is_empty() {
+                let c = &f.program.children[0];
+                return Err(Message::new(Code::NoModule, c.line, c.col, &format!("`{}` es de la casa y tiene un `mod`", f.program.module), "un modulo de la casa es UN fichero: lo que necesite de otro lo pide con `use casa.otro`", "use casa.otro"));
+            }
             if let Some((_, need)) = SYSTEM.iter().find(|s| s.0 == u.name) {
                 // ** U2 in the compiler: talking to the 3060 or to the screen
                 // needs the manifest to ASK for it -- the rule F1 already
@@ -597,7 +650,11 @@ fn join_inner(pkg: &Package) -> Result<Program, Message> {
                 }
                 continue;
             }
-            match names.iter().position(|n| n == &u.name) {
+            let target = crate::casa::short(&u.name).unwrap_or(&u.name);
+            match names.iter().position(|n| n == target) {
+                Some(j) if crate::casa::is_house(&pkg.files[j].path) && crate::casa::short(&u.name).is_none() => {
+                    return Err(Message::new(Code::Unknown, u.line, u.col, &format!("`{}` es de la casa: se pide con su nombre entero", u.name), "quien lee la cabecera tiene que saber que ese modulo no es del paquete", &format!("use casa.{}", u.name)));
+                }
                 Some(j) if j == i => {
                     return Err(Message::new(Code::Cycle, u.line, u.col, &format!("`{}` se usa a si mismo", u.name), "lo suyo lo llama sin `use`: avanza(), no ship.avanza()", "quita este `use`"));
                 }
@@ -690,6 +747,10 @@ fn join_inner(pkg: &Package) -> Result<Program, Message> {
                 if let Some(rt) = &mut s.ret {
                     r.ty(m, rt, (s.line, s.col))?;
                 }
+                // O3: a default body is resolved where its trait is written
+                if let Some(b) = &mut s.default {
+                    r.body(m, b)?;
+                }
                 s.name = format!("{}{}", prefix, s.name);
             }
             t.name = format!("{}{}", prefix, t.name);
@@ -717,15 +778,16 @@ fn join_inner(pkg: &Package) -> Result<Program, Message> {
     // does not have (U3, the other half). F1 would draw a cable to nowhere.
     for (i, f) in pkg.files.iter().enumerate() {
         for u in &f.program.uses {
-            let Some(j) = r.names.iter().position(|n| n == &u.name) else { continue };
+            let target = crate::casa::short(&u.name).unwrap_or(&u.name);
+            let Some(j) = r.names.iter().position(|n| n == target) else { continue };
             if !r.used.contains(&(i, j)) {
                 return Err(Message::new(
                     Code::Unused,
                     u.line,
                     u.col,
-                    &format!("`use {}` y `{}` no usa nada de `{}`", u.name, r.names[i], u.name),
+                    &format!("`use {}` y `{}` no usa nada de `{}`", u.name, r.names[i], target),
                     "la cabecera dice con quien habla un modulo, y el compilador lo compara con lo que de verdad llama (U3): un cable que no lleva nada es una dependencia que no existe",
-                    &format!("llama a algo suyo (`{}.algo()`), o quita el `use`", u.name),
+                    &format!("llama a algo suyo (`{}.algo()`), o quita el `use`", target),
                 ));
             }
         }
@@ -844,4 +906,54 @@ mod tests {
         let placed = [("src/main.titan", "mod main \"x\"\nmod reglas in \"juego/reglas.titan\"\n\nfn main()\n    reglas.di()\n"), ("juego/reglas.titan", "mod reglas \"x\"\n\npub fn di()\n    print(\"regla\")\n")];
         assert_eq!(printed(&placed), ["regla"]);
     }
+
+    /// ** THE HOUSE (18-10): `use casa.x` brings a module no package carries.
+    #[test]
+    fn a_house_module_is_used_by_its_name_and_carried_by_the_compiler() {
+        let main = "mod main \"x\"\nuse casa.cifras\n\nfn main()\n    print(cifras.es_cifra(55), \" \", cifras.es_cifra(65), \" \", cifras.valor(55))\n";
+        assert_eq!(printed(&[("src/main.titan", main)]), vec!["true false 7".to_string()]);
+    }
+
+    #[test]
+    fn the_house_has_its_rules() {
+        let no = |files: &[(&str, &str)]| lower(files).map(|_| ()).unwrap_err().code;
+        let screen = ("Titan.toml", "[package]\nname = \"x\"\n[permissions]\nscreen = true\ngpu = \"compute\"\n");
+        // a house module that does not exist, said with the ones that do
+        let m = lower(&[("src/main.titan", "mod main \"x\"\nuse casa.cifra\n\nfn main()\n    print(1)\n")]).unwrap_err();
+        assert_eq!(m.code, Code::Unknown);
+        assert!(m.how.contains("casa.cifras"), "{}", m.how);
+        // the package's own `cifras` and the house's: one name, two things
+        let own = ("src/cifras.titan", "mod cifras \"x\"\n\npub fn uno() -> int\n    return 1\n");
+        assert_eq!(no(&[("src/main.titan", "mod main \"x\"\nmod cifras\nuse casa.cifras\n\nfn main()\n    print(cifras.uno())\n"), own]), Code::Twice);
+        // a house module brought by another is still asked for whole
+        let half = "mod main \"x\"\nuse casa.medida\nuse cifras\nuse director\n\nfn main()\n    print(medida.ancho(), cifras.valor(55))\n";
+        assert_eq!(no(&[("src/main.titan", half), screen]), Code::Unknown);
+        // the house talks to the screen only if the APP asked for it (U2)
+        let medida = "mod main \"x\"\nuse casa.medida\n\nfn main()\n    print(medida.ancho())\n";
+        assert_eq!(no(&[("src/main.titan", medida)]), Code::NoPermission);
+        assert!(lower(&[("src/main.titan", medida), screen]).is_ok());
+        // a `use casa.x` that nothing uses is a cable to nowhere
+        assert_eq!(no(&[("src/main.titan", "mod main \"x\"\nuse casa.cifras\n\nfn main()\n    print(1)\n")]), Code::Unused);
+    }
+
+    #[test]
+    fn every_house_module_compiles_alone() {
+        for name in crate::casa::names() {
+            let main = format!("mod main \"x\"\nuse casa.{name}\n\nfn main()\n    print(1)\n");
+            // only the NO for an unused `use` is allowed: the module itself read, judged and joined
+            let screen = ("Titan.toml", "[package]\nname = \"x\"\n[permissions]\nscreen = true\ngpu = \"compute\"\n");
+            let m = lower(&[("src/main.titan", &main), screen]).unwrap_err();
+            assert_eq!(m.code, Code::Unused, "casa.{name}: {:?}", m);
+        }
+    }
+
+
+    /// O3 across modules: the default is resolved where its trait is written.
+    #[test]
+    fn a_default_body_crosses_modules_with_its_trait() {
+        let pieza = "mod pieza \"x\"\n\npub trait Pieza\n    fn peso(p: Pieza) -> int\n    fn doble(p: Pieza) -> int\n        return 2 * peso(p)\n";
+        let main = "mod main \"x\"\nmod pieza\n\ntype Rueda\n    kg: int\n\ntrait pieza.Pieza for Rueda\n    fn peso(r: Rueda) -> int\n        return r.kg\n\nfn main()\n    print(pieza.doble(Rueda { kg: 21 }))\n";
+        assert_eq!(printed(&[("src/main.titan", main), ("src/pieza.titan", pieza)]), vec!["42".to_string()]);
+    }
+
 }

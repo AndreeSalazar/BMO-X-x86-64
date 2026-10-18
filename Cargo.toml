@@ -47,6 +47,7 @@ members = [
     "platform/shared/bmo-orquesta",
     "platform/shared/bmo-futex",
     "platform/shared/bmo-contadores",
+    "platform/shared/bmo-msr-lista",
     "platform/shared/bmo-alarma",
     "platform/shared/bmo-cache-juicio",
     # El juez del physmap. Nacio el 2026-08-30, de dos pantallas azules
@@ -341,6 +342,7 @@ members = [
     "toolchain/lang/base/bmo-rt",
     # -- TOOLS (generadores build-time) -----------------------------
     "toolchain/tools/hello-bex",
+    "toolchain/tools/inti-hex",
     "toolchain/tools/fontgen",
     # Formatea un volumen ESTRATOS desde el anfitrion (paso 4c del esquema).
     "toolchain/tools/estratos-fmt",

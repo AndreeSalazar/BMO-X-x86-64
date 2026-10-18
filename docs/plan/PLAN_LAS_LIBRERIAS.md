@@ -310,6 +310,9 @@ TITAN++:
 > ESCRITO, DL4 y la ley L33), el escritor escribe el Programa estructurado,
 > y las llamadas entre gpu fn van en linea (5.1). Quedan los vecinos (LB9) y
 > el entero (DL5).
+>
+> **18-10, LB9:** los vecinos, hechos (en 5.2). El indice es un f32 que va
+> hacia el cero: exacto hasta 2^24 celdas, sin el entero de DL5.
 
 [!] **El contador.** Dentro de una gpu fn todo numero es `f32` (GRAMATICA,
 nivel 11): `for i in range(N)` con `i` en f32 es exacto hasta 2^24 vueltas.
@@ -469,6 +472,8 @@ EL_LIBRETO.
         unificar (VC2)
    DL9  LOS VECINOS: por un asa que pone el kernel (fuera de rango, 0, como
         D3D; toca R7: Ring 0) o probados en rango al compilar (T0072)
+        -- CONTESTADA el 18-10: "da 0, al correr" (LB9; el asa es la del
+        UAV, que R7 ya acotaba desde LI2f)
    DL10 LI2g = D5, UNA vez para todo: los bits exactos (con la tercera salida
         de 3.5: el redondeo correcto tambien en la 3060) o la tolerancia de
         D3D, en la division, la raiz y el filtrado
@@ -1533,14 +1538,41 @@ metal es el 2 (G0).
     No es LB8 (el cuerpo de la app sigue sin poder entrar), y LB8 sigue
     bloqueada por lo mismo.
 
-- [ ] **LB9 -- LOS VECINOS POR EL ASA (IL1b).** R7 aprende una lectura que no
-  da direccion: por un asa que pone el kernel, acotada por su descriptor
-  (DL9). El emisor la sabe poner (`IdHilo` y la lectura), y el simulador y la
-  CPU (LB4) la hacen igual, con el 0 fuera de rango.
+- [x] **LB9 -- LOS VECINOS (IL1b).** **HECHA en el anfitrion el 18-10, sin
+  tocar Ring 0** (AMARILLO: en el metal espera a LB8). R7 aprende una lectura
+  que no da direccion: por un asa que pone el kernel, acotada por su
+  descriptor (DL9). El emisor la sabe poner (`IdHilo` y la lectura), y el
+  simulador y la CPU (LB4) la hacen igual, con el 0 fuera de rango.
   - **Bloquea:** LB5, LB8 y DL9; es Ring 0.
   - **Como se sabe:** el desenfoque de TD1 (LA_TINTA) escrito en TITAN++, con
     los bits de la CPU; y R7 sigue diciendo NO a un `LDG` crudo (su prueba del
     NO).
+  - **18-10, como se hizo.** DL9 la contesto el propietario: *"da 0, al
+    correr"*, y la forma, `celda()` y un parametro `campo: [f32]` ENTERO de
+    solo leer (`GRAMATICA.md`, nivel 11). Lo de R7 ya estaba: LI2f (12-10)
+    le dio al juez los permisos de un COMPUTO (`juzgar_cuerpo_con`, las
+    lecturas y escrituras de un UAV sujetas a la base y el tope que carga el
+    kernel), asi que no hizo falta una regla nueva en Ring 0: el asa es la
+    del UAV, y su descriptor la acota.
+    - el frontend: `celda()`, la lista entera y `campo[k]` con un f32 (sus NO
+      en T0090); el calculo (la vara) da 0 fuera, y `f32 as i32` hacia el cero
+    - PROMETEO de TITAN++: la gpu fn con vecinas sale como un Programa de
+      COMPUTO (`escribe::computo`): `IdHilo`, cada valor un UAV leido en la
+      celda del hilo, cada lista entera el suyo, el resultado escrito en el
+      ultimo; 64 hilos por grupo
+    - el contrato (`bmo_prometeo::Tarjeta`): `juzgar_computo` y
+      `simular_computo`, que una tarjeta que no los sabe DICE que no
+    - la 3060: el juez con `permisos_computo` de R7 y el simulador de un grupo
+      (`correr_grupo`) con cada UAV en su ventana; la CPU: `nativo_computo` en
+      el emulador, el contrato mirado en cada hilo
+    - E1: la CPU de reserva corre el computo en el `.bex`, un hilo detras de
+      otro, con su `Contexto` en el marco
+    - L31: la bateria de vecinas (mas de dos grupos, y listas mas cortas que
+      los hilos: los ultimos leen fuera) por las dos tarjetas, la casa y el
+      calculo; y R7 sigue diciendo NO a ese codigo juzgado como cuerpo de
+      celdas (`prometeo/src/pruebas_vecinas.rs`)
+    - el banco: `nivel11/vecinas`, `nivel11/densidad` (la primera densidad de
+      un fluido, IL1) y `nivel11/celda_en_la_cpu` (T0090)
 
 ## 5.3 La tercera libreria
 

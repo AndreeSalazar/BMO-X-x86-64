@@ -148,6 +148,36 @@ parentesis primero. `+` entre dos textos los pone uno detras del otro.
 En el nivel 1 todo valor se sabe antes de correr (todavia no se lee nada de
 fuera), asi que el `.bex` ya lleva los resultados: `titan ir` los muestra.
 
+### La division ENTERA: `div` y `rem` (18-10, sin palabras nuevas)
+
+`/` sigue siendo exacta: 7 / 2 es un NO, no un 3 callado. Cuando lo que se
+quiere ES el cociente entero -- el bloque de una coordenada, la vuelta de
+un angulo, la columna de un pixel --, se pide por su nombre:
+
+```text
+   div(a, b)     el cociente de Euclides        div(-7, 2) es -4
+   rem(a, b)     el resto, NUNCA negativo       rem(-7, 2) es 1
+                 a == div(a, b) * b + rem(a, b), siempre
+```
+
+Antes cada app escribia `fn div(a: int, d: int) -> int` con
+`(a - a % d) / d` (once copias) y `(x % m + m) % m` para la vuelta. Ese
+`div` corta hacia el cero: con negativos NO es el de la biblioteca
+(-1 entre 10000 da 0 a mano y -1 con `div`). Una fn propia llamada `div` o
+`rem` sigue mandando: la que escribe el programa gana, como con `get`.
+Un bucle de 10000 vueltas con la fn a mano gasta 860.169 instrucciones en
+E1; con `div` y `rem`, 290.169 (el emulador del anfitrion, no el Ryzen).
+
+```text
+   div / rem de un dec, o con un dec            T0063
+   entre cero                                   T0061
+   div(MIN, -1) no cabe                         T0060 (rem(MIN, -1) es 0)
+   dentro de una gpu fn                         T0090 (son de la CPU)
+```
+
+Ejemplos: [division_entera](ejemplos/nivel1/division_entera.titan),
+[euclides_entero](ejemplos/nivel5/euclides_entero.titan).
+
 ---
 
 ## Nivel 2 -- contar (3 palabras: `fn`, `let`, `mut`) -- 04-10
@@ -646,6 +676,24 @@ fn main()
    mod a in "x/a.titan"       un hijo donde el PADRE diga (ruta desde el paquete)
    use a, b                   con quien habla: un modulo del paquete, o un nodo
                               de BMO-X (`gpu`, `director`)
+   use casa.medida            un modulo de LA CASA: la libreria de TITAN++ que
+                              viaja dentro del compilador (18-10)
+```
+
+### La casa: lo que todas las apps comparten (18-10)
+
+ECCE, RESOLUCION y TINTA llevaban el mismo `medida.titan` copiado, y cuatro
+apps el mismo `es_cifra`. Ahora se piden: `use casa.medida` en la cabecera y
+`medida.ancho()` en el cuerpo, como cualquier modulo. Los modulos de la casa
+viven en [`casa/`](casa/README.md) y entran en el compilador; un paquete no
+lleva copia ni ruta.
+
+```text
+   use casa.nada                no hay ese modulo en la casa (dice cuales hay) T0051
+   mod cifras + use casa.cifras dos modulos con un nombre                      T0052
+   use cifras (sin casa.)       el de la casa se pide con su nombre entero     T0051
+   un modulo de la casa que usa un modulo de la app: la casa esta DEBAJO      T0051
+   use casa.medida sin screen   lo que la casa usa de BMO-X lo pide la app     T0088 (U2)
 ```
 
 Va arriba, antes de la primera `fn`, en cualquier orden: quien abre el fichero
@@ -728,7 +776,8 @@ fn describe(f: Forma)              # CUALQUIER valor que cumpla Forma
 ### Lo que se escribe
 
 ```text
-   trait NOMBRE                 y debajo, sus fn SIN cuerpo: lo que promete.
+   trait NOMBRE                 y debajo, sus fn: lo que promete (con cuerpo,
+                                el que tienen por defecto, O3).
      fn f(x: NOMBRE, ...) -> T  El primer valor de cada una es del trait
    trait NOMBRE for TIPO        y debajo, las MISMAS fn con su cuerpo: como
                                 las cumple TIPO (un type, un enum, int, dec,
@@ -751,10 +800,42 @@ LLAMADA, en una frase (T0085), nunca desde dentro de `describe`.
 
 **Un trait es el tipo de un PARAMETRO** (y del primer valor de sus fn), nunca
 de un `let`, un campo, una tabla o un resultado: dice QUE sabe hacer un valor,
-no cual es (T0087).
+no cual es (T0087). Una LISTA o un MAPA de un trait si: lo trae el nivel 13
+(O4), para guardar juntos valores de tipos distintos.
 
 Entre modulos, como todo lo demas: `pub trait Pieza` en `pieza.titan`, y en
 otro `trait pieza.Pieza for Rueda` y `pieza.vueltas(p, 2)`.
+
+### Cuerpos por defecto (O3, 18-10, sin palabras nuevas)
+
+Una fn de un `trait` puede llevar cuerpo: es lo que corre cada tipo que NO
+la escribe en su `trait ... for`. El comportamiento comun se escribe una vez.
+
+```text
+trait Breakable
+    fn remaining(b: Breakable) -> int       # cada tipo la escribe
+    fn broken(b: Breakable) -> bool         # por defecto, para todos
+        return remaining(b) == 0
+
+trait Breakable for Stone                   # usa `broken` tal cual
+    fn remaining(b: Stone) -> int
+        return b.durability.remaining
+
+trait Breakable for Wood                    # escribe la SUYA
+    fn remaining(b: Wood) -> int
+        return b.durability.remaining
+    fn broken(b: Wood) -> bool
+        return b.durability.remaining <= 2
+```
+
+No es herencia: no hay jerarquia ni clase madre. El cuerpo por defecto se
+juzga UNA vez, como un generico del trait: solo usa lo que el trait promete.
+Si mira un campo (`b.durability`) es T0073 en esa linea, aunque todos los
+tipos de hoy lo tuvieran. Quien escribe la suya conserva la firma del trait
+(T0086). Por dentro, cada tipo recibe su copia con su tipo (`broken<Stone>`),
+la misma forma que las fn que escribe; E1 la corre igual que una escrita.
+[Ejemplo](ejemplos/nivel10/por_defecto.titan) y
+[su NO](ejemplos/nivel10/defecto_mira_un_campo.titan).
 
 ### Las reglas, y quien las dice
 
@@ -801,6 +882,13 @@ fn main()
    f(x)                            con valores: un hilo
    f(xs, ys)                       con TABLAS del mismo largo: un hilo por
                                    celda, y una tabla de resultados
+   f(xs, ys)  con [f32]            con LISTAS (MC4, 18-10): del largo que
+                                   tengan al correr, en el monton y no en la
+                                   pila; una lista de resultados. Largos
+                                   distintos: T0072, al correr
+   f(xs, k)                        un valor SUELTO entre tablas o listas
+                                   llega igual a cada celda (la camara de un
+                                   fotograma), sin repetirlo en una tabla
    let xs: [f32; n] = [...]        un numero entra a f32 SOLO por un tipo
                                    declarado (D4): ahi se redondea, una vez
    round(x, 2)                     la puerta de vuelta: el f32 se escribe
@@ -926,6 +1014,81 @@ gpu fn a_la_ocho(x: f32) -> f32
 - Cada `for` es un `Bucle` de verdad en las dos tarjetas; los `if` siguen en
   linea recta. Los ejemplos: `nivel11/bucles` y `nivel11/en_linea`; sus NO,
   `nivel11/hilo_largo` (T0066) y `nivel11/gpu_mientras` (T0090).
+
+### Las VECINAS (18-10, LB9 de `docs/plan/PLAN_LAS_LIBRERIAS.md`; DL9 del propietario)
+
+```text
+gpu fn suaviza(x: f32, campo: [f32]) -> f32
+    let i = celda()                     # la celda que cuenta ESTE hilo
+    return (campo[i - 1.0] + 2.0 * x + campo[i + 1.0]) * 0.25
+
+    let ys = suaviza(xs, xs)            # xs celda a celda, y xs ENTERA
+```
+
+- Un parametro `[f32]` es la lista ENTERA: llega igual a cada hilo, y es de
+  SOLO LEER (ni `mut` ni `own`). Se lee por la celda que se quiera,
+  `campo[k]`, con un f32: `k` va hacia el cero (`f32 as i32`; un NaN, 0).
+- **Fuera de la lista, 0 (DL9: "da 0, al correr").** La celda -1 o la que
+  pasa del largo lee 0, en la 3060, en la CPU, en la casa y en el calculo.
+  Por eso una vecina que no esta no pesa si su masa se lee de otra lista.
+- `celda()` es el numero del hilo, en f32 (0, 1, 2...). Solo dentro de una
+  gpu fn: en una fn de la CPU no hay hilo (T0090).
+- Lo demas llega CELDA A CELDA como siempre (una lista, una tabla o un valor
+  suelto, el mismo en cada hilo), y dice CUANTOS hilos hay: hace falta uno
+  (solo listas enteras es T0090). El resultado tiene la forma del primero
+  que no va suelto, como en MC4.
+- Una gpu fn que mira a sus vecinas es un COMPUTO entero (un hilo por
+  celda, sus listas en UAV): no se llama desde otra gpu fn (T0090), ni
+  dibuja. Una lista entera sin su celda (`campo + x`) es T0090.
+- Las tres respuestas de siempre (L31): cada tarjeta (la 3060 con los
+  permisos de computo de R7, la CPU con `nativo_computo`), la casa
+  (`Programa::despachar`) y el calculo, con los mismos bits, tambien en la
+  bateria de vecinas (listas mas cortas que los hilos: los ultimos miran
+  fuera). Al correr, la CPU de reserva corre el computo un hilo detras de
+  otro (L32).
+- Los ejemplos: `nivel11/vecinas` (el desenfoque) y `nivel11/densidad` (la
+  primera densidad de un fluido, IL1); su NO, `nivel11/celda_en_la_cpu`
+  (T0090).
+
+**`piso(x)` (18-10, IL2 de `PLAN_ILLAPA`)**: el entero de abajo de un f32,
+los bits de `f32::floor` -- `piso(-0.5)` es -1, `piso(-0.0)` es -0.0, un NaN
+sigue NaN, y lo que no cabe en un entero (desde 2^23, el infinito) queda
+como estaba. Solo dentro de una gpu fn: en la CPU es contar con un f32
+(T0091, `nivel11/piso_en_la_cpu`). Con el, una gota sabe su celda
+(`piso(x / h)`) y un hilo el bit `j` de su numero (`piso(i / j)`, y su
+paridad), que es lo que pide un orden en pasos. El ejemplo,
+`nivel11/rejilla` (IL2): 128 gotas en 16 x 16 celdas, ordenadas por celda
+con un orden BITONICO (28 pasos de dos gpu fn), donde empieza cada celda
+por una busqueda binaria de 24 vueltas, y las vecinas mirando solo las
+nueve celdas de alrededor: las mismas 332 que mirando a todas.
+
+**LAS REDUCCIONES (18-10, `use casa.suma`)**: la CPU no suma f32 (D2), asi
+que hacer de una lista UN numero va en la GPU. `suma.total(xs)`,
+`suma.punto(xs, ys)`, `suma.mayor(xs)` y `suma.menor(xs)` son gpu fn de la
+casa: cada hilo reduce un BLOQUE de 64 celdas seguidas, de izquierda a
+derecha, y los bloques se reducen igual hasta que queda uno (un millon de
+celdas, cuatro pasos). El orden es ese y no otro, en cada tarjeta y en el
+calculo: por eso dan los mismos bits. No es el de sumar una a una -- otro
+orden es otro f32 -- y pierde menos: en `nivel11/sumas`, 5000 celdas suman
+249.7790 (la exacta a cuatro cifras), y una a una darian 249.7784. De una
+lista vacia, 0.
+
+**LA SANGRE (18-10, IL3, `nivel11/sangre`)**: PBF en 2D con todo lo de
+arriba -- vecinas, `piso`, la rejilla, las sumas -- y una raiz SIN DIVIDIR
+escrita en TITAN++ (`mates.inv_raiz`: potencias de cuatro y Newton con
+productos, a menos de 1.4 ULP de la de IEEE, con los mismos bits en cada
+tarjeta por construccion). Dos lecciones, dichas: lo PREDICHO tambien va
+dentro de la caja (una gota bajo el suelo tiene una celda negativa, y la
+rejilla no la ve); y para caber en la 3060, los sitios van juntos en una
+lista (`pos` = x0, y0, x1, y1...) y una fila de tres celdas es UN tramo del
+orden.
+
+[!] **Lo que cuesta un UAV en la 3060**: cada lista (las de celda a celda,
+las enteras y el resultado) ata CINCO registros de los 64 de un hueco (su
+base, su tope, sus elementos y su paso). Con ocho listas quedan 24 para la
+cuenta; si no cabe, el NO lo dice (`no cabe en los 64 registros`). Lo que
+se puede leer de otra lista, mejor de ella: `ys[celda()]` en vez de otro
+valor, `ini[c + 1.0]` en vez de una lista `fin`.
 
 ### La gpu fn que DIBUJA (08-10, LB6 de `docs/plan/PLAN_LAS_LIBRERIAS.md`)
 
@@ -1353,6 +1516,33 @@ calculo y nadie se quedo. Sin recolector: se suelta donde el juez ya sabe que
 el valor muere. Al acabar no queda NADA pedido -- y si quedara, el programa lo
 dice. La vara, la de siempre: el calculo, programa a programa y al azar
 (`emisor-x86_64/tests/e1.rs`).
+
+### Listas y mapas de un trait (O4, 18-10, sin palabras nuevas)
+
+Una `[Nodo]` guarda valores de TIPOS DISTINTOS que cumplen `trait Nodo`, cada
+uno con su tipo; un `{text: Nodo}`, por nombre. Recorrerla llama a la fn de
+cada uno: lo que en otros lenguajes es una lista de objetos con herencia,
+aqui es una lista de un comportamiento.
+
+```text
+let red: [Nodo] = [Rejilla { lado: 4, paso: 1000 }, Mueve { dx: 5, dy: 0, dz: 0 }]
+push(mut red, Copia { veces: 3, dy: 500 })      # cualquiera que cumpla Nodo
+for n in red
+    puntos = aplica(n, puntos)                  # la fn de SU tipo
+```
+
+```text
+   push / put / una lista escrita con un valor que no cumple el trait   T0085
+   `let n: Nodo`, un campo `Nodo`, `[Nodo; 3]`: el trait SUELTO          T0087
+```
+
+La ley L21 no cambia: el trait suelto sigue siendo tipo de un parametro y
+nada mas; lo nuevo es la LISTA o el MAPA de el, que tambien van en campos,
+resultados y parametros. En la maquina cada celda lleva la etiqueta de su
+tipo y mide lo que el mayor de los que cumplen el trait; el monton suelta
+cada una segun su tipo. Lo que aun no: prestar una celda para cambiarla
+(`cambia(mut red[0])`, el mismo limite que las demas celdas, O1).
+[Ejemplo: geometria por nodos](ejemplos/nivel13/red_de_nodos.titan).
 
 ---
 

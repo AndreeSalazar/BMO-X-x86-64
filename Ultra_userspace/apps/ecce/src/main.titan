@@ -54,12 +54,13 @@
 # (`lineas`), y se rehacen en cada cambio: una nota es corta.
 mod main "ECCE: el bloc de notas -- escribir, moverse por lo escrito y guardar solo"
 use director
-mod medida
+use casa.medida
 mod mesa
 mod guion
 mod pagina
 mod pdf
 mod letra
+use casa.letrero
 
 # -- Los colores: tinta clara sobre noche, y el oro de la pluma ----------
 
@@ -503,7 +504,7 @@ fn pinta_virtual(t: [byte], l: [int], co: [int], v: int, y: int, cols: int)
     if que == 0
         director.rect(margen(), y + 7, ancho * 8 - 72, 1, tenue())
         let x = director.texto(margen() + ancho * 8 - 64, y, "pag ", 1, tenue())
-        let z = pon_numero(x, y, pg + 1, tenue())
+        let z = letrero.numero(x, y, pg + 1, tenue())
     else if que == 1
         let x = director.texto(sx, y, "(MAS)", 1, tinta())
     else
@@ -587,29 +588,13 @@ fn rotula(le: [byte], x: int, y: int, t: text, color: int) -> int
 fn pon_cifras(le: [byte], x: int, y: int, n: int, color: int) -> int
     if letra.hay(le)
         return letra.numero(le, x, y + 12, n, color, barra())
-    return pon_numero(x, y, n, color)
+    return letrero.numero(x, y, n, color)
 
 # Lo que mide `t` en la letra de la cabeza (`ocho`: lo que mide en la de 8).
 fn mide(le: [byte], t: text, ocho: int) -> int
     if letra.hay(le)
         return letra.ancho(le, t)
     return ocho
-
-fn pon_numero(x: int, y: int, n: int, color: int) -> int
-    let mut px = x
-    let mut potencia = 1000000
-    let mut empezo = false
-    while potencia >= 1
-        let resto = n % (potencia * 10)
-        let cifra = (resto - resto % potencia) / potencia
-        if cifra != 0 or empezo or potencia == 1
-            px = director.letra(px, y, 48 + cifra, 1, color)
-            empezo = true
-        if potencia == 1
-            potencia = 0
-        else
-            potencia = potencia / 10
-    return px
 
 # El pie: las palabras, la linea, y si esta guardado (0 guardado, 1 sin
 # guardar, 2 el disco dijo que no).

@@ -41,7 +41,7 @@
 //! como cualquier otra operacion.
 
 use bmo_gpu_ga10x::lectura::identidad::{DISPOSITIVOS, NVIDIA, VRAM_MIB};
-use bmo_gpu_ga10x::sass::juez::{juzgar_cuerpo_de_app, juzgar_drenado, Contexto, RESERVADOS};
+use bmo_gpu_ga10x::sass::juez::{juzgar_cuerpo_con, juzgar_cuerpo_de_app, juzgar_drenado, Contexto, RESERVADOS};
 use bmo_prometeo::{Aparato, Codigo, Ficha, NoEmite as No, Para, Pci, Programa, Tarjeta};
 
 use isa::simula::{correr, Maquina};
@@ -104,7 +104,10 @@ impl Tarjeta for Rtx3060_12g {
     }
 
     fn emitir(&self, p: &Programa, para: Para) -> Result<Codigo, No> {
-        let e = emitir_con(p, REGISTROS, abi(para)).map_err(|e| match e {
+        // LB9: un computo no tiene entradas: lo que el kernel le carga son
+        // sus UAV, en registros, para el oraculo y para el viaje.
+        let abi = if es_computo(p) { Abi::Registros } else { abi(para) };
+        let e = emitir_con(p, REGISTROS, abi).map_err(|e| match e {
             NoEmite::Operacion(i) => No::Fallo { op: Some(i), por_que: format!("el emisor de {} ({}) dijo que no: {:?}", NOMBRE, LENGUA, e) },
             NoEmite::Registros => No::Fallo { op: None, por_que: format!("no cabe en los {} registros de un hueco de {}", REGISTROS, NOMBRE) },
             e => No::Fallo { op: None, por_que: format!("el emisor de {} ({}) dijo que no: {:?}", NOMBRE, LENGUA, e) },
@@ -136,7 +139,29 @@ impl Tarjeta for Rtx3060_12g {
         // La salida e, componente k, en el registro R(4 e + k) al EXIT.
         Ok((0..salidas).map(|e| [m.r[4 * e], m.r[4 * e + 1], m.r[4 * e + 2], m.r[4 * e + 3]]).collect())
     }
+
+    fn juzgar_computo(&self, p: &Programa, c: &Codigo, _para: Para) -> Result<(), String> {
+        let e = computo::el_mismo(p, c)?;
+        juzgar_drenado(&e.codigo, &Contexto { registros: e.registros + RESERVADOS, sph: None }).map_err(|b| format!("{}", b))?;
+        let permisos = isa::permisos_computo(&e, p).ok_or_else(|| format!("ata mas UAV de los que {} presta a un computo", NOMBRE))?;
+        juzgar_cuerpo_con(&e.codigo, e.registros, permisos).map_err(|b| format!("{}", b))
+    }
+
+    fn simular_computo(&self, p: &Programa, c: &Codigo, grupos: u32, uavs: &mut [Vec<u32>]) -> Result<(), String> {
+        computo::simular(p, c, grupos, uavs)
+    }
 }
+
+/// Si el Programa es de COMPUTO (tiene hilos).
+fn es_computo(p: &Programa) -> bool {
+    p.computo.hilos != [0; 3]
+}
+
+/// ** LB9 (18-10): EL COMPUTO de una gpu fn que mira a sus vecinas -- sus
+/// UAV en la memoria de la 3060 de mentira, cada uno en su ventana, y lo que
+/// el kernel carga antes del cuerpo (las precargas) --, juzgado con los
+/// permisos del computo de R7.
+pub mod computo;
 
 #[cfg(test)]
 mod pruebas {

@@ -1,0 +1,11 @@
+# espera: T0091
+# `piso(x)` cuenta con un f32 (IL2): en la CPU se cuenta con dec exacto
+# (PLAN_EL_CENTAURO D2), asi que el piso de un f32 es de una gpu fn
+mod main "el piso en la CPU"
+
+gpu fn celda_de(x: f32) -> f32
+    return piso(x)
+
+fn main()
+    let x: f32 = 2.5
+    print(round(piso(x), 0))

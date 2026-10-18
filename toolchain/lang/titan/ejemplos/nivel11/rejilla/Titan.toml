@@ -1,0 +1,5 @@
+[package]
+name = "rejilla"
+
+[permissions]
+gpu = "compute"

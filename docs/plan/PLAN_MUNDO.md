@@ -115,6 +115,15 @@ pide Cyberpunk por PROTON-X --.
       el propietario confirma "bien cumplen". Cierre por confirmacion del
       propietario; los nuevos logs no registran guardar/cargar por separado.
       Uso: [README de la app](../../Ultra_userspace/apps/mundo/README.md).
+      **18-10, el propietario elige (a) primero y (b) despues.** Hecho en el
+      anfitrion: las gpu fn y `director.publica` toman listas `[f32]` del
+      monton, y un valor suelto llega a cada celda. MUNDO cuenta todas sus
+      caras de una vez (`dibuja`), sin tablas de la pila: el techo pasa de
+      80 caras a 126, que es lo que el DIRECTOR dibuja de una lamina (768
+      vertices, `laminas.rs`). Las pruebas de MUNDO dan los mismos pixeles;
+      el primer fotograma cuesta 2.800.000 instrucciones (antes 2.855.000).
+      Faltan: subir los 768 del DIRECTOR (y verlo en el metal), los trozos
+      y el ruido.
 - [ ] **MC6 -- texturas.** Cada tipo de bloque con su dibujo de 16 x 16, de
       un atlas. **Necesita:** M3 de VERRANO (la textura en la VRAM y su
       muestreador; Ring 0, la tarea de las texturas con mips).

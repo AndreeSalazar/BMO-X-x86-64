@@ -1,0 +1,23 @@
+# espera: T0073
+# un cuerpo por defecto solo sabe lo que el trait promete: no hay campos,
+# porque no hay herencia -- un Breakable no tiene `durability`
+mod main "un por defecto que mira donde no debe"
+
+type Durability
+    remaining: int
+
+type Stone
+    durability: Durability
+
+trait Breakable
+    fn remaining(b: Breakable) -> int
+    fn broken(b: Breakable) -> bool
+        return b.durability.remaining == 0
+
+trait Breakable for Stone
+    fn remaining(b: Stone) -> int
+        return b.durability.remaining
+
+fn main()
+    let s = Stone { durability: Durability { remaining: 0 } }
+    print(broken(s))

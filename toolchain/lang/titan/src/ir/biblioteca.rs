@@ -88,3 +88,33 @@ impl Lowering<'_> {
         self.change(at_block, l, rest, here);
     }
 }
+
+/// ** O4 (18-10): a `let` of a LIST OF A TRAIT written as a table of values,
+/// `let red: [Nodo] = [Rejilla { .. }, Mueve { .. }]`. A table's cells are of
+/// ONE class; these are of several, each keeping the trait.
+pub(super) fn trait_list_literal(p: &Program, l: &crate::tree::Let) -> bool {
+    let Some(Ty::List(inner)) = &l.ty else { return false };
+    let Ty::Named(n) = &**inner else { return false };
+    p.traits.iter().any(|t| &t.name == n) && matches!(&l.value, Expr::Table { items, .. } if !items.is_empty())
+}
+
+impl Lowering<'_> {
+    /// The table, as the `push`es it means -- each value with its own type,
+    /// judged as any `push` into that list (T0085) -- into a list nobody can
+    /// name, then given to the name: the name keeps its own `mut` (or not).
+    pub(super) fn trait_list(&mut self, l: &crate::tree::Let, at_block: usize) {
+        let Expr::Table { items, line, col } = &l.value else { unreachable!("trait_list_literal") };
+        let here = (*line, *col);
+        let built = local_of(&mut self.locals, &format!("{}#", l.name));
+        self.born(built);
+        self.blocks[at_block].ops.push(Op::Let { local: built, value: Value::Table(Vec::new(), here), mutable: true, ty: l.ty.clone(), at: here });
+        for item in items {
+            let v = value(item, &mut self.locals, self.p);
+            let at = v.at();
+            self.blocks[at_block].ops.push(Op::Set { local: built, value: Value::Lib(Lib::Push, vec![Value::Local(built, at), v], at), at });
+        }
+        let local = local_of(&mut self.locals, &l.name);
+        self.born(local);
+        self.blocks[at_block].ops.push(Op::Let { local, value: Value::Local(built, here), mutable: l.mutable, ty: l.ty.clone(), at: (l.line, l.col) });
+    }
+}

@@ -249,7 +249,7 @@ pub(super) fn int(op: &str, x: i64, y: i64, at: At) -> Result<Const, Message> {
         "+" => x.checked_add(y),
         "-" => x.checked_sub(y),
         "*" => x.checked_mul(y),
-        "/" | "%" if y == 0 => {
+        "/" | "%" | "div" | "rem" if y == 0 => {
             return Err(Message::new(
                 Code::DivZero,
                 at.0,
@@ -272,6 +272,10 @@ pub(super) fn int(op: &str, x: i64, y: i64, at: At) -> Result<Const, Message> {
         }
         "/" => x.checked_div(y),
         "%" => Some(x.wrapping_rem(y)),
+        // Euclid's: the remainder is never negative (-7 = 3 * -3 + 2), and
+        // MIN div -1 does not fit (T0060), while its remainder is 0
+        "div" => x.checked_div_euclid(y),
+        "rem" => Some(x.wrapping_rem_euclid(y)),
         _ => None,
     };
     r.map(Const::Int).ok_or_else(|| overflow(at, &what))

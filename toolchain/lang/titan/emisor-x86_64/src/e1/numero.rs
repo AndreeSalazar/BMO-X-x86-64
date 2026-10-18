@@ -158,7 +158,8 @@ impl E1<'_> {
                 }
                 self.trap(0x80, "T0060", "el resultado no cabe en 64 bits", at);
             }
-            "/" | "%" => {
+            "/" | "%" | "div" | "rem" => {
+                let cociente = matches!(op, "/" | "div");
                 let mut done = None;
                 if !seguro {
                     x86::test_r64_r64(&mut self.code, RCX, RCX);
@@ -166,7 +167,7 @@ impl E1<'_> {
                     // -1 a mano: MIN / -1 no cabe, y el resto es 0
                     x86::cmp_r64_imm8(&mut self.code, RCX, -1);
                     let normal = self.jcc(0x85);
-                    if op == "/" {
+                    if cociente {
                         self.imm(RDX, i64::MIN);
                         x86::cmp_r64_r64(&mut self.code, RAX, RDX);
                         self.trap(0x84, "T0060", "el resultado no cabe en 64 bits", at);
@@ -179,11 +180,18 @@ impl E1<'_> {
                 }
                 x86::cqo(&mut self.code);
                 x86::idiv_r64(&mut self.code, RCX);
-                if op == "/" {
-                    x86::test_r64_r64(&mut self.code, RDX, RDX);
-                    self.trap(0x85, "T0062", "una division que no es exacta (entre enteros, 7 / 2 no es 3)", at);
-                } else {
-                    x86::mov_r64_r64(&mut self.code, RAX, RDX);
+                match op {
+                    "/" => {
+                        x86::test_r64_r64(&mut self.code, RDX, RDX);
+                        self.trap(0x85, "T0062", "una division que no es exacta (entre enteros, 7 / 2 no es 3)", at);
+                    }
+                    "%" => x86::mov_r64_r64(&mut self.code, RAX, RDX),
+                    _ => {
+                        self.euclides();
+                        if op == "rem" {
+                            x86::mov_r64_r64(&mut self.code, RAX, RDX);
+                        }
+                    }
                 }
                 if let Some(done) = done {
                     self.here(done);
@@ -195,6 +203,26 @@ impl E1<'_> {
             }
         }
         Ok(())
+    }
+
+    /// ** `div` y `rem` (18-10): `idiv` corta hacia el cero; Euclides pide
+    /// un resto que nunca sea negativo. Con el resto negativo, se corrige
+    /// UN paso hacia el lado del divisor: -7 entre 2 da -3 y -1, y queda
+    /// -4 y 1. Ni el cociente ni el resto se salen: `|resto| < |divisor|`,
+    /// y con un divisor de 1 o -1 el resto ya era 0.
+    fn euclides(&mut self) {
+        x86::test_r64_r64(&mut self.code, RDX, RDX);
+        let bien = self.jcc(0x89); // jns
+        x86::test_r64_r64(&mut self.code, RCX, RCX);
+        let negativo = self.jcc(0x88); // js
+        self.suma_inmediata(RAX, -1);
+        x86::add_r64_r64(&mut self.code, RDX, RCX);
+        let fin = self.jmp();
+        self.here(negativo);
+        self.suma_inmediata(RAX, 1);
+        x86::sub_r64_r64(&mut self.code, RDX, RCX);
+        self.here(fin);
+        self.here(bien);
     }
 
     /// `-x`: MIN no tiene opuesto que quepa (T0060).

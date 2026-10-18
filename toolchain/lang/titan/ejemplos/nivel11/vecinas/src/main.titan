@@ -1,0 +1,35 @@
+# espera: BIEN
+# sale: 300 celdas: 0.25 1.50 4.50 66901.50
+# sale: con su peso: 0.50 3.00 8.00 624.00
+# sale: en una tabla: 0.75 2.00 4.00
+# sale: una sola: 0.75
+# LB9 (18-10): una gpu fn que mira a sus VECINAS. `campo: [f32]` llega
+# ENTERO a cada hilo, de solo leer; `celda()` dice que celda cuenta el
+# hilo, y `campo[k]` lee la celda k (un f32: hacia el cero). Fuera de la
+# lista, 0 (DL9 del propietario: "da 0, al correr").
+mod main "un desenfoque: cada celda con sus dos vecinas"
+
+gpu fn suaviza(x: f32, campo: [f32]) -> f32
+    let i = celda()
+    return (campo[i - 1.0] + 2.0 * x + campo[i + 1.0]) * 0.25
+
+# un valor SUELTO llega igual a cada hilo: aqui, cuanto pesan las vecinas
+gpu fn con_peso(x: f32, peso: f32, campo: [f32]) -> f32
+    let i = celda()
+    return x + peso * (campo[i + 1.0] - campo[i - 1.0])
+
+fn main()
+    let mut xs: [f32] = []
+    for i in range(300)
+        let x: f32 = i * i
+        push(mut xs, x)
+    let ys = suaviza(xs, xs)
+    print(len(ys), " celdas: ", round(ys[0], 2), " ", round(ys[1], 2), " ", round(ys[2], 2), " ", round(ys[299], 2))
+    let medio: f32 = 0.5
+    let zs = con_peso(xs, medio, xs)
+    print("con su peso: ", round(zs[0], 2), " ", round(zs[1], 2), " ", round(zs[2], 2), " ", round(zs[24], 2))
+    let t: [f32; 3] = [1.0, 2.0, 3.0]
+    let r = suaviza(t, xs)
+    print("en una tabla: ", round(r[0], 2), " ", round(r[1], 2), " ", round(r[2], 2))
+    let uno: f32 = 1.0
+    print("una sola: ", round(suaviza(uno, xs), 2))

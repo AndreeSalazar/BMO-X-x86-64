@@ -1,0 +1,8 @@
+# espera: T0060
+# el menor de los int entre -1 no cabe: tampoco con `div`
+mod main "reparte"
+
+fn main()
+    let menor = -9223372036854775807 - 1
+    let uno = 0 - 1
+    print(div(menor, uno))

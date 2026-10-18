@@ -2,16 +2,15 @@
 # en la lamina. La escena no la tapa ni si toca el plano de cerca (LESS).
 mod hud "mira central de MUNDO en la misma lamina"
 
-pub fn crosshair(mut pos: [f32; 1968], mut col: [f32; 1968], start: int)
+pub fn crosshair(mut pos: [f32], mut col: [f32])
     let zero: f32 = 0.0
     let one: f32 = 1.0
     let xs: [f32; 12] = [-0.015625, 0.015625, 0.015625, -0.015625, -0.015625, 0.015625, -0.003125, 0.003125, 0.003125, -0.003125, -0.003125, 0.003125]
     let ys: [f32; 12] = [-0.005555556, 0.005555556, -0.005555556, -0.005555556, 0.005555556, 0.005555556, -0.027777778, 0.027777778, -0.027777778, -0.027777778, 0.027777778, 0.027777778]
     for i in range(12)
-        let v = start + i
-        pos[4 * v] = xs[i]
-        pos[4 * v + 1] = ys[i]
-        pos[4 * v + 2] = zero
-        pos[4 * v + 3] = one
+        push(mut pos, xs[i])
+        push(mut pos, ys[i])
+        push(mut pos, zero)
+        push(mut pos, one)
         for k in range(4)
-            col[4 * v + k] = one
+            push(mut col, one)

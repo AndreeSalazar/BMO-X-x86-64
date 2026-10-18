@@ -1,0 +1,5 @@
+[package]
+name = "celda_en_la_cpu"
+
+[permissions]
+gpu = "compute"

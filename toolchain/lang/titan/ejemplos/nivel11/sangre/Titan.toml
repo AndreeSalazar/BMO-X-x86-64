@@ -1,0 +1,5 @@
+[package]
+name = "sangre"
+
+[permissions]
+gpu = "compute"

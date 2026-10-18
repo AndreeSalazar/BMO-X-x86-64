@@ -1,0 +1,103 @@
+# LA RAIZ SIN DIVIDIR (18-10, IL3): `inv_raiz(x)` = 1 / raiz(x), con sumas y
+# productos -- exactos en cada tarjeta --, asi que la 3060, la CPU, la casa y
+# el calculo dan los mismos bits por construccion. No es la raiz redondeada
+# de IEEE: queda a menos de 1.4 ULP de ella (en todo el rango, subnormales
+# incluidos). La de la 3060 (`MUFU`) aproxima, y hacerla exacta es del
+# propietario: esta no la necesita.
+#
+#    x = y 4^e, con y en [1, 4): potencias de cuatro, exactas
+#    1 / raiz(y), por Newton sin dividir: g = g (1.5 - 0.5 y g^2), cinco
+#    veces desde una recta; y por 2^-e
+mod mates "la raiz de un f32 sin dividir, la misma en cada tarjeta"
+
+pub gpu fn inv_raiz(x: f32) -> f32
+    if x <= 0.0
+        if x == 0.0
+            return 1.0 / 0.0
+        return 0.0 / 0.0
+    if x - x != 0.0
+        # el infinito da 0; el NaN, NaN
+        if x > 0.0
+            return 0.0
+        return x
+    # las potencias de dos, exactas: una fila de 16 cifras como mucho
+    let p16 = 65536.0
+    let p32 = p16 * p16
+    let p64 = p32 * p32
+    let q16 = 0.0000152587890625
+    let q32 = q16 * q16
+    let q64 = q32 * q32
+    let mut y = x
+    let mut s = 1.0
+    if y < q64 * q32 * 0.0625
+        y = y * p64 * p32 * 16.0
+        s = s * p32 * p16 * 4.0
+    if y >= p64
+        y = y * q64
+        s = s * q32
+    if y >= p32
+        y = y * q32
+        s = s * q16
+    if y >= p16
+        y = y * q16
+        s = s * 0.00390625
+    if y >= 256.0
+        y = y * 0.00390625
+        s = s * 0.0625
+    if y >= 16.0
+        y = y * 0.0625
+        s = s * 0.25
+    if y >= 4.0
+        y = y * 0.25
+        s = s * 0.5
+    if y < 1.0 and y * p64 < 4.0
+        y = y * p64
+        s = s * p32
+    if y < 1.0 and y * p32 < 4.0
+        y = y * p32
+        s = s * p16
+    if y < 1.0 and y * p16 < 4.0
+        y = y * p16
+        s = s * 256.0
+    if y < 1.0 and y * 256.0 < 4.0
+        y = y * 256.0
+        s = s * 16.0
+    if y < 1.0 and y * 16.0 < 4.0
+        y = y * 16.0
+        s = s * 4.0
+    if y < 1.0 and y * 4.0 < 4.0
+        y = y * 4.0
+        s = s * 2.0
+    let mut g = 1.2 - 0.18 * y
+    for i in range(5)
+        g = g * (1.5 - 0.5 * y * (g * g))
+    return g * s
+
+# ** LA CORTA, para la distancia entre dos gotas: 1 / raiz(x) con
+# 0.000000000001 <= x < 1 (lo que da un r^2 de dos gotas que no estan una
+# encima de otra, dentro del radio). Solo sube por potencias de cuatro: la
+# mitad de cuentas y de registros que `inv_raiz`, y los mismos bits que ella
+# en ese tramo.
+pub gpu fn inv_raiz_corta(x: f32) -> f32
+    let p16 = 65536.0
+    let mut y = x
+    let mut s = 1.0
+    if y * p16 * p16 < 4.0
+        y = y * p16 * p16
+        s = s * p16
+    if y * p16 < 4.0
+        y = y * p16
+        s = s * 256.0
+    if y * 256.0 < 4.0
+        y = y * 256.0
+        s = s * 16.0
+    if y * 16.0 < 4.0
+        y = y * 16.0
+        s = s * 4.0
+    if y * 4.0 < 4.0
+        y = y * 4.0
+        s = s * 2.0
+    let mut g = 1.2 - 0.18 * y
+    for i in range(5)
+        g = g * (1.5 - 0.5 * y * (g * g))
+    return g * s

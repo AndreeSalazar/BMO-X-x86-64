@@ -83,9 +83,21 @@ rechazo T0085 de un tipo que no cumple el contrato.
 - [ ] O3: definir si hacen falta cuerpos por defecto, extension de contratos
       y acceso mediante metodos. Cada uno requiere sus reglas de ambiguedad
       y visibilidad antes de sumar sintaxis.
-- [ ] O4: evaluar colecciones de valores de tipos distintos con un contrato
+      **18-10, cuerpos por defecto hechos** (decision del propietario): una
+      fn de `trait` con cuerpo lo da por defecto; se juzga una vez como
+      generico del trait (T0073 si mira un campo) y cada tipo que no la
+      escribe recibe su copia. Sin palabras nuevas. Calculo y E1 coinciden
+      en [por_defecto](ejemplos/nivel10/por_defecto.titan). Faltan la llamada
+      con punto (`piedra.golpea(3)`) y la extension de contratos.
+- [x] O4: evaluar colecciones de valores de tipos distintos con un contrato
       comun, solo ante un uso concreto. Definir representacion, propietario,
       coste y despacho; no basta permitir `[Trait]` en el parser.
+      **18-10, hecho** con su uso concreto: la geometria por nodos de HO1
+      ([red_de_nodos](ejemplos/nivel13/red_de_nodos.titan)). Representacion:
+      la del parametro de trait (etiqueta de tipo + el mayor de los tipos),
+      ya probada; propietario y monton, los de cualquier celda; despacho, el
+      de siempre. Listas, mapas, campos, resultados y una lista escrita con
+      tipos mezclados. Sin prestar una celda con `mut` (limite de O1).
 
 O1 y O2 responden a obstaculos observados. O3/O4 son propuestas, no capacidades
 disponibles ni ampliaciones implementadas de la gramatica. Esta tanda implementa
@@ -93,3 +105,6 @@ O1, agrega el ejemplo y sus pruebas; O2 es el siguiente cambio del compilador.
 
 La lectura del juego que motivo este estudio vive en
 [MUNDO](../../../Ultra_userspace/apps/mundo/ESTUDIO_MINECRAFT.md).
+
+Lo que cada app del propietario le pide a TITAN++, hasta ILLAPA (el Houdini
+propio), y el orden propuesto: [LAS_APPS](LAS_APPS.md).

@@ -1,0 +1,24 @@
+# LETREROS: un numero escrito en la ventana con la letra del DIRECTOR. ECCE,
+# NAVEGAR, RESOLUCION y TINTA llevaban su `pon_numero`, cada uno con su tope
+# de cifras (5 o 7: lo de mas se perdia sin decirlo). Este escribe el numero
+# ENTERO, con su signo.
+mod letrero "un numero escrito en la ventana, entero y con su signo"
+use director
+
+# Escribe `n` desde (`x`, `y`) en `color`, cifra a cifra; devuelve la `x`
+# donde acaba, para seguir escribiendo detras. Un negativo lleva su `-`.
+pub fn numero(x: int, y: int, n: int, color: int) -> int
+    let mut px = x
+    let mut resto = n
+    if n < 0
+        px = director.letra(px, y, 45, 1, color)
+        resto = 0 - n
+    let mut potencia = 1
+    while potencia <= div(resto, 10)
+        potencia = potencia * 10
+    while potencia >= 1
+        let cifra = div(resto, potencia)
+        px = director.letra(px, y, 48 + cifra, 1, color)
+        resto = resto - cifra * potencia
+        potencia = div(potencia, 10)
+    return px

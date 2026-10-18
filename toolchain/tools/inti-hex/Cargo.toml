@@ -1,0 +1,19 @@
+[package]
+name = "bmo-inti-hex"
+version = "0.1.0"
+edition = "2021"
+authors = ["BMO Project"]
+description = "INTI en .hex: el codigo que emite INTI escrito con la sintaxis de TALK-CPU (bytes de dos cifras, ; comentarios, =offset comprobado), su lectura de vuelta, y el paquete FAGRAW64 del Puente al Metal con su longitud y su suma calculadas."
+license = "Apache-2.0"
+
+[dependencies]
+bmo-inti-x86-64 = { path = "../../lang/inti/emisor-x86_64" }
+bmo-mods = { path = "../../forge/bmo-mods" }
+
+[[bin]]
+name = "inti-hex"
+path = "src/main.rs"
+
+[lib]
+name = "bmo_inti_hex"
+path = "src/lib.rs"

@@ -1,0 +1,33 @@
+# espera: BIEN
+# sale: 64 gotas, la del borde 2.3296 3.1536, la de en medio 3.6592, la ultima 2.3296
+# sale: la densidad de toda la fila: 230.3496
+# LB9 (18-10): la primera DENSIDAD de un fluido (IL1 de PLAN_ILLAPA): cada
+# gota suma lo que pesan sus vecinas cercanas, con el nucleo (1 - d^2)^3 de
+# radio 1. Las gotas van cada 0.25 (su sitio, en cuartos), y cada hilo
+# mira las nueve de su ventana. Las de fuera de la lista leen 0 en su masa (DL9), y no pesan.
+mod main "la densidad de una fila de gotas"
+use casa.suma
+
+gpu fn densidad(x: f32, pos: [f32], masa: [f32]) -> f32
+    let i = celda()
+    let mut rho = 0.0
+    let mut j = i - 4.0
+    for k in range(9)
+        let d = (x - pos[j]) * 0.25
+        let q = 1.0 - d * d
+        if q > 0.0
+            rho = rho + masa[j] * q * q * q
+        j = j + 1.0
+    return rho
+
+fn main()
+    let mut pos: [f32] = []
+    let mut masa: [f32] = []
+    let uno: f32 = 1.0
+    for i in range(64)
+        let x: f32 = i
+        push(mut pos, x)
+        push(mut masa, uno)
+    let rho = densidad(pos, pos, masa)
+    print(len(rho), " gotas, la del borde ", round(rho[0], 4), " ", round(rho[1], 4), ", la de en medio ", round(rho[32], 4), ", la ultima ", round(rho[63], 4))
+    print("la densidad de toda la fila: ", round(suma.total(rho), 4))
