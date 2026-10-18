@@ -45,9 +45,6 @@ fn caras_max() -> int
 fn vertices_max() -> int
     return 492
 
-fn div(a: int, d: int) -> int
-    return (a - a % d) / d
-
 # El seno y el coseno de la orientacion, en milesimas.
 fn seno(k: int) -> int
     return camera.sine(k)
@@ -118,9 +115,9 @@ fn trozo(mut pos: [f32; 1968], mut col: [f32; 1968], caras: [int], elegidas: [in
     let mut q: [int; 3] = [0, 0, 0]
     for k in range(cuantos)
         let n = desde + k
-        let c = 7 * elegidas[(n - n % 6) / 6]
+        let c = 7 * elegidas[div(n, 6)]
         let cara = caras[c]
-        let a = (cara - cara % 2) / 2
+        let a = div(cara, 2)
         let u = (a + 1) % 3
         let v = (a + 2) % 3
         # las esquinas A (i, j), B (i + du, j), C (i + du, j + dv), D (i, j + dv):
@@ -180,7 +177,7 @@ fn elige(caras: [int], cam: camera.Camera) -> [int]
     let n = div(len(caras), 7)
     for k in range(n)
         let cara = caras[7 * k]
-        let a = (cara - cara % 2) / 2
+        let a = div(cara, 2)
         let plano = 10000 * caras[7 * k + 1]
         let mira = (cara % 2 == 1 and camera.axis(cam, a) > plano) or (cara % 2 == 0 and camera.axis(cam, a) < plano)
         if mira and len(out) < caras_max()
@@ -316,8 +313,10 @@ fn pica(mut mundo: [byte], cam: camera.Camera, poner: bool) -> bool
     let mut z = cam.position.z
     let mut y = cam.position.y
     let cp = coseno(cam.angles.pitch)
-    let dx = div(s * cp, 1000)
-    let dz = div(c * cp, 1000)
+    # hacia el cero A PROPOSITO, no `div`: con el piso, mirar a -x daria un
+    # paso un poco mas largo que mirar a +x; asi el rayo es simetrico
+    let dx = (s * cp - s * cp % 1000) / 1000
+    let dz = (c * cp - c * cp % 1000) / 1000
     let dy = seno(cam.angles.pitch)
     let mut antes = yo
     for paso in range(60)

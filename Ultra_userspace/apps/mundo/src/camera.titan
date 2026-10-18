@@ -23,7 +23,7 @@ pub fn turn(mut angles: Angles, yaw: int, pitch: int)
 
 # Decimas de grado: teclado y raton comparten los mismos limites.
 pub fn rotate(mut angles: Angles, yaw: int, pitch: int)
-    angles.yaw = ((angles.yaw + yaw) % 3600 + 3600) % 3600
+    angles.yaw = rem(angles.yaw + yaw, 3600)
     angles.pitch = angles.pitch + pitch
     if angles.pitch > 750
         angles.pitch = 750
@@ -32,10 +32,12 @@ pub fn rotate(mut angles: Angles, yaw: int, pitch: int)
 
 pub fn sine(k: int) -> int
     let t: [int; 24] = [0, 259, 500, 707, 866, 966, 1000, 966, 866, 707, 500, 259, 0, -259, -500, -707, -866, -966, -1000, -966, -866, -707, -500, -259]
-    let angle = (k % 3600 + 3600) % 3600
-    let fraction = angle % 150
-    let step = (angle - fraction) / 150
+    let angle = rem(k, 3600)
+    let fraction = rem(angle, 150)
+    let step = div(angle, 150)
     let delta = (t[(step + 1) % 24] - t[step]) * fraction
+    # hacia el cero, como antes, no `div`: `delta` puede ser negativo, y el
+    # piso moveria la tabla una milesima donde el seno baja
     return t[step] + (delta - delta % 150) / 150
 
 pub fn cosine(k: int) -> int
