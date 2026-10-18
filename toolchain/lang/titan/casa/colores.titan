@@ -1,0 +1,23 @@
+# LOS COLORES DE LA CASA, en 0xRRGGBB: la paleta que RESOLUCION, NAVEGAR y
+# TINTA llevaban copiada. Pura: un color es un numero, no habla con nadie.
+mod colores "la paleta de la casa: fondo, titulo, gris, bien y aviso"
+
+# El fondo oscuro de las ventanas, 0x141414.
+pub fn fondo() -> int
+    return 1315860
+
+# El texto que manda, blanco: 0xFFFFFF.
+pub fn titulo() -> int
+    return 16777215
+
+# El texto de todos los dias, 0xCCCCCC.
+pub fn gris() -> int
+    return 13421772
+
+# Lo que salio bien, verde: 0x66FF66.
+pub fn bien() -> int
+    return 6750054
+
+# Lo que hay que mirar, ambar: 0xFFAA00.
+pub fn aviso() -> int
+    return 16755200

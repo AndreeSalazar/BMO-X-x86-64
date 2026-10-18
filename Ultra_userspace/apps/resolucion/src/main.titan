@@ -12,24 +12,11 @@
 mod main "RESOLUCION: elegir la medida de las ventanas de TITAN++ y guardarla"
 use director
 use casa.medida
-
-fn fondo() -> int
-    return 1315860
-
-fn titulo() -> int
-    return 16777215
-
-fn gris() -> int
-    return 13421772
+use casa.colores
+use casa.letrero
 
 fn elegida() -> int
     return 3368601
-
-fn bien() -> int
-    return 6750054
-
-fn aviso() -> int
-    return 16755200
 
 fn ancho_ventana() -> int
     return 360
@@ -102,44 +89,27 @@ fn cual(a: int, h: int) -> int
 fn y_de(i: int) -> int
     return 56 + 24 * i
 
-# Un numero de hasta cinco cifras, sin ceros delante.
-fn pon_numero(x: int, y: int, n: int, c: int) -> int
-    let mut px = x
-    let mut potencia = 10000
-    let mut empezo = false
-    while potencia >= 1
-        let resto = n % (potencia * 10)
-        let cifra = (resto - resto % potencia) / potencia
-        if cifra != 0 or empezo or potencia == 1
-            px = director.letra(px, y, 48 + cifra, 1, c)
-            empezo = true
-        if potencia == 1
-            potencia = 0
-        else
-            potencia = potencia / 10
-    return px
-
 # `estado`: 0 nada, 1 guardada, 2 el disco dijo que no.
 fn dibuja(sel: int, guardada: int, estado: int)
-    director.rect(0, 0, ancho_ventana(), alto_ventana(), fondo())
-    director.texto(12, 10, "RESOLUCION", 2, titulo())
+    director.rect(0, 0, ancho_ventana(), alto_ventana(), colores.fondo())
+    director.texto(12, 10, "RESOLUCION", 2, colores.titulo())
     for i in range(cuantas())
         let y = y_de(i)
         if i == sel
             director.rect(8, y - 4, ancho_ventana() - 16, 24, elegida())
-        let mut x = director.letra(16, y, 49 + i, 1, gris())
-        x = pon_numero(48, y, ancho_de(i), titulo())
-        x = director.texto(x, y, " x ", 1, gris())
-        pon_numero(x, y, alto_de(i), titulo())
+        let mut x = director.letra(16, y, 49 + i, 1, colores.gris())
+        x = letrero.numero(48, y, ancho_de(i), colores.titulo())
+        x = director.texto(x, y, " x ", 1, colores.gris())
+        letrero.numero(x, y, alto_de(i), colores.titulo())
         if i == guardada
-            director.texto(264, y, "guardada", 1, bien())
-    director.texto(12, 252, "Flechas o 1-8 eligen, Enter guarda", 1, gris())
+            director.texto(264, y, "guardada", 1, colores.bien())
+    director.texto(12, 252, "Flechas o 1-8 eligen, Enter guarda", 1, colores.gris())
     if estado == 1
-        director.texto(12, 272, "En datos/resol.txt", 1, bien())
+        director.texto(12, 272, "En datos/resol.txt", 1, colores.bien())
     else if estado == 2
-        director.texto(12, 272, "El disco no la guardo", 1, aviso())
+        director.texto(12, 272, "El disco no la guardo", 1, colores.aviso())
     else
-        director.texto(12, 272, "Esc cierra", 1, gris())
+        director.texto(12, 272, "Esc cierra", 1, colores.gris())
     director.presenta()
 
 fn main()

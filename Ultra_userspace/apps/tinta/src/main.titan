@@ -20,18 +20,14 @@ mod main "TINTA: el lienzo minimo -- pincel redondo con antialias, goma y PNG"
 use director
 use casa.medida
 mod png
+use casa.colores
+use casa.letrero
 
 fn barra() -> int
     return 1315860
 
 fn letras() -> int
     return 13421772
-
-fn aviso() -> int
-    return 16755200
-
-fn bien() -> int
-    return 6750054
 
 fn alto_barra() -> int
     return 20
@@ -127,36 +123,19 @@ fn pinta_barra(w: int, h: int, r: int, goma: bool, ms: int, aviso_de: int)
     director.rect(0, h, w, alto_barra(), barra())
     let mut x = 6
     if goma
-        x = director.texto(x, h + 4, "GOMA ", 1, aviso())
+        x = director.texto(x, h + 4, "GOMA ", 1, colores.aviso())
     else
         x = director.texto(x, h + 4, "PINCEL ", 1, letras())
-    x = pon_numero(x, h + 4, r)
+    x = letrero.numero(x, h + 4, r, letras())
     x = director.texto(x, h + 4, "  trazo ", 1, letras())
-    x = pon_numero(x, h + 4, ms)
+    x = letrero.numero(x, h + 4, ms, letras())
     x = director.texto(x, h + 4, " ms  ", 1, letras())
     if aviso_de == 1
-        x = director.texto(x, h + 4, "datos/tinta.png", 1, bien())
+        x = director.texto(x, h + 4, "datos/tinta.png", 1, colores.bien())
     else if aviso_de == 2
-        x = director.texto(x, h + 4, "el disco NO lo guardo", 1, aviso())
+        x = director.texto(x, h + 4, "el disco NO lo guardo", 1, colores.aviso())
     else
         x = director.texto(x, h + 4, "s guarda  g goma  + -  Esc", 1, letras())
-
-# Un numero de hasta cinco cifras, sin ceros delante.
-fn pon_numero(x: int, y: int, n: int) -> int
-    let mut px = x
-    let mut potencia = 10000
-    let mut empezo = false
-    while potencia >= 1
-        let resto = n % (potencia * 10)
-        let cifra = (resto - resto % potencia) / potencia
-        if cifra != 0 or empezo or potencia == 1
-            px = director.letra(px, y, 48 + cifra, 1, letras())
-            empezo = true
-        if potencia == 1
-            potencia = 0
-        else
-            potencia = potencia / 10
-    return px
 
 fn main()
     # La medida que eligio RESOLUCION (o 640 x 400), de 160 x 120 a 1920 x 1080.
