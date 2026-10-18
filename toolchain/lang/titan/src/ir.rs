@@ -860,6 +860,9 @@ impl Lowering<'_> {
                     }
                     self.drop_last(at, lent, here);
                 }
+                // O4 (18-10): `let red: [Nodo] = [Rejilla {..}, Mueve {..}]`
+                // -- cells of DIFFERENT types, each keeping the trait.
+                Stmt::Let(l) if biblioteca::trait_list_literal(self.p, l) => self.trait_list(l, at),
                 Stmt::Let(l) => {
                     let v = value(&l.value, &mut self.locals, self.p);
                     let local = local_of(&mut self.locals, &l.name);

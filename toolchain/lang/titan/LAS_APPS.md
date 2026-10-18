@@ -18,6 +18,7 @@ del lenguaje, del kernel, del METAL (el Ryzen) o una DECISION del propietario.
 | **`div` / `rem`** de Euclides | 18-10 | rejillas, coordenadas negativas, angulos |
 | **la casa**: `use casa.medida`, `cifras`, `colores`, `letrero` | 18-10 | dejar de copiar entre apps |
 | **cuerpos por defecto en un trait** (O3) | 18-10 | el comportamiento comun, una vez |
+| **listas y mapas de un trait** (O4) | 18-10 | redes de nodos, escenas, widgets: tipos distintos en una lista |
 
 ## La lista
 
@@ -54,7 +55,7 @@ El VEX de Houdini es eso mismo.
 | 1 | **VECINOS en una `gpu fn`**: leer celdas de OTRA tabla por indice | una gota mira a las de al lado (IL1, IL2: la rejilla de vecinos) | lenguaje + un asa del kernel (**LB9**) | abierto |
 | 2 | **la puerta de computo de una app** | que la 3060 corra el solucionador de verdad | kernel + METAL (**LB8**) | abierto |
 | 3 | **reducciones** en `gpu fn` (sumar por bloques) | gradiente conjugado de la carne (HO4), densidades | lenguaje | abierto |
-| 4 | **listas de un trait** (O4): `[Nodo]` con nodos distintos | la red de HO1 es crear, transformar, copiar, unir: nodos de tipos distintos recorridos en orden | lenguaje | abierto; **su primer uso real** |
+| 4 | **listas de un trait** (O4): `[Nodo]` con nodos distintos | la red de HO1 es crear, transformar, copiar, unir: nodos de tipos distintos recorridos en orden | lenguaje | **HECHO 18-10**, con la primera red de HO1 en el banco |
 | 5 | **tablas grandes fuera de la pila** | millones de particulas; hoy una tabla `f32` vive en la pila de 64 KiB | emisor E1 (**MC4** de MUNDO) | abierto; el mismo arreglo sirve a MUNDO |
 | 6 | **`f32` en la CPU** | rotaciones, cuaterniones, IK y curvas de animacion (IL16) | **DECISION D5** del propietario, una ley con `--sellar` | sin contestar |
 | 7 | **leer glTF** (y despues escribirlo) | el personaje de Blender (IL5, IL20) | una casa de texto/JSON + binario | abierto |
@@ -82,10 +83,9 @@ cuerpos por defecto (la base de un nodo "que sabe hacer" algo) y la casa.
 
 ### Un orden que acerca ILLAPA sin esperar al metal
 
-1. **O4, listas de un trait**, con HO1 como primer uso: una red de nodos de
-   geometria pura en el anfitrion (crear puntos, transformar, copiar), con la
-   prueba que pide el plan: la red rehecha entera y por partes da los mismos
-   bytes. No necesita la 3060.
+1. **O4, listas de un trait** -- HECHO el 18-10, con HO1 como primer uso:
+   [red_de_nodos](ejemplos/nivel13/red_de_nodos.titan) crea, mueve, escala y
+   copia 48 puntos; rehecha por partes da la misma huella. Sin la 3060.
 2. **MC4, tablas fuera de la pila**: sirve a MUNDO hoy y a las particulas.
 3. **Una casa de texto** (`casa.texto`: partir, buscar, numeros escritos),
    que piden NAVEGAR, ECCE y el lector de glTF.

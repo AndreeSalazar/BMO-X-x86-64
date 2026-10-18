@@ -968,6 +968,23 @@ fn lib_class(lib: Lib, args: &[Value], at: At, known: &[Option<Class>], m: &Modu
         if fits(want, &got) {
             return Ok(());
         }
+        // ** O4 (18-10): a list or a map of a TRAIT holds any value whose
+        // type keeps it -- each with its own type -- or says, in one
+        // sentence, which does not (T0085).
+        if let Class::Trait(t) = want {
+            if keeps(&got, *t, types) {
+                return Ok(());
+            }
+            let tn = &m.traits[*t].name;
+            return Err(Message::new(
+                Code::NotImpl,
+                args[k].at().0,
+                args[k].at().1,
+                &format!("{} no cumple `trait {}`", got.short(types), tn),
+                &format!("{}: cabe cualquier valor que sepa hacer lo que {} promete, y {} no dice como", what, tn, got.short(types)),
+                &format!("dile como: trait {} for {}", tn, got.short(types)),
+            ));
+        }
         Err(wrong(args[k].at(), want, &got, types, what, "dale un valor de esa clase"))
     };
     Ok(match lib {

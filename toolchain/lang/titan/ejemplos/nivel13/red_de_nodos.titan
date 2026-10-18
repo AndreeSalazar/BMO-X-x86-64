@@ -1,0 +1,121 @@
+# espera: BIEN
+# sale: rejilla -> mueve -> escala -> copia
+# sale: 48 puntos, huella 481552344
+# sale: el primero -2250 0 -2250, el ultimo 2250 1000 2250
+# sale: rehecha por partes: la misma huella, true
+# sale: por su nombre: copia
+# GEOMETRIA POR NODOS (HO1 de PLAN_ILLAPA, 18-10): una red como las de
+# Houdini -- crear, transformar, escalar, copiar --, cada nodo de SU tipo y
+# todos en una lista de un trait (O4). Cada nodo lee los puntos de arriba y
+# da los suyos; la red rehecha por partes da los mismos puntos que entera.
+# En milesimas: el f32 vive en la 3060 (D2).
+mod main "geometria por nodos: una red de Houdini, de tipos distintos"
+
+type Punto
+    x: int
+    y: int
+    z: int
+
+trait Nodo
+    fn aplica(n: Nodo, puntos: [Punto]) -> [Punto]
+    fn nombre(n: Nodo) -> text
+
+# Crear: una rejilla de `lado` x `lado` puntos, a `paso` milesimas.
+type Rejilla
+    lado: int
+    paso: int
+
+# Transformar: mover cada punto.
+type Mueve
+    dx: int
+    dy: int
+    dz: int
+
+# Escalar cada punto por `num / den`, con el piso de `div`.
+type Escala
+    num: int
+    den: int
+
+# Copiar los puntos `veces`, cada copia `dy` mas arriba.
+type Copia
+    veces: int
+    dy: int
+
+trait Nodo for Rejilla
+    fn aplica(r: Rejilla, puntos: [Punto]) -> [Punto]
+        let mut out = puntos
+        for i in range(r.lado)
+            for j in range(r.lado)
+                push(mut out, Punto { x: i * r.paso, y: 0, z: j * r.paso })
+        return out
+    fn nombre(r: Rejilla) -> text
+        return "rejilla"
+
+trait Nodo for Mueve
+    fn aplica(m: Mueve, puntos: [Punto]) -> [Punto]
+        let mut out: [Punto] = []
+        for p in puntos
+            push(mut out, Punto { x: p.x + m.dx, y: p.y + m.dy, z: p.z + m.dz })
+        return out
+    fn nombre(m: Mueve) -> text
+        return "mueve"
+
+trait Nodo for Escala
+    fn aplica(e: Escala, puntos: [Punto]) -> [Punto]
+        let mut out: [Punto] = []
+        for p in puntos
+            push(mut out, Punto { x: div(p.x * e.num, e.den), y: div(p.y * e.num, e.den), z: div(p.z * e.num, e.den) })
+        return out
+    fn nombre(e: Escala) -> text
+        return "escala"
+
+trait Nodo for Copia
+    fn aplica(c: Copia, puntos: [Punto]) -> [Punto]
+        let mut out: [Punto] = []
+        for k in range(c.veces)
+            for p in puntos
+                push(mut out, Punto { x: p.x, y: p.y + k * c.dy, z: p.z })
+        return out
+    fn nombre(c: Copia) -> text
+        return "copia"
+
+# Corre los nodos en orden, cada uno sobre lo que dio el anterior.
+fn corre(red: [Nodo], desde: [Punto]) -> [Punto]
+    let mut puntos = desde
+    for n in red
+        puntos = aplica(n, puntos)
+    return puntos
+
+fn huella(puntos: [Punto]) -> int
+    let mut h = 0
+    for p in puntos
+        h = rem(h * 31 + p.x * 7 + p.y * 3 + p.z, 1000000007)
+    return h
+
+fn main()
+    let red: [Nodo] = [Rejilla { lado: 4, paso: 1000 }, Mueve { dx: -1500, dy: 0, dz: -1500 }, Escala { num: 3, den: 2 }, Copia { veces: 3, dy: 500 }]
+    let mut camino = ""
+    for n in red
+        if camino != ""
+            camino = camino + " -> "
+        camino = camino + nombre(n)
+    print(camino)
+    let nada: [Punto] = []
+    let todo = corre(red, nada)
+    let ultimo = todo[len(todo) - 1]
+    print(len(todo), " puntos, huella ", huella(todo))
+    print("el primero ", todo[0].x, " ", todo[0].y, " ", todo[0].z, ", el ultimo ", ultimo.x, " ", ultimo.y, " ", ultimo.z)
+    # por partes: los dos primeros nodos, y los otros dos sobre lo que dieron
+    let arriba: [Nodo] = [red[0], red[1]]
+    let abajo: [Nodo] = [red[2], red[3]]
+    let partes = corre(abajo, corre(arriba, nada))
+    print("rehecha por partes: la misma huella, ", huella(partes) == huella(todo))
+    # y un mapa de nodos por su nombre, como la red de Houdini
+    let mut por_nombre: {text: Nodo} = {}
+    for n in red
+        put(mut por_nombre, nombre(n), n)
+    match get(por_nombre, "copia")
+        Hay(n)
+            print("por su nombre: ", nombre(n))
+        NoHay
+            print("no esta")

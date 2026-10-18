@@ -800,7 +800,8 @@ LLAMADA, en una frase (T0085), nunca desde dentro de `describe`.
 
 **Un trait es el tipo de un PARAMETRO** (y del primer valor de sus fn), nunca
 de un `let`, un campo, una tabla o un resultado: dice QUE sabe hacer un valor,
-no cual es (T0087).
+no cual es (T0087). Una LISTA o un MAPA de un trait si: lo trae el nivel 13
+(O4), para guardar juntos valores de tipos distintos.
 
 Entre modulos, como todo lo demas: `pub trait Pieza` en `pieza.titan`, y en
 otro `trait pieza.Pieza for Rueda` y `pieza.vueltas(p, 2)`.
@@ -1433,6 +1434,33 @@ calculo y nadie se quedo. Sin recolector: se suelta donde el juez ya sabe que
 el valor muere. Al acabar no queda NADA pedido -- y si quedara, el programa lo
 dice. La vara, la de siempre: el calculo, programa a programa y al azar
 (`emisor-x86_64/tests/e1.rs`).
+
+### Listas y mapas de un trait (O4, 18-10, sin palabras nuevas)
+
+Una `[Nodo]` guarda valores de TIPOS DISTINTOS que cumplen `trait Nodo`, cada
+uno con su tipo; un `{text: Nodo}`, por nombre. Recorrerla llama a la fn de
+cada uno: lo que en otros lenguajes es una lista de objetos con herencia,
+aqui es una lista de un comportamiento.
+
+```text
+let red: [Nodo] = [Rejilla { lado: 4, paso: 1000 }, Mueve { dx: 5, dy: 0, dz: 0 }]
+push(mut red, Copia { veces: 3, dy: 500 })      # cualquiera que cumpla Nodo
+for n in red
+    puntos = aplica(n, puntos)                  # la fn de SU tipo
+```
+
+```text
+   push / put / una lista escrita con un valor que no cumple el trait   T0085
+   `let n: Nodo`, un campo `Nodo`, `[Nodo; 3]`: el trait SUELTO          T0087
+```
+
+La ley L21 no cambia: el trait suelto sigue siendo tipo de un parametro y
+nada mas; lo nuevo es la LISTA o el MAPA de el, que tambien van en campos,
+resultados y parametros. En la maquina cada celda lleva la etiqueta de su
+tipo y mide lo que el mayor de los que cumplen el trait; el monton suelta
+cada una segun su tipo. Lo que aun no: prestar una celda para cambiarla
+(`cambia(mut red[0])`, el mismo limite que las demas celdas, O1).
+[Ejemplo: geometria por nodos](ejemplos/nivel13/red_de_nodos.titan).
 
 ---
 
