@@ -22,7 +22,7 @@
 //! [!] Lo que esta lista NO lleva, a proposito: los contadores de ENERGIA en
 //! crudo (`0xC001_0299`..`029B`). Leidos seguido, con su grano fino, son un
 //! canal lateral conocido (Platypus, 2020: la energia de RAPL deja ver una
-//! clave), y por eso Linux los cerro a root ese mismo ano. El kernel ya da la
+//! clave), y por eso Linux los cerro a root en 2020. El kernel ya da la
 //! energia ACUMULADA por segundo (`INFO_CPU_UJ_*`): para medir vatios basta.
 
 #![no_std]
