@@ -36,7 +36,7 @@ El gobierno ya existe, pero esta REPARTIDO e implicito. El inventario:
 | 1. Dar posesion | La cadena FWSEC -> booter (SEC2) -> GSP-RM. Por dentro no se toca; se gobiernan sus ENTRADAS: FRTS/WPR2, argumentos de LIBOS, memoria prestada, orden y esperas | `ga10x/src/arranque/` (fwsec, booter, wpr, libos, secuenciador); kernel `gpu_despertar.rs`, `gpu_libos.rs` |
 | 2. Conceder | Memoria (heap LIBOS, colas, 3 logs), paginas por IOMMU, claves de registro, informacion del sistema | `rm/orden.rs` (`GSP_SET_SYSTEM_INFO`, `SET_REGISTRY`); kernel `gpu_prestamo.rs` y la IOMMU |
 | 3. Pedir | Objetos con asa (cliente -> dispositivo -> subdispositivo -> canal) y ordenes de control | `rm/objeto.rs` (`GSP_RM_ALLOC`), `rm/control.rs` (`GSP_RM_CONTROL`: P-state, `PERF_BOOST`, `PROMOTE_CTX`...), `rm/contrato.rs` (la lista CERRADA de lo que sale) |
-| 4. Escuchar | Eventos de la cola del GSP y sus logs propios | `rm/rpc.rs` (nombra `POST_EVENT`, `RC_TRIGGERED`, `MMU_FAULT_QUEUED`, `OS_ERROR_LOG`, `GSP_POST_NOCAT_RECORD`), `rm/rc.rs` (el parte del canal muerto); Director guarda los 3 logs CRUDOS en `informe/gpu/gsplog.bin` sin decodificar |
+| 4. Escuchar | Eventos de la cola del GSP y sus logs propios | `rm/rpc.rs` (nombra `POST_EVENT`, `RC_TRIGGERED`, `MMU_FAULT_QUEUED`, `OS_ERROR_LOG`, `GSP_POST_NOCAT_RECORD`), `rm/rc.rs` (el parte del canal muerto); Director conserva los 3 logs CRUDOS por sesion/intento con manifiesto, sin decodificar |
 | 5. Recuperar y despedir | Que hacer ante un Xid sin reiniciar la PC, el reintento, el apagado en orden | `rm/liberar.rs` (E7b), `rm/vigilante.rs` (el TDR de la casa), kernel `gpu_reintento.rs`, `gpu_apagar.rs` |
 
 Una asa de `GSP_RM_ALLOC` es exactamente una capacidad de BMO-X: la
@@ -78,9 +78,9 @@ El orden es el de la prioridad de la casa: G0 primero.
       tiempos agotados y recuperacion no permitida; ningun fallo se anuncia operativo.
 
 Implementado el 16-10-2026: [contrato e inventario](../../platform/drivers/gpu/Nvidia/gsp-control-bmo/README.md),
-crate puro y `gpu control` incluido en `save`. Hoy solo usa la foto
-(`diagnose`): la ABI no entrega build ni intento, y sin ellos el modelo con
-historia no se abre. Eso lo cierra GCB2a.
+crate puro y `gpu control` incluido en `save`. El resumen usa la foto
+(`diagnose`); GCB2a agrego build e intento. El diario de capturas es separado
+del modelo de decisiones: no activa recuperacion ni implica cerrar GCB5b.
 El 17-10 se conecta la autoprueba negativa de S8 a cada check/build; el
 portico NVIDIA es obligatorio, y sin Python no aprueba. La medicion y el
 reparto del banco se documentan en [VERIFICAR](../../toolchain/tools/verificar/README.md).
@@ -91,7 +91,7 @@ reparto del banco se documentan en [VERIFICAR](../../toolchain/tools/verificar/R
       EL_FOCO y un contador de intentos del kernel) para que cada arranque,
       bueno o malo, quede como una sesion con historia y no solo como una foto.
 
-Hecho en el anfitrion el 17-10, falta verlo en el metal. `INFO_BUILD`
+Implementado el 17-10. `INFO_BUILD`
 (0xDB): el commit con que se compilo el kernel, armado por `kernel/build.rs`
 (`Ultra_kernel_x86-64/build/obs_build.rs`) en cada build; bit SUCIO si habia
 cambios sin commit, y 0 si git no contesto -- nunca un commit inventado.
@@ -111,25 +111,30 @@ Hecho el 17-10: [GCB2B_ENTRADAS](../../platform/drivers/gpu/ga10x/GCB2B_ENTRADAS
 La WPR meta es la de nova-core campo a campo y no cambia entre arranques
 buenos y malos (vigia igual). El procedimiento difiere de OpenRM 570.144 en
 el falcon del GSP antes del booter (G0-MODO) y en el tiempo (533 ms contra
-milisegundos). La tabla de arranques da un cambio de regimen el 29-09 (7 de
-7 buenos antes, 1 de 13 despues; 1 entre 9.700 por azar) que G0-MODO no
-explica: GCB2c empieza por E1, el build anterior a ese dia.
+milisegundos). La agrupacion historica de buenos y malos el 29-09 motiva
+investigar esa ventana, sin probar regresion ni causa. El calculo condicionado
+de GCB2b no sustituye muestreo completo, identidad de build ni independencia.
 
 - [ ] GCB2c: cambiar UNA variable a la vez donde GCB2b encuentre diferencia,
       validar contra el criterio de G0 de `PLAN_LA_3060.md` y registrar cada
       arranque en `EL_0x15_ARRANQUES.csv`, salga bien o mal.
 
-17-10, preparado en el anfitrion: E2 (`sin-d`), E3 (`riscv`) y E4
-(`seguido`) se eligen con `gpu g0` sin recompilar y el `save` dice cual
-corrio; E1 es desplegar `a2408875a`. Como se corre cada una:
+Historial 17-10: E2 sin D: y E3 RISC-V dieron 0x15; E5 reset dio resultados
+mixtos; E6 PTIMER tiene un fallo comunicado sin informe. E4 inicial no logro
+reducir el hueco, por lo que no decide esa hipotesis. E1 compara otro build,
+sin decidir por si solo entre codigo y hardware. Recetas historicas:
 [GCB2B_ENTRADAS, seccion 5](../../platform/drivers/gpu/ga10x/GCB2B_ENTRADAS.md).
-Falta el metal: la casilla se cierra con los arranques, no con el codigo.
+La casilla sigue abierta: ensayos realizados no equivalen a causa corregida.
 
-17-10, instrumento nuevo: tras un 0x15 la autopsia lee la traza de PC del
-SEC2 (SCTL 0x240, TRACEIDX 0x148, TRACEPC 0x14c, como `gm200_flcn_tracepc`
-de nouveau) y el `save` la escribe como `TRAZA del SEC2`. Comparar la traza
-de un arranque bueno con la de uno malo dice DONDE se para el booter, aunque
-el booter sea cerrado. Si el PRI no deja leerla, el informe lo dice.
+TRACEPC SEC2 dio ceros tambien en un arranque bueno: no distingue el fallo;
+no volver a pedir esa traza como si fuera un instrumento pendiente.
+
+Prioridad actual: [capturas por fase e intento](../../platform/drivers/gpu/Nvidia/gsp-control-bmo/CAPTURAS.md),
+implementadas en `9b7aacc10` y refinadas en `44c15adc1`. Diario acotado, validez
+explicita, manifiesto y comparador Rust; no cambian el protocolo de arranque.
+Conservar bueno y fallo del mismo build y G0 normal. Tras comparar, escoger
+una hipotesis, una variable, como verificar su cambio y un resultado que la
+apoye o debilite. Los informes originales y derivados quedan locales.
 
 Salida: causa acotada y correccion reproducible, o hipotesis debilitada con
 resultado registrado. Un arranque bueno aislado no cierra fiabilidad. Las
@@ -154,8 +159,11 @@ pruebas fisicas se agrupan con usos normales; no se piden reinicios en serie.
       escribir algo en `LOGINIT` o no. Un log vacio tambien es un dato.
       Avance 17-10: Director distingue reserva ausente de PUT cero y no
       equipara este ultimo con inactividad total. La copia actual contiene
-      PUT cero y tablas de paginas iniciales, sin registros publicados;
-      sigue faltando identificar/coherenciar la captura por intento.
+      PUT cero y tablas de paginas iniciales, sin registros publicados.
+      El diario nuevo identifica sesion/build/intento y vincula captura,
+      informe y logs; distingue ausencia, cero valido y PRI. La igualdad
+      de PUT antes/despues no acredita una instantanea atomica de DMA.
+      Falta el par bueno/fallo con la misma build y el contraste completo.
 
 Salida: el GSP explica sus fallos en la voz del sistema. Es el kernel como
 LENTE aplicado a la tarjeta.

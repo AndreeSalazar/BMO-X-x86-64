@@ -6,6 +6,13 @@
 > nova-core (el driver en Rust de Linux).** Solo comparacion: no cambia nada
 > del arranque. La prueba sale en GCB2c.
 
+Revision de conclusiones, 17-10: las secciones siguientes conservan la historia
+de los ensayos. La [revision de evidencia](../../../../toolchain/tools/nvidia-hs/REVISION_EVIDENCIA.md)
+y el [contrato de capturas](../Nvidia/gsp-control-bmo/CAPTURAS.md) delimitan
+lo que permiten concluir. Primero obtener bueno y fallo de la misma build,
+modo y protocolo; no repetir E2/E3 ni TRACE como pruebas nuevas. El significado
+interno de 0x15 sigue sin verificar. Ninguna casilla de G0 se cierra por compilar.
+
 Fuentes, descargadas el 17-10-2026:
 
 - OpenRM fijado al tag **570.144**: `kernel_gsp_tu102.c` (`kgspCalculateFbLayout_TU102`,
@@ -42,16 +49,18 @@ Fuentes, descargadas el 17-10-2026:
 campo. Contra OpenRM difiere en lo opcional: `CLOCK_BOOST`, la cola de
 CrashCat y el bloqueo MMU de la VBIOS. Ninguno es obligatorio para nova-core.
 
-**Y lo decisivo: el dato no cambia entre un arranque bueno y uno malo.** El
+**Los campos y huellas registrados coinciden en buenos y malos.** El
 vigia del booter da la misma huella en los malos de hoy y en los de
 septiembre (`0x908311CBC2BAB6E7`, LIBOS igual), el reparto `cuadra` en todos
-y los buenos del 25-09 al 29-09 usaron este mismo reparto. Un dato fijo no
-explica un fallo que va y viene.
+y los buenos del 25-09 al 29-09 usaron este mismo reparto. Esto debilita un
+error fijo en esos campos; no demuestra igualdad de todos los estados internos
+ni de los bytes efectivamente consumidos por DMA en cada instante.
 
 Lo que pide la region limpia: OpenRM solo usa el "scrubber" si `fbSize -
 gspFwRsvdStart` pasa de los 256 MiB que limpia el firmware al encender
 (`kgspGetPrescrubbedTopFbSize`). Aqui son `0x300000000 - 0x2F3F00000` =
-**193 MiB**: cabe. No hace falta scrubber.
+**193 MiB**: cabe en el umbral citado. Esa condicion no pediria scrubber;
+no constituye una medicion del estado interno de limpieza de esta tarjeta.
 
 ## 2. El PROCEDIMIENTO: el orden, paso a paso
 
@@ -74,7 +83,8 @@ Tres diferencias de procedimiento, y su estado:
 
 - **D1, G0-MODO**: el falcon del GSP en nucleo FALCON y arrancado vacio
   (BMO-X, nova-core) contra nucleo RISC-V sin arrancar (OpenRM 570.144).
-  Nunca probada. [ESTUDIO_RTX3060_PROTON_X](ESTUDIO_RTX3060_PROTON_X.md), seccion 3.
+  E3 se probo y fallo (seccion 7): el cambio no basto en ese intento.
+  [ESTUDIO_RTX3060_PROTON_X](ESTUDIO_RTX3060_PROTON_X.md), seccion 3.
 - **D2, el tiempo**: 533 ms entre FRTS y el booter y 120 ms del GSP parado,
   contra milisegundos en los dos drivers. Probada a medias: con FRTS justo
   antes de `despertar` (717 ms) siguio el 0x15 (29-09 14:37). El hueco
@@ -94,8 +104,11 @@ Tres diferencias de procedimiento, y su estado:
 
 Si buenos y malos se repartieran al azar entre esos 20, que los siete
 primeros salgan todos buenos tiene una probabilidad de **1 entre 9.700**
-(hipergeometrica: 8 buenos de 20, 7 de 7). **No es suerte: algo cambio el
-29-09 entre las 06:25 y las 10:09.**
+(hipergeometrica: 8 buenos de 20, 7 de 7). Es un calculo condicionado a ese
+modelo, no la probabilidad de que el fallo sea azar ni una prueba de causa.
+No hay garantia de muestreo completo, independencia o build desplegada
+identificada en todos esos arranques. La agrupacion justifica investigar
+esa ventana, sin declarar probado un cambio causal de codigo.
 
 Y ese algo **no es D1**: los siete buenos usaron el mismo nucleo FALCON y el
 mismo arranque vacio que los malos de hoy. G0-MODO puede seguir siendo una
@@ -112,22 +125,23 @@ Lo que entro en el arbol en esa ventana (hora de Lima, `git log`):
 
 Dos limites, dichos: no hay registro de arranques entre el 26-09 06:46 y el
 29-09 06:25 (los siete buenos se juntan en dos dias), y el bueno de las
-10:24 ya llevaba todo eso. El cambio sube la probabilidad del 0x15; no la
-hace 1.
+10:24 ya llevaba todo eso. La asociacion temporal no identifica que cambio
+influye ni estima por si sola su efecto sobre la probabilidad del 0x15.
 
 ## 4. Lo que se propone para GCB2c, en orden
 
 Una variable cada vez, y el propietario decide cuantos arranques gasta.
 
-1. **E1, el build como variable** (decide entre CODIGO y FUERA): desplegar
+1. **E1, el build como variable** (compara dos revisiones): desplegar
    el build del 29-09 anterior a las 06:25 (`a2408875a`, el merge de las
    06:17) en la misma maquina, sin cambiar nada mas. Que ese fuera el build
    desplegado aquel dia a esa hora no quedo escrito -- es lo que OBS-BUILD
    arregla desde hoy --; es el ultimo commit antes del arranque bueno.
-   Tres buenos seguidos (con 1 de 13 de ahora, la probabilidad de eso por azar es menor de 1 en
-   2.000) culpan al codigo de la ventana, y se parte por la mitad hasta el
-   commit. Un 0x15 lo exculpa y apunta fuera (placa, Windows antes, la
-   tarjeta). Riesgo: ese build no lee lo que las apps de hoy dejaron en el
+   Comparar varios intentos alternados con condiciones registradas. Mas
+   buenos en el anterior apoyarian una regresion; un 0x15 en el anterior
+   demostraria que esa revision tambien puede fallar, sin exculpar toda
+   influencia del codigo actual. No decide por si solo entre software y
+   hardware. Riesgo: ese build no lee lo que las apps de hoy dejaron en el
    disco; se despliega en otro volumen de arranque o se vuelve al de hoy
    justo despues.
 2. **E2, N1a apagado**: el build de hoy sin montar D: (una sola condicion en
@@ -191,9 +205,9 @@ Despues de un 0x15, `autopsiar` llama `falcon::traza_pc` sobre el SEC2: lee
 SCTL y TRACEIDX (bits 16..23 = cuantas entradas hay), y para cada indice
 escribe TRACEIDX y lee TRACEPC. Hasta 32 PC, guardados en los selectores
 24..40 de `GPU_DESPIERTO_BUZON`; el `save` los escribe en la linea
-`TRAZA del SEC2`. Lo que se busca: si el ultimo PC de los arranques malos es
-siempre el mismo, y si difiere del de un arranque bueno. Eso localiza el
-chequeo del booter que devuelve 0x15 sin tener su codigo.
+`TRAZA del SEC2`. La propuesta original era comparar los PC. Incluso con
+PC distintos haria falta mapearlos a instrucciones verificadas para nombrar
+un chequeo; los resultados siguientes no proporcionaron esa observacion.
 
 Primer resultado (17-10 08:34, control con `g0 normal`): SCTL 0x00003002 y
 TRACEIDX 0x021F0000, o sea 31 entradas, y las 31 leen 0. SCTL dice que el
@@ -203,18 +217,19 @@ esta tarjeta mientras el booter sea HS: no localiza el chequeo. Se deja en
 la autopsia porque cuesta 33 lecturas y dice si el SEC2 seguia en HS.
 
 Lo que si acota este arranque, igual que los anteriores: la WPR2 quedo
-EXTENDIDA por el booter a 0x2F4000000..0x2FFEE0000. **[INFERIDO]** El booter
-paso su firma, leyo la WPR meta y monto la WPR2 del GSP-RM; el 0x15 llega
-despues, en la parte que prepara o arranca el GSP, que queda bloqueado
-(0xBADF). Eso apunta a como se le entrega el GSP (Falcon vs RISC-V): E3.
+EXTENDIDA a 0x2F4000000..0x2FFEE0000. Es progreso observado entre las fotos,
+sin identificar cada verificacion interna ni el punto que devuelve 0x15.
+El GSP devuelve patrones PRI al terminar. El modo de entrega fue una
+hipotesis para E3; su resultado se conserva a continuacion.
 
-## 7. E3 corrido (17-10 08:59): el modo del GSP no es
+## 7. E3 corrido (17-10 08:59): el cambio de modo no basto
 
 Con `g0 riscv` el GSP se entrego como OpenRM: BCR 0x111 (RISC-V, VALID,
 BRFETCH) y el CPUCTL del falcon leyendo 0xBADF5620 ya ANTES del booter, que
 es lo esperado con el nucleo RISC-V elegido. El booter tardo lo mismo
 (246275 us) y devolvio el mismo 0x15, con la misma WPR2 extendida y el GSP
-bloqueado igual. **[CITADO: medicion local]** E3 no cambia el resultado.
+bloqueado igual. **[CITADO: medicion local]** E3 no cambio ese resultado;
+un fallo no excluye toda posible influencia o interaccion del modo.
 Queda E4 (`seguido`, el hueco de 120 ms) y E1 (el build anterior al 29-09).
 
 ## 8. E4 corrido (17-10 09:04), y por que no valio
@@ -238,12 +253,13 @@ la WPR meta, el hueco de 119 ms, los 531 ms desde FRTS, la tarjeta fria al
 llegar y el bus. Ni el apagado decide: el de las 08:45 tambien venia de
 apagar y dio 0x15.
 
-Lo que cambia es lo que hace la tarjeta: el booter tarda 247011 us en el
-bueno y 246200-246500 us en los malos. **[INFERIDO]** El 0x15 sale unos
-0,7 ms antes del final, en el ultimo tramo del booter (preparar o soltar el
-GSP-RM), con las mismas entradas. Despues, BSI 0x11000000 en el bueno y 0
-en los malos: efecto, no causa. La traza del SEC2 lee ceros tambien en el
-bueno: confirma que en HS no se ve.
+El intervalo CPU observado es 247011 us en el bueno y 246200-246500 us en
+los malos. Incluye preparacion anterior a STARTCPU y sondeo de parada:
+la diferencia de unos 0,7 ms no localiza una instruccion ni el ultimo tramo
+del firmware. No establece por si sola que las entradas DMA efectivas sean
+identicas. Despues, BSI 0x11000000 en el bueno y 0 en los malos: estado
+posterior, no causa demostrada. La traza SEC2 lee ceros tambien en el bueno:
+no distingue estos casos ni prueba por si sola el mecanismo que la oculta.
 
 Siguiente: contar. Cada arranque normal con su `save`, bueno o malo, hasta
 tener varios de cada lado con este build; y E1 sigue siendo la unica prueba
