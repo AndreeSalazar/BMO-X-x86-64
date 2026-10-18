@@ -99,3 +99,6 @@ O1, agrega el ejemplo y sus pruebas; O2 es el siguiente cambio del compilador.
 
 La lectura del juego que motivo este estudio vive en
 [MUNDO](../../../Ultra_userspace/apps/mundo/ESTUDIO_MINECRAFT.md).
+
+Lo que cada app del propietario le pide a TITAN++, hasta ILLAPA (el Houdini
+propio), y el orden propuesto: [LAS_APPS](LAS_APPS.md).
