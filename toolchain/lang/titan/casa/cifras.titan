@@ -1,0 +1,12 @@
+# LAS CIFRAS DE UN TEXTO, en bytes: lo que leer un numero escrito necesita
+# en cualquier app. Pura: no habla con nadie, asi que no pide permisos.
+mod cifras "las cifras de un texto: si un byte es una, y cuanto vale"
+
+# Si el byte `b` es una cifra, de "0" (48) a "9" (57).
+pub fn es_cifra(b: int) -> bool
+    return b >= 48 and b <= 57
+
+# Lo que vale la cifra del byte `b` (el de "7" es 7). Solo para una cifra:
+# quien llama ya pregunto `es_cifra`.
+pub fn valor(b: int) -> int
+    return b - 48

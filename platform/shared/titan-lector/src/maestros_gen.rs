@@ -29,7 +29,7 @@ pub static FAMILIES: [&str; 16] = [
 ];
 
 /// Cuantos hay: la TAB mide sus tablas con esto.
-pub const COUNT: usize = 50;
+pub const COUNT: usize = 51;
 
 /// `static`, no `const`: UNA copia en `.rodata`, que Ring 3 lee por indice
 /// sin traerla a una pila de 64 KiB.
@@ -462,6 +462,17 @@ pub static MASTERS: [Master; COUNT] = [
         typed: &[],
         out: &["2.00", "2.00", "2.00", "2.25"],
         source: "# sale: 2.00\n# sale: 2.00\n# sale: 2.00\n# sale: 2.25\n# una gpu fn se escribe para UNA celda; con tablas de 4, son 4 hilos de la 3060\nmod main \"la 3060 mezcla dos tablas\"\n\ngpu fn mezcla(a: f32, b: f32) -> f32\n    return (a + b) / 2.0\n\nfn main()\n    let xs: [f32; 4] = [1.0, 2.0, 3.0, 4.0]\n    let ys: [f32; 4] = [3.0, 2.0, 1.0, 0.5]\n    let c = mezcla(xs, ys)\n    for x in c\n        print(round(x, 2))\n",
+    },
+    Master {
+        name: "ventana",
+        level: 11,
+        why: "LA VENTANA de TITAN++ (F1 de docs/plan/EL_FOCO.md, 10-10): una superficie de BMO-X pedida, pintada y ofrecida al escritorio, como la de C (`roja.h`) y la que tuvo INTI hasta el 10-10. Un degradado arriba, un fondo, y una barra blanca que cruza la ventana durante diez segundos; cada fotograma, `presenta`. Su MEDIDA es la que eligio la app RESOLUCION (datos/resol.txt, R1), o 320 x 200. Lanzado desde el shell nadie compone, y lo dice; las pruebas `tests/ventana.rs` y `tests/resolucion.rs` del emisor la lanzan con un escritorio de mentira y leen sus pixeles",
+        says: "una ventana de TITAN++: un degradado y una barra que la cruza",
+        words: &["fn", "let", "mut", "if", "and", "not", "for", "return", "use"],
+        asks: Permissions::NONE.with(Permission::Screen),
+        typed: &[],
+        out: &["nadie compone: la ventana no se ofrece a nadie"],
+        source: "# sale: nadie compone: la ventana no se ofrece a nadie\n# LA VENTANA de TITAN++ (F1 de docs/plan/EL_FOCO.md, 10-10): una superficie de BMO-X pedida, pintada y ofrecida al escritorio, como la de C (`roja.h`) y la que tuvo INTI hasta el 10-10. Un degradado arriba, un fondo, y una barra blanca que cruza la ventana durante diez segundos; cada fotograma, `presenta`. Su MEDIDA es la que eligio la app RESOLUCION (datos/resol.txt, R1), o 320 x 200. Lanzado desde el shell nadie compone, y lo dice; las pruebas `tests/ventana.rs` y `tests/resolucion.rs` del emisor la lanzan con un escritorio de mentira y leen sus pixeles\nmod main \"una ventana de TITAN++: un degradado y una barra que la cruza\"\nuse director\nuse casa.medida\n\nfn main()\n    # La medida: la guardada por RESOLUCION, si se entiende y cabe; si no, 320 x 200.\n    let mut ancho = 320\n    let mut alto = 200\n    if director.fichero(\"datos/resol.txt\")\n        let a = medida.ancho()\n        let h = medida.alto()\n        if a >= 64 and a <= 4096 and h >= 64 and h <= 4096\n            ancho = a\n            alto = h\n    if not director.ventana(ancho, alto)\n        print(\"nadie compone: la ventana no se ofrece a nadie\")\n        return\n    # El fondo, azul oscuro; y arriba, un degradado de rojo a amarillo: el\n    # verde sube de 4 en 4, de 0 a 252, de lado a lado.\n    let fondo = 20 * 65536 + 30 * 256 + 60\n    director.rect(0, 0, ancho, alto, fondo)\n    for x in range(ancho)\n        # x * 64 / ancho, exacta: TITAN++ no deja una division que no lo sea\n        let paso = (x * 64 - x * 64 % ancho) / ancho\n        director.rect(x, 0, 1, 40, 255 * 65536 + paso * 4 * 256)\n    director.presenta()\n    # La barra, a media altura: borra la de antes con el fondo, pinta la\n    # nueva, presenta.\n    let y = (alto - alto % 2) / 2\n    let mut x = 0\n    for f in range(600)\n        director.rect(x, y, 20, 40, fondo)\n        x = (f * 2) % (ancho - 20)\n        director.rect(x, y, 20, 40, 16777215)\n        director.presenta()\n        director.espera(16)\n",
     },
     Master {
         name: "adivina",

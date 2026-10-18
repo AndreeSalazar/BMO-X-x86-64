@@ -18,7 +18,7 @@
 # se MIDE con `director.ms()`: la barra dice lo que tardo el ultimo.
 mod main "TINTA: el lienzo minimo -- pincel redondo con antialias, goma y PNG"
 use director
-mod medida
+use casa.medida
 mod png
 
 fn barra() -> int

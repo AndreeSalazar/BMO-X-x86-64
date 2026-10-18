@@ -86,6 +86,10 @@ impl Header {
     }
 }
 
+/// What a `use` says before a module of the house library (the compiler's
+/// `casa.rs`).
+pub const HOUSE: &[u8] = b"casa.";
+
 fn name_of(s: &[u8]) -> Option<Name> {
     is_name(s).then(|| Text::new(core::str::from_utf8(s).unwrap_or("")))
 }
@@ -143,7 +147,14 @@ pub fn parse(text: &[u8]) -> Result<Header, HeaderError> {
             }
         } else if let Some(rest) = after_word(line, b"use") {
             for piece in commas(rest) {
-                let name = name_of(piece).ok_or(HeaderError::BadLine(n))?;
+                // `use casa.medida` (18-10): a module of the house library,
+                // kept whole -- the package reader draws it as a node of BMO-X.
+                let name = match piece.strip_prefix(HOUSE) {
+                    Some(module) if is_name(module) && piece.len() <= 24 => Some(Text::new(core::str::from_utf8(piece).unwrap_or(""))),
+                    Some(_) => None,
+                    None => name_of(piece),
+                }
+                .ok_or(HeaderError::BadLine(n))?;
                 if h.n_uses >= MAX_USES {
                     return Err(HeaderError::TooMany(n));
                 }
@@ -162,6 +173,16 @@ pub fn parse(text: &[u8]) -> Result<Header, HeaderError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_house_module_is_a_use_with_its_whole_name() {
+        let h = parse(b"mod main \"x\"\nuse casa.medida, director\n").unwrap();
+        assert_eq!(h.uses()[0].as_bytes(), b"casa.medida");
+        assert_eq!(h.uses()[1].as_bytes(), b"director");
+        for bad in [&b"mod main \"x\"\nuse casa.\n"[..], b"mod main \"x\"\nuse casa.Medida\n", b"mod main \"x\"\nuse otra.medida\n"] {
+            assert!(parse(bad).is_err(), "{:?}", core::str::from_utf8(bad));
+        }
+    }
 
     #[test]
     fn the_header_the_owner_chose() {

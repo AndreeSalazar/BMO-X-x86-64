@@ -54,7 +54,7 @@
 # (`lineas`), y se rehacen en cada cambio: una nota es corta.
 mod main "ECCE: el bloc de notas -- escribir, moverse por lo escrito y guardar solo"
 use director
-mod medida
+use casa.medida
 mod mesa
 mod guion
 mod pagina

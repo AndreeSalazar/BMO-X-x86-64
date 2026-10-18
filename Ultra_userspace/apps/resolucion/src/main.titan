@@ -5,13 +5,13 @@
 # GUARDA en datos/resol.txt ("ANCHO ALTO"), y Esc o q cierran.
 #
 #    quien la lee     cada ventana de TITAN++ que la quiera, al abrirse (su
-#                     `medida.titan`): `titan/ventana.bex` ya la usa
+#                     `use casa.medida`): `titan/ventana.bex` ya la usa
 #    quien la manda   el que abre la ventana: el DIRECTOR compone la medida
 #                     que se le ofrece (1..4096 por lado) y no la cambia
 #    lo que viene     Q0a de EL_FOCO: la misma medida, la del dibujo de la 3060
 mod main "RESOLUCION: elegir la medida de las ventanas de TITAN++ y guardarla"
 use director
-mod medida
+use casa.medida
 
 fn fondo() -> int
     return 1315860

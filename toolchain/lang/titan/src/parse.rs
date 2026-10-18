@@ -847,6 +847,18 @@ impl Parser<'_> {
                     _ => return Err(self.expected(n, "el nombre de un modulo, en minusculas", if word.kind == Kind::Word("use") { "use nave, roca" } else { "mod nave, roca" })),
                 };
                 if word.kind == Kind::Word("use") {
+                    // `use casa.medida` (18-10): a module of the house
+                    // library (`casa.rs`), named whole.
+                    let name = if name == "casa" && self.peek().kind == Kind::Sym(".") {
+                        self.next();
+                        let m = self.next();
+                        match &m.kind {
+                            Kind::Name(x) if x.starts_with(|c: char| c.is_ascii_lowercase()) => format!("{}{}", crate::casa::PREFIX, x),
+                            _ => return Err(self.expected(m, "el nombre de un modulo de la casa, en minusculas", "use casa.medida")),
+                        }
+                    } else {
+                        name
+                    };
                     uses.push(Use { name, line: n.line, col: n.col });
                 } else if let Kind::Text(_) = self.peek().kind {
                     let t = self.peek();

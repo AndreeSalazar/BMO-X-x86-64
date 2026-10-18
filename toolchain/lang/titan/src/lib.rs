@@ -49,6 +49,7 @@
 //! entero.
 
 pub mod calc;
+pub mod casa;
 pub mod check;
 pub mod comportamiento;
 pub mod gpu;

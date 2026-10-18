@@ -676,6 +676,24 @@ fn main()
    mod a in "x/a.titan"       un hijo donde el PADRE diga (ruta desde el paquete)
    use a, b                   con quien habla: un modulo del paquete, o un nodo
                               de BMO-X (`gpu`, `director`)
+   use casa.medida            un modulo de LA CASA: la libreria de TITAN++ que
+                              viaja dentro del compilador (18-10)
+```
+
+### La casa: lo que todas las apps comparten (18-10)
+
+ECCE, RESOLUCION y TINTA llevaban el mismo `medida.titan` copiado, y cuatro
+apps el mismo `es_cifra`. Ahora se piden: `use casa.medida` en la cabecera y
+`medida.ancho()` en el cuerpo, como cualquier modulo. Los modulos de la casa
+viven en [`casa/`](casa/README.md) y entran en el compilador; un paquete no
+lleva copia ni ruta.
+
+```text
+   use casa.nada                no hay ese modulo en la casa (dice cuales hay) T0051
+   mod cifras + use casa.cifras dos modulos con un nombre                      T0052
+   use cifras (sin casa.)       el de la casa se pide con su nombre entero     T0051
+   un modulo de la casa que usa un modulo de la app: la casa esta DEBAJO      T0051
+   use casa.medida sin screen   lo que la casa usa de BMO-X lo pide la app     T0088 (U2)
 ```
 
 Va arriba, antes de la primera `fn`, en cualquier orden: quien abre el fichero

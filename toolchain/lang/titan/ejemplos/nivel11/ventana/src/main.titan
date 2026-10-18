@@ -3,7 +3,7 @@
 # LA VENTANA de TITAN++ (F1 de docs/plan/EL_FOCO.md, 10-10): una superficie de BMO-X pedida, pintada y ofrecida al escritorio, como la de C (`roja.h`) y la que tuvo INTI hasta el 10-10. Un degradado arriba, un fondo, y una barra blanca que cruza la ventana durante diez segundos; cada fotograma, `presenta`. Su MEDIDA es la que eligio la app RESOLUCION (datos/resol.txt, R1), o 320 x 200. Lanzado desde el shell nadie compone, y lo dice; las pruebas `tests/ventana.rs` y `tests/resolucion.rs` del emisor la lanzan con un escritorio de mentira y leen sus pixeles
 mod main "una ventana de TITAN++: un degradado y una barra que la cruza"
 use director
-mod medida
+use casa.medida
 
 fn main()
     # La medida: la guardada por RESOLUCION, si se entiende y cabe; si no, 320 x 200.
