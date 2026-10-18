@@ -8,6 +8,7 @@
 # mira solo las nueve celdas de su alrededor, no a todas: y cuenta las
 # mismas vecinas que mirando a todas.
 mod main "la rejilla de vecinos"
+use casa.suma
 
 # la celda de una gota: su columna y su fila, de lado 1
 gpu fn clave(x: f32, y: f32) -> f32
@@ -158,11 +159,9 @@ fn main()
     let ini = inicio(cs, claves, nf)
     let rejilla = por_rejilla(xs, xs, ys, nums, ini)
     let todas = a_mano(xs, xs, ys)
-    let mut total_r = round(rejilla[0], 0) - round(rejilla[0], 0)
-    let mut total_m = round(todas[0], 0) - round(todas[0], 0)
-    for i in range(n)
-        total_r = total_r + round(rejilla[i], 0)
-        total_m = total_m + round(todas[i], 0)
+    # los totales, sumados en la GPU (la CPU no suma f32)
+    let total_r = round(suma.total(rejilla), 0)
+    let total_m = round(suma.total(todas), 0)
     let mut igual = 0
     for b in iguales(rejilla, todas)
         if b

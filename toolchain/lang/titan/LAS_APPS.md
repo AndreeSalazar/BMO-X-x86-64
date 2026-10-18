@@ -21,6 +21,7 @@ del lenguaje, del kernel, del METAL (el Ryzen) o una DECISION del propietario.
 | **listas y mapas de un trait** (O4) | 18-10 | redes de nodos, escenas, widgets: tipos distintos en una lista |
 | **`gpu fn` con VECINAS** (LB9): `campo: [f32]` entera, `celda()`, fuera 0 | 18-10 | filtros, rellenos, densidades: un hilo que mira a los de al lado |
 | **`piso(x)`** y la REJILLA de vecinos (IL2) | 18-10 | ordenar por celda, buscar, mirar solo lo cercano |
+| **las reducciones**: `use casa.suma` (total, punto, mayor, menor) | 18-10 | totales, productos escalares, el gradiente conjugado: la CPU no suma f32 |
 
 ## La lista
 
@@ -56,7 +57,7 @@ El VEX de Houdini es eso mismo.
 |---|---|---|---|---|
 | 1 | **VECINOS en una `gpu fn`**: leer celdas de OTRA tabla por indice | una gota mira a las de al lado (IL1, IL2: la rejilla de vecinos) | lenguaje + un asa del kernel (**LB9**) | **HECHO 18-10** en el anfitrion: el asa es la del UAV, que R7 ya acotaba; la primera densidad en el banco |
 | 2 | **la puerta de computo de una app** | que la 3060 corra el solucionador de verdad | kernel + METAL (**LB8**) | abierto |
-| 3 | **reducciones** en `gpu fn` (sumar por bloques) | gradiente conjugado de la carne (HO4), densidades | lenguaje | abierto |
+| 3 | **reducciones** en `gpu fn` (sumar por bloques) | gradiente conjugado de la carne (HO4), densidades | lenguaje | **HECHO 18-10** como casa (`use casa.suma`: total, punto, mayor, menor), sin palabras nuevas; sin memoria compartida, un paso por bloque de 64 |
 | 4 | **listas de un trait** (O4): `[Nodo]` con nodos distintos | la red de HO1 es crear, transformar, copiar, unir: nodos de tipos distintos recorridos en orden | lenguaje | **HECHO 18-10**, con la primera red de HO1 en el banco |
 | 5 | **tablas grandes fuera de la pila** | millones de particulas; hoy una tabla `f32` vive en la pila de 64 KiB | emisor E1 (**MC4** de MUNDO) | **HECHO 18-10**: gpu fn y `publica` sobre listas `[f32]` del monton; MUNDO ya las usa |
 | 6 | **`f32` en la CPU** | rotaciones, cuaterniones, IK y curvas de animacion (IL16) | **DECISION D5** del propietario, una ley con `--sellar` | sin contestar |
@@ -100,7 +101,10 @@ cuerpos por defecto (la base de un nodo "que sabe hacer" algo) y la casa.
    **IL2, la rejilla** -- HECHO el 18-10:
    [rejilla](ejemplos/nivel11/rejilla/src/main.titan) ordena las gotas por
    celda (un orden bitonico) y cada una mira solo sus nueve celdas. Lo que
-   sigue es IL3, la sangre (PBF), y las reducciones (pieza 3).
+   sigue es IL3, la sangre (PBF).
+   **Las reducciones** (pieza 3) -- HECHAS el 18-10 como casa:
+   [sumas](ejemplos/nivel11/sumas/src/main.titan), y la rejilla y la
+   densidad ya suman sus totales en la GPU.
 5. Con LB8 y G0 en el metal: IL3, la primera sangre en la 3060.
 
 [!] Esta lista es el estudio y el orden propuesto: no cambia ninguna casilla

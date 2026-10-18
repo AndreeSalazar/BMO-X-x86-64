@@ -34,11 +34,12 @@ pub const PREFIX: &str = "casa.";
 pub const FOLDER: &str = "casa/";
 
 /// Every house module, by its name, and its source.
-const MODULES: [(&str, &str); 4] = [
+const MODULES: [(&str, &str); 5] = [
     ("cifras", include_str!("../casa/cifras.titan")),
     ("colores", include_str!("../casa/colores.titan")),
     ("letrero", include_str!("../casa/letrero.titan")),
     ("medida", include_str!("../casa/medida.titan")),
+    ("suma", include_str!("../casa/suma.titan")),
 ];
 
 /// The house module that `use casa.x` names: `x`, if it is one.

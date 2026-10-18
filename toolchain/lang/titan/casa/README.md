@@ -19,6 +19,7 @@ fn main()
 | [`colores`](colores.titan) | `fondo()`, `titulo()`, `gris()`, `bien()`, `aviso()`: la paleta de las ventanas | nada |
 | [`letrero`](letrero.titan) | `numero(x, y, n, color)`: un numero entero, con su signo, en la ventana | `screen` (usa `director`) |
 | [`medida`](medida.titan) | `ancho()`, `alto()`: la medida que guardo RESOLUCION | `screen` (usa `director`) |
+| [`suma`](suma.titan) | `total(xs)`, `punto(xs, ys)`, `mayor(xs)`, `menor(xs)`: una lista de f32 hecha un numero en la GPU, por bloques de 64 y siempre en el mismo orden | `gpu = "compute"` (son gpu fn) |
 
 ## Las reglas
 

@@ -917,7 +917,7 @@ mod tests {
     #[test]
     fn the_house_has_its_rules() {
         let no = |files: &[(&str, &str)]| lower(files).map(|_| ()).unwrap_err().code;
-        let screen = ("Titan.toml", "[package]\nname = \"x\"\n[permissions]\nscreen = true\n");
+        let screen = ("Titan.toml", "[package]\nname = \"x\"\n[permissions]\nscreen = true\ngpu = \"compute\"\n");
         // a house module that does not exist, said with the ones that do
         let m = lower(&[("src/main.titan", "mod main \"x\"\nuse casa.cifra\n\nfn main()\n    print(1)\n")]).unwrap_err();
         assert_eq!(m.code, Code::Unknown);
@@ -941,7 +941,7 @@ mod tests {
         for name in crate::casa::names() {
             let main = format!("mod main \"x\"\nuse casa.{name}\n\nfn main()\n    print(1)\n");
             // only the NO for an unused `use` is allowed: the module itself read, judged and joined
-            let screen = ("Titan.toml", "[package]\nname = \"x\"\n[permissions]\nscreen = true\n");
+            let screen = ("Titan.toml", "[package]\nname = \"x\"\n[permissions]\nscreen = true\ngpu = \"compute\"\n");
             let m = lower(&[("src/main.titan", &main), screen]).unwrap_err();
             assert_eq!(m.code, Code::Unused, "casa.{name}: {:?}", m);
         }

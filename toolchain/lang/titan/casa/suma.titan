@@ -1,0 +1,105 @@
+# LAS REDUCCIONES de TITAN++ (18-10, la pieza 3 de LAS_APPS): una lista de
+# f32 hecha UN numero en la GPU, por BLOQUES de 64. La CPU no cuenta con f32
+# (D2), asi que la cuenta entera va en gpu fn: cada hilo suma un bloque de
+# 64 celdas seguidas, de izquierda a derecha, y la lista de bloques se suma
+# igual, otra vez, hasta que queda uno. El ORDEN es siempre ese -- por eso la
+# 3060, la CPU, la casa y el calculo dan los mismos bits -- y no es el de
+# sumar una a una: un f32 redondea en cada suma, y otro orden es otro
+# numero. Una lista de n celdas son log64(n) pasos: un millon, cuatro.
+mod suma "reducir una lista de f32 en la GPU, por bloques de 64, siempre en el mismo orden"
+
+# el bloque `celda()`: sus 64 celdas de xs (las que hay, de las n)
+gpu fn bloque(c: f32, xs: [f32], n: f32) -> f32
+    let mut s = 0.0
+    let mut k = 64.0 * celda()
+    for t in range(64)
+        if k < n
+            s = s + xs[k]
+        k = k + 1.0
+    return s
+
+# el primer paso del producto escalar: xs[k] * ys[k], sumados por bloques
+gpu fn bloque_punto(c: f32, xs: [f32], ys: [f32], n: f32) -> f32
+    let mut s = 0.0
+    let mut k = 64.0 * celda()
+    for t in range(64)
+        if k < n
+            s = s + xs[k] * ys[k]
+        k = k + 1.0
+    return s
+
+# el mayor (o el menor, con `el_menor`) de un bloque: empieza por su primera celda
+gpu fn bloque_extremo(c: f32, xs: [f32], n: f32, el_menor: bool) -> f32
+    let mut k = 64.0 * celda()
+    let mut s = xs[k]
+    for t in range(64)
+        if k < n
+            let x = xs[k]
+            if el_menor and x < s
+                s = x
+            if not el_menor and x > s
+                s = x
+        k = k + 1.0
+    return s
+
+# una lista de `m` hilos (sus celdas no se leen: dicen cuantos hay)
+fn hilos(m: int) -> [f32]
+    let cero: f32 = 0.0
+    let mut h: [f32] = []
+    for i in range(m)
+        push(mut h, cero)
+    return h
+
+# los pasos que quedan, sobre los bloques de `xs` (n celdas): hasta uno
+fn hasta_uno(xs: [f32], n: int) -> f32
+    let mut actual = xs
+    let mut quedan = n
+    while quedan > 1
+        let m = div(quedan + 63, 64)
+        let nf: f32 = quedan
+        actual = bloque(hilos(m), actual, nf)
+        quedan = m
+    return actual[0]
+
+# la suma de todas las celdas de xs; de una lista vacia, 0
+pub fn total(xs: [f32]) -> f32
+    let n = len(xs)
+    if n == 0
+        let cero: f32 = 0.0
+        return cero
+    let nf: f32 = n
+    let m = div(n + 63, 64)
+    return hasta_uno(bloque(hilos(m), xs, nf), m)
+
+# el producto escalar de xs y ys (del mismo largo, o T0072); vacias, 0
+pub fn punto(xs: [f32], ys: [f32]) -> f32
+    let n = len(xs)
+    if n == 0
+        let cero: f32 = 0.0
+        return cero
+    let nf: f32 = n
+    let m = div(n + 63, 64)
+    let primero = bloque_punto(hilos(m), xs, ys, nf)
+    return hasta_uno(primero, m)
+
+# el extremo de xs: el menor si `el_menor`, si no el mayor; de una vacia, 0
+fn extremo(xs: [f32], el_menor: bool) -> f32
+    let mut quedan = len(xs)
+    if quedan == 0
+        let cero: f32 = 0.0
+        return cero
+    let mut actual = xs
+    let mut uno = true
+    while uno or quedan > 1
+        let m = div(quedan + 63, 64)
+        let nf: f32 = quedan
+        actual = bloque_extremo(hilos(m), actual, nf, el_menor)
+        quedan = m
+        uno = false
+    return actual[0]
+
+pub fn mayor(xs: [f32]) -> f32
+    return extremo(xs, false)
+
+pub fn menor(xs: [f32]) -> f32
+    return extremo(xs, true)

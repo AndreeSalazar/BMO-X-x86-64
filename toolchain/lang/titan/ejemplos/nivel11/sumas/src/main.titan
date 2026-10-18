@@ -1,0 +1,30 @@
+# espera: BIEN
+# sale: con 0: suma 0.0000, mayor 0.000, menor 0.000
+# sale: con 1: suma -0.6000, mayor -0.600, menor -0.600
+# sale: con 64: suma 3.0050, mayor 0.700, menor -0.600
+# sale: con 65: suma 2.9900, mayor 0.700, menor -0.600
+# sale: con 5000: suma 249.7790, mayor 0.700, menor -0.600
+# sale: el punto de 5000 consigo: 730.8687
+# LAS REDUCCIONES (18-10, `use casa.suma`): una lista de f32 hecha un numero
+# en la GPU, por bloques de 64 y siempre en el mismo orden. Con 5000 celdas
+# son tres pasos (5000, 79, 2, 1). La CPU no suma f32 (D2): solo los guarda
+# y los pasa, y `round` los trae a dec para verlos. Y por bloques se pierde
+# menos: la suma de las 5000 es 249.7790 (la exacta, a cuatro cifras); una a
+# una, de izquierda a derecha, daria 249.7784.
+mod main "sumar en la GPU"
+use casa.suma
+
+fn de(n: int) -> [f32]
+    let mut xs: [f32] = []
+    for i in range(n)
+        let x: f32 = rem(i * 37, 101) * 0.013 - 0.6
+        push(mut xs, x)
+    return xs
+
+fn main()
+    for n in [0, 1, 64, 65, 5000]
+        let xs = de(n)
+        print("con ", n, ": suma ", round(suma.total(xs), 4), ", mayor ", round(suma.mayor(xs), 3), ", menor ", round(suma.menor(xs), 3))
+    let xs = de(5000)
+    let ys = de(5000)
+    print("el punto de 5000 consigo: ", round(suma.punto(xs, ys), 4))

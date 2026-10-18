@@ -1062,6 +1062,17 @@ con un orden BITONICO (28 pasos de dos gpu fn), donde empieza cada celda
 por una busqueda binaria de 24 vueltas, y las vecinas mirando solo las
 nueve celdas de alrededor: las mismas 332 que mirando a todas.
 
+**LAS REDUCCIONES (18-10, `use casa.suma`)**: la CPU no suma f32 (D2), asi
+que hacer de una lista UN numero va en la GPU. `suma.total(xs)`,
+`suma.punto(xs, ys)`, `suma.mayor(xs)` y `suma.menor(xs)` son gpu fn de la
+casa: cada hilo reduce un BLOQUE de 64 celdas seguidas, de izquierda a
+derecha, y los bloques se reducen igual hasta que queda uno (un millon de
+celdas, cuatro pasos). El orden es ese y no otro, en cada tarjeta y en el
+calculo: por eso dan los mismos bits. No es el de sumar una a una -- otro
+orden es otro f32 -- y pierde menos: en `nivel11/sumas`, 5000 celdas suman
+249.7790 (la exacta a cuatro cifras), y una a una darian 249.7784. De una
+lista vacia, 0.
+
 [!] **Lo que cuesta un UAV en la 3060**: cada lista (las de celda a celda,
 las enteras y el resultado) ata CINCO registros de los 64 de un hueco (su
 base, su tope, sus elementos y su paso). Con ocho listas quedan 24 para la
