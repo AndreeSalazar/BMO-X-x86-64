@@ -29,7 +29,7 @@ pub static FAMILIES: [&str; 16] = [
 ];
 
 /// Cuantos hay: la TAB mide sus tablas con esto.
-pub const COUNT: usize = 48;
+pub const COUNT: usize = 50;
 
 /// `static`, no `const`: UNA copia en `.rodata`, que Ring 3 lee por indice
 /// sin traerla a una pila de 64 KiB.
@@ -77,6 +77,17 @@ pub static MASTERS: [Master; COUNT] = [
         typed: &[],
         out: &["hola, centauro del espacio", "patas: 4, torso: 1, en total 5", "190 estrellas entre 5 son 38 cada una, y 190 % 7 deja 1", "a 3 de cero: -3"],
         source: "# sale: hola, centauro del espacio\n# sale: patas: 4, torso: 1, en total 5\n# sale: 190 estrellas entre 5 son 38 cada una, y 190 % 7 deja 1\n# sale: a 3 de cero: -3\n# textos que se suman, la precedencia de la escuela, el resto, y un negativo\nmod main \"el centauro cuenta sus estrellas\"\n\nfn main()\n    let saludo = \"hola, \" + \"centauro del espacio\"\n    print(saludo)\n    let patas = 4\n    let torso = 1\n    print(\"patas: \", patas, \", torso: \", torso, \", en total \", patas + torso)\n    let estrellas = 120 + 35 * 2\n    let cada_una = estrellas / 5\n    print(estrellas, \" estrellas entre 5 son \", cada_una, \" cada una, y \", estrellas, \" % 7 deja \", estrellas % 7)\n    print(\"a 3 de cero: \", -(patas - torso))\n",
+    },
+    Master {
+        name: "division_entera",
+        level: 1,
+        why: "negativo, y `a == div(a, b) * b + rem(a, b)` siempre. `/` sigue exacta.",
+        says: "divide entero",
+        words: &["fn", "let"],
+        asks: Permissions::NONE,
+        typed: &[],
+        out: &["7 entre 2: 3 y 1", "-7 entre 2: -4 y 1", "7 entre -2: -3 y 1", "-7 entre -2: 4 y 1", "-6 entre 3: -2 y 0", "5 entre -1: -5 y 0", "el angulo -150 da la vuelta a 3450", "el bloque de -1 es el -1, y su sitio dentro, el 9999"],
+        source: "# sale: 7 entre 2: 3 y 1\n# sale: -7 entre 2: -4 y 1\n# sale: 7 entre -2: -3 y 1\n# sale: -7 entre -2: 4 y 1\n# sale: -6 entre 3: -2 y 0\n# sale: 5 entre -1: -5 y 0\n# sale: el angulo -150 da la vuelta a 3450\n# sale: el bloque de -1 es el -1, y su sitio dentro, el 9999\n# `div` y `rem`: la division ENTERA, la de Euclides -- el resto nunca es\n# negativo, y `a == div(a, b) * b + rem(a, b)` siempre. `/` sigue exacta.\nmod main \"divide entero\"\n\nfn main()\n    let a = 7\n    let b = 2\n    let menos_a = 0 - a\n    let menos_b = 0 - b\n    print(a, \" entre \", b, \": \", div(a, b), \" y \", rem(a, b))\n    print(menos_a, \" entre \", b, \": \", div(menos_a, b), \" y \", rem(menos_a, b))\n    print(a, \" entre \", menos_b, \": \", div(a, menos_b), \" y \", rem(a, menos_b))\n    print(menos_a, \" entre \", menos_b, \": \", div(menos_a, menos_b), \" y \", rem(menos_a, menos_b))\n    print(-6, \" entre \", 3, \": \", div(-6, 3), \" y \", rem(-6, 3))\n    let uno = 0 - 1\n    print(5, \" entre \", uno, \": \", div(5, uno), \" y \", rem(5, uno))\n    print(\"el angulo -150 da la vuelta a \", rem(-150, 3600))\n    let x = -1\n    print(\"el bloque de \", x, \" es el \", div(x, 10000), \", y su sitio dentro, el \", rem(x, 10000))\n",
     },
     Master {
         name: "constelacion",
@@ -187,6 +198,17 @@ pub static MASTERS: [Master; COUNT] = [
         typed: &[],
         out: &["mcd(48, 18) = 6", "mcd(1071, 462) = 21", "17 es primo: true", "21 es primo: false"],
         source: "# sale: mcd(48, 18) = 6\n# sale: mcd(1071, 462) = 21\n# sale: 17 es primo: true\n# sale: 21 es primo: false\n# el maximo comun divisor de Euclides (300 a. C.) y una funcion que responde si o no\nmod main \"Euclides y los primos\"\n\nfn mcd(a: int, b: int) -> int\n    if b == 0\n        return a\n    return mcd(b, a % b)\n\nfn es_primo(n: int) -> bool\n    if n < 2\n        return false\n    let mut d = 2\n    while d * d <= n\n        if n % d == 0\n            return false\n        d = d + 1\n    return true\n\nfn main()\n    print(\"mcd(48, 18) = \", mcd(48, 18))\n    print(\"mcd(1071, 462) = \", mcd(1071, 462))\n    print(\"17 es primo: \", es_primo(17))\n    print(\"21 es primo: \", es_primo(21))\n",
+    },
+    Master {
+        name: "euclides_entero",
+        level: 5,
+        why: "coordenada y la vuelta de un angulo, sin `(a - a % d) / d` a mano.",
+        says: "el piso y la vuelta",
+        words: &["fn", "let", "mut", "for", "return"],
+        asks: Permissions::NONE,
+        typed: &[],
+        out: &["de -20 a 20 entre 7: -17874", "diez giros de -15 grados: 25650", "el bloque de -1 es el -1"],
+        source: "# sale: de -20 a 20 entre 7: -17874\n# sale: diez giros de -15 grados: 25650\n# sale: el bloque de -1 es el -1\n# `div` y `rem` dentro de fn de enteros, con negativos: el piso de una\n# coordenada y la vuelta de un angulo, sin `(a - a % d) / d` a mano.\nmod main \"el piso y la vuelta\"\n\nfn bloque(x: int) -> int\n    return div(x, 10000)\n\nfn vuelta(angulo: int) -> int\n    return rem(angulo, 3600)\n\nfn parte(i: int, d: int) -> int\n    return div(i, d) * 1000 + rem(i, d)\n\nfn main()\n    let mut total = 0\n    for i in range(-20, 21)\n        total = total + parte(i, 7)\n    print(\"de -20 a 20 entre 7: \", total)\n    let mut giros = 0\n    for k in range(10)\n        giros = giros + vuelta(-150 * k)\n    print(\"diez giros de -15 grados: \", giros)\n    print(\"el bloque de -1 es el \", bloque(-1))\n",
     },
     Master {
         name: "factorial",
