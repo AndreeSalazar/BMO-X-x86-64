@@ -244,6 +244,10 @@ impl Tarjeta for Cpu {
     /// `instrucciones` son las que corre UNA celda con sus entradas a cero:
     /// la CPU no tiene un techo de instrucciones, tiene un tiempo.
     fn emitir(&self, p: &Programa, _para: Para) -> Result<Codigo, NoEmite> {
+        // LB9: un computo, por `nativo_computo` (`computo.rs`).
+        if p.computo.hilos != [0; 3] {
+            return computo::emitir(p);
+        }
         if let Some((op, por_que)) = no_sabe(p) {
             return Err(NoEmite::Limite { op, que: format!("{} todavia no corre esto", NOMBRE), por_que: por_que.into() });
         }
@@ -294,7 +298,19 @@ impl Tarjeta for Cpu {
     fn simular_con(&self, c: &Codigo, entradas: &[[u32; 4]], constantes: &[[u32; 4]], salidas: usize) -> Result<Vec<[u32; 4]>, String> {
         correr_con(c, entradas, constantes, salidas).map(|r| r.salidas)
     }
+
+    fn juzgar_computo(&self, p: &Programa, c: &Codigo, _para: Para) -> Result<(), String> {
+        computo::juzgar(p, c)
+    }
+
+    fn simular_computo(&self, p: &Programa, c: &Codigo, grupos: u32, uavs: &mut [Vec<u32>]) -> Result<(), String> {
+        computo::correr(p, c, grupos, uavs).map(|_| ())
+    }
 }
+
+/// ** LB9 (18-10): el COMPUTO de una gpu fn que mira a sus vecinas, en la
+/// CPU: `nativo_computo`, un hilo detras de otro.
+pub mod computo;
 
 /// LB7a (09-10): los valores que mueren dejan su sitio, si no cabe tal cual.
 pub mod compacta;

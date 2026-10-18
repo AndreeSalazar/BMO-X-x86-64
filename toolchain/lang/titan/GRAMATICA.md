@@ -1015,6 +1015,41 @@ gpu fn a_la_ocho(x: f32) -> f32
   linea recta. Los ejemplos: `nivel11/bucles` y `nivel11/en_linea`; sus NO,
   `nivel11/hilo_largo` (T0066) y `nivel11/gpu_mientras` (T0090).
 
+### Las VECINAS (18-10, LB9 de `docs/plan/PLAN_LAS_LIBRERIAS.md`; DL9 del propietario)
+
+```text
+gpu fn suaviza(x: f32, campo: [f32]) -> f32
+    let i = celda()                     # la celda que cuenta ESTE hilo
+    return (campo[i - 1.0] + 2.0 * x + campo[i + 1.0]) * 0.25
+
+    let ys = suaviza(xs, xs)            # xs celda a celda, y xs ENTERA
+```
+
+- Un parametro `[f32]` es la lista ENTERA: llega igual a cada hilo, y es de
+  SOLO LEER (ni `mut` ni `own`). Se lee por la celda que se quiera,
+  `campo[k]`, con un f32: `k` va hacia el cero (`f32 as i32`; un NaN, 0).
+- **Fuera de la lista, 0 (DL9: "da 0, al correr").** La celda -1 o la que
+  pasa del largo lee 0, en la 3060, en la CPU, en la casa y en el calculo.
+  Por eso una vecina que no esta no pesa si su masa se lee de otra lista.
+- `celda()` es el numero del hilo, en f32 (0, 1, 2...). Solo dentro de una
+  gpu fn: en una fn de la CPU no hay hilo (T0090).
+- Lo demas llega CELDA A CELDA como siempre (una lista, una tabla o un valor
+  suelto, el mismo en cada hilo), y dice CUANTOS hilos hay: hace falta uno
+  (solo listas enteras es T0090). El resultado tiene la forma del primero
+  que no va suelto, como en MC4.
+- Una gpu fn que mira a sus vecinas es un COMPUTO entero (un hilo por
+  celda, sus listas en UAV): no se llama desde otra gpu fn (T0090), ni
+  dibuja. Una lista entera sin su celda (`campo + x`) es T0090.
+- Las tres respuestas de siempre (L31): cada tarjeta (la 3060 con los
+  permisos de computo de R7, la CPU con `nativo_computo`), la casa
+  (`Programa::despachar`) y el calculo, con los mismos bits, tambien en la
+  bateria de vecinas (listas mas cortas que los hilos: los ultimos miran
+  fuera). Al correr, la CPU de reserva corre el computo un hilo detras de
+  otro (L32).
+- Los ejemplos: `nivel11/vecinas` (el desenfoque) y `nivel11/densidad` (la
+  primera densidad de un fluido, IL1); su NO, `nivel11/celda_en_la_cpu`
+  (T0090).
+
 ### La gpu fn que DIBUJA (08-10, LB6 de `docs/plan/PLAN_LAS_LIBRERIAS.md`)
 
 ```text

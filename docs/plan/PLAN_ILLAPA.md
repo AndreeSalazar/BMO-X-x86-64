@@ -174,9 +174,19 @@ anfitrion, con el oraculo de SPIR-V corriendo las mismas `gpu fn`.
 > con registros de f32. La piel de IL6 (una suma de matrices por vertice)
 > ya tiene donde escribirse; le faltan las constantes (el cbuffer) y que
 > VERRANO la ponga a dibujar (LB7).
+>
+> **18-10, LB9:** los VECINOS, hechos en el anfitrion (AMARILLO): un
+> parametro `campo: [f32]` llega ENTERO a cada hilo, `celda()` dice cual es
+> el suyo, y fuera de la lista se lee 0 (DL9). La gpu fn sale como un
+> computo de la casa, pasa la bateria de vecinas por la 3060 simulada, la
+> CPU, la casa y el calculo, y al correr la corre la CPU de reserva. La
+> primera DENSIDAD de un fluido ya esta en el banco
+> ([`nivel11/densidad`](../../toolchain/lang/titan/ejemplos/nivel11/densidad/src/main.titan)):
+> cada gota suma sus nueve vecinas con el nucleo (1 - d^2)^3. IL1 queda
+> HECHA; en la 3060 de verdad espera a LB8 (la puerta de computo).
 
 - [ ] IL0 -- las decisiones de la seccion 8, contestadas por el propietario
-- [ ] IL1 -- `gpu fn` CON VECINOS: leer celdas de OTRA tabla por indice y bucles acotados, en el lenguaje, el oraculo y el emisor de SPIR-V (el que escribio G2 de `PLAN_EL_CENTAURO.md`, hoy en linea recta); y que el emisor SM86 los sepa traducir (E6 de `PLAN_LA_LENGUA_DE_LA_3060.md`)
+- [x] IL1 -- (18-10, en el anfitrion: los bucles por LB5, los vecinos por LB9) `gpu fn` CON VECINOS: leer celdas de OTRA tabla por indice y bucles acotados, en el lenguaje, el oraculo y el emisor de SPIR-V (el que escribio G2 de `PLAN_EL_CENTAURO.md`, hoy en linea recta); y que el emisor SM86 los sepa traducir (E6 de `PLAN_LA_LENGUA_DE_LA_3060.md`)
 - [ ] IL2 -- LA REJILLA DE VECINOS: cada particula a su celda, ordenadas por celda (un conteo y un orden, en `gpu fn`), para que cada una encuentre a las de al lado sin mirar a todas
 - [ ] IL3 -- PBF, la sangre: densidad, la correccion de posicion, la presion artificial (la tension superficial), la vorticidad y la viscosidad (Macklin y Muller 2013). La prueba, en el anfitrion: una presa que cae conserva su densidad
 - [ ] IL4 -- LO UNIFICADO: tela, cuerpo blando y rigido como restricciones sobre las MISMAS particulas (2014), con la rigidez de XPBD (que no dependa de cuantos pasos se den)

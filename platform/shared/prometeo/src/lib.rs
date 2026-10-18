@@ -272,4 +272,25 @@ pub trait Tarjeta: Sync {
         }
         Err(alloc::format!("{} no sabe simular con constantes", self.ficha().nombre))
     }
+
+    /// ** LB9 (18-10): **JUZGA un COMPUTO** -- un Programa con hilos
+    /// (`computo.hilos`) que lee y escribe sus UAV --, con los permisos del
+    /// computo: lo que el juez de un cuerpo de celdas no deja (leer y
+    /// escribir memoria), aqui sujeto a lo prestado. El Programa va con su
+    /// codigo: la tarjeta sabe por el donde carga cada UAV. La que no sabe lo
+    /// DICE (L-d).
+    fn juzgar_computo(&self, p: &Programa, c: &Codigo, para: Para) -> Result<(), String> {
+        let _ = (p, c, para);
+        Err(alloc::format!("{} todavia no juzga un computo", self.ficha().nombre))
+    }
+
+    /// ** LB9 (18-10): **SIMULA un COMPUTO**, un codigo de [`Tarjeta::juzgar_computo`]:
+    /// `grupos` grupos en x de `computo.hilos` hilos; el UAV `u` son las
+    /// palabras de `uavs[u]` (estructurado, una palabra por elemento), y lo
+    /// que el computo escribe queda alli. Lo de fuera de una vista: 0 al
+    /// leer, nada al escribir, como en el interprete.
+    fn simular_computo(&self, p: &Programa, c: &Codigo, grupos: u32, uavs: &mut [Vec<u32>]) -> Result<(), String> {
+        let _ = (p, c, grupos, uavs);
+        Err(alloc::format!("{} todavia no simula un computo", self.ficha().nombre))
+    }
 }

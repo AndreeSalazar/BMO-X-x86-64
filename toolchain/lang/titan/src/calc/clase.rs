@@ -322,7 +322,12 @@ pub(super) fn cpu_f32(v: &Value, known: &[Option<Class>], m: &Module) -> Result<
             cpu_f32(x, known, m)
         }
         Value::Round(x, _, _) | Value::Repeat(x, _, _) | Value::Field(x, _, _) | Value::Len(x, _) | Value::Is(x, _, _, _) | Value::Payload(x, _, _, _, _) => cpu_f32(x, known, m),
-        Value::Index(b, i, _) => {
+        Value::Index(b, i, at) => {
+            // LB9: a cell chosen by an f32 is a gpu fn's; the CPU does not
+            // count with an f32 (D2), and an index is a count
+            if class(i, known, m)? == Class::F32 {
+                return Err(f32_here(*at, "elige una celda", "en la CPU una celda se elige con un int: el f32 cuenta dentro de una gpu fn (su vecina, `campo[celda() + 1.0]`)"));
+            }
             cpu_f32(b, known, m)?;
             cpu_f32(i, known, m)
         }
@@ -378,8 +383,17 @@ pub(super) fn gpu_call(func: usize, args: &[Value], at: At, known: &[Option<Clas
         ));
     }
     let ret = of_ty(g.ret.as_ref().expect("gpu: a gpu fn gives a value"), m.defs());
-    let got: Vec<Class> = args.iter().map(|a| class(a, known, m)).collect::<Result<_, _>>()?;
-    let wants: Vec<Class> = g.params.iter().map(|(_, t)| of_ty(t, m.defs())).collect();
+    let all: Vec<Class> = args.iter().map(|a| class(a, known, m)).collect::<Result<_, _>>()?;
+    // ** LB9 (18-10): lo que va a una lista `[f32]` va ENTERO -- todos los
+    // hilos la leen --; lo demas, celda a celda, y eso dice cuantos hilos.
+    let entera = |t: &Ty| crate::gpu::entera(t);
+    for ((a, c), (_, t)) in args.iter().zip(&all).zip(&g.params) {
+        if entera(t) && *c != Class::List(Box::new(Class::F32)) {
+            return Err(wrong(a.at(), &Class::List(Box::new(Class::F32)), c, m.defs(), &format!("`{}` lee esta lista ENTERA, celda a celda por su numero", g.name), "dale una lista de f32: let mut campo: [f32] = []"));
+        }
+    }
+    let got: Vec<Class> = all.iter().zip(&g.params).filter(|(_, (_, t))| !entera(t)).map(|(c, _)| c.clone()).collect();
+    let wants: Vec<Class> = g.params.iter().filter(|(_, t)| !entera(t)).map(|(_, t)| of_ty(t, m.defs())).collect();
     if got.iter().zip(&wants).all(|(c, w)| c == w) {
         return Ok(ret);
     }
@@ -771,6 +785,12 @@ pub fn class(v: &Value, known: &[Option<Class>], m: &Module) -> Result<Class, Me
         Value::Repeat(item, n, _) => Class::Table(Box::new(class(item, known, m)?), *n),
         Value::Index(b, i, at) => {
             let bc = class(b, known, m)?;
+            // ** LB9 (18-10): a VECINA -- inside a gpu fn a whole `[f32]` is
+            // read by an f32 cell number (`campo[celda() + 1.0]`); outside,
+            // 0. The CPU never counts with that f32 (cpu_f32 says so).
+            if bc == Class::List(Box::new(Class::F32)) && class(i, known, m)? == Class::F32 {
+                return Ok(Class::F32);
+            }
             step_class(&bc, &PathStep::Index((**i).clone()), known, m, *at)?
         }
         Value::Field(b, name, at) => field_class(&class(b, known, m)?, name, *at, m)?,
@@ -971,6 +991,9 @@ pub fn class(v: &Value, known: &[Option<Class>], m: &Module) -> Result<Class, Me
 /// when its values are not what it works with.
 fn lib_class(lib: Lib, args: &[Value], at: At, known: &[Option<Class>], m: &Module) -> Result<Class, Message> {
     let types = m.defs();
+    if lib == Lib::Celda {
+        return Ok(Class::F32);
+    }
     let first = class(&args[0], known, m)?;
     let arg = |k: usize| class(&args[k], known, m);
     let not_one = |what: &str, example: &str| Message::new(Code::WrongType, at.0, at.1, &format!("`{}` es de {}, y aqui le llega {}", lib.name(), what, first.name(types)), &format!("`{}` trabaja con {}", lib.name(), what), example);
@@ -1027,6 +1050,7 @@ fn lib_class(lib: Lib, args: &[Value], at: At, known: &[Option<Class>], m: &Modu
                 _ => Class::Bool,
             }
         }
+        Lib::Celda => unreachable!("lib_class: celda is said above"),
         Lib::Turn => match &first {
             Class::Table(t, _) | Class::List(t) => (**t).clone(),
             Class::Map(k, _) => (**k).clone(),

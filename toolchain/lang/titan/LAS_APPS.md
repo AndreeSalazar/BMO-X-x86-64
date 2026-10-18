@@ -19,6 +19,7 @@ del lenguaje, del kernel, del METAL (el Ryzen) o una DECISION del propietario.
 | **la casa**: `use casa.medida`, `cifras`, `colores`, `letrero` | 18-10 | dejar de copiar entre apps |
 | **cuerpos por defecto en un trait** (O3) | 18-10 | el comportamiento comun, una vez |
 | **listas y mapas de un trait** (O4) | 18-10 | redes de nodos, escenas, widgets: tipos distintos en una lista |
+| **`gpu fn` con VECINAS** (LB9): `campo: [f32]` entera, `celda()`, fuera 0 | 18-10 | filtros, rellenos, densidades: un hilo que mira a los de al lado |
 
 ## La lista
 
@@ -26,8 +27,8 @@ del lenguaje, del kernel, del METAL (el Ryzen) o una DECISION del propietario.
 |---|---|---|---|---|
 | **MUNDO** | el Minecraft propio | TITAN++, jugable | `PLAN_MUNDO` | vertices en listas del monton (MC4 (a), HECHO: de 80 a 126 caras); subir los 768 vertices del DIRECTOR; fisica con `div` (HECHO), resaltado y teclas mantenidas (app) |
 | **ECCE** | escribir: guiones al nivel de Final Draft | TITAN++, 7 modulos | `PLAN_ECCE` | trabajar con texto por trozos (hoy todo es `[byte]` a mano); la casa para sus piezas comunes |
-| **LA TINTA** | Adobe + Clip Studio, libros y manga | TITAN++, lienzo minimo | `PLAN_LA_TINTA` | Wacom con presion (driver, METAL), capas y teselas en ESTRATOS, `gpu fn` con VECINOS (**LB9**) para los filtros |
-| **CRAFTPHO** | pintar y retocar con capas, en la 3060 | plan, 0 de 14 | `PLAN_CRAFTPHO` | los 12 modos de mezcla como `match` en `gpu fn` (ya cabe); mosaicos 64 x 64; rellenar y varita necesitan VECINOS (**LB9**) |
+| **LA TINTA** | Adobe + Clip Studio, libros y manga | TITAN++, lienzo minimo | `PLAN_LA_TINTA` | Wacom con presion (driver, METAL), capas y teselas en ESTRATOS, `gpu fn` con VECINOS (**LB9**, HECHO 18-10) para los filtros |
+| **CRAFTPHO** | pintar y retocar con capas, en la 3060 | plan, 0 de 14 | `PLAN_CRAFTPHO` | los 12 modos de mezcla como `match` en `gpu fn` (ya cabe); mosaicos 64 x 64; rellenar y varita necesitan VECINOS (**LB9**, HECHO 18-10) |
 | **RESOLUCION** | elegir la medida de las ventanas | TITAN++ | EL_FOCO R1 | nada nuevo: ya usa la casa |
 | **NAVEGAR** | la app que navega sin ser navegador | TITAN++ | `PLAN_NAVEGAR` | leer formatos de texto (HTML/JSON) sin escribirlo byte a byte: **una casa de texto** |
 | **PNG, BICO, MUSICA** | herramientas y la musica | TITAN++ | -- | migrar su `div` a mano (pendiente) |
@@ -52,7 +53,7 @@ El VEX de Houdini es eso mismo.
 
 | # | Pieza | Por que ILLAPA no anda sin ella | De quien | Estado |
 |---|---|---|---|---|
-| 1 | **VECINOS en una `gpu fn`**: leer celdas de OTRA tabla por indice | una gota mira a las de al lado (IL1, IL2: la rejilla de vecinos) | lenguaje + un asa del kernel (**LB9**) | abierto |
+| 1 | **VECINOS en una `gpu fn`**: leer celdas de OTRA tabla por indice | una gota mira a las de al lado (IL1, IL2: la rejilla de vecinos) | lenguaje + un asa del kernel (**LB9**) | **HECHO 18-10** en el anfitrion: el asa es la del UAV, que R7 ya acotaba; la primera densidad en el banco |
 | 2 | **la puerta de computo de una app** | que la 3060 corra el solucionador de verdad | kernel + METAL (**LB8**) | abierto |
 | 3 | **reducciones** en `gpu fn` (sumar por bloques) | gradiente conjugado de la carne (HO4), densidades | lenguaje | abierto |
 | 4 | **listas de un trait** (O4): `[Nodo]` con nodos distintos | la red de HO1 es crear, transformar, copiar, unir: nodos de tipos distintos recorridos en orden | lenguaje | **HECHO 18-10**, con la primera red de HO1 en el banco |
@@ -90,7 +91,11 @@ cuerpos por defecto (la base de un nodo "que sabe hacer" algo) y la casa.
    `[f32]` en las gpu fn y en `publica`; MUNDO ya dibuja asi.
 3. **Una casa de texto** (`casa.texto`: partir, buscar, numeros escritos),
    que piden NAVEGAR, ECCE y el lector de glTF.
-4. **LB9, vecinos**: el paso que convierte la `gpu fn` en un solucionador.
+4. **LB9, vecinos** -- HECHO el 18-10, antes que la casa de texto (el
+   propietario: *"dale con ILLAPA y los vecinos"*): el paso que convierte la
+   `gpu fn` en un solucionador.
+   [densidad](ejemplos/nivel11/densidad/src/main.titan) suma las vecinas de
+   cada gota; lo que sigue es IL2, la rejilla.
 5. Con LB8 y G0 en el metal: IL3, la primera sangre en la 3060.
 
 [!] Esta lista es el estudio y el orden propuesto: no cambia ninguna casilla

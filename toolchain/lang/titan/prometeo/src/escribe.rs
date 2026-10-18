@@ -9,6 +9,8 @@
 //!                cruzan la vuelta en su CASA
 //!    celda       la gpu fn de CELDAS (nivel 11): sus valores en la entrada
 //!                k, su resultado en la salida 0
+//!    computo     la que mira a sus VECINAS (LB9, 18-10): un computo, sus
+//!                valores y sus listas enteras en UAV, `celda()` su hilo
 //! ```
 //!
 //! La gpu fn que DIBUJA (LB6) usa este mismo escritor; lo suyo -- sus
@@ -17,10 +19,11 @@
 //! Salio de `lib.rs` el 08-10, a mitad de LB6 (*"que administre archivos
 //! multiples bien organizado"*): ni un byte de lo que escribe cambio.
 
-use bmo_prometeo::programa::{Comparacion, Op, OpEntera, Reg};
+use bmo_prometeo::bufer::Modo;
+use bmo_prometeo::programa::{Comparacion, Computo, Conversion, Op, OpEntera, Reg};
 use bmo_prometeo::Programa;
 use bmo_titan_front::gpu::campos;
-use bmo_titan_front::ir::{End, Function, Module, Op as IrOp, PathStep, Value};
+use bmo_titan_front::ir::{End, Function, Lib, Module, Op as IrOp, PathStep, Value};
 use bmo_titan_front::tree::Ty;
 use std::collections::HashMap;
 
@@ -116,13 +119,17 @@ pub(crate) struct Writer<'m> {
     pub(crate) iniciales: Vec<f32>,
     consts: HashMap<u32, Reg>,
     pub(crate) aqui: (usize, usize),
+    /// ** LB9 (18-10): en un COMPUTO, las listas ENTERAS de la gpu fn (su
+    /// nombre, su UAV) y la celda del hilo (`celda()`, en f32).
+    listas: HashMap<usize, u8>,
+    celda: Option<Reg>,
 }
 
 impl<'m> Writer<'m> {
     /// Uno vacio, para la gpu fn `func` de `m`.
     pub(crate) fn nuevo(m: &'m Module, func: usize) -> Writer<'m> {
         let f = &m.functions[func];
-        Writer { m, dentro: vec![func], ops: Vec::new(), donde: Vec::new(), iniciales: Vec::new(), consts: HashMap::new(), aqui: (f.line, 1) }
+        Writer { m, dentro: vec![func], ops: Vec::new(), donde: Vec::new(), iniciales: Vec::new(), consts: HashMap::new(), aqui: (f.line, 1), listas: HashMap::new(), celda: None }
     }
 
     pub(crate) fn reg(&mut self) -> Result<Reg, Failure> {
@@ -291,6 +298,27 @@ fn eval(w: &mut Writer, v: &Value, env: &Env) -> Result<Valor, Failure> {
             }
             Valor::Varios(*t, hojas)
         }
+        // ** LB9 (18-10): la celda del hilo, que el computo leyo al empezar.
+        Value::Lib(Lib::Celda, _, _) => Valor::Uno(w.celda.ok_or_else(|| Failure::writer("`celda()` en una gpu fn que no es un computo: el frontend tenia que haberla escrito como tal".into()))?, Kind::F32),
+        // ** LB9: la VECINA -- la celda `i` (un f32) de una lista entera --:
+        // `f32 as i32` (hacia el cero; un NaN, 0) y la lectura de su UAV, que
+        // fuera de la lista da 0 en cada tarjeta y en la casa (DL9).
+        Value::Index(base, i, _) if w.dentro.len() == 1 && matches!(&**base, Value::Local(l, _) if w.listas.contains_key(l)) => {
+            let Value::Local(l, _) = &**base else { unreachable!("mirado arriba") };
+            let u = w.listas[l];
+            let (x, _) = eval(w, i, env)?.uno()?;
+            w.aqui = at;
+            let k = w.reg()?;
+            w.op(Op::Convierte { d: k, a: x, como: Conversion::FloatAEntero });
+            let cero = w.bits(0)?;
+            // La lectura escribe cuatro registros seguidos: el primero es la celda.
+            let d = w.reg()?;
+            for _ in 1..4 {
+                w.reg()?;
+            }
+            w.op(Op::LeeUav { d, u, modo: Modo::Estructurado, i: k, desp: cero, z: cero });
+            Valor::Uno(d, Kind::F32)
+        }
         other => return Err(Failure::writer(format!("un valor que una gpu fn no tiene ({:?}): gpu.rs tenia que haberlo dicho", other))),
     })
 }
@@ -343,6 +371,94 @@ pub(crate) fn celda(m: &Module, func: usize) -> Result<(Programa, Vec<(usize, us
         filas_cb: 0,
         ranuras: Default::default(),
         computo: Default::default(),
+    };
+    Ok((p, w.donde))
+}
+
+/// ** Los hilos de un grupo de un COMPUTO (LB9): 64, dos olas de la 3060.
+pub const HILOS: u32 = 64;
+
+/// Los UAV que ata un computo, como mucho: los de la CPU (`nativo_computo`,
+/// 8 vistas) y los de la 3060 (`MAX_UAVS` de su juez). El resultado va en uno.
+const UAVS: usize = 8;
+
+/// ** LB9 (18-10): **la gpu fn que mira a sus VECINAS, hecha un COMPUTO** de
+/// la casa: un hilo por celda, `HILOS` por grupo. Cada valor que llega celda
+/// a celda es el UAV `k` (en su orden, sin las listas enteras), leido en la
+/// celda del hilo; cada lista ENTERA, el UAV que sigue, leido donde diga el
+/// programa; el resultado, el UAV de detras de todos, escrito en la celda
+/// del hilo. El hilo que sobra al final del ultimo grupo lee 0 y no escribe:
+/// la salida mide lo que mide la primera lista.
+///
+/// ```text
+///    id     IdHilo (SV_DispatchThreadID.x), y su f32: `celda()`
+///    k      LeeUav k, celda id                 (un bool: != 0)
+///    campo  LeeUav, la celda que diga el f32   (fuera, 0: DL9)
+///    fin    EscribeUav n, celda id             (un bool: 1 o 0)
+/// ```
+pub(crate) fn computo(m: &Module, func: usize) -> Result<(Programa, Vec<(usize, usize)>), Failure> {
+    let f: &Function = &m.functions[func];
+    let ret = kind_of(f.ret.as_ref().ok_or_else(|| Failure::writer(format!("`{}` no devuelve nada", f.name)))?)?;
+    if f.params.len() >= UAVS {
+        return Err(Failure::writer(format!("`{}` recibe {} valores: un computo ata {} UAV, y el resultado va en uno", f.name, f.params.len(), UAVS)));
+    }
+    let mut w = Writer::nuevo(m, func);
+    // -- el hilo: su celda, en bits y en f32 -----------------------------------------
+    let id = w.reg()?;
+    w.op(Op::IdHilo { d: id, que: 0, c: 0 });
+    let celda = w.reg()?;
+    w.op(Op::Convierte { d: celda, a: id, como: Conversion::SinSignoAFloat });
+    w.celda = Some(celda);
+    let cero = w.bits(0)?;
+    // -- cada valor: el de su celda, o la lista entera ----------------------------
+    let (mut por_celda, mut enteras) = (Vec::new(), Vec::new());
+    for (local, t) in &f.params {
+        if bmo_titan_front::gpu::entera(t) {
+            enteras.push(*local);
+        } else {
+            por_celda.push((*local, kind_of(t)?));
+        }
+    }
+    let mut env: Env = HashMap::new();
+    for (u, (local, kind)) in por_celda.iter().enumerate() {
+        let d = w.reg()?;
+        for _ in 1..4 {
+            w.reg()?;
+        }
+        w.op(Op::LeeUav { d, u: u as u8, modo: Modo::Estructurado, i: id, desp: cero, z: cero });
+        let v = if *kind == Kind::Bool {
+            let b = w.reg()?;
+            w.op(Op::Compara { d: b, a: d, b: cero, como: Comparacion::Distinto, entero: true });
+            b
+        } else {
+            d
+        };
+        env.insert(*local, Valor::Uno(v, *kind));
+    }
+    for (k, local) in enteras.iter().enumerate() {
+        w.listas.insert(*local, (por_celda.len() + k) as u8);
+    }
+    let result = straight(&mut w, f, env)?[0];
+    // -- el resultado, en la celda del hilo; un bool sale como 1 o 0 ---------------
+    w.aqui = (f.line, 1);
+    let s = if ret == Kind::Bool {
+        let uno = w.bits(1)?;
+        w.elige(result, uno, cero)?
+    } else {
+        result
+    };
+    let n = f.params.len();
+    w.op(Op::EscribeUav { u: n as u8, modo: Modo::Estructurado, i: id, desp: cero, z: cero, v: [s, s, s, s], mascara: 1 });
+    let l = bmo_prometeo::ranuras::Lugar { espacio: 0, registro: 0, vista: 0 };
+    let p = Programa {
+        ops: w.ops,
+        iniciales: w.iniciales,
+        entradas: 0,
+        salidas: 0,
+        lee: 0,
+        filas_cb: 0,
+        ranuras: bmo_prometeo::ranuras::Ranuras { uavs: vec![l; n + 1], ..Default::default() },
+        computo: Computo { hilos: [HILOS, 1, 1], compartida: 0, temprana: false },
     };
     Ok((p, w.donde))
 }

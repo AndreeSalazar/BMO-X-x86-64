@@ -29,7 +29,7 @@ pub static FAMILIES: [&str; 16] = [
 ];
 
 /// Cuantos hay: la TAB mide sus tablas con esto.
-pub const COUNT: usize = 54;
+pub const COUNT: usize = 56;
 
 /// `static`, no `const`: UNA copia en `.rodata`, que Ring 3 lee por indice
 /// sin traerla a una pila de 64 KiB.
@@ -442,6 +442,17 @@ pub static MASTERS: [Master; COUNT] = [
         source: "# sale: el cubo de V3, escrito en TITAN++: la matriz en el cbuffer y la 3060 multiplicando\n# V3 de PLAN_VERRANO (D1 de EL_FOCO): la gpu fn de vertice recibe un SEGUNDO valor, sus CONSTANTES -- el cbuffer: cada campo una fila de 16 B, lo mismo para todos los hilos --. La app sube la matriz UNA vez por fotograma y los vertices del cubo SIN transformar; las cuentas, en la tarjeta. `titan sm86` las pega a la tuberia de la RTX 3060 12G\nmod main \"el cubo de V3, en TITAN++\"\n\n# Cuatro f32: un punto (x, y, z, w), un color (r, g, b, a) o una columna de una matriz.\ntype Cuatro\n    x: f32\n    y: f32\n    z: f32\n    w: f32\n\n# Un vertice del cubo: su posicion -- SIN transformar (w = 1) al entrar, en coordenadas de recorte al salir -- y el color de su cara.\ntype Vertice\n    posicion: Cuatro\n    color: Cuatro\n\n# Las constantes: la matriz mundo-vista-proyeccion por COLUMNAS, como D3D la sube (`mul(M, v)`): cada columna, una fila del cbuffer.\ntype Matriz\n    c0: Cuatro\n    c1: Cuatro\n    c2: Cuatro\n    c3: Cuatro\n\n# La de VERTICE: la matriz por la posicion, componente a componente y en el orden de D3D (columna 0 por x, mas columna 1 por y...); el color, tal cual.\ngpu fn cubo_vertice(v: Vertice, m: Matriz) -> Vertice\n    let p = v.posicion\n    let x = m.c0.x * p.x + m.c1.x * p.y + m.c2.x * p.z + m.c3.x * p.w\n    let y = m.c0.y * p.x + m.c1.y * p.y + m.c2.y * p.z + m.c3.y * p.w\n    let z = m.c0.z * p.x + m.c1.z * p.y + m.c2.z * p.z + m.c3.z * p.w\n    let w = m.c0.w * p.x + m.c1.w * p.y + m.c2.w * p.z + m.c3.w * p.w\n    return Vertice { posicion: Cuatro { x: x, y: y, z: z, w: w }, color: v.color }\n\n# La de PIXEL: el color de su cara.\ngpu fn cubo_pixel(v: Vertice) -> Cuatro\n    return v.color\n\nfn main()\n    print(\"el cubo de V3, escrito en TITAN++: la matriz en el cbuffer y la 3060 multiplicando\")\n",
     },
     Master {
+        name: "densidad",
+        level: 11,
+        why: "mira las nueve de su ventana. Las de fuera de la lista leen 0 en su masa (DL9), y no pesan.",
+        says: "la densidad de una fila de gotas",
+        words: &["fn", "let", "mut", "if", "for", "return", "round", "gpu", "f32"],
+        asks: Permissions::NONE.with(Permission::Gpu),
+        typed: &[],
+        out: &["64 gotas, la del borde 2.3296 3.1536, la de en medio 3.6592, la ultima 2.3296"],
+        source: "# sale: 64 gotas, la del borde 2.3296 3.1536, la de en medio 3.6592, la ultima 2.3296\n# LB9 (18-10): la primera DENSIDAD de un fluido (IL1 de PLAN_ILLAPA): cada\n# gota suma lo que pesan sus vecinas cercanas, con el nucleo (1 - d^2)^3 de\n# radio 1. Las gotas van cada 0.25 (su sitio, en cuartos), y cada hilo\n# mira las nueve de su ventana. Las de fuera de la lista leen 0 en su masa (DL9), y no pesan.\nmod main \"la densidad de una fila de gotas\"\n\ngpu fn densidad(x: f32, pos: [f32], masa: [f32]) -> f32\n    let i = celda()\n    let mut rho = 0.0\n    let mut j = i - 4.0\n    for k in range(9)\n        let d = (x - pos[j]) * 0.25\n        let q = 1.0 - d * d\n        if q > 0.0\n            rho = rho + masa[j] * q * q * q\n        j = j + 1.0\n    return rho\n\nfn main()\n    let mut pos: [f32] = []\n    let mut masa: [f32] = []\n    let uno: f32 = 1.0\n    for i in range(64)\n        let x: f32 = i\n        push(mut pos, x)\n        push(mut masa, uno)\n    let rho = densidad(pos, pos, masa)\n    print(len(rho), \" gotas, la del borde \", round(rho[0], 4), \" \", round(rho[1], 4), \", la de en medio \", round(rho[32], 4), \", la ultima \", round(rho[63], 4))\n",
+    },
+    Master {
         name: "dos_cubos",
         level: 11,
         why: "lamina y la dibuja con el juez de la CPU.",
@@ -484,6 +495,17 @@ pub static MASTERS: [Master; COUNT] = [
         typed: &[],
         out: &["2.00", "2.00", "2.00", "2.25"],
         source: "# sale: 2.00\n# sale: 2.00\n# sale: 2.00\n# sale: 2.25\n# una gpu fn se escribe para UNA celda; con tablas de 4, son 4 hilos de la 3060\nmod main \"la 3060 mezcla dos tablas\"\n\ngpu fn mezcla(a: f32, b: f32) -> f32\n    return (a + b) / 2.0\n\nfn main()\n    let xs: [f32; 4] = [1.0, 2.0, 3.0, 4.0]\n    let ys: [f32; 4] = [3.0, 2.0, 1.0, 0.5]\n    let c = mezcla(xs, ys)\n    for x in c\n        print(round(x, 2))\n",
+    },
+    Master {
+        name: "vecinas",
+        level: 11,
+        why: "lista, 0 (DL9 del propietario: \"da 0, al correr\").",
+        says: "un desenfoque: cada celda con sus dos vecinas",
+        words: &["fn", "let", "mut", "for", "return", "round", "gpu", "f32"],
+        asks: Permissions::NONE.with(Permission::Gpu),
+        typed: &[],
+        out: &["300 celdas: 0.25 1.50 4.50 66901.50", "con su peso: 0.50 3.00 8.00 624.00", "en una tabla: 0.75 2.00 4.00", "una sola: 0.75"],
+        source: "# sale: 300 celdas: 0.25 1.50 4.50 66901.50\n# sale: con su peso: 0.50 3.00 8.00 624.00\n# sale: en una tabla: 0.75 2.00 4.00\n# sale: una sola: 0.75\n# LB9 (18-10): una gpu fn que mira a sus VECINAS. `campo: [f32]` llega\n# ENTERO a cada hilo, de solo leer; `celda()` dice que celda cuenta el\n# hilo, y `campo[k]` lee la celda k (un f32: hacia el cero). Fuera de la\n# lista, 0 (DL9 del propietario: \"da 0, al correr\").\nmod main \"un desenfoque: cada celda con sus dos vecinas\"\n\ngpu fn suaviza(x: f32, campo: [f32]) -> f32\n    let i = celda()\n    return (campo[i - 1.0] + 2.0 * x + campo[i + 1.0]) * 0.25\n\n# un valor SUELTO llega igual a cada hilo: aqui, cuanto pesan las vecinas\ngpu fn con_peso(x: f32, peso: f32, campo: [f32]) -> f32\n    let i = celda()\n    return x + peso * (campo[i + 1.0] - campo[i - 1.0])\n\nfn main()\n    let mut xs: [f32] = []\n    for i in range(300)\n        let x: f32 = i * i\n        push(mut xs, x)\n    let ys = suaviza(xs, xs)\n    print(len(ys), \" celdas: \", round(ys[0], 2), \" \", round(ys[1], 2), \" \", round(ys[2], 2), \" \", round(ys[299], 2))\n    let medio: f32 = 0.5\n    let zs = con_peso(xs, medio, xs)\n    print(\"con su peso: \", round(zs[0], 2), \" \", round(zs[1], 2), \" \", round(zs[2], 2), \" \", round(zs[24], 2))\n    let t: [f32; 3] = [1.0, 2.0, 3.0]\n    let r = suaviza(t, xs)\n    print(\"en una tabla: \", round(r[0], 2), \" \", round(r[1], 2), \" \", round(r[2], 2))\n    let uno: f32 = 1.0\n    print(\"una sola: \", round(suaviza(uno, xs), 2))\n",
     },
     Master {
         name: "ventana",

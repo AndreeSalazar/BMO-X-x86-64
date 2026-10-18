@@ -61,6 +61,17 @@ pub fn check(p: &Program, permissions: Permissions) -> Result<(), Message> {
         let forma = signature(p, f)?;
         sin_ciclo(p, f, &mut vec![f.name.as_str()], &mut Vec::new())?;
         body(p, f, &f.body, 0, forma)?;
+        if con_vecinas(f) && forma != Forma::Celda {
+            return Err(no(f.line, f.col, &format!("`gpu fn {}` dibuja y mira a sus vecinas", f.name), "la que dibuja es una etapa de la tuberia; mirar a las vecinas es de una gpu fn de celdas (LB9)", "mira a las vecinas en una gpu fn de celdas, y dibuja con lo que de"));
+        }
+    }
+    // LB9: `celda()` es el hilo de una gpu fn; en la CPU no hay hilo
+    if !p.functions.iter().any(|g| g.name == "celda") {
+        for f in p.functions.iter().filter(|f| !f.gpu) {
+            if let Some((_, line, col)) = llamadas(&f.body).into_iter().find(|(c, _, _)| *c == "celda") {
+                return Err(no(line, col, "`celda()` fuera de una gpu fn", "`celda()` dice que celda cuenta un hilo de la GPU, y una fn de la CPU no es un hilo de nadie", "usa `celda()` dentro de una gpu fn"));
+            }
+        }
     }
     Ok(())
 }
@@ -178,6 +189,11 @@ fn llamadas(stmts: &[Stmt]) -> Vec<(&str, usize, usize)> {
                 en(right, out);
             }
             Expr::Neg { value, .. } | Expr::Not { value, .. } => en(value, out),
+            // LB9: `campo[celda() + 1.0]`
+            Expr::Index { base, index, .. } => {
+                en(base, out);
+                en(index, out);
+            }
             _ => {}
         }
     }
@@ -333,7 +349,20 @@ fn signature(p: &Program, f: &Function) -> Result<Forma, Message> {
     if f.params.is_empty() {
         return Err(no(f.line, f.col, &format!("`gpu fn {}` no recibe nada", f.name), "una gpu fn trabaja UNA celda: sin valores no hay celda, y cada hilo haria lo mismo", &format!("gpu fn {}(x: f32) -> f32", f.name)));
     }
+    // ** LB9 (18-10): una LISTA `[f32]` es la lista ENTERA, de solo leer, que
+    // cada hilo mira por la celda que quiera (`campo[celda() + 1.0]`; fuera,
+    // 0, DL9 del propietario). Lo demas llega celda a celda: hace falta uno,
+    // que dice cuantos hilos hay.
+    if f.params.iter().all(|a| entera(&a.ty)) {
+        return Err(no(f.line, f.col, &format!("`gpu fn {}` solo recibe listas enteras", f.name), "una lista entera se lee por la celda que se quiera, pero no dice cuantos hilos hay: eso lo dice un valor que llegue celda a celda", &format!("gpu fn {}(x: f32, campo: [f32]) -> f32, y {}(xs, xs)", f.name, f.name)));
+    }
     for a in &f.params {
+        if entera(&a.ty) {
+            if a.mode.word() != "" {
+                return Err(no(a.line, a.col, &format!("`{} {}` en una gpu fn", a.mode.word(), a.name), "una lista entera la LEEN todos los hilos a la vez: nadie la cambia ni se la queda", &format!("{}: [f32]", a.name)));
+            }
+            continue;
+        }
         if let Ty::Named(t) = &a.ty {
             return Err(no(a.line, a.col, &format!("`{}: {}` en una gpu fn", a.name, t), "un hilo de una celda recibe f32 o bool. Para DIBUJAR (LB6) una gpu fn recibe UN registro y devuelve otro: la de vertice devuelve uno con su `posicion` (un registro de 4 f32); la de pixel recibe ese y devuelve su color (un registro de 4 f32). Cada campo es un f32 o un registro de 1 a 4 f32", &format!("gpu fn vertice(v: {}) -> {}  -- con `posicion` en lo que devuelve", t, t)));
         }
@@ -351,6 +380,22 @@ fn signature(p: &Program, f: &Function) -> Result<Forma, Message> {
     }
 }
 
+/// ** LB9: una lista `[f32]` como parametro de una gpu fn: la ENTERA.
+pub fn entera(t: &Ty) -> bool {
+    matches!(t, Ty::List(inner) if **inner == Ty::F32)
+}
+
+/// Si `name` es una lista entera de `f` (LB9).
+fn de_las_enteras(f: &Function, name: &str) -> bool {
+    f.params.iter().any(|a| a.name == name && entera(&a.ty))
+}
+
+/// ** LB9: si la gpu fn mira a sus vecinas -- recibe una lista entera o
+/// pregunta su `celda()` --: entonces se escribe como COMPUTO (`prometeo`).
+pub fn con_vecinas(f: &Function) -> bool {
+    f.params.iter().any(|a| entera(&a.ty)) || llamadas(&f.body).iter().any(|(c, _, _)| *c == "celda")
+}
+
 /// The statements of a gpu fn, against the rules above: their WORK, or the
 /// first NO. `hondo`: the loops they are inside.
 fn body(p: &Program, f: &Function, stmts: &[Stmt], hondo: usize, forma: Forma) -> Result<u64, Message> {
@@ -365,10 +410,10 @@ fn body(p: &Program, f: &Function, stmts: &[Stmt], hondo: usize, forma: Forma) -
                         return Err(no(l.line, l.col, &format!("`{}: {}` dentro de una gpu fn", l.name, t.name()), "dentro de una gpu fn solo hay f32 y bool", &format!("let {}: f32 = ...", l.name)));
                     }
                 }
-                (1u64.saturating_add(expr(p, &l.value, hondo, forma)?), None)
+                (1u64.saturating_add(expr(p, f, &l.value, hondo, forma)?), None)
             }
-            Stmt::If(i) => (1u64.saturating_add(expr(p, &i.cond, hondo, forma)?).saturating_add(body(p, f, &i.then, hondo, forma)?).saturating_add(body(p, f, &i.other, hondo, forma)?), None),
-            Stmt::Return { value: Some(v), .. } => (1u64.saturating_add(expr(p, v, hondo, forma)?), None),
+            Stmt::If(i) => (1u64.saturating_add(expr(p, f, &i.cond, hondo, forma)?).saturating_add(body(p, f, &i.then, hondo, forma)?).saturating_add(body(p, f, &i.other, hondo, forma)?), None),
+            Stmt::Return { value: Some(v), .. } => (1u64.saturating_add(expr(p, f, v, hondo, forma)?), None),
             Stmt::Return { line, col, value: None } => return Err(no(*line, *col, "un `return` sin valor en una gpu fn", "cada hilo devuelve su celda", "return x")),
             Stmt::Call(c) if c.callee.starts_with("director.") || c.callee.starts_with("sonido.") => return Err(no_director(&c.callee, c.line, c.col)),
             Stmt::Call(c) if c.callee == "print" => return Err(no(c.line, c.col, "`print` dentro de una gpu fn", "la 3060 no tiene consola: miles de hilos escribiendo a la vez no dirian nada que se pueda leer", "devuelve el valor, y escribelo en la CPU: print(round(x, 2))")),
@@ -401,7 +446,7 @@ fn body(p: &Program, f: &Function, stmts: &[Stmt], hondo: usize, forma: Forma) -
             Stmt::Match { line, col, .. } => return Err(no(*line, *col, "un `match` dentro de una gpu fn", "dentro de una gpu fn solo hay f32 y bool: no hay enum que mirar", "decide con if / else")),
             // ** LB6: una que DIBUJA cambia un campo de un registro suyo
             // (`w.color = c`, con `let mut w = v`): sus f32, y los demas igual.
-            Stmt::SetAt { path, value, .. } if forma != Forma::Celda && path.iter().all(|s| matches!(s, Step::Field(..))) => (1u64.saturating_add(expr(p, value, hondo, forma)?), None),
+            Stmt::SetAt { path, value, .. } if forma != Forma::Celda && path.iter().all(|s| matches!(s, Step::Field(..))) => (1u64.saturating_add(expr(p, f, value, hondo, forma)?), None),
             Stmt::SetAt { line, col, .. } => return Err(no(*line, *col, "una parte de un valor cambia dentro de una gpu fn", "dentro de una gpu fn no hay tablas, y una celda no tiene partes: cada hilo tiene la suya (solo la que DIBUJA tiene registros, y cambia sus campos)", "devuelve el valor nuevo")),
             // Inside a `for`: the parser said so (T0067), and a `while` is a NO above.
             Stmt::Break { .. } | Stmt::Continue { .. } => (1, None),
@@ -424,6 +469,33 @@ mod tests {
 
     fn lower(main: &str, toml: Option<&str>) -> Result<crate::ir::Module, crate::Message> {
         crate::lower_package("src/main.titan", main, &mut |p| if p == "Titan.toml" { toml.map(String::from) } else { None })
+    }
+
+    /// ** LB9 (18-10): a gpu fn that looks at its NEIGHBOURS -- a whole list,
+    /// read by `celda()` and an f32 cell number; outside it, 0 (DL9) -- and
+    /// each of its NO, where it is written.
+    #[test]
+    fn a_gpu_fn_reads_its_neighbours_and_outside_is_zero() {
+        let src = "mod main \"x\"\ngpu fn suaviza(x: f32, campo: [f32]) -> f32\n    let i = celda()\n    return (campo[i - 1.0] + 2.0 * x + campo[i + 1.0]) * 0.25\nfn main()\n    let mut xs: [f32] = []\n    for k in range(8)\n        let v: f32 = k * k\n        push(mut xs, v)\n    let ys = suaviza(xs, xs)\n    print(len(ys), \" \", round(ys[0], 2), \" \", round(ys[3], 2), \" \", round(ys[7], 2))\n";
+        let m = lower(src, Some(PIDE)).unwrap_or_else(|e| panic!("{:?}", e));
+        let shown = format!("{:?}", m.flat);
+        for want in ["\"8\"", "\"0.25\"", "\"9.50\"", "\"33.50\""] {
+            assert!(shown.contains(want), "{want} in {shown}");
+        }
+        let at = |body: &str| {
+            let n = lower(&format!("mod main \"x\"\n{}fn main()\n    let mut xs: [f32] = []\n    print(len(xs))\n", body), Some(PIDE)).unwrap_err();
+            (n.code, n.line)
+        };
+        // only whole lists: nothing says how many threads
+        assert_eq!(at("gpu fn s(campo: [f32]) -> f32\n    return campo[0.0]\n"), (Code::GpuBody, 2));
+        // a whole list without its cell, or lent
+        assert_eq!(at("gpu fn s(x: f32, campo: [f32]) -> f32\n    return campo + x\n"), (Code::GpuBody, 3));
+        assert_eq!(at("gpu fn s(x: f32, mut campo: [f32]) -> f32\n    return x\n"), (Code::GpuBody, 2));
+        // celda() is a thread's: not on the CPU
+        assert_eq!(lower("mod main \"x\"\nfn main()\n    let i = celda()\n    print(1)\n", Some(PIDE)).unwrap_err().code, Code::GpuBody);
+        // an f32 picks a cell only inside a gpu fn
+        let cpu = lower("mod main \"x\"\nfn main()\n    let xs: [f32] = []\n    let k: f32 = 1.0\n    let y = xs[k]\n    print(len(xs))\n", Some(PIDE)).unwrap_err();
+        assert_eq!(cpu.code, Code::F32Cpu, "{:?}", cpu);
     }
 
     fn code(body: &str) -> Code {
@@ -592,22 +664,27 @@ mod tests {
 }
 
 /// An expression of a gpu fn: its operations (its WORK), or its NO.
-fn expr(p: &Program, e: &Expr, hondo: usize, forma: Forma) -> Result<u64, Message> {
+fn expr(p: &Program, f: &Function, e: &Expr, hondo: usize, forma: Forma) -> Result<u64, Message> {
     match e {
+        // ** LB9: la vecina -- una celda de una lista ENTERA, por un f32 --:
+        // una lectura. Solo de las enteras de esta gpu fn, por su nombre.
+        Expr::Index { base, index, .. } if matches!(&**base, Expr::Name { name, .. } if de_las_enteras(f, name)) => Ok(1u64.saturating_add(expr(p, f, index, hondo, forma)?)),
+        Expr::Name { name, line, col } if de_las_enteras(f, name) => Err(no(*line, *col, &format!("`{}`, una lista entera, sin su celda", name), "una lista entera se lee celda a celda: cada hilo mira la que quiera, y la lista sola no es un numero", &format!("{}[celda()]  o  {}[celda() + 1.0]", name, name))),
+        Expr::Call { callee, .. } if callee == "celda" && !p.functions.iter().any(|g| g.name == *callee) => Ok(1),
         Expr::Int { .. } | Expr::Dec { .. } | Expr::Name { .. } | Expr::Bool { .. } => Ok(0),
         Expr::Bin { op, left, right, .. } => {
             let propia = if *op == "/" && !por_su_inverso(right) { OBRA_DIVISION } else { 1 };
-            Ok(propia.saturating_add(expr(p, left, hondo, forma)?).saturating_add(expr(p, right, hondo, forma)?))
+            Ok(propia.saturating_add(expr(p, f, left, hondo, forma)?).saturating_add(expr(p, f, right, hondo, forma)?))
         }
-        Expr::Neg { value, .. } | Expr::Not { value, .. } => Ok(1u64.saturating_add(expr(p, value, hondo, forma)?)),
+        Expr::Neg { value, .. } | Expr::Not { value, .. } => Ok(1u64.saturating_add(expr(p, f, value, hondo, forma)?)),
         // ** LB6: una que DIBUJA lee los campos de sus registros y los hace
         // -- elegir registros no cuesta: no es una operacion.
         Expr::Field { name, line, col, .. } if matches!(forma, Forma::Pixel { .. }) && name == POSICION => Err(no(*line, *col, &format!("`.{}` en una gpu fn de pixel", POSICION), "la posicion es de la 3060: con ella sabe QUE pixel pinta (SV_Position). Al de pixel le llegan los demas campos de lo que dejo el de vertice", "lee los otros campos: v.color")),
-        Expr::Field { base, .. } if forma != Forma::Celda => expr(p, base, hondo, forma),
+        Expr::Field { base, .. } if forma != Forma::Celda => expr(p, f, base, hondo, forma),
         Expr::Record { fields, .. } if forma != Forma::Celda => {
             let mut cost = 0u64;
             for (_, v) in fields {
-                cost = cost.saturating_add(expr(p, v, hondo, forma)?);
+                cost = cost.saturating_add(expr(p, f, v, hondo, forma)?);
             }
             Ok(cost)
         }
@@ -615,11 +692,12 @@ fn expr(p: &Program, e: &Expr, hondo: usize, forma: Forma) -> Result<u64, Messag
         Expr::Text { line, col, .. } => Err(no(*line, *col, "un texto dentro de una gpu fn", "la 3060 cuenta numeros: un texto no tiene celda en ella", "deja los textos a la CPU")),
         // ** Another gpu fn (LB5): written in line, its work is its whole
         // body, here -- inside this one's loops, if it is.
+        Expr::Call { callee, line, col, .. } if gpu_fn(p, callee).is_some_and(con_vecinas) => Err(no(*line, *col, &format!("`{}()`, que mira a sus vecinas, dentro de otra gpu fn", callee), "una gpu fn que mira a sus vecinas es un computo entero (un hilo por celda, con sus listas): no se escribe en linea dentro de un hilo", &format!("llamala desde la CPU, y pasale lo que da a esta: {}(...)", callee))),
         Expr::Call { callee, args, .. } if gpu_fn(p, callee).is_some() => {
             let g = gpu_fn(p, callee).expect("just seen");
             let mut cost = 1u64;
             for a in args {
-                cost = cost.saturating_add(expr(p, a, hondo, forma)?);
+                cost = cost.saturating_add(expr(p, f, a, hondo, forma)?);
             }
             Ok(cost.saturating_add(body(p, g, &g.body, hondo, forma_de(p, g))?))
         }
@@ -633,7 +711,7 @@ fn expr(p: &Program, e: &Expr, hondo: usize, forma: Forma) -> Result<u64, Messag
         Expr::Call { callee, args, .. } if !p.functions.iter().any(|g| g.name == *callee) => {
             let mut cost = 1u64;
             for a in args {
-                cost = cost.saturating_add(expr(p, a, hondo, forma)?);
+                cost = cost.saturating_add(expr(p, f, a, hondo, forma)?);
             }
             Ok(cost)
         }

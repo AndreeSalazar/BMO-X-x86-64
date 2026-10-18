@@ -33,6 +33,11 @@ use bmo_titan_front::calc::Class;
 use bmo_titan_front::ir::Value;
 use bmo_titan_front::tree::Ty;
 
+/// ** LB9: lo que mide el `Contexto` de `nativo_computo` (sus ids, sus
+/// punteros, 8 SRV y 8 UAV de 32 bytes), y donde empiezan sus UAV.
+const CONTEXTO: i32 = 80 + 2 * 8 * 32;
+const C_UAV: i32 = 80 + 8 * 32;
+
 /// Lo que dice el NO de `round` con un infinito o un NaN (el calculo: T0062).
 const NO_ES_UN_NUMERO: &str = "`round` recibe un infinito o un NaN de la gpu fn, y eso no es un numero: un f32 que dividio entre cero, o desbordo, no tiene decimal que lo diga";
 
@@ -48,6 +53,11 @@ impl E1<'_> {
         let registros = cuerpo.registros.max(1) as i32;
         let ret = if f.ret == Some(Ty::Bool) { Class::Bool } else { Class::F32 };
         let name = f.name.clone();
+        // ** LB9 (18-10): la que mira a sus VECINAS es un computo: sus listas
+        // enteras y sus celdas en UAV, y un hilo detras de otro.
+        if bmo_titan_front::calc::con_vecinas(f) {
+            return self.gpu_call_vecinas(func, args, registros, ret, at).map(Some);
+        }
         // ** MC4 (18-10): sobre LISTAS, del largo que tengan al correr, y la
         // salida al monton: lo que en una tabla gastaba la pila.
         if args.iter().map(|a| self.class_of(a)).collect::<Result<Vec<_>, _>>()?.iter().any(|c| matches!(c, Class::List(_))) {
@@ -181,6 +191,200 @@ impl E1<'_> {
         let c = Class::List(Box::new(ret));
         self.own(out, &c);
         Ok((out, c))
+    }
+
+    /// ** LB9 (18-10): **la gpu fn que mira a sus VECINAS, al correr** -- el
+    /// computo de la tarjeta de la CPU (`nativo_computo`), un hilo detras de
+    /// otro. Cada valor es un UAV, en el orden del Programa (los de celda a
+    /// celda, las listas enteras, el resultado), y su `Vista` va en el
+    /// `Contexto` del marco: sus celdas de 8 bytes (paso 8: el f32 en los
+    /// cuatro bajos) y cuantas son. Un valor suelto que va celda a celda se
+    /// copia a una lista de tantas celdas como hilos (el computo lee la del
+    /// suyo); la salida es una lista, una tabla o uno solo, como el calculo.
+    ///
+    /// ```text
+    ///    Contexto   ids (el hilo en el 0), reanudar 0, ninguna compartida
+    ///               ni entrada; la Vista del UAV k en 336 + 32 k
+    ///    la llamada rdi sus registros, rsi el Contexto, rdx sin cbuffer
+    /// ```
+    fn gpu_call_vecinas(&mut self, func: usize, args: &[Value], registros: i32, ret: Class, at: (usize, usize)) -> Result<(Place, Class), String> {
+        let f = &self.m.functions[func];
+        let enteras: Vec<bool> = f.params.iter().map(|(_, t)| bmo_titan_front::gpu::entera(t)).collect();
+        let name = f.name.clone();
+        // cada valor: su asa de lista, su tabla (sitio y celdas), o suelto
+        enum Va {
+            Lista(Place),
+            Tabla(Place, usize),
+            Suelto(Place),
+        }
+        let mut vals = Vec::with_capacity(args.len());
+        for (a, entera) in args.iter().zip(&enteras) {
+            let (p, c) = self.eval(a)?;
+            vals.push(match c {
+                Class::List(_) => Va::Lista(p),
+                Class::Table(_, n) if !entera => Va::Tabla(p, n),
+                Class::F32 | Class::Bool if !entera => Va::Suelto(p),
+                other => return Err(format!("linea {}: un {:?} a `gpu fn {}`: el frontend tenia que haberlo dicho", at.0, other, name)),
+            });
+        }
+        // cuantos hilos: lo que mide el primero de celda a celda que no va
+        // suelto (y su forma es la del resultado); si todos van sueltos, uno
+        let mut forma: Option<bool> = None;
+        let n = self.temp(8);
+        self.store_imm(n, 1);
+        for (v, entera) in vals.iter().zip(&enteras) {
+            if *entera {
+                continue;
+            }
+            let (largo, lista) = match v {
+                Va::Lista(h) => (self.len_of(*h), true),
+                Va::Tabla(_, k) => {
+                    let t = self.temp(8);
+                    self.store_imm(t, *k as i64);
+                    (t, false)
+                }
+                Va::Suelto(_) => continue,
+            };
+            match forma {
+                None => {
+                    forma = Some(lista);
+                    self.load(largo, RAX);
+                    self.store(n, RAX);
+                }
+                Some(_) => {
+                    self.load(n, RAX);
+                    self.load(largo, RCX);
+                    x86::cmp_r64_r64(&mut self.code, RAX, RCX);
+                    self.trap(0x85, "T0072", "una gpu fn recibe listas de largos distintos", at);
+                }
+            }
+        }
+        // una lista nueva del monton de `n` celdas a cero: su asa
+        let nueva = |e: &mut Self| -> Result<Place, String> {
+            let h = e.temp(24);
+            e.store_imm(h, 0);
+            e.load(n, RAX);
+            e.store(h.at(8), RAX);
+            e.store(h.at(16), RAX);
+            x86::test_r64_r64(&mut e.code, RAX, RAX);
+            let vacia = e.jcc(0x84);
+            x86::mov_r64_r64(&mut e.code, RDI, RAX);
+            x86::shl_r64_imm8(&mut e.code, RDI, 3);
+            e.alloc();
+            e.store(h, RAX);
+            e.here(vacia);
+            e.each_heap(n, &[(h, 8)], &mut |e, c| {
+                e.store_imm(c[0], 0);
+                Ok(())
+            })?;
+            Ok(h)
+        };
+        // la Vista de cada UAV: sus datos (en rax al correr) y cuantas celdas
+        let mut vistas: Vec<(Place, Place)> = Vec::with_capacity(args.len() + 1);
+        let por_celda = vals.iter().zip(&enteras).filter(|(_, e)| !**e).map(|(v, _)| v);
+        let de_las_enteras = vals.iter().zip(&enteras).filter(|(_, e)| **e).map(|(v, _)| v);
+        let orden: Vec<&Va> = por_celda.chain(de_las_enteras).collect();
+        for v in orden {
+            match v {
+                Va::Lista(h) => vistas.push((*h, h.at(8))),
+                Va::Tabla(p, k) => {
+                    let d = self.temp(8);
+                    self.addr(*p, RAX);
+                    self.store(d, RAX);
+                    let t = self.temp(8);
+                    self.store_imm(t, *k as i64);
+                    vistas.push((d, t));
+                }
+                Va::Suelto(p) => {
+                    let p = *p;
+                    let h = nueva(self)?;
+                    self.each_heap(n, &[(h, 8)], &mut |e, c| {
+                        e.load(p, RAX);
+                        e.store(c[0], RAX);
+                        Ok(())
+                    })?;
+                    self.own(h, &Class::List(Box::new(Class::F32)));
+                    vistas.push((h, h.at(8)));
+                }
+            }
+        }
+        // la salida
+        let (out, out_class) = match forma {
+            Some(true) => {
+                let h = nueva(self)?;
+                vistas.push((h, h.at(8)));
+                (h, Class::List(Box::new(ret.clone())))
+            }
+            Some(false) => {
+                let Some(Va::Tabla(_, k)) = vals.iter().zip(&enteras).find(|(v, e)| !**e && matches!(v, Va::Tabla(..))).map(|(v, _)| v) else {
+                    return Err(format!("linea {}: `gpu fn {}` sin su tabla (fallo del compilador: avisa)", at.0, name));
+                };
+                let k = *k;
+                let o = self.temp(8 * k as i32);
+                for c in 0..k {
+                    self.store_imm(o.at(8 * c as i32), 0);
+                }
+                let d = self.temp(8);
+                self.addr(o, RAX);
+                self.store(d, RAX);
+                vistas.push((d, n));
+                (o, Class::Table(Box::new(ret.clone()), k))
+            }
+            None => {
+                let o = self.temp(8);
+                self.store_imm(o, 0);
+                let d = self.temp(8);
+                self.addr(o, RAX);
+                self.store(d, RAX);
+                vistas.push((d, n));
+                (o, ret.clone())
+            }
+        };
+        // el Contexto, a cero, con cada Vista en su sitio
+        let ctx = self.temp(CONTEXTO);
+        for k in (0..CONTEXTO).step_by(8) {
+            self.store_imm(ctx.at(k), 0);
+        }
+        for (k, (datos, cuantas)) in vistas.iter().enumerate() {
+            let v = ctx.at(C_UAV + 32 * k as i32);
+            self.load(*datos, RAX);
+            self.store(v, RAX);
+            self.load(*cuantas, RAX);
+            x86::mov_r64_r64(&mut self.code, RCX, RAX);
+            x86::shl_r64_imm8(&mut self.code, RAX, 3);
+            self.store(v.at(8), RAX); // sus bytes
+            x86::shl_r64_imm8(&mut self.code, RCX, 32);
+            self.imm(RAX, 8);
+            x86::or_r64_r64(&mut self.code, RAX, RCX);
+            self.store(v.at(16), RAX); // paso 8, y sus celdas
+        }
+        // un hilo detras de otro: su numero en el id 0
+        let regs = self.temp(4 * registros);
+        let t = self.temp(8);
+        self.store_imm(t, 0);
+        let top = self.etiqueta();
+        self.load(t, RAX);
+        self.load(n, RCX);
+        x86::cmp_r64_r64(&mut self.code, RAX, RCX);
+        let fin = self.jcc(0x83);
+        self.store(ctx, RAX);
+        self.store_imm(ctx.at(40), 0);
+        self.addr(regs, RDI);
+        self.addr(ctx, RSI);
+        x86::zero_r32(&mut self.code, RDX);
+        self.code.push(0xE8);
+        self.gpu_calls.push((self.code.len(), func));
+        self.code.extend_from_slice(&[0; 4]);
+        self.guardado = None;
+        self.load(t, RAX);
+        x86::inc_r64(&mut self.code, RAX);
+        self.store(t, RAX);
+        self.back(top);
+        self.here(fin);
+        if matches!(out_class, Class::List(_)) {
+            self.own(out, &out_class);
+        }
+        Ok((out, out_class))
     }
 
     /// **Un int o un dec a f32**, al mas cercano (D4): lo de `calc::fit_into`.

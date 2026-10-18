@@ -7,8 +7,8 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   900 casillas ABIERTAS en 81 planes
-   705 hechas
+   898 casillas ABIERTAS en 81 planes
+   707 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -63,14 +63,14 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] V3a -- VERRANO POR CATEGORIAS: el dibujo con PROGRAMAS (11-10,
 - ... y 42 mas
 
-## [`PLAN_ILLAPA.md`](PLAN_ILLAPA.md) -- 36 abiertas, 0 hechas
+## [`PLAN_ILLAPA.md`](PLAN_ILLAPA.md) -- 35 abiertas, 1 hechas
 
 *PLAN ILLAPA -- el motor de CGI en tiempo real de BMO-X: motor grafico + Houdini propio, en TITAN*
 
 - [ ] IL0 -- las decisiones de la seccion 8, contestadas por el propietario
-- [ ] IL1 -- gpu fn CON VECINOS: leer celdas de OTRA tabla por indice y bucles acotados, en el lenguaj
 - [ ] IL2 -- LA REJILLA DE VECINOS: cada particula a su celda, ordenadas por celda (un conteo y un ord
-- ... y 33 mas
+- [ ] IL3 -- PBF, la sangre: densidad, la correccion de posicion, la presion artificial (la tension su
+- ... y 32 mas
 
 ## [`PLAN_LA_LUDOTECA.md`](PLAN_LA_LUDOTECA.md) -- 32 abiertas, 15 hechas
 
@@ -486,15 +486,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] 5 el emisor pierde los caminos del monton y de los objetos; los docs
 - ... y 3 mas
 
-## [`PLAN_LAS_LIBRERIAS.md`](PLAN_LAS_LIBRERIAS.md) -- 6 abiertas, 8 hechas
-
-*PLAN LAS LIBRERIAS -- TITAN++, el modelo general; cada GPU, una libreria (la primera: SM86, la R*
-
-- [ ] LB0 -- LAS DECISIONES de la seccion 4, contestadas por el
-- [ ] LB2 -- TITAN++ EN EL RYZEN, y la lamina de INTI. Un arranque, en
-- [ ] LB6 -- LA gpu fn QUE DIBUJA. Una gpu fn de VERTICE y una de PIXEL,
-- ... y 3 mas
-
 ## [`PLAN_LAS_RAMAS.md`](PLAN_LAS_RAMAS.md) -- 6 abiertas, 10 hechas
 
 *PLAN LAS RAMAS -- ESTRATOS como Git: guias, plantillas, ramas y mezcla por NODOS*
@@ -556,6 +547,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] D0 -- EL METRO (codigo HECHO 2026-09-23; se cierra con el primer numero)
 - [ ] D1 -- ASINCRONO + WAIT: cero congelones
 - [ ] D3 -- DMA directo al bloque prestado + PRD multiples
+- ... y 2 mas
+
+## [`PLAN_LAS_LIBRERIAS.md`](PLAN_LAS_LIBRERIAS.md) -- 5 abiertas, 9 hechas
+
+*PLAN LAS LIBRERIAS -- TITAN++, el modelo general; cada GPU, una libreria (la primera: SM86, la R*
+
+- [ ] LB0 -- LAS DECISIONES de la seccion 4, contestadas por el
+- [ ] LB2 -- TITAN++ EN EL RYZEN, y la lamina de INTI. Un arranque, en
+- [ ] LB6 -- LA gpu fn QUE DIBUJA. Una gpu fn de VERTICE y una de PIXEL,
 - ... y 2 mas
 
 ## [`PLAN_LA_ANTENA_AOT.md`](PLAN_LA_ANTENA_AOT.md) -- 5 abiertas, 0 hechas

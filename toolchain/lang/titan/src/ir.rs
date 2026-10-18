@@ -255,6 +255,9 @@ pub enum Lib {
     /// Turn `i` of a `for x in ...`: the cell of a table or a list, the KEY
     /// of a map (in the order they went in, D4).
     Turn,
+    /// ** LB9 (18-10): `celda()`, inside a gpu fn: the number of the thread
+    /// running it -- the cell it counts --, as an f32 (exact up to 2^24).
+    Celda,
 }
 
 /// ** THE DIRECTOR (LB7b of `docs/plan/PLAN_LAS_LIBRERIAS.md`, 09-10): what
@@ -532,6 +535,7 @@ impl Lib {
             Lib::Get => "get",
             Lib::Has => "has",
             Lib::Turn => "vuelta",
+            Lib::Celda => "celda",
         }
     }
 }
@@ -572,6 +576,18 @@ impl Value {
 
     /// Every local this value reads, in reading order: what the checker
     /// judges.
+    /// ** LB9 (18-10): if a `celda()` is in this value.
+    pub fn uses_celda(&self) -> bool {
+        match self {
+            Value::Lib(Lib::Celda, ..) => true,
+            Value::Int(..) | Value::Text(..) | Value::Bool(..) | Value::Dec(..) | Value::F32(..) | Value::Read(..) | Value::Local(..) | Value::Lend(..) => false,
+            Value::Table(items, _) | Value::Record(_, items, _) | Value::Variant(_, _, items, _) | Value::Call(_, items, _) | Value::Lib(_, items, _) | Value::Director(_, items, _) => items.iter().any(Value::uses_celda),
+            Value::Repeat(v, _, _) | Value::Field(v, _, _) | Value::Len(v, _) | Value::Round(v, _, _) | Value::Is(v, _, _, _) | Value::Payload(v, _, _, _, _) | Value::Number(v, _, _) | Value::Byte(v, _) | Value::Lamina(v, _) | Value::Neg(v, _) | Value::Not(v, _) => v.uses_celda(),
+            Value::Index(a, b, _) | Value::Bin(_, a, b, _) => a.uses_celda() || b.uses_celda(),
+            Value::Map(items, _) => items.iter().any(|(k, v)| k.uses_celda() || v.uses_celda()),
+        }
+    }
+
     pub fn reads(&self, out: &mut Vec<(usize, At)>) {
         match self {
             Value::Int(..) | Value::Text(..) | Value::Bool(..) | Value::Dec(..) | Value::F32(..) | Value::Read(..) => {}
@@ -694,6 +710,8 @@ fn to_f32(v: &mut Value) {
         Value::Call(_, args, _) => args.iter_mut().for_each(to_f32),
         // LB6: a record of a gpu fn that draws, written field by field.
         Value::Record(_, items, _) => items.iter_mut().for_each(to_f32),
+        // LB9: the cell number of a neighbour (`campo[i + 1.0]`): an f32 too.
+        Value::Index(_, i, _) => to_f32(i),
         _ => {}
     }
 }
@@ -742,6 +760,8 @@ fn value(e: &Expr, locals: &mut Vec<Local>, p: &Program) -> Value {
             let op = if callee == "div" { "div" } else { "rem" };
             Value::Bin(op, Box::new(value(&args[0], locals)), Box::new(value(&args[1], locals)), (*line, *col))
         }
+        // LB9 (18-10): `celda()`, the thread of a gpu fn (gpu.rs keeps it there).
+        Expr::Call { callee, line, col, .. } if callee == "celda" && !p.functions.iter().any(|f| &f.name == callee) => Value::Lib(Lib::Celda, Vec::new(), (*line, *col)),
         // `get(m, k)` / `has(m, k)` (level 13): they read, and change nothing.
         Expr::Call { callee, args, line, col } if (callee == "get" || callee == "has") && !p.functions.iter().any(|f| &f.name == callee) => {
             let lib = if callee == "get" { Lib::Get } else { Lib::Has };

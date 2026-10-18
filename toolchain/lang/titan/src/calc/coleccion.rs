@@ -134,6 +134,10 @@ impl Run<'_, '_> {
     /// first, and then the old `l` is TAKEN (the `=` gives it its new value
     /// right after), so a push costs one cell, not a copy of the list.
     pub(super) fn lib(&mut self, lib: Lib, args: &[Value], at: At, known: &mut Vec<Option<Const>>) -> Result<Const, Message> {
+        // LB9 (18-10): the thread that runs this gpu fn, as an f32
+        if lib == Lib::Celda {
+            return Ok(Const::F32((self.celda as f32).to_bits()));
+        }
         let d = self.m.defs();
         let mut rest = Vec::with_capacity(args.len().saturating_sub(1));
         for a in &args[1..] {
