@@ -341,6 +341,7 @@ members = [
     "toolchain/lang/base/bmo-rt",
     # -- TOOLS (generadores build-time) -----------------------------
     "toolchain/tools/hello-bex",
+    "toolchain/tools/inti-hex",
     "toolchain/tools/fontgen",
     # Formatea un volumen ESTRATOS desde el anfitrion (paso 4c del esquema).
     "toolchain/tools/estratos-fmt",

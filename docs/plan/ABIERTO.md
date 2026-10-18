@@ -1,13 +1,13 @@
 <!-- GENERADO por toolchain/tools/planes. No se edita a mano. -->
 
-# LO QUE FALTA -- las casillas abiertas de los 90 planes
+# LO QUE FALTA -- las casillas abiertas de los 91 planes
 
 > Generado por `toolchain/tools/planes`. **El build comprueba que
 > este fichero y los planes dicen lo mismo**, asi que no puede
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   896 casillas ABIERTAS en 81 planes
+   900 casillas ABIERTAS en 82 planes
    709 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
@@ -610,6 +610,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] Paso 0b -- el lanzador que inyecta en el juego
 - [ ] Paso 1 -- las DLL del juego y las que llegan tarde
 - [ ] Paso 2 -- las vigiladas, con sus datos
+- ... y 1 mas
+
+## [`PLAN_LAS_PUERTAS_PROFUNDAS.md`](PLAN_LAS_PUERTAS_PROFUNDAS.md) -- 4 abiertas, 0 hechas
+
+*PLAN LAS PUERTAS PROFUNDAS -- que la CPU hable mas directo, porque el kernel lo deja*
+
+- [ ] PP0 -- las decisiones de la seccion 4, contestadas por el propietario.
+- [ ] PP3 -- un MSR de una lista blanca, por invoca. Una op de Ring 0
+- [ ] PP2 -- rdpmc desde Ring 3 (CR4.PCE).
 - ... y 1 mas
 
 ## [`PLAN_LA_LENTE.md`](PLAN_LA_LENTE.md) -- 4 abiertas, 0 hechas

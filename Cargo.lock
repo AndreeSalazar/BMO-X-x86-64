@@ -471,6 +471,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "bmo-inti-hex"
+version = "0.1.0"
+dependencies = [
+ "bmo-inti-x86-64",
+ "bmo-mods",
+]
+
+[[package]]
 name = "bmo-inti-x86-64"
 version = "0.1.0"
 dependencies = [
