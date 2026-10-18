@@ -1,0 +1,65 @@
+# espera: BIEN
+# sale: piedra: 7 false
+# sale: madera: 2 true
+# sale: picar la piedra hasta romperla: 4 golpes
+# O3: el trait trae CUERPOS POR DEFECTO. `broken` y `mine` se escriben una
+# vez, en el trait; cada tipo los recibe sin escribirlos, o escribe el suyo.
+# No es herencia: no hay jerarquia, el trait solo usa lo que el promete.
+mod main "comportamiento escrito una vez, para todos los tipos que lo cumplen"
+
+type Durability
+    remaining: int
+
+type Stone
+    durability: Durability
+
+type Wood
+    durability: Durability
+
+trait Breakable
+    fn remaining(b: Breakable) -> int
+    fn hit(mut b: Breakable, force: int)
+    # por defecto: roto cuando no le queda nada
+    fn broken(b: Breakable) -> bool
+        return remaining(b) == 0
+    # por defecto: golpear y preguntar, con lo que el trait promete
+    fn mine(mut b: Breakable, force: int) -> bool
+        hit(mut b, force)
+        return broken(b)
+
+fn reduce(mut d: Durability, force: int)
+    if force >= d.remaining
+        d.remaining = 0
+    else
+        d.remaining = d.remaining - force
+
+# La piedra solo dice lo que el trait no sabe: cuanto le queda y como golpea.
+trait Breakable for Stone
+    fn remaining(b: Stone) -> int
+        return b.durability.remaining
+    fn hit(mut b: Stone, force: int)
+        reduce(mut b.durability, force)
+
+# La madera ademas cambia UNO de los por defecto: se astilla antes.
+trait Breakable for Wood
+    fn remaining(b: Wood) -> int
+        return b.durability.remaining
+    fn hit(mut b: Wood, force: int)
+        reduce(mut b.durability, force * 2)
+    fn broken(b: Wood) -> bool
+        return b.durability.remaining <= 2
+
+fn main()
+    let mut stone = Stone { durability: Durability { remaining: 10 } }
+    let mut wood = Wood { durability: Durability { remaining: 8 } }
+    let stone_broken = mine(mut stone, 3)
+    let wood_broken = mine(mut wood, 3)
+    print("piedra: ", stone.durability.remaining, " ", stone_broken)
+    print("madera: ", wood.durability.remaining, " ", wood_broken)
+    let mut otra = Stone { durability: Durability { remaining: 10 } }
+    let mut golpes = 0
+    let mut rota = false
+    while not rota
+        rota = mine(mut otra, 3)
+        golpes = golpes + 1
+    print("picar la piedra hasta romperla: ", golpes, " golpes")

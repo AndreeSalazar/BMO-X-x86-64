@@ -776,7 +776,8 @@ fn describe(f: Forma)              # CUALQUIER valor que cumpla Forma
 ### Lo que se escribe
 
 ```text
-   trait NOMBRE                 y debajo, sus fn SIN cuerpo: lo que promete.
+   trait NOMBRE                 y debajo, sus fn: lo que promete (con cuerpo,
+                                el que tienen por defecto, O3).
      fn f(x: NOMBRE, ...) -> T  El primer valor de cada una es del trait
    trait NOMBRE for TIPO        y debajo, las MISMAS fn con su cuerpo: como
                                 las cumple TIPO (un type, un enum, int, dec,
@@ -803,6 +804,37 @@ no cual es (T0087).
 
 Entre modulos, como todo lo demas: `pub trait Pieza` en `pieza.titan`, y en
 otro `trait pieza.Pieza for Rueda` y `pieza.vueltas(p, 2)`.
+
+### Cuerpos por defecto (O3, 18-10, sin palabras nuevas)
+
+Una fn de un `trait` puede llevar cuerpo: es lo que corre cada tipo que NO
+la escribe en su `trait ... for`. El comportamiento comun se escribe una vez.
+
+```text
+trait Breakable
+    fn remaining(b: Breakable) -> int       # cada tipo la escribe
+    fn broken(b: Breakable) -> bool         # por defecto, para todos
+        return remaining(b) == 0
+
+trait Breakable for Stone                   # usa `broken` tal cual
+    fn remaining(b: Stone) -> int
+        return b.durability.remaining
+
+trait Breakable for Wood                    # escribe la SUYA
+    fn remaining(b: Wood) -> int
+        return b.durability.remaining
+    fn broken(b: Wood) -> bool
+        return b.durability.remaining <= 2
+```
+
+No es herencia: no hay jerarquia ni clase madre. El cuerpo por defecto se
+juzga UNA vez, como un generico del trait: solo usa lo que el trait promete.
+Si mira un campo (`b.durability`) es T0073 en esa linea, aunque todos los
+tipos de hoy lo tuvieran. Quien escribe la suya conserva la firma del trait
+(T0086). Por dentro, cada tipo recibe su copia con su tipo (`broken<Stone>`),
+la misma forma que las fn que escribe; E1 la corre igual que una escrita.
+[Ejemplo](ejemplos/nivel10/por_defecto.titan) y
+[su NO](ejemplos/nivel10/defecto_mira_un_campo.titan).
 
 ### Las reglas, y quien las dice
 

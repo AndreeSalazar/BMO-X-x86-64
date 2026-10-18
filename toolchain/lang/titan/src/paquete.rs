@@ -747,6 +747,10 @@ fn join_inner(pkg: &Package) -> Result<Program, Message> {
                 if let Some(rt) = &mut s.ret {
                     r.ty(m, rt, (s.line, s.col))?;
                 }
+                // O3: a default body is resolved where its trait is written
+                if let Some(b) = &mut s.default {
+                    r.body(m, b)?;
+                }
                 s.name = format!("{}{}", prefix, s.name);
             }
             t.name = format!("{}{}", prefix, t.name);
@@ -941,6 +945,15 @@ mod tests {
             let m = lower(&[("src/main.titan", &main), screen]).unwrap_err();
             assert_eq!(m.code, Code::Unused, "casa.{name}: {:?}", m);
         }
+    }
+
+
+    /// O3 across modules: the default is resolved where its trait is written.
+    #[test]
+    fn a_default_body_crosses_modules_with_its_trait() {
+        let pieza = "mod pieza \"x\"\n\npub trait Pieza\n    fn peso(p: Pieza) -> int\n    fn doble(p: Pieza) -> int\n        return 2 * peso(p)\n";
+        let main = "mod main \"x\"\nmod pieza\n\ntype Rueda\n    kg: int\n\ntrait pieza.Pieza for Rueda\n    fn peso(r: Rueda) -> int\n        return r.kg\n\nfn main()\n    print(pieza.doble(Rueda { kg: 21 }))\n";
+        assert_eq!(printed(&[("src/main.titan", main), ("src/pieza.titan", pieza)]), vec!["42".to_string()]);
     }
 
 }

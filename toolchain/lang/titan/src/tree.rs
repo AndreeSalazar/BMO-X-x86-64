@@ -74,6 +74,10 @@ pub struct Sig {
     pub ret: Option<Ty>,
     pub line: usize,
     pub col: usize,
+    /// O3 (18-10): the body a `trait` gives this fn BY DEFAULT -- what every
+    /// type that keeps the trait runs unless its `trait ... for` writes its
+    /// own. `None`: each type must write it.
+    pub default: Option<Vec<Stmt>>,
 }
 
 /// `trait Forma for Circulo` and its fn: how the type keeps the trait (10).

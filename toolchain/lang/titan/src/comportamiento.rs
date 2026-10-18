@@ -61,6 +61,18 @@ pub fn expand(p: &mut Program) -> Result<(), Message> {
     traits(p)?;
     places(p)?;
     let mut extra = Vec::new();
+    // ** O3 (18-10): a fn with a body in its `trait` is its DEFAULT. It is
+    // judged ONCE as written, a generic of the trait (`area<Forma>`, its
+    // first value "a Forma"): it may only do what the trait promises, the
+    // same rule as any `fn mide(f: Forma)`. Each type that does not write
+    // it gets its own copy below, with its own type -- as if written there.
+    for t in &p.traits {
+        for s in &t.methods {
+            if let Some(body) = &s.default {
+                extra.push(Function { name: instance(&s.name, &Ty::Named(t.name.clone())), public: false, gpu: false, line: s.line, col: s.col, params: s.params.clone(), ret: s.ret.clone(), body: body.clone() });
+            }
+        }
+    }
     for (k, i) in p.impls.iter().enumerate() {
         let Some(t) = p.traits.iter().find(|t| t.name == i.trait_name) else {
             let near = p.traits.iter().map(|t| t.name.as_str()).min_by_key(|n| crate::check::distance(n, &i.trait_name)).filter(|n| crate::check::distance(n, &i.trait_name) <= 2);
@@ -118,6 +130,13 @@ pub fn expand(p: &mut Program) -> Result<(), Message> {
         }
         for s in &t.methods {
             let Some(g) = i.functions.iter().find(|g| g.name == short(&s.name)) else {
+                if let Some(body) = &s.default {
+                    // the default, for this type: its first value IS one
+                    let mut params = s.params.clone();
+                    params[0].ty = i.ty.clone();
+                    extra.push(Function { name: instance(&s.name, &i.ty), public: false, gpu: false, line: s.line, col: s.col, params, ret: s.ret.clone(), body: body.clone() });
+                    continue;
+                }
                 return Err(Message::new(
                     Code::BadImpl,
                     i.line,
@@ -265,6 +284,12 @@ fn places(p: &Program) -> Result<(), Message> {
             if let Some(n) = s.ret.as_ref().and_then(|r| inside(r, false)) {
                 return Err(place(s.line, s.col, &n, &format!("como resultado de `fn {}`", short(&s.name))));
             }
+            // O3: a default body follows the rules of any body
+            let mut lets = Vec::new();
+            typed_lets(s.default.as_deref().unwrap_or(&[]), &mut lets);
+            if let Some((t, line, col)) = lets.into_iter().find(|(t, _, _)| inside(t, false).is_some()) {
+                return Err(place(line, col, &inside(t, false).unwrap_or_default(), "como tipo de un `let`"));
+            }
         }
     }
     Ok(())
@@ -311,6 +336,20 @@ mod tests {
         let src = "mod main \"x\"\ntrait Doble\n    fn doble(x: Doble) -> int\nenum Luz\n    Verde\n    Rojo\ntrait Doble for int\n    fn doble(n: int) -> int\n        return n * 2\ntrait Doble for Luz\n    fn doble(l: Luz) -> int\n        match l\n            Verde\n                return 2\n            Rojo\n                return 4\nfn suma(a: Doble, b: Doble) -> int\n    return doble(a) + doble(b)\nfn main()\n    print(suma(21, Rojo))\n";
         let m = crate::lower(src).unwrap();
         assert!(format!("{:?}", m.flat).contains("\"46\""), "{:?}", m.flat);
+    }
+
+    #[test]
+    fn a_default_body_is_kept_or_replaced_and_judged_once() {
+        let src = "mod main \"x\"\ntrait Forma\n    fn area(f: Forma) -> int\n    fn doble(f: Forma) -> int\n        return 2 * area(f)\ntype A\n    n: int\ntype B\n    n: int\ntrait Forma for A\n    fn area(a: A) -> int\n        return a.n\ntrait Forma for B\n    fn area(b: B) -> int\n        return b.n\n    fn doble(b: B) -> int\n        return 100\nfn main()\n    print(doble(A { n: 3 }), \" \", doble(B { n: 3 }))\n";
+        let m = crate::lower(src).unwrap();
+        let shown = format!("{:?}", m.flat);
+        assert!(shown.contains("Text(\"6\"") && shown.contains("Text(\"100\""), "{shown}");
+        // replacing it keeps the signature the trait promises
+        let bad = src.replace("    fn doble(b: B) -> int\n        return 100\n", "    fn doble(b: B) -> bool\n        return true\n");
+        assert_eq!(crate::lower(&bad).unwrap_err().code, Code::BadImpl);
+        // and a default body follows the rules of any body
+        let lets = src.replace("        return 2 * area(f)\n", "        let g: Forma = f\n        return 2 * area(g)\n");
+        assert_eq!(crate::lower(&lets).unwrap_err().code, Code::TraitPlace);
     }
 
     #[test]

@@ -29,7 +29,7 @@ pub static FAMILIES: [&str; 16] = [
 ];
 
 /// Cuantos hay: la TAB mide sus tablas con esto.
-pub const COUNT: usize = 51;
+pub const COUNT: usize = 52;
 
 /// `static`, no `const`: UNA copia en `.rodata`, que Ring 3 lee por indice
 /// sin traerla a una pila de 64 KiB.
@@ -374,6 +374,17 @@ pub static MASTERS: [Master; COUNT] = [
         typed: &[],
         out: &["un Circulo: 12.56", "un Cuadrado: 9.00", "el mas grande mide 12.56", "centauro crece hasta 2"],
         source: "# sale: un Circulo: 12.56\n# sale: un Cuadrado: 9.00\n# sale: el mas grande mide 12.56\n# sale: centauro crece hasta 2\n# `trait` dice lo que una forma SABE hacer; cada tipo dice COMO, y `mide` vale para todas\nmod main \"formas que se saben medir\"\n\ntrait Forma\n    fn area(f: Forma) -> dec\n    fn nombre(f: Forma) -> text\n\ntype Circulo\n    r: dec\n\ntype Cuadrado\n    lado: dec\n\ntrait Forma for Circulo\n    fn area(c: Circulo) -> dec\n        return 3.14 * c.r * c.r\n    fn nombre(c: Circulo) -> text\n        return \"Circulo\"\n\ntrait Forma for Cuadrado\n    fn area(q: Cuadrado) -> dec\n        return q.lado * q.lado\n    fn nombre(q: Cuadrado) -> text\n        return \"Cuadrado\"\n\nfn describe(f: Forma) -> dec\n    print(\"un \", nombre(f), \": \", area(f))\n    return area(f)\n\ntrait Crece\n    fn crece(mut x: Crece)\n\ntype Nave\n    nombre: text\n    nivel: int\n\ntrait Crece for Nave\n    fn crece(mut n: Nave)\n        n.nivel = n.nivel + 1\n\nfn sube(mut x: Crece)\n    crece(mut x)\n\nfn main()\n    let a = describe(Circulo { r: 2.0 })\n    let b = describe(Cuadrado { lado: 3.00 })\n    if a > b\n        print(\"el mas grande mide \", a)\n    else\n        print(\"el mas grande mide \", b)\n    let mut n = Nave { nombre: \"centauro\", nivel: 0 }\n    sube(mut n)\n    sube(mut n)\n    print(n.nombre, \" crece hasta \", n.nivel)\n",
+    },
+    Master {
+        name: "por_defecto",
+        level: 10,
+        why: "No es herencia: no hay jerarquia, el trait solo usa lo que el promete.",
+        says: "comportamiento escrito una vez, para todos los tipos que lo cumplen",
+        words: &["fn", "let", "mut", "if", "else", "not", "for", "while", "return", "type", "trait"],
+        asks: Permissions::NONE,
+        typed: &[],
+        out: &["piedra: 7 false", "madera: 2 true", "picar la piedra hasta romperla: 4 golpes"],
+        source: "# sale: piedra: 7 false\n# sale: madera: 2 true\n# sale: picar la piedra hasta romperla: 4 golpes\n# O3: el trait trae CUERPOS POR DEFECTO. `broken` y `mine` se escriben una\n# vez, en el trait; cada tipo los recibe sin escribirlos, o escribe el suyo.\n# No es herencia: no hay jerarquia, el trait solo usa lo que el promete.\nmod main \"comportamiento escrito una vez, para todos los tipos que lo cumplen\"\n\ntype Durability\n    remaining: int\n\ntype Stone\n    durability: Durability\n\ntype Wood\n    durability: Durability\n\ntrait Breakable\n    fn remaining(b: Breakable) -> int\n    fn hit(mut b: Breakable, force: int)\n    # por defecto: roto cuando no le queda nada\n    fn broken(b: Breakable) -> bool\n        return remaining(b) == 0\n    # por defecto: golpear y preguntar, con lo que el trait promete\n    fn mine(mut b: Breakable, force: int) -> bool\n        hit(mut b, force)\n        return broken(b)\n\nfn reduce(mut d: Durability, force: int)\n    if force >= d.remaining\n        d.remaining = 0\n    else\n        d.remaining = d.remaining - force\n\n# La piedra solo dice lo que el trait no sabe: cuanto le queda y como golpea.\ntrait Breakable for Stone\n    fn remaining(b: Stone) -> int\n        return b.durability.remaining\n    fn hit(mut b: Stone, force: int)\n        reduce(mut b.durability, force)\n\n# La madera ademas cambia UNO de los por defecto: se astilla antes.\ntrait Breakable for Wood\n    fn remaining(b: Wood) -> int\n        return b.durability.remaining\n    fn hit(mut b: Wood, force: int)\n        reduce(mut b.durability, force * 2)\n    fn broken(b: Wood) -> bool\n        return b.durability.remaining <= 2\n\nfn main()\n    let mut stone = Stone { durability: Durability { remaining: 10 } }\n    let mut wood = Wood { durability: Durability { remaining: 8 } }\n    let stone_broken = mine(mut stone, 3)\n    let wood_broken = mine(mut wood, 3)\n    print(\"piedra: \", stone.durability.remaining, \" \", stone_broken)\n    print(\"madera: \", wood.durability.remaining, \" \", wood_broken)\n    let mut otra = Stone { durability: Durability { remaining: 10 } }\n    let mut golpes = 0\n    let mut rota = false\n    while not rota\n        rota = mine(mut otra, 3)\n        golpes = golpes + 1\n    print(\"picar la piedra hasta romperla: \", golpes, \" golpes\")\n",
     },
     Master {
         name: "activa",

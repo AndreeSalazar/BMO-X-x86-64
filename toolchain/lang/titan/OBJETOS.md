@@ -83,6 +83,12 @@ rechazo T0085 de un tipo que no cumple el contrato.
 - [ ] O3: definir si hacen falta cuerpos por defecto, extension de contratos
       y acceso mediante metodos. Cada uno requiere sus reglas de ambiguedad
       y visibilidad antes de sumar sintaxis.
+      **18-10, cuerpos por defecto hechos** (decision del propietario): una
+      fn de `trait` con cuerpo lo da por defecto; se juzga una vez como
+      generico del trait (T0073 si mira un campo) y cada tipo que no la
+      escribe recibe su copia. Sin palabras nuevas. Calculo y E1 coinciden
+      en [por_defecto](ejemplos/nivel10/por_defecto.titan). Faltan la llamada
+      con punto (`piedra.golpea(3)`) y la extension de contratos.
 - [ ] O4: evaluar colecciones de valores de tipos distintos con un contrato
       comun, solo ante un uso concreto. Definir representacion, propietario,
       coste y despacho; no basta permitir `[Trait]` en el parser.

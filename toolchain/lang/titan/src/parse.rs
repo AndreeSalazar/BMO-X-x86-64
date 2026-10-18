@@ -229,7 +229,7 @@ impl<'a> Parser<'a> {
         if end.kind != Kind::Newline {
             return Err(self.ladder(end).unwrap_or_else(|| self.expected(end, "el final de la linea", &format!("fn {}() y el cuerpo debajo, sangrado", name))));
         }
-        Ok(Sig { name: name.clone(), params, ret, line: fn_tok.line, col: fn_tok.col })
+        Ok(Sig { name: name.clone(), params, ret, line: fn_tok.line, col: fn_tok.col, default: None })
     }
 
     /// `trait Forma` and its fn without body, or `trait Forma for Circulo`
@@ -280,18 +280,14 @@ impl<'a> Parser<'a> {
             if ty.is_some() {
                 functions.push(self.function()?);
             } else {
-                let sig = self.signature()?;
-                self.next();
-                if self.peek().kind == Kind::Indent {
-                    let b = self.peek();
-                    return Err(Message::new(
-                        Code::Expected,
-                        b.line,
-                        b.col,
-                        &format!("`fn {}` de `trait {}` no lleva cuerpo", sig.name, name),
-                        "un `trait` dice QUE se sabe hacer; COMO lo hace cada tipo va en su `trait ... for`",
-                        &format!("pon el cuerpo en: trait {} for Circulo\n             fn {}(...)", name, sig.name),
-                    ));
+                // O3 (18-10): with a body below, it is the fn's DEFAULT --
+                // what a type runs when its `trait ... for` does not write it.
+                let mut sig = self.signature()?;
+                if self.ahead(1).kind == Kind::Indent {
+                    let what = format!("`fn {}` de `trait {}`", sig.name, name);
+                    sig.default = Some(self.block(f, &what, &format!("fn {}(...)\n                 return ...", sig.name))?);
+                } else {
+                    self.next();
                 }
                 methods.push(sig);
             }
