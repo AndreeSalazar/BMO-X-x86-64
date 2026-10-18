@@ -1,0 +1,12 @@
+[package]
+name = "bmo-msr-lista"
+version = "0.1.0"
+edition = "2021"
+description = "PP3 de PLAN_LAS_PUERTAS_PROFUNDAS: los MSR que una tarea de Ring 3 puede LEER por la puerta (la lista blanca), los que nunca (la lista negra) y la decision, con banco"
+license = "Apache-2.0"
+
+[lib]
+
+# ** CERO DEPENDENCIAS: lo consume Ring 0 (sin asignador), el emulador de la
+# casa y `cargo test` en el anfitrion, como `bmo-contadores`.
+[dependencies]
