@@ -1,0 +1,28 @@
+# espera: BIEN
+# sale: 7 entre 2: 3 y 1
+# sale: -7 entre 2: -4 y 1
+# sale: 7 entre -2: -3 y 1
+# sale: -7 entre -2: 4 y 1
+# sale: -6 entre 3: -2 y 0
+# sale: 5 entre -1: -5 y 0
+# sale: el angulo -150 da la vuelta a 3450
+# sale: el bloque de -1 es el -1, y su sitio dentro, el 9999
+# `div` y `rem`: la division ENTERA, la de Euclides -- el resto nunca es
+# negativo, y `a == div(a, b) * b + rem(a, b)` siempre. `/` sigue exacta.
+mod main "divide entero"
+
+fn main()
+    let a = 7
+    let b = 2
+    let menos_a = 0 - a
+    let menos_b = 0 - b
+    print(a, " entre ", b, ": ", div(a, b), " y ", rem(a, b))
+    print(menos_a, " entre ", b, ": ", div(menos_a, b), " y ", rem(menos_a, b))
+    print(a, " entre ", menos_b, ": ", div(a, menos_b), " y ", rem(a, menos_b))
+    print(menos_a, " entre ", menos_b, ": ", div(menos_a, menos_b), " y ", rem(menos_a, menos_b))
+    print(-6, " entre ", 3, ": ", div(-6, 3), " y ", rem(-6, 3))
+    let uno = 0 - 1
+    print(5, " entre ", uno, ": ", div(5, uno), " y ", rem(5, uno))
+    print("el angulo -150 da la vuelta a ", rem(-150, 3600))
+    let x = -1
+    print("el bloque de ", x, " es el ", div(x, 10000), ", y su sitio dentro, el ", rem(x, 10000))

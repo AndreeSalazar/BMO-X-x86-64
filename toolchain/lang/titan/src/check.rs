@@ -19,8 +19,9 @@ use crate::tree::{Arm, Expr, Mode, Program, Stmt, Ty};
 
 /// What the library gives: `print` (level 0), `len` (6), and `lee` -- the
 /// line typed on the program's own console (E1, `docs/plan/PLAN_LA_ENTRADA.md`)
-/// -- and the lists and maps of level 13 (`docs/plan/PLAN_LISTAS_Y_MAPAS.md`).
-const LIBRARY: [&str; 12] = ["print", "len", "lee", "numero", "byte", "lamina", "push", "pop", "put", "get", "has", "remove"];
+/// -- the lists and maps of level 13 (`docs/plan/PLAN_LISTAS_Y_MAPAS.md`),
+/// and the whole division of ints, `div` and `rem` (18-10).
+const LIBRARY: [&str; 14] = ["print", "len", "lee", "numero", "byte", "lamina", "push", "pop", "put", "get", "has", "remove", "div", "rem"];
 
 /// The library's fn of lists and maps (level 13): how many values each takes,
 /// whether it CHANGES its first one (then it goes lent: `push(mut l, x)`), and
@@ -870,7 +871,7 @@ fn target(p: &Program, callee: &str, n: usize, line: usize, col: usize, as_value
             line,
             col,
             &format!("`{}` no existe", callee),
-"no es una `fn` de este fichero, ni un caso de sus `enum`, ni de la biblioteca (la biblioteca, hoy, es `print`, `len`, `lee`, `numero` y las de listas y mapas: `push`, `pop`, `put`, `get`, `has`, `remove`)",
+"no es una `fn` de este fichero, ni un caso de sus `enum`, ni de la biblioteca (la biblioteca, hoy, es `print`, `len`, `lee`, `numero`, `div`, `rem` y las de listas y mapas: `push`, `pop`, `put`, `get`, `has`, `remove`)",
             &match near {
                 Some(k) => format!("quisiste decir `{}`?", k),
                 None => format!("define `fn {}()` en este fichero, o usa `print`", callee),
@@ -916,6 +917,17 @@ fn target(p: &Program, callee: &str, n: usize, line: usize, col: usize, as_value
             }
             if !as_value {
                 return Err(Message::new(Code::Result, line, col, "`lamina(...)` da una lamina, y aqui nadie la guarda", "pedir RAM que nadie tiene en la mano es pedirla para nada", "guardala: let mut l = lamina(4096)"));
+            }
+            return Ok(());
+        }
+        if callee == "div" || callee == "rem" {
+            // `div(a, b)` / `rem(a, b)` (18-10): the whole division of two
+            // ints, Euclid's -- the remainder never negative.
+            if n != 2 {
+                return Err(Message::new(Code::Args, line, col, &format!("`{}` pide 2 valores, y aqui se le dan {}", callee, n), "`div` y `rem` dividen UN numero entero entre otro", &format!("{}(a, b)", callee)));
+            }
+            if !as_value {
+                return Err(Message::new(Code::Result, line, col, &format!("`{}(...)` da un numero, y aqui nadie lo guarda", callee), "la cuenta se perderia nada mas hacerse", &format!("guardalo: let q = {}(a, b)", callee)));
             }
             return Ok(());
         }

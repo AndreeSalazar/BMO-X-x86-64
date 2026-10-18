@@ -1,0 +1,6 @@
+# espera: T0063
+# la division entera es de enteros: un `dec` se divide exacto con `/`
+mod main "reparte"
+
+fn main()
+    print(div(7.5, 2))

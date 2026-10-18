@@ -628,6 +628,7 @@ fn expr(p: &Program, e: &Expr, hondo: usize, forma: Forma) -> Result<u64, Messag
         // A4b: una gpu fn cuenta una celda; no le pide RAM al kernel.
         Expr::Call { callee, line, col, .. } if callee == "lamina" => Err(no(*line, *col, "`lamina()` dentro de una gpu fn", "un hilo de la 3060 cuenta UNA celda: la RAM la pide la CPU, que es la que habla con el kernel", "pide la lamina en una fn de la CPU")),
         Expr::Call { callee, line, col, .. } if callee == "byte" => Err(no(*line, *col, "`byte()` dentro de una gpu fn", "en la 3060 cada numero es un f32: el byte es de la CPU, donde se GUARDAN los pixeles (`[byte]`, TA1); lo que la gpu fn cuenta llega y sale como f32", "cuenta en f32 aqui, y vuelvelo byte en la CPU: byte(...) al guardar")),
+        Expr::Call { callee, line, col, .. } if (callee == "div" || callee == "rem") && !p.functions.iter().any(|g| g.name == *callee) => Err(no(*line, *col, &format!("`{}()` dentro de una gpu fn", callee), "la division entera es de enteros, y en la 3060 cada numero es un f32", "divide los enteros en la CPU, antes de darle la tabla")),
         // A name nobody declared is the checker's NO (T0051), after this one.
         Expr::Call { callee, args, .. } if !p.functions.iter().any(|g| g.name == *callee) => {
             let mut cost = 1u64;

@@ -15,6 +15,7 @@ Los resultados completos estan en el [parte del metal](docs/metal/METAL_2026-10-
 | Ultima sesion de MUNDO | 1.141 fotogramas CPU, cero GPU; muestra 19,60 FPS | G0 volvio a fallar: no es una medida de velocidad de la RTX. |
 | Captura PNG | Dos 1080p guardados tras corregir el cupo temporal | Solo pantalla completa acreditada en esta tanda. |
 | Lente | Consulta de 128 bytes vista: hex y bits coinciden | Rotulos corregidos en host; autopsia nueva y EOF pendientes. |
+| TITAN++ `div` / `rem` | Division entera de Euclides en la biblioteca, sin palabras nuevas | Anfitrion: 860.169 -> 290.169 instrucciones (-66 %) en un bucle frente a la fn a mano; las apps aun no migran. |
 | Portada | README renovado, cabecera propia, navegacion y limites claros | Presentacion comprobada en escritorio y movil; no agrega pruebas de metal. |
 
 ## Cambios recientes que explican el estado

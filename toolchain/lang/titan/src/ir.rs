@@ -736,6 +736,12 @@ fn value(e: &Expr, locals: &mut Vec<Local>, p: &Program) -> Value {
         Expr::Call { callee, args, line, col } if callee == "len" => Value::Len(Box::new(value(&args[0], locals)), (*line, *col)),
         Expr::Call { callee, args, line, col } if callee == "byte" => Value::Byte(Box::new(value(&args[0], locals)), (*line, *col)),
         Expr::Call { callee, args, line, col } if callee == "lamina" => Value::Lamina(Box::new(value(&args[0], locals)), (*line, *col)),
+        // `div(a, b)` / `rem(a, b)` (18-10): an operator of two ints, unless
+        // the program wrote its own fn of that name (the one it wrote wins).
+        Expr::Call { callee, args, line, col } if (callee == "div" || callee == "rem") && !p.functions.iter().any(|f| &f.name == callee) => {
+            let op = if callee == "div" { "div" } else { "rem" };
+            Value::Bin(op, Box::new(value(&args[0], locals)), Box::new(value(&args[1], locals)), (*line, *col))
+        }
         // `get(m, k)` / `has(m, k)` (level 13): they read, and change nothing.
         Expr::Call { callee, args, line, col } if (callee == "get" || callee == "has") && !p.functions.iter().any(|f| &f.name == callee) => {
             let lib = if callee == "get" { Lib::Get } else { Lib::Has };

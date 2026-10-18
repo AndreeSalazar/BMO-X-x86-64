@@ -148,6 +148,36 @@ parentesis primero. `+` entre dos textos los pone uno detras del otro.
 En el nivel 1 todo valor se sabe antes de correr (todavia no se lee nada de
 fuera), asi que el `.bex` ya lleva los resultados: `titan ir` los muestra.
 
+### La division ENTERA: `div` y `rem` (18-10, sin palabras nuevas)
+
+`/` sigue siendo exacta: 7 / 2 es un NO, no un 3 callado. Cuando lo que se
+quiere ES el cociente entero -- el bloque de una coordenada, la vuelta de
+un angulo, la columna de un pixel --, se pide por su nombre:
+
+```text
+   div(a, b)     el cociente de Euclides        div(-7, 2) es -4
+   rem(a, b)     el resto, NUNCA negativo       rem(-7, 2) es 1
+                 a == div(a, b) * b + rem(a, b), siempre
+```
+
+Antes cada app escribia `fn div(a: int, d: int) -> int` con
+`(a - a % d) / d` (once copias) y `(x % m + m) % m` para la vuelta. Ese
+`div` corta hacia el cero: con negativos NO es el de la biblioteca
+(-1 entre 10000 da 0 a mano y -1 con `div`). Una fn propia llamada `div` o
+`rem` sigue mandando: la que escribe el programa gana, como con `get`.
+Un bucle de 10000 vueltas con la fn a mano gasta 860.169 instrucciones en
+E1; con `div` y `rem`, 290.169 (el emulador del anfitrion, no el Ryzen).
+
+```text
+   div / rem de un dec, o con un dec            T0063
+   entre cero                                   T0061
+   div(MIN, -1) no cabe                         T0060 (rem(MIN, -1) es 0)
+   dentro de una gpu fn                         T0090 (son de la CPU)
+```
+
+Ejemplos: [division_entera](ejemplos/nivel1/division_entera.titan),
+[euclides_entero](ejemplos/nivel5/euclides_entero.titan).
+
 ---
 
 ## Nivel 2 -- contar (3 palabras: `fn`, `let`, `mut`) -- 04-10

@@ -871,7 +871,18 @@ pub fn class(v: &Value, known: &[Option<Class>], m: &Module) -> Result<Class, Me
                         Class::Int
                     }
                 }
-                "%" if a == Class::Int && b == Class::Int => Class::Int,
+                "%" | "div" | "rem" if a == Class::Int && b == Class::Int => Class::Int,
+                "div" | "rem" => {
+                    let odd = if a != Class::Int { a } else { b };
+                    return Err(Message::new(
+                        Code::Mixed,
+                        at.0,
+                        at.1,
+                        &format!("`{}` divide numeros enteros, y aqui hay {}", op, odd.name(types)),
+                        "la division entera da un cociente y un resto enteros: un decimal se divide EXACTO con `/`",
+                        "divide un `dec` con `/`, o pasa ints: div(7, 2)",
+                    ))
+                }
                 "%" if numbers => {
                     return Err(Message::new(
                         Code::Mixed,
