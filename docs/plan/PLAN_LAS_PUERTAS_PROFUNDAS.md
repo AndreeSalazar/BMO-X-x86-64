@@ -152,6 +152,86 @@ no de BMO-X.
     syscall; la misma tarea con `0x64` fuera de su mapa da `#GP`; una tarea
     sin permiso, `#GP` en los dos; y al morir, su mapa no queda en el TSS.
 
+# 5b. PP3, LO QUE FALTA -- el relevo, pieza a pieza (18-10)
+
+> El propietario: *"mejor poner eso en datos para que la otra IA haga ese
+> esfuerzo"*. Lo de abajo es lo que falta para cerrar PP3, escrito para que
+> quien lo tome no tenga que volver a estudiarlo. Se APARCA aqui: no hay
+> parche, hay piezas. Lo hecho y probado ya esta en el arbol.
+
+**Hecho (commits `25a0921`, `bfc42a5`):** `platform/shared/bmo-msr-lista`, la
+decision sin dependencias: `BLANCA` (PATCH_LEVEL `0x8B`, MPERF `0xE7`, APERF
+`0xE8`, PStateCurLim `0xC001_0061`, PStateStat `0xC001_0063`, PStateDef0..7
+`0xC001_0064`..`006B`), `NEGRA` con su motivo, `CONTADORES`
+(`0xC001_0200`..`020B`), `No { FueraDeLaLista = 1, OtraCpu = 2 }` y
+`decidir(msr: u64, cpu_del_perfil: bool) -> Result<&Fila, No>`. Banco: 3 ok.
+
+**Por que se paro:** el clasificador de permisos de la sesion nego dos veces
+tocar Ring 0 y `.github/CODEOWNERS` ("Modify Shared Resources", "Security
+Weaken"). Quien lo tome necesita esas rutas permitidas, o que el propietario
+aplique a mano.
+
+**Lo que se sabia antes de empezar** (no repetir el estudio):
+- el kernel YA lee MSR solo en la CPU del perfil:
+  `ring0/cpu_vendor/profile.rs::extensiones().0` (patron de
+  `cpu_vendor/ryzen_5_5600x/contadores.rs::se_pueden`);
+- MPERF/APERF y la energia acumulada YA salen por `TASK_OP_INFO`
+  (`INFO_CPU_MPERF` `0x6B`, `INFO_CPU_APERF` `0x6C`, `INFO_CPU_UJ_*`);
+- la ultima op es `TASK_OP_CONTAR = 0x48`: la nueva es `0x49`;
+- el NO del despachador es `BmoStatus::negado(motivo, valor)`, codigo
+  `ERROR_NEGADO = 11` (`syscall/ops.rs`), con el motivo en las banderas;
+- la base del kernel compila con
+  `cargo +nightly build --release --target x86_64-unknown-none` desde
+  `Ultra_kernel_x86-64/kernel` (~1 min).
+
+**Las piezas, en orden:**
+
+1. `platform/abi/bmo-abi/src/syscalls/surface/tarea.rs`, detras de
+   `CONTAR_PARA`: `TASK_OP_LEE_MSR: u64 = 0x49`, `LEE_MSR_FUERA: u32 = 1`,
+   `LEE_MSR_OTRA_CPU: u32 = 2` y `ERROR_NEGADO: u32 = 11` (el ABI no lo tenia),
+   con su comentario: lee de ESTE nucleo, nunca escribe.
+2. `Ultra_kernel_x86-64/kernel/src/ring0/syscall/ops.rs`, detras de
+   `CONTAR_PARA`: `pub(crate) const TASK_OP_LEE_MSR: u64 = 0x49;` (espejo).
+3. `.../ring0/syscall/mod.rs`: en el despachador, detras de
+   `TASK_OP_CONTAR => contar(arg0, arg1),`, el brazo
+   `TASK_OP_LEE_MSR => lee_msr(arg0),`; y junto a `fn contar`:
+   ```text
+   fn lee_msr(msr: u64) -> BmoStatus {
+       let del_perfil = crate::ring0::cpu_vendor::profile::extensiones().0;
+       match bmo_msr_lista::decidir(msr, del_perfil) {
+           Ok(fila) => BmoStatus::ok_value(crate::ring0::cpu_vendor::ryzen_5_5600x::msr::leer(fila)),
+           Err(no) => BmoStatus::negado(no as u32, 0),
+       }
+   }
+   ```
+4. `.../ring0/cpu_vendor/ryzen_5_5600x/msr.rs` nuevo, y `pub mod msr;` en su
+   `mod.rs` detras de `pub mod presupuesto;`: `pub fn leer(fila:
+   &bmo_msr_lista::Fila) -> u64` con un `rdmsr` de `fila.msr`
+   (`options(nomem, nostack)`). Recibe una FILA, nunca un numero: lo de fuera
+   de la lista no tiene por donde entrar.
+5. `Ultra_kernel_x86-64/kernel/Cargo.toml`, detras de `bmo-contadores`:
+   `bmo-msr-lista = { path = "../../platform/shared/bmo-msr-lista" }`.
+6. `.github/CODEOWNERS`, detras de `bmo-contadores`:
+   `/platform/shared/bmo-msr-lista/ @AndreeSalazar` (el guardian
+   `codeowners` falla sin ella en cuanto el kernel lo enlaza).
+7. El emulador, `toolchain/forge/bmo-lower/src/emu/sistema.rs`, junto al brazo
+   de `TASK_OP_CONTAR`: el mismo `decidir` con la CPU del perfil MODELADA, y un
+   valor que se vea modelado (por ejemplo `0x454D_5500_0000_0000 | msr`); el
+   NO con `fallar_syscall(ERROR_NEGADO | (motivo << 32))`. Y la dependencia en
+   `toolchain/forge/bmo-lower/Cargo.toml`.
+8. INTI: en `toolchain/forge/sem-asm/tables/lang/inti/modulos.toml`,
+   `op_lee_msr = "0x49"` (y los dos motivos), con sus filas en
+   `toolchain/lang/inti/tests/espejo_del_kernel.rs` (la prueba lee el fuente
+   del kernel); una prueba como `emisor-x86_64/tests/contar.rs` que pide
+   PATCH_LEVEL (valor modelado) y EFER (`0xC000_0080`: NO, motivo 1); y la
+   sonda `sondas/msr.inti`, que lista la blanca en el Ryzen.
+
+**Como se sabe:** el kernel compila; `cargo test -p bmo-msr-lista`,
+`-p bmo-lower`, `-p bmo-inti-x86-64`, `-p bmo-inti-front` (el espejo); los
+guardianes `codeowners`, `ascii-sweep --check`, `planes --check`; y en el
+Ryzen, la sonda: el microcodigo y los ocho P-states. En QEMU sin `-cpu host`
+solo se vera el NO de otra CPU (motivo 2), y eso tambien es la prueba.
+
 # 6. Lo que este plan NO es
 
 - **No es dar Ring 0 a una app.** Ninguna puerta deja escribir un MSR, un
