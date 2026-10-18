@@ -882,6 +882,13 @@ fn main()
    f(x)                            con valores: un hilo
    f(xs, ys)                       con TABLAS del mismo largo: un hilo por
                                    celda, y una tabla de resultados
+   f(xs, ys)  con [f32]            con LISTAS (MC4, 18-10): del largo que
+                                   tengan al correr, en el monton y no en la
+                                   pila; una lista de resultados. Largos
+                                   distintos: T0072, al correr
+   f(xs, k)                        un valor SUELTO entre tablas o listas
+                                   llega igual a cada celda (la camara de un
+                                   fotograma), sin repetirlo en una tabla
    let xs: [f32; n] = [...]        un numero entra a f32 SOLO por un tipo
                                    declarado (D4): ahi se redondea, una vez
    round(x, 2)                     la puerta de vuelta: el f32 se escribe

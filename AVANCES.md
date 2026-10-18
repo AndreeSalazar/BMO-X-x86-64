@@ -17,6 +17,8 @@ Los resultados completos estan en el [parte del metal](docs/metal/METAL_2026-10-
 | Lente | Consulta de 128 bytes vista: hex y bits coinciden | Rotulos corregidos en host; autopsia nueva y EOF pendientes. |
 | TITAN++ `div` / `rem` | Division entera de Euclides en la biblioteca, sin palabras nuevas | Anfitrion: 860.169 -> 290.169 instrucciones (-66 %) en un bucle frente a la fn a mano; las apps aun no migran. |
 | TITAN++ la casa | `use casa.medida`: modulos compartidos dentro del compilador | ECCE, RESOLUCION, TINTA y `nivel11/ventana` dejan su copia de `medida.titan`; salida de sus pruebas identica. |
+| TITAN++ O3 + O4 | Cuerpos por defecto en un trait; listas y mapas de un trait | La primera red de nodos de ILLAPA (HO1) en el banco: calculo == E1 == Python. |
+| MC4 (a) | gpu fn y `publica` sobre listas del monton; MUNDO de 80 a 126 caras | Mismos pixeles en sus pruebas; falta el metal y subir los 768 vertices del DIRECTOR. |
 | Portada | README renovado, cabecera propia, navegacion y limites claros | Presentacion comprobada en escritorio y movil; no agrega pruebas de metal. |
 
 ## Cambios recientes que explican el estado

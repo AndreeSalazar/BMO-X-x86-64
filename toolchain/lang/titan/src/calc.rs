@@ -644,23 +644,35 @@ impl Run<'_, '_> {
     /// what the function left in it; a `take` one is gone.
     fn call_with(&mut self, func: usize, args: &[Value], at: At, known: &mut Vec<Option<Const>>) -> Result<Option<Const>, Message> {
         let vals = args.iter().map(|a| self.ev(a, known)).collect::<Result<Vec<_>, _>>()?;
-        // ** A `gpu fn` applied to TABLES (level 11, D1): one cell of each
-        // per thread -- here, one call per cell, in order. The 3060 runs
-        // them at once; the result is the same, cell by cell.
-        if self.m.functions[func].gpu && self.device.is_some() {
-            return self.on_device(func, vals, at).map(Some);
-        }
-        if self.m.functions[func].gpu && vals.iter().any(|v| matches!(v, Const::Table(_))) {
-            let n = match &vals[0] {
-                Const::Table(items) => items.len(),
-                _ => 0,
-            };
-            let mut out = Vec::with_capacity(n);
-            for i in 0..n {
-                let cell: Vec<Const> = vals.iter().map(|v| if let Const::Table(items) = v { items[i].clone() } else { v.clone() }).collect();
-                out.push(self.call(func, cell, at)?.0.expect("gpu: a gpu fn gives a value"));
+        // ** MC4 (18-10): a gpu fn on LISTS is the same cell by cell: the
+        // lists go as tables (so the 3060 of the oracle still runs them) and
+        // the result comes back a list. Of one length, or T0072.
+        if self.m.functions[func].gpu && vals.iter().any(|v| matches!(v, Const::List(..))) {
+            let lens: Vec<usize> = vals.iter().filter_map(|v| if let Const::List(_, items) = v { Some(items.len()) } else { None }).collect();
+            if lens.iter().any(|n| *n != lens[0]) {
+                return Err(Message::new(
+                    Code::Outside,
+                    at.0,
+                    at.1,
+                    &format!("`{}` recibe listas de largos distintos: {}", self.m.functions[func].name, lens.iter().map(|n| n.to_string()).collect::<Vec<_>>().join(", ")),
+                    "una celda de cada lista por hilo: con una mas corta, el hilo que sobra leeria una celda que no esta",
+                    "dale listas del mismo largo: len(xs) == len(ys)",
+                ));
             }
-            return Ok(Some(Const::Table(out)));
+            let ret = if self.m.functions[func].ret == Some(Ty::Bool) { Ty::Bool } else { Ty::F32 };
+            if lens[0] == 0 {
+                return Ok(Some(Const::List(ret, Vec::new())));
+            }
+            let tables = vals.into_iter().map(|v| if let Const::List(_, items) = v { Const::Table(items) } else { v }).collect();
+            // a value alone goes to every cell, the gpu_cells way
+            let out = match self.gpu_cells(func, tables, at)? {
+                Const::Table(items) => items,
+                other => unreachable!("a gpu fn on tables gives a table, not {:?}", other),
+            };
+            return Ok(Some(Const::List(ret, out)));
+        }
+        if self.m.functions[func].gpu && (self.device.is_some() || vals.iter().any(|v| matches!(v, Const::Table(_)))) {
+            return self.gpu_cells(func, vals, at).map(Some);
         }
         let (result, finals) = self.call(func, vals, at)?;
         for (a, back) in args.iter().zip(finals) {
@@ -685,6 +697,23 @@ impl Run<'_, '_> {
     /// ** A `gpu fn` run by the DEVICE (level 11, G3): its cells, by their
     /// bits, and back. A value that is not a table is one cell; tables give
     /// one cell per thread.
+    /// ** A `gpu fn` applied to TABLES (level 11, D1): one cell of each per
+    /// thread -- by its device if there is one, or here, one call per cell,
+    /// in order. The 3060 runs them at once; the result is the
+    /// same, cell by cell.
+    fn gpu_cells(&mut self, func: usize, vals: Vec<Const>, at: At) -> Result<Const, Message> {
+        if self.device.is_some() {
+            return self.on_device(func, vals, at);
+        }
+        let n = vals.iter().find_map(|v| if let Const::Table(items) = v { Some(items.len()) } else { None }).unwrap_or(0);
+        let mut out = Vec::with_capacity(n);
+        for i in 0..n {
+            let cell: Vec<Const> = vals.iter().map(|v| if let Const::Table(items) = v { items[i].clone() } else { v.clone() }).collect();
+            out.push(self.call(func, cell, at)?.0.expect("gpu: a gpu fn gives a value"));
+        }
+        Ok(Const::Table(out))
+    }
+
     fn on_device(&mut self, func: usize, vals: Vec<Const>, at: At) -> Result<Const, Message> {
         let m = self.m;
         let table = vals.iter().any(|v| matches!(v, Const::Table(_)));

@@ -342,7 +342,12 @@ impl E1<'_> {
         let (n, _) = self.eval(n)?;
         let (p, cp) = self.eval(p)?;
         let (c, _) = self.eval(c)?;
-        let Class::Table(_, celdas) = cp else { return Err(format!("linea {}: `director.publica` sin tablas (fallo del compilador)", at.0)) };
+        // MC4 (18-10): las de una LISTA se miden al correr (`None`)
+        let celdas = match cp {
+            Class::Table(_, celdas) => Some(celdas),
+            Class::List(_) => None,
+            _ => return Err(format!("linea {}: `director.publica` sin tablas ni listas (fallo del compilador)", at.0)),
+        };
         let out = self.temp(8);
         self.store_imm(out, 0);
         let mut no = Vec::new();
@@ -354,8 +359,22 @@ impl E1<'_> {
         self.load(n, RCX);
         x86::test_r64_r64(&mut self.code, RCX, RCX);
         no.push(self.jcc(0x8C));
-        x86::cmp_r64_imm32(&mut self.code, RCX, (celdas / 4) as i32);
-        no.push(self.jcc(0x8F));
+        match celdas {
+            Some(celdas) => {
+                x86::cmp_r64_imm32(&mut self.code, RCX, (celdas / 4) as i32);
+                no.push(self.jcc(0x8F));
+            }
+            None => {
+                // 4 f32 por vertice: 4 * n no pasa de lo que tiene CADA lista
+                for lista in [p, c] {
+                    x86::mov_r64_r64(&mut self.code, RAX, RCX);
+                    x86::shl_r64_imm8(&mut self.code, RAX, 2);
+                    self.load(lista.at(8), RDX);
+                    x86::cmp_r64_r64(&mut self.code, RAX, RDX);
+                    no.push(self.jcc(0x87));
+                }
+            }
+        }
         x86::mov_r64_at_reg_disp32(&mut self.code, RAX, R13, byte(CAMPO_CAPACIDAD - 1));
         x86::shr_r64_imm8(&mut self.code, RAX, 32);
         x86::cmp_r64_r64(&mut self.code, RCX, RAX);
@@ -406,8 +425,14 @@ impl E1<'_> {
         self.lea(R9, R9, CABECERA as i32);
         // Los n vertices: cuatro f32 de cada tabla (una celda son 8 bytes, el
         // f32 en la mitad baja), su posicion y su color.
-        self.addr(p, RSI);
-        self.addr(c, RDX);
+        if celdas.is_some() {
+            self.addr(p, RSI);
+            self.addr(c, RDX);
+        } else {
+            // de una lista, sus celdas: el puntero de su asa
+            self.load(p, RSI);
+            self.load(c, RDX);
+        }
         x86::test_r64_r64(&mut self.code, RCX, RCX);
         let vacio = self.jcc(0x84);
         let vuelta = self.etiqueta();

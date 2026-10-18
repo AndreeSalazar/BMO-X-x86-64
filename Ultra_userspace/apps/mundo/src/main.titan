@@ -25,9 +25,10 @@
 # y el recorte de cerca (V2b) -- el suelo pasa por debajo de la camara y se
 # ve hasta el borde de la pantalla --.
 #
-# ** LO QUE CABE. Una tabla de f32 vive en la pila (8 bytes por celda en E1,
-# 48 KiB para todos los marcos): por eso 80 caras como mucho por fotograma, y
-# las cuentas de 8 en 8 (`trozo`). Lanzado desde el shell nadie compone, y
+# ** LO QUE CABE (MC4, 18-10). Los vertices van en LISTAS del monton, no en
+# tablas de la pila (que daban 80 caras como mucho, de 8 en 8): el techo es
+# lo que el DIRECTOR dibuja de una lamina, 768 vertices -- 126 caras y la
+# mira (`dibuja`). Lanzado desde el shell nadie compone, y
 # lo dice; la prueba `tests/mundo.rs` del emisor lo lanza el escritorio de
 # mentira, le manda teclas, lee la lamina y la dibuja con el juez de la CPU.
 mod main "MUNDO: bloques en 3D -- el primer peldanio del Minecraft propio, por VERRANO"
@@ -38,12 +39,14 @@ mod camera
 mod hud
 mod pointer
 
-# Las caras por fotograma, y los vertices: 6 por cara.
+# Las caras por fotograma, y los vertices: 6 por cara y los 12 de la mira.
+# El techo ya no es la pila (MC4): es lo que el DIRECTOR dibuja de una
+# lamina por fotograma, 768 vertices (`laminas.rs`).
 fn caras_max() -> int
-    return 80
+    return 126
 
 fn vertices_max() -> int
-    return 492
+    return 768
 
 # El seno y el coseno de la orientacion, en milesimas.
 fn seno(k: int) -> int
@@ -103,18 +106,19 @@ fn celda(x: int, y: int, z: int) -> int
         return -1
     return malla.indice(bx, by, bz)
 
-# ** UN TROZO: los vertices `desde .. desde + 48` -- 8 caras, de la lista
-# `elegidas` --, contados por las gpu fn y escritos en `pos` y `col`.
-fn trozo(mut pos: [f32; 1968], mut col: [f32; 1968], caras: [int], elegidas: [int], desde: int, cuantos: int, cam: camera.Camera, tonos: [f32; 126])
-    let cero: f32 = 0.0
+# ** EL DIBUJO DE UN FOTOGRAMA (MC4, 18-10): los vertices de TODAS las caras
+# elegidas, en LISTAS del monton -- antes, tablas de la pila contadas de 8
+# en 8 caras, y 80 como mucho --, contados por las gpu fn de una vez (la
+# camara, un valor suelto que llega a cada celda) y puestos detras de lo que
+# ya llevan `pos` y `col` (la mira).
+fn dibuja(mut pos: [f32], mut col: [f32], caras: [int], elegidas: [int], cam: camera.Camera, tonos: [f32; 126])
     let uno: f32 = 1.0
-    let mut ex: [f32; 48] = [cero; 48]
-    let mut ey: [f32; 48] = [cero; 48]
-    let mut ez: [f32; 48] = [cero; 48]
+    let mut ex: [f32] = []
+    let mut ey: [f32] = []
+    let mut ez: [f32] = []
     let orden: [int; 6] = [0, 1, 2, 0, 2, 3]
     let mut q: [int; 3] = [0, 0, 0]
-    for k in range(cuantos)
-        let n = desde + k
+    for n in range(6 * len(elegidas))
         let c = 7 * elegidas[div(n, 6)]
         let cara = caras[c]
         let a = div(cara, 2)
@@ -135,40 +139,31 @@ fn trozo(mut pos: [f32; 1968], mut col: [f32; 1968], caras: [int], elegidas: [in
         let fx: f32 = q[0]
         let fy: f32 = q[1]
         let fz: f32 = q[2]
-        ex[k] = fx
-        ey[k] = fy
-        ez[k] = fz
+        push(mut ex, fx)
+        push(mut ey, fy)
+        push(mut ez, fz)
         let t = caras[c + 6]
-        let target = n + 12
         for i in range(3)
-            col[4 * target + i] = tonos[18 * t + 3 * cara + i]
-        col[4 * target + 3] = uno
-    let fcx: f32 = cam.position.x
-    let fcy: f32 = cam.position.y
-    let fcz: f32 = cam.position.z
-    let fs: f32 = seno(cam.angles.yaw)
-    let fc: f32 = coseno(cam.angles.yaw)
-    let cxs: [f32; 48] = [fcx; 48]
-    let cys: [f32; 48] = [fcy; 48]
-    let czs: [f32; 48] = [fcz; 48]
-    let ss: [f32; 48] = [fs; 48]
-    let cs: [f32; 48] = [fc; 48]
-    let vx = vista_x(ex, ez, cxs, czs, ss, cs)
-    let vz = vista_z(ex, ez, cxs, czs, ss, cs)
+            push(mut col, tonos[18 * t + 3 * cara + i])
+        push(mut col, uno)
+    let cx: f32 = cam.position.x
+    let cy: f32 = cam.position.y
+    let cz: f32 = cam.position.z
+    let s: f32 = seno(cam.angles.yaw)
+    let c: f32 = coseno(cam.angles.yaw)
     let sp: f32 = seno(cam.angles.pitch)
     let cp: f32 = coseno(cam.angles.pitch)
-    let sps: [f32; 48] = [sp; 48]
-    let cps: [f32; 48] = [cp; 48]
-    let depth = pitch_depth(ey, cys, vz, sps, cps)
+    let vx = vista_x(ex, ez, cx, cz, s, c)
+    let vz = vista_z(ex, ez, cx, cz, s, c)
+    let depth = pitch_depth(ey, cy, vz, sp, cp)
     let x = recorte_x(vx)
-    let y = recorte_y(ey, cys, vz, sps, cps)
+    let y = recorte_y(ey, cy, vz, sp, cp)
     let z = recorte_z(depth)
-    for k in range(cuantos)
-        let n = desde + k + 12
-        pos[4 * n] = x[k]
-        pos[4 * n + 1] = y[k]
-        pos[4 * n + 2] = z[k]
-        pos[4 * n + 3] = depth[k]
+    for k in range(len(x))
+        push(mut pos, x[k])
+        push(mut pos, y[k])
+        push(mut pos, z[k])
+        push(mut pos, depth[k])
 
 # Las caras que miran a la camara (una +a, desde mas alla de su plano), como
 # mucho `caras_max()`.
@@ -203,9 +198,6 @@ fn main()
     let mut caras = malla.caras(mundo)
     # Posicion y orientacion separadas; O1 presta la orientacion al girar.
     let mut cam = camera.initial()
-    let cero: f32 = 0.0
-    let mut pos: [f32; 1968] = [cero; 1968]
-    let mut col: [f32; 1968] = [cero; 1968]
     let mut f = 0
     let mut cambio = true
     pointer.begin()
@@ -289,14 +281,10 @@ fn main()
         if cambio
             let elegidas = elige(caras, cam)
             let nv = 6 * len(elegidas)
-            let mut desde = 0
-            while desde < nv
-                let mut cuantos = nv - desde
-                if cuantos > 48
-                    cuantos = 48
-                trozo(mut pos, mut col, caras, elegidas, desde, cuantos, cam, tonos)
-                desde = desde + cuantos
-            hud.crosshair(mut pos, mut col, 0)
+            let mut pos: [f32] = []
+            let mut col: [f32] = []
+            hud.crosshair(mut pos, mut col)
+            dibuja(mut pos, mut col, caras, elegidas, cam, tonos)
             director.publica(f, nv + 12, pos, col)
             f = f + 1
             cambio = false

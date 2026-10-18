@@ -24,7 +24,7 @@ del lenguaje, del kernel, del METAL (el Ryzen) o una DECISION del propietario.
 
 | App | Que es | Hoy | Plan | Lo que le pide a TITAN++ |
 |---|---|---|---|---|
-| **MUNDO** | el Minecraft propio | TITAN++, jugable | `PLAN_MUNDO` | tablas `f32` fuera de la pila (hoy 8 bytes por celda y 80 caras por fotograma: **MC4**), fisica con `div` (HECHO), resaltado y teclas mantenidas (app) |
+| **MUNDO** | el Minecraft propio | TITAN++, jugable | `PLAN_MUNDO` | vertices en listas del monton (MC4 (a), HECHO: de 80 a 126 caras); subir los 768 vertices del DIRECTOR; fisica con `div` (HECHO), resaltado y teclas mantenidas (app) |
 | **ECCE** | escribir: guiones al nivel de Final Draft | TITAN++, 7 modulos | `PLAN_ECCE` | trabajar con texto por trozos (hoy todo es `[byte]` a mano); la casa para sus piezas comunes |
 | **LA TINTA** | Adobe + Clip Studio, libros y manga | TITAN++, lienzo minimo | `PLAN_LA_TINTA` | Wacom con presion (driver, METAL), capas y teselas en ESTRATOS, `gpu fn` con VECINOS (**LB9**) para los filtros |
 | **CRAFTPHO** | pintar y retocar con capas, en la 3060 | plan, 0 de 14 | `PLAN_CRAFTPHO` | los 12 modos de mezcla como `match` en `gpu fn` (ya cabe); mosaicos 64 x 64; rellenar y varita necesitan VECINOS (**LB9**) |
@@ -56,7 +56,7 @@ El VEX de Houdini es eso mismo.
 | 2 | **la puerta de computo de una app** | que la 3060 corra el solucionador de verdad | kernel + METAL (**LB8**) | abierto |
 | 3 | **reducciones** en `gpu fn` (sumar por bloques) | gradiente conjugado de la carne (HO4), densidades | lenguaje | abierto |
 | 4 | **listas de un trait** (O4): `[Nodo]` con nodos distintos | la red de HO1 es crear, transformar, copiar, unir: nodos de tipos distintos recorridos en orden | lenguaje | **HECHO 18-10**, con la primera red de HO1 en el banco |
-| 5 | **tablas grandes fuera de la pila** | millones de particulas; hoy una tabla `f32` vive en la pila de 64 KiB | emisor E1 (**MC4** de MUNDO) | abierto; el mismo arreglo sirve a MUNDO |
+| 5 | **tablas grandes fuera de la pila** | millones de particulas; hoy una tabla `f32` vive en la pila de 64 KiB | emisor E1 (**MC4** de MUNDO) | **HECHO 18-10**: gpu fn y `publica` sobre listas `[f32]` del monton; MUNDO ya las usa |
 | 6 | **`f32` en la CPU** | rotaciones, cuaterniones, IK y curvas de animacion (IL16) | **DECISION D5** del propietario, una ley con `--sellar` | sin contestar |
 | 7 | **leer glTF** (y despues escribirlo) | el personaje de Blender (IL5, IL20) | una casa de texto/JSON + binario | abierto |
 | 8 | **llamada con punto** (`p.mueve(dt)`) | comodidad al escribir cientos de nodos | lenguaje | propuesta |
@@ -86,7 +86,8 @@ cuerpos por defecto (la base de un nodo "que sabe hacer" algo) y la casa.
 1. **O4, listas de un trait** -- HECHO el 18-10, con HO1 como primer uso:
    [red_de_nodos](ejemplos/nivel13/red_de_nodos.titan) crea, mueve, escala y
    copia 48 puntos; rehecha por partes da la misma huella. Sin la 3060.
-2. **MC4, tablas fuera de la pila**: sirve a MUNDO hoy y a las particulas.
+2. **MC4, tablas fuera de la pila** -- HECHO el 18-10 (camino a): listas
+   `[f32]` en las gpu fn y en `publica`; MUNDO ya dibuja asi.
 3. **Una casa de texto** (`casa.texto`: partir, buscar, numeros escritos),
    que piden NAVEGAR, ECCE y el lector de glTF.
 4. **LB9, vecinos**: el paso que convierte la `gpu fn` en un solucionador.

@@ -29,7 +29,7 @@ pub static FAMILIES: [&str; 16] = [
 ];
 
 /// Cuantos hay: la TAB mide sus tablas con esto.
-pub const COUNT: usize = 53;
+pub const COUNT: usize = 54;
 
 /// `static`, no `const`: UNA copia en `.rodata`, que Ring 3 lee por indice
 /// sin traerla a una pila de 64 KiB.
@@ -462,6 +462,17 @@ pub static MASTERS: [Master; COUNT] = [
         typed: &[],
         out: &["suave en -0.5, 0.25, 0.75 y 2: 0.000000 0.156250 0.843750 1.000000", "2 a la 8, por tres cuadrados: 256", "el primer entero cuyo cuadrado pasa de 2: 2"],
         source: "# sale: suave en -0.5, 0.25, 0.75 y 2: 0.000000 0.156250 0.843750 1.000000\n# sale: 2 a la 8, por tres cuadrados: 256\n# sale: el primer entero cuyo cuadrado pasa de 2: 2\n# una gpu fn llama a otra (LB5): no hay pila en un hilo, asi que la llamada se escribe EN LINEA, con sus bucles y sus `return`\nmod main \"una gpu fn dentro de otra\"\n\ngpu fn cuadrado(x: f32) -> f32\n    return x * x\n\ngpu fn limita(x: f32, a: f32, b: f32) -> f32\n    if x < a\n        return a\n    if x > b\n        return b\n    return x\n\ngpu fn suave(x: f32) -> f32\n    let t = limita(x, 0.0, 1.0)\n    return t * t * (3.0 - 2.0 * t)\n\ngpu fn a_la_ocho(x: f32) -> f32\n    let mut r = x\n    for i in range(3)\n        r = cuadrado(r)\n    return r\n\ngpu fn primero_mayor(x: f32) -> f32\n    for i in range(10)\n        if cuadrado(i) > x\n            return i\n    return -1.0\n\nfn main()\n    let xs: [f32; 4] = [-0.5, 0.25, 0.75, 2.0]\n    let s = suave(xs)\n    let dos: [f32; 1] = [2.0]\n    let o = a_la_ocho(dos)\n    let p = primero_mayor(dos)\n    print(\"suave en -0.5, 0.25, 0.75 y 2: \", round(s[0], 6), \" \", round(s[1], 6), \" \", round(s[2], 6), \" \", round(s[3], 6))\n    print(\"2 a la 8, por tres cuadrados: \", round(o[0], 0))\n    print(\"el primer entero cuyo cuadrado pasa de 2: \", round(p[0], 0))\n",
+    },
+    Master {
+        name: "listas_gpu",
+        level: 11,
+        why: "monton --, y un valor SUELTO que llega igual a cada celda.",
+        says: "una gpu fn sobre listas que crecen, sin la pila",
+        words: &["fn", "let", "mut", "for", "return", "round", "gpu", "f32"],
+        asks: Permissions::NONE.with(Permission::Gpu),
+        typed: &[],
+        out: &["6000 celdas: la primera 1.0, la ultima 11999.0", "vacias: 0", "en una tabla tambien: 3.0 7.0"],
+        source: "# sale: 6000 celdas: la primera 1.0, la ultima 11999.0\n# sale: vacias: 0\n# sale: en una tabla tambien: 3.0 7.0\n# MC4 (18-10): una gpu fn sobre LISTAS, del largo que tengan al correr --\n# una tabla vive en la pila (48 KiB para todos los marcos); una lista, en el\n# monton --, y un valor SUELTO que llega igual a cada celda.\nmod main \"una gpu fn sobre listas que crecen, sin la pila\"\n\ngpu fn recta(x: f32, m: f32, b: f32) -> f32\n    return x * m + b\n\nfn main()\n    let mut xs: [f32] = []\n    for i in range(6000)\n        let x: f32 = i\n        push(mut xs, x)\n    let dos: f32 = 2.0\n    let uno: f32 = 1.0\n    let ys = recta(xs, dos, uno)\n    print(len(ys), \" celdas: la primera \", round(ys[0], 1), \", la ultima \", round(ys[5999], 1))\n    let nada: [f32] = []\n    print(\"vacias: \", len(recta(nada, dos, uno)))\n    let t: [f32; 2] = [1.0, 3.0]\n    let r = recta(t, dos, uno)\n    print(\"en una tabla tambien: \", round(r[0], 1), \" \", round(r[1], 1))\n",
     },
     Master {
         name: "mezcla",

@@ -10,6 +10,7 @@
 | Metas por categoria | [METAS](METAS.md); inventario generado en [ABIERTO](plan/ABIERTO.md). |
 | Lo que de verdad mostro la maquina | [Parte 16-10](metal/METAL_2026-10-16.md), separado de las pruebas del anfitrion. |
 | Aprendizajes del hardware | [BITACORA](../BITACORA.md); una causa pendiente se conserva como pendiente. |
+| Lo que cada app pide a TITAN++, hasta ILLAPA | [LAS_APPS](../toolchain/lang/titan/LAS_APPS.md): lo hecho, lo que falta y de quien es; la casa en [casa/](../toolchain/lang/titan/casa/README.md). |
 | Gobierno del GSP (el GSP ejecuta, BMO-X gobierna) | [GSP-CONTROL-BMO](plan/PLAN_GSP_CONTROL_BMO.md): contrato y supervisor inicial implementados; `gpu control` explica etapa y datos ausentes. |
 
 ### Recorrido de hitos con evidencia

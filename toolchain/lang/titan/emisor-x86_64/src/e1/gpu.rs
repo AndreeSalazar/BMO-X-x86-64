@@ -48,6 +48,11 @@ impl E1<'_> {
         let registros = cuerpo.registros.max(1) as i32;
         let ret = if f.ret == Some(Ty::Bool) { Class::Bool } else { Class::F32 };
         let name = f.name.clone();
+        // ** MC4 (18-10): sobre LISTAS, del largo que tengan al correr, y la
+        // salida al monton: lo que en una tabla gastaba la pila.
+        if args.iter().map(|a| self.class_of(a)).collect::<Result<Vec<_>, _>>()?.iter().any(|c| matches!(c, Class::List(_))) {
+            return self.gpu_call_listas(func, args, registros, ret, at).map(Some);
+        }
         let mut bases = Vec::with_capacity(args.len() + 1);
         let mut celdas: Option<usize> = None;
         for a in args {
@@ -101,6 +106,81 @@ impl E1<'_> {
             Ok(())
         })?;
         Ok(Some((out, out_class)))
+    }
+
+    /// MC4: la gpu fn sobre listas. Las listas, todas del mismo largo (T0072
+    /// si no: el hilo que sobra leeria una celda que no esta); la salida, una
+    /// lista nueva del monton con una celda por hilo.
+    fn gpu_call_listas(&mut self, func: usize, args: &[Value], registros: i32, ret: Class, at: (usize, usize)) -> Result<(Place, Class), String> {
+        // cada valor: el asa de su lista, o -- uno suelto -- un puntero a el,
+        // que `each_heap` no avanza (paso 0): llega igual a cada celda
+        let mut bases: Vec<(Place, i32)> = Vec::with_capacity(args.len() + 1);
+        let mut asas = Vec::new();
+        for a in args {
+            let (p, c) = self.eval(a)?;
+            if matches!(c, Class::List(_)) {
+                asas.push(p);
+                bases.push((p, 8));
+            } else {
+                let suelto = self.temp(8);
+                self.addr(p, RAX);
+                self.store(suelto, RAX);
+                bases.push((suelto, 0));
+            }
+        }
+        let n = self.len_of(asas[0]);
+        for h in &asas[1..] {
+            self.load(n, RAX);
+            self.load(h.at(8), RCX);
+            x86::cmp_r64_r64(&mut self.code, RAX, RCX);
+            self.trap(0x85, "T0072", "una gpu fn recibe listas de largos distintos", at);
+        }
+        // la salida: su asa (puntero, cuantas, cuantas caben) y sus celdas
+        // (`store_imm` pasa por `rax`: el cero va ANTES de cargar el largo)
+        let out = self.temp(24);
+        self.store_imm(out, 0);
+        self.load(n, RAX);
+        self.store(out.at(8), RAX);
+        self.store(out.at(16), RAX);
+        x86::test_r64_r64(&mut self.code, RAX, RAX);
+        let vacia = self.jcc(0x84);
+        x86::mov_r64_r64(&mut self.code, RDI, RAX);
+        x86::shl_r64_imm8(&mut self.code, RDI, 3);
+        self.alloc();
+        self.store(out, RAX);
+        self.here(vacia);
+        let regs = self.temp(4 * registros);
+        let entradas = args.len().max(1);
+        let ent = self.temp(16 * entradas as i32);
+        let sal = self.temp(16);
+        for k in 0..entradas {
+            self.store_imm(ent.at(16 * k as i32 + 8), 0);
+        }
+        self.store_imm(sal, 0);
+        self.store_imm(sal.at(8), 0);
+        bases.push((out, 8));
+        let valores = args.len();
+        self.each_heap(n, &bases, &mut |e, celdas| {
+            for (k, celda) in celdas.iter().take(valores).enumerate() {
+                e.load(*celda, RAX);
+                e.store(ent.at(16 * k as i32), RAX);
+            }
+            e.addr(regs, RDI);
+            e.addr(ent, RSI);
+            e.addr(ent, RDX);
+            e.addr(sal, RCX);
+            x86::zero_r32(&mut e.code, R8);
+            e.code.push(0xE8);
+            e.gpu_calls.push((e.code.len(), func));
+            e.code.extend_from_slice(&[0; 4]);
+            e.load(sal, RAX);
+            x86::mov_r32_r32(&mut e.code, RAX, RAX);
+            e.store(celdas[valores], RAX);
+            Ok(())
+        })?;
+        let c = Class::List(Box::new(ret));
+        self.own(out, &c);
+        Ok((out, c))
     }
 
     /// **Un int o un dec a f32**, al mas cercano (D4): lo de `calc::fit_into`.

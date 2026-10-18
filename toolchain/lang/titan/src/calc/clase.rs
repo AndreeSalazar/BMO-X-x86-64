@@ -383,20 +383,27 @@ pub(super) fn gpu_call(func: usize, args: &[Value], at: At, known: &[Option<Clas
     if got.iter().zip(&wants).all(|(c, w)| c == w) {
         return Ok(ret);
     }
-    let n = match got.first() {
-        Some(Class::Table(_, n)) => *n,
-        _ => 0,
-    };
-    let cells = got.iter().zip(&wants).all(|(c, w)| matches!(c, Class::Table(inner, k) if *k == n && **inner == *w));
+    // ** 18-10: un valor SUELTO entre tablas o listas llega igual a cada
+    // celda (la camara de un fotograma): no hace falta repetirlo en una tabla.
+    let n = got.iter().find_map(|c| if let Class::Table(_, n) = c { Some(*n) } else { None }).unwrap_or(0);
+    let cells = got.iter().zip(&wants).all(|(c, w)| c == w || matches!(c, Class::Table(inner, k) if *k == n && **inner == *w));
     if n > 0 && cells {
         return Ok(Class::Table(Box::new(ret), n));
+    }
+    // ** MC4 (18-10): LISTAS que crecen, del largo que tengan al correr --
+    // las tablas viven en la pila; una lista, en el monton. Todas del mismo
+    // largo, que se mira al correr (T0072: si no, se leeria una celda que
+    // no esta).
+    let lists = got.iter().any(|c| matches!(c, Class::List(_)));
+    if lists && got.iter().zip(&wants).all(|(c, w)| c == w || matches!(c, Class::List(inner) if **inner == *w)) {
+        return Ok(Class::List(Box::new(ret)));
     }
     let want: Vec<String> = wants.iter().map(|w| w.short(m.defs())).collect();
     Err(Message::new(
         Code::WrongType,
         at.0,
         at.1,
-        &format!("`{}` se aplica a valores ({}) o a tablas de esos valores, todas del mismo largo", g.name, want.join(", ")),
+        &format!("`{}` se aplica a valores ({}), o a tablas o a listas de esos valores, todas del mismo largo", g.name, want.join(", ")),
         &format!("aqui llega: {}", got.iter().map(|c| c.short(m.defs())).collect::<Vec<_>>().join(", ")),
         &format!("una celda de cada tabla por hilo: {}(xs, ys) con xs, ys de [f32; n]", g.name),
     ))
@@ -568,11 +575,14 @@ pub(super) fn director(what: Director, args: &[Value], at: At, known: &[Option<C
             int(1, "lo segundo, cuantos vertices del fotograma van en las tablas", "director.publica(f, n, posiciones, colores)")?;
             match (&got[2], &got[3]) {
                 (Class::Table(a, n), Class::Table(b, k)) if **a == Class::F32 && **b == Class::F32 && n == k && *n > 0 && n % 4 == 0 => Ok(Some(Class::Bool)),
+                // MC4 (18-10): o dos LISTAS de f32, del largo que tengan al
+                // correr: si `n` vertices no caben en las dos, `false`
+                (Class::List(a), Class::List(b)) if **a == Class::F32 && **b == Class::F32 => Ok(Some(Class::Bool)),
                 (a, b) => Err(Message::new(
                     Code::WrongType,
                     at.0,
                     at.1,
-                    "`director.publica` lleva los vertices en dos tablas de f32 del mismo largo: sus posiciones y sus colores, cuatro f32 por vertice",
+                    "`director.publica` lleva los vertices en dos tablas de f32 del mismo largo, o en dos listas de f32: sus posiciones y sus colores, cuatro f32 por vertice",
                     &format!("aqui llega: {} y {}", a.short(m.defs()), b.short(m.defs())),
                     "let mut posiciones: [f32; 72] = [0.0; 72]  (18 vertices: x, y, z, w de cada uno; los colores, r, g, b, a)",
                 )),

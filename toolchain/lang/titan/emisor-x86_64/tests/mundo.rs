@@ -19,8 +19,8 @@ use bmo_verrano::{Backend, Cull, Frame, Image, Vertex, Viewport};
 use core::sync::atomic::AtomicU32;
 use std::path::Path;
 
-/// 80 caras de 6, mas 12 vertices para la mira.
-const CAPACIDAD: usize = 492;
+/// 126 caras de 6, mas 12 vertices para la mira (MC4: el techo del DIRECTOR).
+const CAPACIDAD: usize = 768;
 
 fn bex() -> Vec<u8> {
     let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../../Ultra_userspace/apps/mundo");

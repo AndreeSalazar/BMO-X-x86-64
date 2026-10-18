@@ -1,0 +1,26 @@
+# espera: BIEN
+# sale: 6000 celdas: la primera 1.0, la ultima 11999.0
+# sale: vacias: 0
+# sale: en una tabla tambien: 3.0 7.0
+# MC4 (18-10): una gpu fn sobre LISTAS, del largo que tengan al correr --
+# una tabla vive en la pila (48 KiB para todos los marcos); una lista, en el
+# monton --, y un valor SUELTO que llega igual a cada celda.
+mod main "una gpu fn sobre listas que crecen, sin la pila"
+
+gpu fn recta(x: f32, m: f32, b: f32) -> f32
+    return x * m + b
+
+fn main()
+    let mut xs: [f32] = []
+    for i in range(6000)
+        let x: f32 = i
+        push(mut xs, x)
+    let dos: f32 = 2.0
+    let uno: f32 = 1.0
+    let ys = recta(xs, dos, uno)
+    print(len(ys), " celdas: la primera ", round(ys[0], 1), ", la ultima ", round(ys[5999], 1))
+    let nada: [f32] = []
+    print("vacias: ", len(recta(nada, dos, uno)))
+    let t: [f32; 2] = [1.0, 3.0]
+    let r = recta(t, dos, uno)
+    print("en una tabla tambien: ", round(r[0], 1), " ", round(r[1], 1))

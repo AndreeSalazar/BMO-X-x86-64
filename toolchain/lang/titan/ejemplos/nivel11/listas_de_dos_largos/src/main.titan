@@ -1,0 +1,17 @@
+# espera: T0072
+# una celda de cada lista por hilo: si una es mas corta, el hilo que sobra
+# leeria una celda que no esta
+mod main "dos listas que no miden lo mismo"
+
+gpu fn suma(a: f32, b: f32) -> f32
+    return a + b
+
+fn main()
+    let uno: f32 = 1.0
+    let mut xs: [f32] = []
+    let mut ys: [f32] = []
+    for i in range(3)
+        push(mut xs, uno)
+    for i in range(2)
+        push(mut ys, uno)
+    print(len(suma(xs, ys)))
