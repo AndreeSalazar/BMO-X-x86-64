@@ -671,6 +671,8 @@ fn expr(p: &Program, f: &Function, e: &Expr, hondo: usize, forma: Forma) -> Resu
         Expr::Index { base, index, .. } if matches!(&**base, Expr::Name { name, .. } if de_las_enteras(f, name)) => Ok(1u64.saturating_add(expr(p, f, index, hondo, forma)?)),
         Expr::Name { name, line, col } if de_las_enteras(f, name) => Err(no(*line, *col, &format!("`{}`, una lista entera, sin su celda", name), "una lista entera se lee celda a celda: cada hilo mira la que quiera, y la lista sola no es un numero", &format!("{}[celda()]  o  {}[celda() + 1.0]", name, name))),
         Expr::Call { callee, .. } if callee == "celda" && !p.functions.iter().any(|g| g.name == *callee) => Ok(1),
+        // IL2: `piso(x)`, unas siete operaciones en cada tarjeta
+        Expr::Call { callee, args, .. } if callee == "piso" && args.len() == 1 && !p.functions.iter().any(|g| g.name == *callee) => Ok(7u64.saturating_add(expr(p, f, &args[0], hondo, forma)?)),
         Expr::Int { .. } | Expr::Dec { .. } | Expr::Name { .. } | Expr::Bool { .. } => Ok(0),
         Expr::Bin { op, left, right, .. } => {
             let propia = if *op == "/" && !por_su_inverso(right) { OBRA_DIVISION } else { 1 };

@@ -865,7 +865,7 @@ fn target(p: &Program, callee: &str, n: usize, line: usize, col: usize, as_value
     let own = p.functions.iter().find(|g| g.name == callee);
     // `celda` is the library's only inside a gpu fn, and does not take the
     // name from values (`let celda` stays a value's name): LB9.
-    if own.is_none() && !LIBRARY.contains(&callee) && callee != "celda" {
+    if own.is_none() && !LIBRARY.contains(&callee) && callee != "celda" && callee != "piso" {
         let known = LIBRARY.iter().copied().chain(p.functions.iter().filter(|g| !g.name.contains('<')).map(|g| g.name.as_str())).chain(p.traits.iter().flat_map(|t| t.methods.iter().map(|s| s.name.as_str())));
         let near = known.min_by_key(|k| distance(k, callee)).filter(|k| distance(k, callee) <= 3);
         return Err(Message::new(
@@ -919,6 +919,17 @@ fn target(p: &Program, callee: &str, n: usize, line: usize, col: usize, as_value
             }
             if !as_value {
                 return Err(Message::new(Code::Result, line, col, "`lamina(...)` da una lamina, y aqui nadie la guarda", "pedir RAM que nadie tiene en la mano es pedirla para nada", "guardala: let mut l = lamina(4096)"));
+            }
+            return Ok(());
+        }
+        if callee == "piso" {
+            // IL2 (18-10): `piso(x)` -- the floor of an f32 (gpu.rs and the
+            // calculation say where it may be); one value in, an f32 out.
+            if n != 1 {
+                return Err(Message::new(Code::Args, line, col, &format!("`piso` pide 1 valor, y aqui se le dan {}", n), "`piso(x)` da el entero de abajo de un f32", "let c = piso(x / h)"));
+            }
+            if !as_value {
+                return Err(Message::new(Code::Result, line, col, "`piso(...)` da un numero, y aqui nadie lo guarda", "el piso se perderia", "let c = piso(x / h)"));
             }
             return Ok(());
         }

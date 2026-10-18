@@ -115,3 +115,29 @@ fn r7_still_says_no_to_memory_in_a_cell_body() {
     let k = write(&m, f, &CIEGA).unwrap_or_else(|e| panic!("{}", e.0));
     assert!(judge(&k).unwrap_err().contains("todavia no juzga un computo"));
 }
+
+/// ** IL2: `piso(x)`, los bits de `f32::floor` en las dos tarjetas y en la
+/// casa: los bordes (los dos ceros, los subnormales, los que no caben en el
+/// entero, el infinito y el NaN) y un barrido alrededor de los enteros.
+#[test]
+fn piso_is_the_floor_of_rust_on_both_cards() {
+    let m = module("mod main \"x\"\ngpu fn p(x: f32) -> f32\n    return piso(x)\nfn main()\n    print(1)\n");
+    let f = m.functions.iter().position(|f| f.name == "p").unwrap();
+    let mut xs: Vec<f32> = vec![0.0, -0.0, 0.5, -0.5, 1.0, -1.0, 1.5, -1.5, 2.999_999_8, -2.999_999_8, 1.0e-45, -1.0e-45, f32::MIN_POSITIVE, -f32::MIN_POSITIVE];
+    xs.extend([8388607.5, -8388607.5, 8388608.0, -8388608.0, 8388609.0, 1.0e10, -1.0e10, 2147483648.0, -2147483904.0, f32::MAX, f32::MIN, f32::INFINITY, f32::NEG_INFINITY, f32::NAN, -f32::NAN]);
+    for k in -40..40 {
+        let b = (k as f32 * 0.37).to_bits();
+        xs.extend([f32::from_bits(b), f32::from_bits(b.wrapping_add(1)), f32::from_bits(b.wrapping_sub(1))]);
+    }
+    let cells = [f32s(&xs)];
+    for t in [&RTX_3060_12G as &'static dyn Tarjeta, &CPU] {
+        let k = write(&m, f, t).unwrap_or_else(|e| panic!("{}", e.0));
+        judge(&k).unwrap();
+        verify(&m, f, &k).unwrap();
+        for (que, got) in [("su simulador", run(&k, &cells).unwrap()), ("la casa", run_casa(&k, &cells))] {
+            for (x, g) in xs.iter().zip(&got) {
+                assert_eq!(*g, x.floor().to_bits(), "{} ({}): piso({:?}) = {:?}, Rust {:?}", t.ficha().nombre, que, x, f32::from_bits(*g), x.floor());
+            }
+        }
+    }
+}

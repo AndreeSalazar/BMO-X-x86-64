@@ -7,8 +7,8 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   898 casillas ABIERTAS en 81 planes
-   707 hechas
+   897 casillas ABIERTAS en 81 planes
+   708 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -63,14 +63,14 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] V3a -- VERRANO POR CATEGORIAS: el dibujo con PROGRAMAS (11-10,
 - ... y 42 mas
 
-## [`PLAN_ILLAPA.md`](PLAN_ILLAPA.md) -- 35 abiertas, 1 hechas
+## [`PLAN_ILLAPA.md`](PLAN_ILLAPA.md) -- 34 abiertas, 2 hechas
 
 *PLAN ILLAPA -- el motor de CGI en tiempo real de BMO-X: motor grafico + Houdini propio, en TITAN*
 
 - [ ] IL0 -- las decisiones de la seccion 8, contestadas por el propietario
-- [ ] IL2 -- LA REJILLA DE VECINOS: cada particula a su celda, ordenadas por celda (un conteo y un ord
 - [ ] IL3 -- PBF, la sangre: densidad, la correccion de posicion, la presion artificial (la tension su
-- ... y 32 mas
+- [ ] IL4 -- LO UNIFICADO: tela, cuerpo blando y rigido como restricciones sobre las MISMAS particulas
+- ... y 31 mas
 
 ## [`PLAN_LA_LUDOTECA.md`](PLAN_LA_LUDOTECA.md) -- 32 abiertas, 15 hechas
 

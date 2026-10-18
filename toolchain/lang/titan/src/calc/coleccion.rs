@@ -138,6 +138,13 @@ impl Run<'_, '_> {
         if lib == Lib::Celda {
             return Ok(Const::F32((self.celda as f32).to_bits()));
         }
+        // IL2 (18-10): the floor of an f32, Rust's (its bits: -0.0 stays, NaN stays)
+        if lib == Lib::Piso {
+            return match self.ev(&args[0], known)? {
+                Const::F32(b) => Ok(Const::F32(f32::from_bits(b).floor().to_bits())),
+                other => Err(Message::new(Code::WrongType, at.0, at.1, "`piso` de algo que no es un f32", &format!("llego {:?}: el juez tenia que haberlo dicho", other), "let c = piso(x / h)")),
+            };
+        }
         let d = self.m.defs();
         let mut rest = Vec::with_capacity(args.len().saturating_sub(1));
         for a in &args[1..] {

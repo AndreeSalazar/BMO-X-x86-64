@@ -300,6 +300,33 @@ fn eval(w: &mut Writer, v: &Value, env: &Env) -> Result<Valor, Failure> {
         }
         // ** LB9 (18-10): la celda del hilo, que el computo leyo al empezar.
         Value::Lib(Lib::Celda, _, _) => Valor::Uno(w.celda.ok_or_else(|| Failure::writer("`celda()` en una gpu fn que no es un computo: el frontend tenia que haberla escrito como tal".into()))?, Kind::F32),
+        // ** IL2 (18-10): `piso(x)`, el de Rust bit a bit. t = el entero de x
+        // hacia el cero; si t > x, uno menos. Lo que ya es entero (t == x:
+        // tambien -0.0, que asi conserva su signo) y lo que no cabe en el
+        // entero (|x| >= 2^23, el infinito, el NaN: `!(|x| < 2^23)`) es x.
+        Value::Lib(Lib::Piso, args, _) => {
+            let (x, _) = eval(w, &args[0], env)?.uno()?;
+            w.aqui = at;
+            let e = w.reg()?;
+            w.op(Op::Convierte { d: e, a: x, como: Conversion::FloatAEntero });
+            let t = w.reg()?;
+            w.op(Op::Convierte { d: t, a: e, como: Conversion::EnteroAFloat });
+            let uno = w.bits(1.0f32.to_bits())?;
+            let menos = w.reg()?;
+            w.op(Op::Sub { d: menos, a: t, b: uno });
+            let pasa = w.reg()?;
+            w.op(Op::Compara { d: pasa, a: t, b: x, como: Comparacion::Mayor, entero: false });
+            let abajo = w.elige(pasa, menos, t)?;
+            let abs = w.reg()?;
+            w.op(Op::Abs { d: abs, a: x });
+            let tope = w.bits(8388608.0f32.to_bits())?;
+            let cabe = w.reg()?;
+            w.op(Op::Compara { d: cabe, a: abs, b: tope, como: Comparacion::Menor, entero: false });
+            let igual = w.reg()?;
+            w.op(Op::Compara { d: igual, a: t, b: x, como: Comparacion::Igual, entero: false });
+            let r = w.elige(igual, x, abajo)?;
+            Valor::Uno(w.elige(cabe, r, x)?, Kind::F32)
+        }
         // ** LB9: la VECINA -- la celda `i` (un f32) de una lista entera --:
         // `f32 as i32` (hacia el cero; un NaN, 0) y la lectura de su UAV, que
         // fuera de la lista da 0 en cada tarjeta y en la casa (DL9).

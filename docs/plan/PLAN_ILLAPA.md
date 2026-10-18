@@ -184,10 +184,22 @@ anfitrion, con el oraculo de SPIR-V corriendo las mismas `gpu fn`.
 > ([`nivel11/densidad`](../../toolchain/lang/titan/ejemplos/nivel11/densidad/src/main.titan)):
 > cada gota suma sus nueve vecinas con el nucleo (1 - d^2)^3. IL1 queda
 > HECHA; en la 3060 de verdad espera a LB8 (la puerta de computo).
+>
+> **18-10, IL2:** la REJILLA, sin atomicos ni palabras nuevas: `piso(x)`
+> (los bits de `f32::floor`) da la celda de cada gota y el bit de cada
+> hilo; las gotas se ordenan por celda con un orden BITONICO -- log2(n) por
+> (log2(n) + 1) / 2 pasos, cada uno dos gpu fn con su pareja --, cada celda
+> encuentra donde empiezan las suyas con una busqueda binaria de 24 vueltas
+> (hasta 16 millones de gotas), y una gota mira solo sus nueve celdas
+> ([`nivel11/rejilla`](../../toolchain/lang/titan/ejemplos/nivel11/rejilla/src/main.titan):
+> 128 gotas, las mismas 332 vecinas que mirando a todas, y Python dice lo
+> mismo). Lo que cuesta, dicho: el orden es n log2(n)^2 / 2 comparaciones
+> (con atomicos, un conteo seria n); cada UAV ata cinco registros de la
+> 3060. IL3 (PBF) ya tiene donde apoyarse.
 
 - [ ] IL0 -- las decisiones de la seccion 8, contestadas por el propietario
 - [x] IL1 -- (18-10, en el anfitrion: los bucles por LB5, los vecinos por LB9) `gpu fn` CON VECINOS: leer celdas de OTRA tabla por indice y bucles acotados, en el lenguaje, el oraculo y el emisor de SPIR-V (el que escribio G2 de `PLAN_EL_CENTAURO.md`, hoy en linea recta); y que el emisor SM86 los sepa traducir (E6 de `PLAN_LA_LENGUA_DE_LA_3060.md`)
-- [ ] IL2 -- LA REJILLA DE VECINOS: cada particula a su celda, ordenadas por celda (un conteo y un orden, en `gpu fn`), para que cada una encuentre a las de al lado sin mirar a todas
+- [x] IL2 -- (18-10, en el anfitrion: `nivel11/rejilla`, un orden bitonico y una busqueda binaria, sin atomicos) LA REJILLA DE VECINOS: cada particula a su celda, ordenadas por celda (un conteo y un orden, en `gpu fn`), para que cada una encuentre a las de al lado sin mirar a todas
 - [ ] IL3 -- PBF, la sangre: densidad, la correccion de posicion, la presion artificial (la tension superficial), la vorticidad y la viscosidad (Macklin y Muller 2013). La prueba, en el anfitrion: una presa que cae conserva su densidad
 - [ ] IL4 -- LO UNIFICADO: tela, cuerpo blando y rigido como restricciones sobre las MISMAS particulas (2014), con la rigidez de XPBD (que no dependa de cuantos pasos se den)
 - [ ] IL5 -- glTF: un lector puro (malla, esqueleto, pesos de la piel y animacion), con su banco en el anfitrion

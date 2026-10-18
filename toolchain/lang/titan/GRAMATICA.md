@@ -1050,6 +1050,25 @@ gpu fn suaviza(x: f32, campo: [f32]) -> f32
   primera densidad de un fluido, IL1); su NO, `nivel11/celda_en_la_cpu`
   (T0090).
 
+**`piso(x)` (18-10, IL2 de `PLAN_ILLAPA`)**: el entero de abajo de un f32,
+los bits de `f32::floor` -- `piso(-0.5)` es -1, `piso(-0.0)` es -0.0, un NaN
+sigue NaN, y lo que no cabe en un entero (desde 2^23, el infinito) queda
+como estaba. Solo dentro de una gpu fn: en la CPU es contar con un f32
+(T0091, `nivel11/piso_en_la_cpu`). Con el, una gota sabe su celda
+(`piso(x / h)`) y un hilo el bit `j` de su numero (`piso(i / j)`, y su
+paridad), que es lo que pide un orden en pasos. El ejemplo,
+`nivel11/rejilla` (IL2): 128 gotas en 16 x 16 celdas, ordenadas por celda
+con un orden BITONICO (28 pasos de dos gpu fn), donde empieza cada celda
+por una busqueda binaria de 24 vueltas, y las vecinas mirando solo las
+nueve celdas de alrededor: las mismas 332 que mirando a todas.
+
+[!] **Lo que cuesta un UAV en la 3060**: cada lista (las de celda a celda,
+las enteras y el resultado) ata CINCO registros de los 64 de un hueco (su
+base, su tope, sus elementos y su paso). Con ocho listas quedan 24 para la
+cuenta; si no cabe, el NO lo dice (`no cabe en los 64 registros`). Lo que
+se puede leer de otra lista, mejor de ella: `ys[celda()]` en vez de otro
+valor, `ini[c + 1.0]` en vez de una lista `fin`.
+
 ### La gpu fn que DIBUJA (08-10, LB6 de `docs/plan/PLAN_LAS_LIBRERIAS.md`)
 
 ```text

@@ -331,6 +331,8 @@ pub(super) fn cpu_f32(v: &Value, known: &[Option<Class>], m: &Module) -> Result<
             cpu_f32(b, known, m)?;
             cpu_f32(i, known, m)
         }
+        // IL2: `piso(x)` counts with an f32: a gpu fn's
+        Value::Lib(Lib::Piso, _, at) => Err(f32_here(*at, "se cuenta (`piso`)", "la CPU cuenta con dec exacto (PLAN_EL_CENTAURO D2): el piso de un f32 es de una gpu fn")),
         Value::Call(_, items, _) | Value::Table(items, _) | Value::Record(_, items, _) | Value::Variant(_, _, items, _) | Value::Lib(_, items, _) => items.iter().try_for_each(|x| cpu_f32(x, known, m)),
         Value::Map(items, _) => items.iter().try_for_each(|(k, v)| cpu_f32(k, known, m).and_then(|_| cpu_f32(v, known, m))),
         _ => Ok(()),
@@ -994,6 +996,14 @@ fn lib_class(lib: Lib, args: &[Value], at: At, known: &[Option<Class>], m: &Modu
     if lib == Lib::Celda {
         return Ok(Class::F32);
     }
+    // IL2: `piso(x)` of an f32 is an f32
+    if lib == Lib::Piso {
+        let x = class(&args[0], known, m)?;
+        if x != Class::F32 {
+            return Err(Message::new(Code::WrongType, at.0, at.1, &format!("`piso` es de un f32, y aqui le llega {}", x.name(types)), "`piso(x)` da el entero de abajo de un f32, dentro de una gpu fn", "let c = piso(x / h)"));
+        }
+        return Ok(Class::F32);
+    }
     let first = class(&args[0], known, m)?;
     let arg = |k: usize| class(&args[k], known, m);
     let not_one = |what: &str, example: &str| Message::new(Code::WrongType, at.0, at.1, &format!("`{}` es de {}, y aqui le llega {}", lib.name(), what, first.name(types)), &format!("`{}` trabaja con {}", lib.name(), what), example);
@@ -1050,7 +1060,7 @@ fn lib_class(lib: Lib, args: &[Value], at: At, known: &[Option<Class>], m: &Modu
                 _ => Class::Bool,
             }
         }
-        Lib::Celda => unreachable!("lib_class: celda is said above"),
+        Lib::Celda | Lib::Piso => unreachable!("lib_class: celda and piso are said above"),
         Lib::Turn => match &first {
             Class::Table(t, _) | Class::List(t) => (**t).clone(),
             Class::Map(k, _) => (**k).clone(),

@@ -1,0 +1,170 @@
+# espera: BIEN
+# sale: 128 gotas en 16 x 16 celdas; el orden, en 28 pasos: ordenadas 128 de 128
+# sale: vecinas por la rejilla 332, a mano 332: iguales 128 de 128
+# IL2 de PLAN_ILLAPA (18-10): LA REJILLA DE VECINOS. Cada gota a su celda
+# (`piso`), las gotas ordenadas por celda con un orden BITONICO -- pasos de
+# una gpu fn, cada hilo con su pareja, sin atomicos --, y cada celda sabe
+# donde empiezan y acaban las suyas por una busqueda binaria. Asi una gota
+# mira solo las nueve celdas de su alrededor, no a todas: y cuenta las
+# mismas vecinas que mirando a todas.
+mod main "la rejilla de vecinos"
+
+# la celda de una gota: su columna y su fila, de lado 1
+gpu fn clave(x: f32, y: f32) -> f32
+    return piso(x) + 16.0 * piso(y)
+
+# el bit `j` (una potencia de dos) de `i`: 0 o 1
+gpu fn bit(i: f32, j: f32) -> f32
+    let q = piso(i / j)
+    return q - 2.0 * piso(q * 0.5)
+
+# si la gota (ca, ia) va antes que la (cb, ib): por su celda, y si es la misma, por su numero
+gpu fn antes(ca: f32, ia: f32, cb: f32, ib: f32) -> bool
+    if ca < cb
+        return true
+    if ca > cb
+        return false
+    return ia < ib
+
+# un paso del orden bitonico: con quien se compara el hilo, y si se queda lo suyo
+gpu fn pareja(i: f32, j: f32) -> f32
+    if bit(i, j) == 0.0
+        return i + j
+    return i - j
+
+gpu fn se_queda(i: f32, j: f32, k: f32, ci: f32, ii: f32, cl: f32, il: f32) -> bool
+    let quiere_el_menor = bit(i, j) == bit(i, k)
+    return quiere_el_menor == antes(ci, ii, cl, il)
+
+gpu fn paso_clave(c: f32, claves: [f32], nums: [f32], j: f32, k: f32) -> f32
+    let i = celda()
+    let l = pareja(i, j)
+    if se_queda(i, j, k, claves[i], nums[i], claves[l], nums[l])
+        return claves[i]
+    return claves[l]
+
+gpu fn paso_num(c: f32, claves: [f32], nums: [f32], j: f32, k: f32) -> f32
+    let i = celda()
+    let l = pareja(i, j)
+    if se_queda(i, j, k, claves[i], nums[i], claves[l], nums[l])
+        return nums[i]
+    return nums[l]
+
+# la primera gota ordenada cuya celda no es menor que `c`: 24 vueltas bastan para 16 millones
+gpu fn inicio(c: f32, claves: [f32], n: f32) -> f32
+    let mut lo = 0.0
+    let mut hi = n
+    for t in range(24)
+        if lo < hi
+            let mitad = piso((lo + hi) * 0.5)
+            if claves[mitad] < c
+                lo = mitad + 1.0
+            else
+                hi = mitad
+    return lo
+
+gpu fn en_orden(c: f32, claves: [f32]) -> bool
+    let i = celda()
+    let siguiente = claves[i + 1.0]
+    return c <= siguiente or siguiente == 0.0
+
+# las vecinas de una gota a menos de 1, mirando solo las nueve celdas de su
+# alrededor. La celda c tiene sus gotas de ini[c] a ini[c + 1]: seis listas
+# (cada una ata cinco registros de la 3060, de sus 64)
+gpu fn por_rejilla(x: f32, xs: [f32], ys: [f32], nums: [f32], ini: [f32]) -> f32
+    let y = ys[celda()]
+    let cx = piso(x)
+    let cy = piso(y)
+    let mut cuenta = 0.0
+    let mut fy = cy - 1.0
+    for a in range(3)
+        let mut fx = cx - 1.0
+        for b in range(3)
+            if fx >= 0.0 and fx < 16.0 and fy >= 0.0 and fy < 16.0
+                let c = fx + 16.0 * fy
+                let desde = ini[c]
+                let hasta = ini[c + 1.0]
+                let mut s = desde
+                for t in range(16)
+                    if s < hasta
+                        let g = nums[s]
+                        let dx = x - xs[g]
+                        let dy = y - ys[g]
+                        if dx * dx + dy * dy < 1.0
+                            cuenta = cuenta + 1.0
+                    s = s + 1.0
+            fx = fx + 1.0
+        fy = fy + 1.0
+    return cuenta
+
+# y mirando a todas: la vara
+gpu fn a_mano(x: f32, xs: [f32], ys: [f32]) -> f32
+    let y = ys[celda()]
+    let mut cuenta = 0.0
+    let mut g = 0.0
+    for t in range(128)
+        let dx = x - xs[g]
+        let dy = y - ys[g]
+        if dx * dx + dy * dy < 1.0
+            cuenta = cuenta + 1.0
+        g = g + 1.0
+    return cuenta
+
+gpu fn iguales(a: f32, b: f32) -> bool
+    return a == b
+
+fn main()
+    let n = 128
+    let mut xs: [f32] = []
+    let mut ys: [f32] = []
+    let mut nums: [f32] = []
+    let mut s = 2026
+    for i in range(n)
+        s = rem(s * 1103515245 + 12345, 2147483648)
+        let x: f32 = rem(div(s, 65536), 128) * 0.125
+        s = rem(s * 1103515245 + 12345, 2147483648)
+        let y: f32 = rem(div(s, 65536), 128) * 0.125
+        let k: f32 = i
+        push(mut xs, x)
+        push(mut ys, y)
+        push(mut nums, k)
+    # cada gota a su celda, y el orden: k sube de 2 a n; j baja de k / 2 a 1
+    let mut claves = clave(xs, ys)
+    let mut pasos = 0
+    let mut k = 2
+    while k <= n
+        let mut j = div(k, 2)
+        while j >= 1
+            let jf: f32 = j
+            let kf: f32 = k
+            let nc = paso_clave(claves, claves, nums, jf, kf)
+            let nn = paso_num(claves, claves, nums, jf, kf)
+            claves = nc
+            nums = nn
+            pasos = pasos + 1
+            j = div(j, 2)
+        k = k * 2
+    let mut bien = 0
+    for b in en_orden(claves, claves)
+        if b
+            bien = bien + 1
+    print(n, " gotas en 16 x 16 celdas; el orden, en ", pasos, " pasos: ordenadas ", bien, " de ", n)
+    # donde empieza cada celda (y la 256, el final de la ultima)
+    let mut cs: [f32] = []
+    for c in range(257)
+        let a: f32 = c
+        push(mut cs, a)
+    let nf: f32 = n
+    let ini = inicio(cs, claves, nf)
+    let rejilla = por_rejilla(xs, xs, ys, nums, ini)
+    let todas = a_mano(xs, xs, ys)
+    let mut total_r = round(rejilla[0], 0) - round(rejilla[0], 0)
+    let mut total_m = round(todas[0], 0) - round(todas[0], 0)
+    for i in range(n)
+        total_r = total_r + round(rejilla[i], 0)
+        total_m = total_m + round(todas[i], 0)
+    let mut igual = 0
+    for b in iguales(rejilla, todas)
+        if b
+            igual = igual + 1
+    print("vecinas por la rejilla ", total_r, ", a mano ", total_m, ": iguales ", igual, " de ", n)

@@ -258,6 +258,8 @@ pub enum Lib {
     /// ** LB9 (18-10): `celda()`, inside a gpu fn: the number of the thread
     /// running it -- the cell it counts --, as an f32 (exact up to 2^24).
     Celda,
+    /// IL2 (18-10): `piso(x)`, the f32 floor of a gpu fn (`f32::floor`).
+    Piso,
 }
 
 /// ** THE DIRECTOR (LB7b of `docs/plan/PLAN_LAS_LIBRERIAS.md`, 09-10): what
@@ -536,6 +538,7 @@ impl Lib {
             Lib::Has => "has",
             Lib::Turn => "vuelta",
             Lib::Celda => "celda",
+            Lib::Piso => "piso",
         }
     }
 }
@@ -712,6 +715,8 @@ fn to_f32(v: &mut Value) {
         Value::Record(_, items, _) => items.iter_mut().for_each(to_f32),
         // LB9: the cell number of a neighbour (`campo[i + 1.0]`): an f32 too.
         Value::Index(_, i, _) => to_f32(i),
+        // IL2: `piso(x * 0.5)`
+        Value::Lib(Lib::Piso, args, _) => args.iter_mut().for_each(to_f32),
         _ => {}
     }
 }
@@ -762,6 +767,8 @@ fn value(e: &Expr, locals: &mut Vec<Local>, p: &Program) -> Value {
         }
         // LB9 (18-10): `celda()`, the thread of a gpu fn (gpu.rs keeps it there).
         Expr::Call { callee, line, col, .. } if callee == "celda" && !p.functions.iter().any(|f| &f.name == callee) => Value::Lib(Lib::Celda, Vec::new(), (*line, *col)),
+        // IL2 (18-10): `piso(x)`, the floor of an f32 inside a gpu fn.
+        Expr::Call { callee, args, line, col } if callee == "piso" && !p.functions.iter().any(|f| &f.name == callee) => Value::Lib(Lib::Piso, args.iter().map(|a| value(a, locals)).collect(), (*line, *col)),
         // `get(m, k)` / `has(m, k)` (level 13): they read, and change nothing.
         Expr::Call { callee, args, line, col } if (callee == "get" || callee == "has") && !p.functions.iter().any(|f| &f.name == callee) => {
             let lib = if callee == "get" { Lib::Get } else { Lib::Has };

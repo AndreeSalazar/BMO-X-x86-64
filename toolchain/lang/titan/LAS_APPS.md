@@ -20,6 +20,7 @@ del lenguaje, del kernel, del METAL (el Ryzen) o una DECISION del propietario.
 | **cuerpos por defecto en un trait** (O3) | 18-10 | el comportamiento comun, una vez |
 | **listas y mapas de un trait** (O4) | 18-10 | redes de nodos, escenas, widgets: tipos distintos en una lista |
 | **`gpu fn` con VECINAS** (LB9): `campo: [f32]` entera, `celda()`, fuera 0 | 18-10 | filtros, rellenos, densidades: un hilo que mira a los de al lado |
+| **`piso(x)`** y la REJILLA de vecinos (IL2) | 18-10 | ordenar por celda, buscar, mirar solo lo cercano |
 
 ## La lista
 
@@ -95,7 +96,11 @@ cuerpos por defecto (la base de un nodo "que sabe hacer" algo) y la casa.
    propietario: *"dale con ILLAPA y los vecinos"*): el paso que convierte la
    `gpu fn` en un solucionador.
    [densidad](ejemplos/nivel11/densidad/src/main.titan) suma las vecinas de
-   cada gota; lo que sigue es IL2, la rejilla.
+   cada gota.
+   **IL2, la rejilla** -- HECHO el 18-10:
+   [rejilla](ejemplos/nivel11/rejilla/src/main.titan) ordena las gotas por
+   celda (un orden bitonico) y cada una mira solo sus nueve celdas. Lo que
+   sigue es IL3, la sangre (PBF), y las reducciones (pieza 3).
 5. Con LB8 y G0 en el metal: IL3, la primera sangre en la 3060.
 
 [!] Esta lista es el estudio y el orden propuesto: no cambia ninguna casilla
