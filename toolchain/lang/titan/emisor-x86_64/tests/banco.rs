@@ -7,6 +7,8 @@
 //!    # espera: BIEN
 //!    # entra: Ada           (level 12) one line per line TYPED for it
 //!    # sale: hola            one line per line the console must show
+//!    # pasos_e1: 900000000   (IL3) what it costs forced through E1, if it
+//!                            runs more than 20 million (`tests/e1.rs`)
 //! ```
 //!
 //! -- so a level is "done" when its programs DO what they say, not when they

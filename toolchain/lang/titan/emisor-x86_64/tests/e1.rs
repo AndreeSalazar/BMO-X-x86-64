@@ -222,7 +222,11 @@ fn console(bex: Vec<u8>, src: &str) -> (String, bool) {
     let input: String = src.lines().filter_map(|l| l.strip_prefix("# entra: ")).map(|l| format!("{l}\n")).collect();
     let mut m = cargar_bex(&bex).unwrap();
     m.poner_entrada(&input);
-    let m = run(m, 20_000_000);
+    // IL3 (18-10): an example that runs a whole simulation through E1 says
+    // what it costs (`# pasos_e1: N`, the sangre: 800 million); the rest, 20
+    // million, as always
+    let budget = src.lines().find_map(|l| l.strip_prefix("# pasos_e1: ")).and_then(|n| n.trim().parse().ok()).unwrap_or(20_000_000);
+    let m = run(m, budget);
     (m.console.clone(), m.exited)
 }
 

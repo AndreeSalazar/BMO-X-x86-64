@@ -1073,6 +1073,16 @@ orden es otro f32 -- y pierde menos: en `nivel11/sumas`, 5000 celdas suman
 249.7790 (la exacta a cuatro cifras), y una a una darian 249.7784. De una
 lista vacia, 0.
 
+**LA SANGRE (18-10, IL3, `nivel11/sangre`)**: PBF en 2D con todo lo de
+arriba -- vecinas, `piso`, la rejilla, las sumas -- y una raiz SIN DIVIDIR
+escrita en TITAN++ (`mates.inv_raiz`: potencias de cuatro y Newton con
+productos, a menos de 1.4 ULP de la de IEEE, con los mismos bits en cada
+tarjeta por construccion). Dos lecciones, dichas: lo PREDICHO tambien va
+dentro de la caja (una gota bajo el suelo tiene una celda negativa, y la
+rejilla no la ve); y para caber en la 3060, los sitios van juntos en una
+lista (`pos` = x0, y0, x1, y1...) y una fila de tres celdas es UN tramo del
+orden.
+
 [!] **Lo que cuesta un UAV en la 3060**: cada lista (las de celda a celda,
 las enteras y el resultado) ata CINCO registros de los 64 de un hueco (su
 base, su tope, sus elementos y su paso). Con ocho listas quedan 24 para la

@@ -1,0 +1,462 @@
+# espera: BIEN
+# sale: 64 gotas, 40 pasos: la densidad media 0.915, la mayor 1.154; dentro de la caja 64
+# sale: el centro de la presa, de (2.00, 2.00) a (5.72, 0.27); la gota mas lejos, en x 13.78
+# pasos_e1: 900000000
+# IL3 de PLAN_ILLAPA (18-10): LA SANGRE, por PBF (Macklin y Muller 2013) en
+# 2D. Una presa de 8 x 8 gotas cae en una caja de 16 x 16 y se abre por el
+# fondo. Cada paso: la gravedad, la rejilla de IL2 sobre lo predicho, tres
+# vueltas del solucionador -- la densidad de cada gota (el nucleo poly6), su
+# lambda, y la correccion de su sitio con la presion artificial que le da
+# tension a la superficie --, la velocidad, la VORTICIDAD que devuelve los
+# remolinos que el paso pierde, y la VISCOSIDAD de XSPH. Todo en gpu fn: la
+# CPU solo ordena los pasos (D2). La prueba: la presa cae y conserva su
+# densidad -- la media es menor que 1 por la superficie libre, donde una gota
+# tiene menos vecinas; la mayor no pasa de 1.16 --, y se abre hasta el otro
+# lado. Un espejo en Python (numpy, en f32 y en f64, mirando a todas las
+# gotas) da 0.915, 1.150, (5.73, 0.27) y 13.78: lo de aqui, salvo el orden
+# de las sumas. Lo que cuesta, medido: por E1 (la CPU de reserva corre cada
+# gpu fn al correr) son 800 millones de instrucciones, 20 millones por paso.
+mod main "la sangre: una presa que cae, por PBF"
+mod mates
+mod orden
+use casa.suma
+
+# ---- lo de cada gota, sin vecinas -----------------------------------------
+
+gpu fn cae(vy: f32) -> f32
+    return vy - 0.49
+
+# lo predicho, tambien dentro de la caja: una gota bajo el suelo tendria una
+# celda negativa, y la rejilla no la veria
+gpu fn avanza(a: f32, v: f32) -> f32
+    let b = a + 0.05 * v
+    if b < 0.0
+        return 0.0
+    if b > 15.99
+        return 15.99
+    return b
+
+# dentro de la caja, sin tocar la celda 16
+gpu fn mueve(a: f32, d: f32, rho0: f32) -> f32
+    let b = a + d / rho0
+    if b < 0.0
+        return 0.0
+    if b > 15.99
+        return 15.99
+    return b
+
+gpu fn velocidad(p: f32, x: f32) -> f32
+    return (p - x) * 20.0
+
+# ---- el solucionador: lo de las vecinas, por la rejilla ---------------------
+# Cada una mira las nueve celdas de su gota, fila a fila: las tres celdas de
+# una fila son SEGUIDAS en el orden, asi que una fila es un solo tramo de
+# gotas, de ini[c] a ini[c + 3] (y `break` cuando se acaba). Los sitios van
+# JUNTOS en una lista, `pos` = x0, y0, x1, y1... (y las velocidades en `vel`):
+# cada lista ata cinco registros de los 64 de la 3060, y asi caben.
+# Nucleos de radio 1: poly6, 4/pi (1 - r^2)^3; el gradiente de spiky,
+# -30/pi (1 - r)^2 r/|r|. Dos gotas a menos de 0.000001 no se empujan (su
+# gradiente no tiene direccion).
+
+# a, b -> a0, b0, a1, b1...: el hilo 2i toma a[i]; el 2i + 1, b[i]
+gpu fn junta(c: f32, a: [f32], b: [f32]) -> f32
+    let i = celda()
+    let h = piso(i * 0.5)
+    if i - 2.0 * h == 0.0
+        return a[h]
+    return b[h]
+
+# la lambda de la gota: -C / (|grad C|^2 + 10), con C = rho / rho0 - 1
+gpu fn lambda(x: f32, rho0: f32, pos: [f32], ini: [f32]) -> f32
+    let y = pos[2.0 * celda() + 1.0]
+    let mut rho = 0.0
+    let mut sx = 0.0
+    let mut sy = 0.0
+    let mut s2 = 0.0
+    let cx = piso(x)
+    let cy = piso(y)
+    let mut desde_x = cx - 1.0
+    if desde_x < 0.0
+        desde_x = 0.0
+    let mut hasta_x = cx + 2.0
+    if hasta_x > 16.0
+        hasta_x = 16.0
+    let mut fy = cy - 1.0
+    for a in range(3)
+        if fy >= 0.0 and fy < 16.0
+            let hasta = ini[hasta_x + 16.0 * fy]
+            let mut s = ini[desde_x + 16.0 * fy]
+            for t in range(48)
+                if s >= hasta
+                    break
+                let dx = x - pos[2.0 * s]
+                let dy = y - pos[2.0 * s + 1.0]
+                let r2 = dx * dx + dy * dy
+                if r2 < 1.0
+                    let q = 1.0 - r2
+                    rho = rho + 1.2732395 * q * q * q
+                    if r2 > 0.000000000001
+                        let ir = mates.inv_raiz_corta(r2)
+                        let u = 1.0 - r2 * ir
+                        let k = -9.549297 * u * u * ir
+                        let gx = k * dx
+                        let gy = k * dy
+                        sx = sx + gx
+                        sy = sy + gy
+                        s2 = s2 + gx * gx + gy * gy
+                s = s + 1.0
+        fy = fy + 1.0
+    let c = rho / rho0 - 1.0
+    return 0.0 - c / ((s2 + sx * sx + sy * sy) / (rho0 * rho0) + 10.0)
+# la correccion del sitio en x, por rho0: (lambda_i + lambda_j + s) grad, con la
+# presion artificial s = -0.1 (W(r) / W(0.2))^4
+gpu fn corrige_x(x: f32, pos: [f32], lam: [f32], ini: [f32]) -> f32
+    let i = celda()
+    let y = pos[2.0 * i + 1.0]
+    let li = lam[i]
+    let mut d = 0.0
+    let cx = piso(x)
+    let cy = piso(y)
+    let mut desde_x = cx - 1.0
+    if desde_x < 0.0
+        desde_x = 0.0
+    let mut hasta_x = cx + 2.0
+    if hasta_x > 16.0
+        hasta_x = 16.0
+    let mut fy = cy - 1.0
+    for a in range(3)
+        if fy >= 0.0 and fy < 16.0
+            let hasta = ini[hasta_x + 16.0 * fy]
+            let mut s = ini[desde_x + 16.0 * fy]
+            for t in range(48)
+                if s >= hasta
+                    break
+                let dx = x - pos[2.0 * s]
+                let dy = y - pos[2.0 * s + 1.0]
+                let r2 = dx * dx + dy * dy
+                if r2 < 1.0 and r2 > 0.000000000001
+                    let ir = mates.inv_raiz_corta(r2)
+                    let u = 1.0 - r2 * ir
+                    let k = -9.549297 * u * u * ir
+                    let q = 1.0 - r2
+                    let w = q * q * q / 0.884736
+                    let w2 = w * w
+                    d = d + (li + lam[s] - 0.1 * w2 * w2) * k * dx
+                s = s + 1.0
+        fy = fy + 1.0
+    return d
+# la correccion del sitio en y, por rho0: (lambda_i + lambda_j + s) grad, con la
+# presion artificial s = -0.1 (W(r) / W(0.2))^4
+gpu fn corrige_y(x: f32, pos: [f32], lam: [f32], ini: [f32]) -> f32
+    let i = celda()
+    let y = pos[2.0 * i + 1.0]
+    let li = lam[i]
+    let mut d = 0.0
+    let cx = piso(x)
+    let cy = piso(y)
+    let mut desde_x = cx - 1.0
+    if desde_x < 0.0
+        desde_x = 0.0
+    let mut hasta_x = cx + 2.0
+    if hasta_x > 16.0
+        hasta_x = 16.0
+    let mut fy = cy - 1.0
+    for a in range(3)
+        if fy >= 0.0 and fy < 16.0
+            let hasta = ini[hasta_x + 16.0 * fy]
+            let mut s = ini[desde_x + 16.0 * fy]
+            for t in range(48)
+                if s >= hasta
+                    break
+                let dx = x - pos[2.0 * s]
+                let dy = y - pos[2.0 * s + 1.0]
+                let r2 = dx * dx + dy * dy
+                if r2 < 1.0 and r2 > 0.000000000001
+                    let ir = mates.inv_raiz_corta(r2)
+                    let u = 1.0 - r2 * ir
+                    let k = -9.549297 * u * u * ir
+                    let q = 1.0 - r2
+                    let w = q * q * q / 0.884736
+                    let w2 = w * w
+                    d = d + (li + lam[s] - 0.1 * w2 * w2) * k * dy
+                s = s + 1.0
+        fy = fy + 1.0
+    return d
+# la densidad de la gota, en rho0 (para medir)
+gpu fn densidad(x: f32, rho0: f32, pos: [f32], ini: [f32]) -> f32
+    let y = pos[2.0 * celda() + 1.0]
+    let mut rho = 0.0
+    let cx = piso(x)
+    let cy = piso(y)
+    let mut desde_x = cx - 1.0
+    if desde_x < 0.0
+        desde_x = 0.0
+    let mut hasta_x = cx + 2.0
+    if hasta_x > 16.0
+        hasta_x = 16.0
+    let mut fy = cy - 1.0
+    for a in range(3)
+        if fy >= 0.0 and fy < 16.0
+            let hasta = ini[hasta_x + 16.0 * fy]
+            let mut s = ini[desde_x + 16.0 * fy]
+            for t in range(48)
+                if s >= hasta
+                    break
+                let dx = x - pos[2.0 * s]
+                let dy = y - pos[2.0 * s + 1.0]
+                let r2 = dx * dx + dy * dy
+                if r2 < 1.0
+                    let q = 1.0 - r2
+                    rho = rho + 1.2732395 * q * q * q
+                s = s + 1.0
+        fy = fy + 1.0
+    return rho / rho0
+# la vorticidad de la gota: la suma de (v_j - v_i) x grad W, cambiada de signo
+gpu fn vorticidad(x: f32, pos: [f32], vel: [f32], ini: [f32]) -> f32
+    let i = celda()
+    let y = pos[2.0 * i + 1.0]
+    let vxi = vel[2.0 * i]
+    let vyi = vel[2.0 * i + 1.0]
+    let mut om = 0.0
+    let cx = piso(x)
+    let cy = piso(y)
+    let mut desde_x = cx - 1.0
+    if desde_x < 0.0
+        desde_x = 0.0
+    let mut hasta_x = cx + 2.0
+    if hasta_x > 16.0
+        hasta_x = 16.0
+    let mut fy = cy - 1.0
+    for a in range(3)
+        if fy >= 0.0 and fy < 16.0
+            let hasta = ini[hasta_x + 16.0 * fy]
+            let mut s = ini[desde_x + 16.0 * fy]
+            for t in range(48)
+                if s >= hasta
+                    break
+                let dx = x - pos[2.0 * s]
+                let dy = y - pos[2.0 * s + 1.0]
+                let r2 = dx * dx + dy * dy
+                if r2 < 1.0 and r2 > 0.000000000001
+                    let ir = mates.inv_raiz_corta(r2)
+                    let u = 1.0 - r2 * ir
+                    let k = -9.549297 * u * u * ir
+                    om = om - ((vel[2.0 * s] - vxi) * k * dy - (vel[2.0 * s + 1.0] - vyi) * k * dx)
+                s = s + 1.0
+        fy = fy + 1.0
+    return om
+# hacia donde crece |omega|, en x: la suma de |omega_j| grad W
+gpu fn hacia_x(x: f32, pos: [f32], om: [f32], ini: [f32]) -> f32
+    let y = pos[2.0 * celda() + 1.0]
+    let mut e = 0.0
+    let cx = piso(x)
+    let cy = piso(y)
+    let mut desde_x = cx - 1.0
+    if desde_x < 0.0
+        desde_x = 0.0
+    let mut hasta_x = cx + 2.0
+    if hasta_x > 16.0
+        hasta_x = 16.0
+    let mut fy = cy - 1.0
+    for a in range(3)
+        if fy >= 0.0 and fy < 16.0
+            let hasta = ini[hasta_x + 16.0 * fy]
+            let mut s = ini[desde_x + 16.0 * fy]
+            for t in range(48)
+                if s >= hasta
+                    break
+                let dx = x - pos[2.0 * s]
+                let dy = y - pos[2.0 * s + 1.0]
+                let r2 = dx * dx + dy * dy
+                if r2 < 1.0 and r2 > 0.000000000001
+                    let ir = mates.inv_raiz_corta(r2)
+                    let u = 1.0 - r2 * ir
+                    let k = -9.549297 * u * u * ir
+                    let mut w = om[s]
+                    if w < 0.0
+                        w = 0.0 - w
+                    e = e + w * k * dx
+                s = s + 1.0
+        fy = fy + 1.0
+    return e
+# hacia donde crece |omega|, en y: la suma de |omega_j| grad W
+gpu fn hacia_y(x: f32, pos: [f32], om: [f32], ini: [f32]) -> f32
+    let y = pos[2.0 * celda() + 1.0]
+    let mut e = 0.0
+    let cx = piso(x)
+    let cy = piso(y)
+    let mut desde_x = cx - 1.0
+    if desde_x < 0.0
+        desde_x = 0.0
+    let mut hasta_x = cx + 2.0
+    if hasta_x > 16.0
+        hasta_x = 16.0
+    let mut fy = cy - 1.0
+    for a in range(3)
+        if fy >= 0.0 and fy < 16.0
+            let hasta = ini[hasta_x + 16.0 * fy]
+            let mut s = ini[desde_x + 16.0 * fy]
+            for t in range(48)
+                if s >= hasta
+                    break
+                let dx = x - pos[2.0 * s]
+                let dy = y - pos[2.0 * s + 1.0]
+                let r2 = dx * dx + dy * dy
+                if r2 < 1.0 and r2 > 0.000000000001
+                    let ir = mates.inv_raiz_corta(r2)
+                    let u = 1.0 - r2 * ir
+                    let k = -9.549297 * u * u * ir
+                    let mut w = om[s]
+                    if w < 0.0
+                        w = 0.0 - w
+                    e = e + w * k * dy
+                s = s + 1.0
+        fy = fy + 1.0
+    return e
+# el empujon de la vorticidad, 0.3 (N x omega) dt: en x, N_y omega; en y, -N_x omega
+gpu fn gira_x(v: f32, ex: f32, ey: f32, om: f32) -> f32
+    let n2 = ex * ex + ey * ey
+    if n2 < 0.000000000001
+        return v
+    return v + 0.015 * ey * mates.inv_raiz(n2) * om
+
+gpu fn gira_y(v: f32, ex: f32, ey: f32, om: f32) -> f32
+    let n2 = ex * ex + ey * ey
+    if n2 < 0.000000000001
+        return v
+    return v - 0.015 * ex * mates.inv_raiz(n2) * om
+
+# la viscosidad de XSPH, en x: v_i + 0.01 suma (v_j - v_i) W
+gpu fn viscosa_x(x: f32, pos: [f32], vel: [f32], ini: [f32]) -> f32
+    let i = celda()
+    let y = pos[2.0 * i + 1.0]
+    let vi = vel[2.0 * i]
+    let mut acc = 0.0
+    let cx = piso(x)
+    let cy = piso(y)
+    let mut desde_x = cx - 1.0
+    if desde_x < 0.0
+        desde_x = 0.0
+    let mut hasta_x = cx + 2.0
+    if hasta_x > 16.0
+        hasta_x = 16.0
+    let mut fy = cy - 1.0
+    for a in range(3)
+        if fy >= 0.0 and fy < 16.0
+            let hasta = ini[hasta_x + 16.0 * fy]
+            let mut s = ini[desde_x + 16.0 * fy]
+            for t in range(48)
+                if s >= hasta
+                    break
+                let dx = x - pos[2.0 * s]
+                let dy = y - pos[2.0 * s + 1.0]
+                let r2 = dx * dx + dy * dy
+                if r2 < 1.0
+                    let q = 1.0 - r2
+                    acc = acc + (vel[2.0 * s] - vi) * 1.2732395 * q * q * q
+                s = s + 1.0
+        fy = fy + 1.0
+    return vi + 0.01 * acc
+# la viscosidad de XSPH, en y: v_i + 0.01 suma (v_j - v_i) W
+gpu fn viscosa_y(x: f32, pos: [f32], vel: [f32], ini: [f32]) -> f32
+    let i = celda()
+    let y = pos[2.0 * i + 1.0]
+    let vi = vel[2.0 * i + 1.0]
+    let mut acc = 0.0
+    let cx = piso(x)
+    let cy = piso(y)
+    let mut desde_x = cx - 1.0
+    if desde_x < 0.0
+        desde_x = 0.0
+    let mut hasta_x = cx + 2.0
+    if hasta_x > 16.0
+        hasta_x = 16.0
+    let mut fy = cy - 1.0
+    for a in range(3)
+        if fy >= 0.0 and fy < 16.0
+            let hasta = ini[hasta_x + 16.0 * fy]
+            let mut s = ini[desde_x + 16.0 * fy]
+            for t in range(48)
+                if s >= hasta
+                    break
+                let dx = x - pos[2.0 * s]
+                let dy = y - pos[2.0 * s + 1.0]
+                let r2 = dx * dx + dy * dy
+                if r2 < 1.0
+                    let q = 1.0 - r2
+                    acc = acc + (vel[2.0 * s + 1.0] - vi) * 1.2732395 * q * q * q
+                s = s + 1.0
+        fy = fy + 1.0
+    return vi + 0.01 * acc
+gpu fn media(total: f32, n: f32) -> f32
+    return total / n
+
+gpu fn dentro(x: f32, y: f32) -> bool
+    return x >= 0.0 and x <= 15.99 and y >= 0.0 and y <= 15.99
+
+fn main()
+    let n = 64
+    let mut x: [f32] = []
+    let mut y: [f32] = []
+    let mut vx: [f32] = []
+    let mut vy: [f32] = []
+    let mut doble: [f32] = []
+    let cero: f32 = 0.0
+    for i in range(n)
+        let a: f32 = rem(i, 8) * 0.5 + 0.25
+        let b: f32 = div(i, 8) * 0.5 + 0.25
+        push(mut x, a)
+        push(mut y, b)
+        push(mut vx, cero)
+        push(mut vy, cero)
+        push(mut doble, cero)
+        push(mut doble, cero)
+    let nf: f32 = n
+    # rho0: la densidad de una gota de dentro de la presa en reposo
+    let uno: f32 = 1.0
+    let mut ini = orden.inicios(x, y, n)
+    let rho0 = suma.mayor(densidad(x, uno, junta(doble, x, y), ini))
+    for paso in range(40)
+        vy = cae(vy)
+        let mut px = avanza(x, vx)
+        let mut py = avanza(y, vy)
+        # la rejilla sobre lo predicho: todo en el orden de sus celdas
+        let nums = orden.ordena(px, py, n)
+        x = orden.toma(x, x, nums)
+        y = orden.toma(y, y, nums)
+        px = orden.toma(px, px, nums)
+        py = orden.toma(py, py, nums)
+        ini = orden.inicios(px, py, n)
+        for vuelta in range(3)
+            let pos = junta(doble, px, py)
+            let lam = lambda(px, rho0, pos, ini)
+            let dx = corrige_x(px, pos, lam, ini)
+            let dy = corrige_y(px, pos, lam, ini)
+            px = mueve(px, dx, rho0)
+            py = mueve(py, dy, rho0)
+        vx = velocidad(px, x)
+        vy = velocidad(py, y)
+        let pos = junta(doble, px, py)
+        let vel = junta(doble, vx, vy)
+        let om = vorticidad(px, pos, vel, ini)
+        let ex = hacia_x(px, pos, om, ini)
+        let ey = hacia_y(px, pos, om, ini)
+        let gx = gira_x(vx, ex, ey, om)
+        let gy = gira_y(vy, ex, ey, om)
+        let gvel = junta(doble, gx, gy)
+        vx = viscosa_x(px, pos, gvel, ini)
+        vy = viscosa_y(px, pos, gvel, ini)
+        x = px
+        y = py
+    # la medida, con la rejilla de donde quedaron
+    let nums = orden.ordena(x, y, n)
+    x = orden.toma(x, x, nums)
+    y = orden.toma(y, y, nums)
+    ini = orden.inicios(x, y, n)
+    let r = densidad(x, rho0, junta(doble, x, y), ini)
+    let mut cuantas = 0
+    for b in dentro(x, y)
+        if b
+            cuantas = cuantas + 1
+    print(n, " gotas, 40 pasos: la densidad media ", round(media(suma.total(r), nf), 3), ", la mayor ", round(suma.mayor(r), 3), "; dentro de la caja ", cuantas)
+    print("el centro de la presa, de (2.00, 2.00) a (", round(media(suma.total(x), nf), 2), ", ", round(media(suma.total(y), nf), 2), "); la gota mas lejos, en x ", round(suma.mayor(x), 2))

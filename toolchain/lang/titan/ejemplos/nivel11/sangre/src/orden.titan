@@ -1,0 +1,88 @@
+# LA REJILLA DE IL2, hecha modulo: cada gota a su celda de lado 1 en una caja
+# de 16 x 16, las gotas ordenadas por celda con el orden bitonico, y donde
+# empieza cada celda (la 256, el final de la ultima).
+mod orden "la rejilla de vecinos de la sangre: el orden por celda y donde empieza cada una"
+
+pub gpu fn clave(x: f32, y: f32) -> f32
+    return piso(x) + 16.0 * piso(y)
+
+gpu fn bit(i: f32, j: f32) -> f32
+    let q = piso(i / j)
+    return q - 2.0 * piso(q * 0.5)
+
+gpu fn antes(ca: f32, ia: f32, cb: f32, ib: f32) -> bool
+    if ca < cb
+        return true
+    if ca > cb
+        return false
+    return ia < ib
+
+gpu fn pareja(i: f32, j: f32) -> f32
+    if bit(i, j) == 0.0
+        return i + j
+    return i - j
+
+gpu fn se_queda(i: f32, j: f32, k: f32, ci: f32, ii: f32, cl: f32, il: f32) -> bool
+    let quiere_el_menor = bit(i, j) == bit(i, k)
+    return quiere_el_menor == antes(ci, ii, cl, il)
+
+gpu fn paso_clave(c: f32, claves: [f32], nums: [f32], j: f32, k: f32) -> f32
+    let i = celda()
+    let l = pareja(i, j)
+    if se_queda(i, j, k, claves[i], nums[i], claves[l], nums[l])
+        return claves[i]
+    return claves[l]
+
+gpu fn paso_num(c: f32, claves: [f32], nums: [f32], j: f32, k: f32) -> f32
+    let i = celda()
+    let l = pareja(i, j)
+    if se_queda(i, j, k, claves[i], nums[i], claves[l], nums[l])
+        return nums[i]
+    return nums[l]
+
+# el numero de cada hilo, 0 .. n - 1
+gpu fn numero(c: f32) -> f32
+    return celda()
+
+# lo de `xs` puesto en el orden de `nums`
+pub gpu fn toma(c: f32, xs: [f32], nums: [f32]) -> f32
+    return xs[nums[celda()]]
+
+gpu fn inicio(c: f32, claves: [f32], n: f32) -> f32
+    let mut lo = 0.0
+    let mut hi = n
+    for t in range(24)
+        if lo < hi
+            let mitad = piso((lo + hi) * 0.5)
+            if claves[mitad] < c
+                lo = mitad + 1.0
+            else
+                hi = mitad
+    return lo
+
+# el orden de las gotas en (xs, ys): `n` es una potencia de dos
+pub fn ordena(xs: [f32], ys: [f32], n: int) -> [f32]
+    let mut claves = clave(xs, ys)
+    let mut nums = numero(xs)
+    let mut k = 2
+    while k <= n
+        let mut j = div(k, 2)
+        while j >= 1
+            let jf: f32 = j
+            let kf: f32 = k
+            let nc = paso_clave(claves, claves, nums, jf, kf)
+            let nn = paso_num(claves, claves, nums, jf, kf)
+            claves = nc
+            nums = nn
+            j = div(j, 2)
+        k = k * 2
+    return nums
+
+# donde empieza cada celda de las gotas ya ordenadas (xs, ys)
+pub fn inicios(xs: [f32], ys: [f32], n: int) -> [f32]
+    let mut cs: [f32] = []
+    for c in range(257)
+        let a: f32 = c
+        push(mut cs, a)
+    let nf: f32 = n
+    return inicio(cs, clave(xs, ys), nf)

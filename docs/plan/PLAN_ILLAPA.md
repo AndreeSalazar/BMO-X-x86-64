@@ -196,11 +196,25 @@ anfitrion, con el oraculo de SPIR-V corriendo las mismas `gpu fn`.
 > mismo). Lo que cuesta, dicho: el orden es n log2(n)^2 / 2 comparaciones
 > (con atomicos, un conteo seria n); cada UAV ata cinco registros de la
 > 3060. IL3 (PBF) ya tiene donde apoyarse.
+>
+> **18-10, IL3:** la SANGRE, en 2D
+> ([`nivel11/sangre`](../../toolchain/lang/titan/ejemplos/nivel11/sangre/src/main.titan)):
+> una presa de 8 x 8 gotas cae en una caja de 16 x 16 durante 40 pasos, con
+> todo lo de Macklin y Muller -- la densidad (poly6), la lambda, la correccion
+> con la presion artificial (la tension de la superficie), la vorticidad y la
+> viscosidad de XSPH --, cada parte una gpu fn sobre la rejilla de IL2, y los
+> totales por `casa.suma`. Conserva su densidad (la media 0.915, la mayor
+> 1.154) y se abre hasta 13.78; un espejo en Python da lo mismo salvo el
+> orden de las sumas. La raiz va sin dividir (`mates.inv_raiz`), con los
+> mismos bits en cada tarjeta: la de la 3060 sigue siendo MUFU, y hacerla
+> exacta es del propietario (DL10). Lo que falta, dicho: 3D, mas gotas (el
+> banco tarda: cada paso son unas 70 gpu fn por cuatro respuestas) y la 3060
+> de verdad (LB8).
 
 - [ ] IL0 -- las decisiones de la seccion 8, contestadas por el propietario
 - [x] IL1 -- (18-10, en el anfitrion: los bucles por LB5, los vecinos por LB9) `gpu fn` CON VECINOS: leer celdas de OTRA tabla por indice y bucles acotados, en el lenguaje, el oraculo y el emisor de SPIR-V (el que escribio G2 de `PLAN_EL_CENTAURO.md`, hoy en linea recta); y que el emisor SM86 los sepa traducir (E6 de `PLAN_LA_LENGUA_DE_LA_3060.md`)
 - [x] IL2 -- (18-10, en el anfitrion: `nivel11/rejilla`, un orden bitonico y una busqueda binaria, sin atomicos) LA REJILLA DE VECINOS: cada particula a su celda, ordenadas por celda (un conteo y un orden, en `gpu fn`), para que cada una encuentre a las de al lado sin mirar a todas
-- [ ] IL3 -- PBF, la sangre: densidad, la correccion de posicion, la presion artificial (la tension superficial), la vorticidad y la viscosidad (Macklin y Muller 2013). La prueba, en el anfitrion: una presa que cae conserva su densidad
+- [x] IL3 -- (18-10, en el anfitrion y en 2D: `nivel11/sangre`, 64 gotas, la presa cae y conserva su densidad) PBF, la sangre: densidad, la correccion de posicion, la presion artificial (la tension superficial), la vorticidad y la viscosidad (Macklin y Muller 2013). La prueba, en el anfitrion: una presa que cae conserva su densidad
 - [ ] IL4 -- LO UNIFICADO: tela, cuerpo blando y rigido como restricciones sobre las MISMAS particulas (2014), con la rigidez de XPBD (que no dependa de cuantos pasos se den)
 - [ ] IL5 -- glTF: un lector puro (malla, esqueleto, pesos de la piel y animacion), con su banco en el anfitrion
 - [ ] IL6 -- EL PERSONAJE: la piel que sigue a los huesos (una suma de matrices por vertice: una `gpu fn`), y sus particulas de choque pegadas a los huesos

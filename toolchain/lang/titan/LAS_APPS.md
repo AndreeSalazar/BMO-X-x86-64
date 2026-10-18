@@ -101,7 +101,9 @@ cuerpos por defecto (la base de un nodo "que sabe hacer" algo) y la casa.
    **IL2, la rejilla** -- HECHO el 18-10:
    [rejilla](ejemplos/nivel11/rejilla/src/main.titan) ordena las gotas por
    celda (un orden bitonico) y cada una mira solo sus nueve celdas. Lo que
-   sigue es IL3, la sangre (PBF).
+   sigue es IL3, la sangre (PBF) -- HECHA el 18-10 en 2D:
+   [sangre](ejemplos/nivel11/sangre/src/main.titan), una presa que cae y
+   conserva su densidad.
    **Las reducciones** (pieza 3) -- HECHAS el 18-10 como casa:
    [sumas](ejemplos/nivel11/sumas/src/main.titan), y la rejilla y la
    densidad ya suman sus totales en la GPU.
