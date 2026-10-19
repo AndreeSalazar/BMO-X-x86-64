@@ -326,6 +326,12 @@ contar_empieza       = "0x01"
 contar_lee           = "0x02"
 contar_para          = "0x03"
 
+# PP3: leer un MSR de la lista blanca de este nucleo; nunca escribir.
+op_lee_msr           = "0x49"
+lee_msr_fuera        = "0x01"
+lee_msr_otra_cpu     = "0x02"
+error_negado         = "0x0B"
+
 #  ** EL SONIDO, sin biblioteca (2026-09-13). Lo pide el reproductor.
 #
 #      op_sonido_reclamar   sobre `mi_tarea`: el handle, o 0 si lo tiene otro

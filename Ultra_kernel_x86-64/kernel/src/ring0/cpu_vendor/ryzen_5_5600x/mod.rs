@@ -26,6 +26,7 @@ pub mod bmo_cpu;
 /// en `syscall/` porque un techo en ticks es un dato de este CPU: ver su
 /// cabecera.
 pub mod presupuesto;
+pub mod msr;
 
 pub use bmo_cpu::init_bmo_cpu;
 

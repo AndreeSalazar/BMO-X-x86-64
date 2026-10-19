@@ -244,6 +244,7 @@ fn invoke_current_task(operation: u64, arg0: u64, arg1: u64) -> BmoStatus {
         TASK_OP_CONSOLE_READ => op_consola::console_read(arg0, arg1),
         TASK_OP_CAIDA_ANOTAR => op_consola::caida_anotar(arg0, arg1),
         TASK_OP_CONTAR => contar(arg0, arg1),
+        TASK_OP_LEE_MSR => lee_msr(arg0),
         TASK_OP_DIR_ABRIR => op_abrir::dir_abrir(arg0, arg1),
         TASK_OP_ARCHIVO_ABRIR => op_abrir::archivo_abrir(arg0, arg1),
         TASK_OP_MI_PAQUETE => op_abrir::mi_paquete(arg0, arg1),
@@ -1359,6 +1360,15 @@ extern "C" fn dispatch(frame: &mut TrapFrame) -> u64 {
     let salida = percpu::trap_rsp();
     meter::stop(__metro);
     salida
+}
+
+/// PP3: solo la lista blanca y la CPU del perfil llegan a rdmsr.
+fn lee_msr(msr: u64) -> BmoStatus {
+    let del_perfil = crate::ring0::cpu_vendor::profile::extensiones().0;
+    match bmo_msr_lista::decidir(msr, del_perfil) {
+        Ok(fila) => BmoStatus::ok_value(crate::ring0::cpu_vendor::ryzen_5_5600x::msr::leer(fila)),
+        Err(no) => BmoStatus::negado(no as u32, 0),
+    }
 }
 
 /// ** C4: `TASK_OP_CONTAR` -- contar a quien llama (LB5). Lo que se decide,

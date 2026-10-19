@@ -792,6 +792,13 @@ pub const TASK_OP_CONTAR: u64 = 0x48;
 pub const CONTAR_EMPIEZA: u64 = 1;
 pub const CONTAR_LEE: u64 = 2;
 pub const CONTAR_PARA: u64 = 3;
+
+/// PP3: lee un MSR de la lista blanca de ESTE nucleo, solo en la CPU del
+/// perfil. `arg0` es el MSR; devuelve sus 64 bits. Nunca escribe.
+pub const TASK_OP_LEE_MSR: u64 = 0x49;
+pub const LEE_MSR_FUERA: u32 = 1;
+pub const LEE_MSR_OTRA_CPU: u32 = 2;
+pub const ERROR_NEGADO: u32 = 11;
 /// La ventana de reserva: 384 GiB desde `0x20_0000_0000`, hasta el final
 /// de `PML4[0]` (era de 128: Cyberpunk aparta mas de 130 GiB al arrancar).
 pub const RESERVA_VENTANA_BASE: u64 = 0x0000_0020_0000_0000;

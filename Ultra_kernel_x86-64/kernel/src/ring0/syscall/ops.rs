@@ -354,6 +354,9 @@ pub(crate) const TASK_OP_CONTAR: u64 = 0x48;
 pub(crate) const CONTAR_EMPIEZA: u64 = 1;
 pub(crate) const CONTAR_LEE: u64 = 2;
 pub(crate) const CONTAR_PARA: u64 = 3;
+
+/// PP3: lectura de un MSR de este nucleo, nunca escritura.
+pub(crate) const TASK_OP_LEE_MSR: u64 = 0x49;
 pub(crate) const IOMMU_OP_ENCENDER: u64 = 0x01;
 pub(crate) const IOMMU_OP_APAGAR: u64 = 0x02;
 /// Cegar la 3060 (M0e): su entrada, bloqueada.

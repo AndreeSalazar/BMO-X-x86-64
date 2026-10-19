@@ -535,6 +535,7 @@ dependencies = [
  "bmo-iommu-amdvi",
  "bmo-lente-x86",
  "bmo-mmio-juicio",
+ "bmo-msr-lista",
  "bmo-net",
  "bmo-ntfs",
  "bmo-nvidia-gsp-control",
@@ -584,6 +585,7 @@ name = "bmo-lower"
 version = "0.1.0"
 dependencies = [
  "bmo-abi",
+ "bmo-msr-lista",
 ]
 
 [[package]]
