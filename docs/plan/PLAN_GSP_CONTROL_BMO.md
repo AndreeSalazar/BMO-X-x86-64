@@ -1,4 +1,14 @@
-# PLAN GSP-CONTROL-BMO -- gobernar el GSP, no reemplazarlo
+# PLAN GSP-CONTROL-BMO -- HS ejecuta lo privilegiado, BMO gobierna la RTX
+
+**Redefinicion vigente, 18-10-2026:** el propietario pide poner Heavy Secure
+a favor de su RTX 3060 12G para controlar el arranque y eliminar el 0x15.
+La ruta principal usa FWSEC/booter firmados como ejecutores privilegiados;
+BMO controla contrato de entrada, concesiones, secuencia y postcondiciones.
+El trabajo de arranque se organiza en [HSA1..HSA6](../../platform/drivers/gpu/Nvidia/HS_INVESTIGACION.md):
+HSA1/HSA2 primero; HSA3/HSA4 comparan y corrigen; HSA5 valida G0; HSA6
+conecta el gobierno con los clientes. Este bloque prevalece sobre recetas
+historicas; GCB conserva los identificadores y trabajos ya implementados.
+Ni la causa de 0x15 ni ejecucion HS propia estan demostradas.
 
 Pedido del propietario, 16-10-2026: un crate propio en carpeta `Nvidia`,
 que crezca entendiendo SU RTX 3060 12G. **Redefinido el 17-10-2026** por el
@@ -118,6 +128,11 @@ de GCB2b no sustituye muestreo completo, identidad de build ni independencia.
 - [ ] GCB2c: cambiar UNA variable a la vez donde GCB2b encuentre diferencia,
       validar contra el criterio de G0 de `PLAN_LA_3060.md` y registrar cada
       arranque en `EL_0x15_ARRANQUES.csv`, salga bien o mal.
+
+Orden vigente 18-10: ejecutar HSA1..HSA5 del plan HS, una sola investigacion
+y un mismo registro de intentos. Distinguir entrega/DMA, resultado del
+ejecutor HS, buzon del booter e INIT_DONE; que una frontera no sea observable
+debe quedar dicho. Revisar el contrato antes de seleccionar otra variante.
 
 Historial 17-10: E2 sin D: y E3 RISC-V dieron 0x15; E5 reset dio resultados
 mixtos; E6 PTIMER tiene un fallo comunicado sin informe. E4 inicial no logro

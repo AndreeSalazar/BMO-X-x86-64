@@ -1,5 +1,10 @@
 # PLAN LA 3060 -- la grafica que ya hay, de la sonda al GSP
 
+> **Orden vigente 18-10:** G0 abierto; [HS al servicio de BMO](../../platform/drivers/gpu/Nvidia/HS_INVESTIGACION.md)
+> organiza contrato de entrega, fronteras de fallo, comparacion y correccion.
+> El HS firmado ejecuta lo privilegiado; BMO prepara, concede y comprueba.
+> Las recetas y conclusiones antiguas de abajo conservan su fecha.
+
 > **Estado vigente 16-10:** G0 sigue ABIERTO y va primero. Hay dibujo real
 > de MUNDO por la GPU en la cuarta tanda (325 fotogramas prestados), pero
 > la quinta vuelve a fallar en frio: booter 0x15 y descargador 0x15, WPR2
@@ -2696,15 +2701,12 @@ siendo lo que nunca fallo; "Reiniciar" no corta la corriente de la tarjeta.
   CAYO: H1 (el BSI, 25-09), W2 con ErP y apagando (29-09), H3 (la cache, el
   `wbinvd` se queda). El patron del malo, siempre el mismo: GSP MAILBOX0/1
   `0xBADF1002` (el booter dejo el falcon del GSP con su PLM cerrado) y la
-  WPR2 extendida. Lo que QUEDA, una variable por arranque y con la autopsia
-  que ya existe:
-  1. **W2 paso 1** (sin codigo): el inicio rapido de Windows apagado
-     (`powercfg /h off`), ErP puesto, y de Windows a BMO-X APAGAR, no
-     Reiniciar. Nunca se probo.
-  2. **H2, el tiempo** (sin codigo): los us del booter, que la autopsia ya
-     toma, en una tabla de buenos contra malos.
-  3. **H4, la imagen** (codigo chico, solo lectura): el BLAKE3 de la imagen
-     del GSP-RM JUSTO antes de soltar al booter; hoy solo se mira al cargar.
+  WPR2 extendida. **Orden actualizado 18-10:** HSA1..HSA5 del
+  [plan HS](../../platform/drivers/gpu/Nvidia/HS_INVESTIGACION.md).
+  W2 ya se aplico el 09-10 y el 0x15 volvio; no se repite como pendiente.
+  Las duraciones y huellas ayudan a contrastar la entrega, pero no localizan
+  por si solas una rama interna. La inferencia historica sobre PLM se
+  conserva como tal: BADF no explica por si solo la causa del fallo.
   **Como se sabe:** diez arranques seguidos, viniendo de Windows y de BMO-X,
   con el GSP-RM arriba en los diez (la fila `despierto` de `cabina`), y la
   tabla de buenos y malos aqui con la variable que lo decidio. Es el piso de

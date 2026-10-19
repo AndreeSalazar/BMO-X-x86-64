@@ -326,7 +326,7 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 
 ## [`PLAN_GSP_CONTROL_BMO.md`](PLAN_GSP_CONTROL_BMO.md) -- 9 abiertas, 6 hechas
 
-*PLAN GSP-CONTROL-BMO -- gobernar el GSP, no reemplazarlo*
+*PLAN GSP-CONTROL-BMO -- HS ejecuta lo privilegiado, BMO gobierna la RTX*
 
 - [ ] GCB2c: cambiar UNA variable a la vez donde GCB2b encuentre diferencia,
 - [ ] GCB3a: decodificar cada evento que ya se nombra (RC_TRIGGERED,

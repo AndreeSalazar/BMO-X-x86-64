@@ -1526,6 +1526,12 @@ metal es el 2 (G0).
   corre, el cuerpo juzgado con R7, las lecturas y escrituras puestas por el
   kernel, y el resultado en SU RAM. Con ella la libreria de SM86 ENTREGA
   computo, y una gpu fn corre en la 3060 al correr.
+  - **Auditoria 18-10:** la puerta LI2f YA tiene implementacion:
+    `IOMMU_OP_GPU_COMPUTO = 0x52`, despacho en `op_maquina.rs` y
+    `dev/gpu_trabajo/computo.rs::computo_de_app`. Su fuente declara pendiente
+    el metal. El emisor TITAN++ `e1/gpu.rs` sigue llamando al cuerpo CPU,
+    incluidas las vecinas. Lo pendiente es integrar ese cliente y validar
+    la cadena real, no volver a escribir la puerta desde cero.
   - **Bloquea:** E7 visto en el metal (`gpu eterno ya`) y G0 (el GSP que
     despierta siempre); es Ring 0: se decide con el propietario.
   - **Como se sabe:** el banco del nivel 11 corrido por la 3060 AL CORRER, con
