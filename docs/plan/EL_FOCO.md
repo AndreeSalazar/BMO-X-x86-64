@@ -6,6 +6,11 @@ sustituyen el ultimo resultado. [Indice de documentos](../README.md).
 
 ## Ahora: G0, que la RTX arranque de forma fiable
 
+Auditoria GPU/PROTON-X del 18-10: [matriz para Cyberpunk](PLAN_PROTON_X.md).
+Orden de entrega G0 -> Q0a3/MUNDO conservado; se puede avanzar en host con
+DXIL, recursos y pruebas del juego. Elegibilidad del censo no es dibujo
+GPU acreditado. El retorno tras un Dispatch parcial queda en LI2f-R.
+
 El [plan GSP-CONTROL-BMO](PLAN_GSP_CONTROL_BMO.md) se redefinio el 17-10:
 el GSP ejecuta y BMO-X lo GOBIERNA (dar posesion, conceder, pedir, escuchar,
 revocar). El 18-10 se redefine el trabajo HS: usar la cadena firmada como

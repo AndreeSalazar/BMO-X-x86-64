@@ -7,7 +7,7 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   900 casillas ABIERTAS en 82 planes
+   901 casillas ABIERTAS en 82 planes
    709 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
@@ -252,6 +252,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] M3 -- ordenar (pierde 2,6 con Rust, 1,6 con Clang). El bucle de
 - ... y 9 mas
 
+## [`PLAN_EL_LIBRETO.md`](PLAN_EL_LIBRETO.md) -- 11 abiertas, 1 hechas
+
+*PLAN EL LIBRETO -- Cyberpunk 2077 entra por VERRANO*
+
+- [ ] LI1 -- traducir y juzgar al CREAR, no al dibujar. Es VC1 de
+- [ ] LI2c -- texturas (parcial en anfitrion) (TEX; M3 de PLAN_VERRANO.md). El TIC y el
+- [ ] LI2d -- varios render targets y la profundidad (parcial) (N5.8; V2/M1 de
+- ... y 8 mas
+
 ## [`PLAN_LA_PUERTA_SE_PARTE.md`](PLAN_LA_PUERTA_SE_PARTE.md) -- 11 abiertas, 8 hechas
 
 *PLAN LA PUERTA SE PARTE -- dividir lo que no se puede abaratar*
@@ -278,15 +287,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] MC3 -- la fisica. Gravedad, saltar, y el jugador como una CAJA
 - [ ] MC4 -- un mundo grande: trozos. Trozos de 16 x 16 x 16, generados
 - ... y 8 mas
-
-## [`PLAN_EL_LIBRETO.md`](PLAN_EL_LIBRETO.md) -- 10 abiertas, 1 hechas
-
-*PLAN EL LIBRETO -- Cyberpunk 2077 entra por VERRANO*
-
-- [ ] LI1 -- traducir y juzgar al CREAR, no al dibujar. Es VC1 de
-- [ ] LI2c -- texturas (TEX; M3 de PLAN_VERRANO.md). El TIC y el
-- [ ] LI2d -- varios render targets y la profundidad (N5.8; V2/M1 de
-- ... y 7 mas
 
 ## [`PLAN_LA_DEUDA.md`](PLAN_LA_DEUDA.md) -- 10 abiertas, 7 hechas
 
