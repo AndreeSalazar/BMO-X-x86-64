@@ -13,6 +13,9 @@ ejecutor privilegiado de un contrato que BMO prepara y verifica. Orden vigente:
 [HSA1..HSA6](../../platform/drivers/gpu/Nvidia/HS_INVESTIGACION.md), contrato,
 fronteras de fallo, comparacion y correccion causal; despues validar G0.
 La investigacion de firmware propio queda separada, sin bloquear ese camino.
+Primera referencia Windows estudiada el 18-10:
+[610.74 instalado](../../platform/drivers/gpu/ga10x/ESTUDIO_WINDOWS_61074.md),
+NVML GSP no soportado; no presumir que usa el mismo camino GSP-RM de BMO.
 GCB0/GCB1 ya implementados: contrato, supervisor puro con ocho pruebas y
 `gpu control`, incluido en `save`. El resumen indica etapa, datos crudos y
 build/intento disponibles tras GCB2a; no arma recuperacion ni cambia el arranque.

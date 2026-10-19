@@ -45,13 +45,19 @@ Las capturas v1 tienen cinco fases, no una traza interna de HS.
 
 ### Trabajo nuevo, con salida y rechazo comprobables
 
+Avance 18-10: [Windows 610.74 frente a BMO](../ga10x/ESTUDIO_WINDOWS_61074.md).
+Referencia instalada identificada y copiada con huellas; NVML no acredita
+GSP activo en Windows. Primer contrato del fichero booter BMO extraido con
+`contrato_hs`; faltan datos del intento, memoria/vida y la secuencia Windows.
+HSA1/HSA2 permanecen abiertos: este estudio no cierra G0.
+
 - [ ] HSA1 -- Contrato de entrega HS de ESTA GA106. Reunir en una tabla
       imagen/release/SHA-256, fusible crudo e indice de firma, engine mask,
       ucode id, tramos IMEM/DMEM, punto de firma, arranque, metadata, IOVA,
       paginas y vida de cada prestamo. Fuente: lectores existentes y sitios
       que ejecutan el protocolo, con revision. No duplicar parser.
       Llegada: cada campo tiene propietario, unidad, rango y momento de uso;
-      los casos de offset, indice y tamano invalidos se rechazan en host.
+      los casos de offset, indice y medida invalidos se rechazan en host.
       Falta de dato se escribe ausente; una huella no certifica firma NVIDIA.
 - [ ] HSA2 -- Separar las fronteras de fallo. Auditar que observacion publica
       permite distinguir preparacion/DMA, ejecutor BROM-HS, salida del booter,
