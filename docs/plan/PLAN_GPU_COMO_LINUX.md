@@ -81,8 +81,8 @@ sirven, no una estadistica.
     que el de 570.144 (mismo SHA-256); los dos booters cambian (y el de
     carga mide 512 bytes mas: 61816 contra 61304); el GSP-RM pasa de 63 MB a
     27 MB. El GSP-RM entero es otro: F1 dice que cambio de su idioma.
-- [ ] **F0b -- SU ESTUDIO ESTATICO.** Casi hecho el 20-10; falta UNA
-  linea, la del GSP-RM, que solo puede salir del PC del propietario.
+- [x] **F0b -- SU ESTUDIO ESTATICO.** HECHO el 20-10; la linea del GSP-RM
+  salio de `fw-huella` en el PC del propietario.
   - **Los booters y el bootloader, comprobados por segunda vez.** En el
     anfitrion, de las fuentes de OpenRM 615.78.08 con un lector de arrays
     `NvU64` ESCRITO APARTE del parche de F0: salen los tres con el MISMO
@@ -108,11 +108,19 @@ sirven, no una estadistica.
   - **`fw-huella` se valido con la 570.144**: sobre el `gsp-570.144.bin` de
     linux-firmware da `e7856ee2...eea0`, el `HASH_570` de `gpu_gsp.rs` byte a
     byte.
-  - **Lo que falta, en el PC del propietario:**
+  - **El GSP-RM, en el PC del propietario** (20-10, sobre los cuatro de F0
+    con sus SHA-256 comprobados):
     `cargo run --release -p bmo-fw-huella -- <BMO-externo>\firmware\nvidia\ga102\gsp 615.78.08`.
-    Imprime el `HASH_615` listo para pegar en `ring0/dev/gpu_gsp.rs` (hoy a 0:
-    ningun GSP-RM es la 615, y el kernel no la arranca), y dice si el ELF de
-    615 trae `.fwimage` y `.fwsignature_ga10x`.
+    Los dos booters y el bootloader dan lo mismo que la tabla de arriba, y
+    el ELF de 615 trae las dos secciones:
+    ```text
+       gsp-615.78.08.bin  27043992 B
+         .fwimage           0x19be000 B desde 0x40
+         .fwsignature_ga10x 0x1000 B desde 0x19c906e
+         BLAKE3 .fwimage    aaf3b527c14f0bf61df2fee6b766128abfe49b171fe0cc97d353fe334fdb588f
+    ```
+    Ese BLAKE3 es el `HASH_615` de `ring0/dev/gpu_gsp.rs`: el kernel ya
+    reconoce la 615 por su huella.
 - [x] **F1 -- EL IDIOMA que cambia de 570.144 a 615.78.08.** HECHO el
   20-10, leido en las cabeceras y fuentes de OpenRM de las dos etiquetas
   (`open-gpu-kernel-modules` 570.144 y 615.78.08, MIT). En corto: **615 no
@@ -156,7 +164,7 @@ sirven, no una estadistica.
   emparejada (seccion 2). Por F1 se hace en dos pasos:
   - **F2a -- hasta que el GSP-RM corre.** CODIGO HECHO el 20-10 (AMARILLO:
     compila, sus pruebas pasan; sin metal). Lo que cambio:
-    - `ring0/dev/gpu_gsp.rs`: `HASH_615` (a 0 hasta F0b), `Version`,
+    - `ring0/dev/gpu_gsp.rs`: `HASH_615` (fijado en F0b), `Version`,
       `GSP_ES_615` (bit 61 de `INFO_GPU_GSP`), y `version()`: la version
       emparejada sale de la huella de lo visto por la radix3.
     - `ga10x/arranque/libos.rs`: `rmargs_615` (184 B, magic `'GSP '`) y la

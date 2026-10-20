@@ -7,8 +7,8 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   901 casillas ABIERTAS en 82 planes
-   709 hechas
+   852 casillas ABIERTAS en 80 planes
+   712 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
     12 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 120 casillas sueltas NO cuentan como abiertas)
@@ -306,15 +306,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] AY4 -- el juez sabe de tasas. El juez de la CPU dibuja con el mismo
 - ... y 6 mas
 
-## [`PLAN_GSP_CONTROL_BMO.md`](PLAN_GSP_CONTROL_BMO.md) -- 9 abiertas, 6 hechas
-
-*PLAN GSP-CONTROL-BMO -- HS ejecuta lo privilegiado, BMO gobierna la RTX*
-
-- [ ] GCB2c: cambiar UNA variable a la vez donde GCB2b encuentre diferencia,
-- [ ] GCB3a: decodificar cada evento que ya se nombra (RC_TRIGGERED,
-- [ ] GCB3b: decodificar los logs LIBOS (LOGINIT, LOGINTR, LOGRM) que
-- ... y 6 mas
-
 ## [`PLAN_PROTON_X.md`](PLAN_PROTON_X.md) -- 9 abiertas, 11 hechas
 
 *PLAN PROTON-X -- un .exe de Windows en BMO-X, SOLO x86-64, y medido*
@@ -594,15 +585,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] Paso 2 -- las vigiladas, con sus datos
 - ... y 1 mas
 
-## [`PLAN_GPU_COMO_LINUX.md`](PLAN_GPU_COMO_LINUX.md) -- 4 abiertas, 2 hechas
-
-*PLAN GPU COMO LINUX -- la 3060 con el firmware que ya arranca en ULTRA LinuX*
-
-- [ ] F0b -- SU ESTUDIO ESTATICO. Casi hecho el 20-10; falta UNA
-- [ ] F2 -- LAS DOS VERSIONES lado a lado (Ring 0, del propietario). El
-- [ ] F3 -- EL BANCO sin metal. Lo que se puede probar en el anfitrion:
-- ... y 1 mas
-
 ## [`PLAN_LAS_PUERTAS_PROFUNDAS.md`](PLAN_LAS_PUERTAS_PROFUNDAS.md) -- 4 abiertas, 0 hechas
 
 *PLAN LAS PUERTAS PROFUNDAS -- que la CPU hable mas directo, porque el kernel lo deja*
@@ -671,6 +653,14 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] S5 -- EN EL RYZEN: el JIT, y el primer uso de verdad de SELLAR
 - [ ] S6 -- EL SOBRE: el codigo ya hecho viaja dentro del .bex
 - [ ] S7 -- LOS CARRILES: 4 u 8 invocaciones por instruccion
+
+## [`PLAN_GPU_COMO_LINUX.md`](PLAN_GPU_COMO_LINUX.md) -- 3 abiertas, 3 hechas
+
+*PLAN GPU COMO LINUX -- la 3060 con el firmware que ya arranca en ULTRA LinuX*
+
+- [ ] F2 -- LAS DOS VERSIONES lado a lado (Ring 0, del propietario). El
+- [ ] F3 -- EL BANCO sin metal. Lo que se puede probar en el anfitrion:
+- [ ] F4 -- EL METAL: diez arranques en frio con 615.78.08. Apagar y
 
 ## [`PLAN_LA_LENGUA_DE_LA_3060.md`](PLAN_LA_LENGUA_DE_LA_3060.md) -- 3 abiertas, 8 hechas
 

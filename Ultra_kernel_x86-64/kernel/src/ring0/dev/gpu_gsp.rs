@@ -99,11 +99,11 @@ pub const HASH_570: [u8; 32] = [
 /// El BLAKE3 del `.fwimage` de `gsp-615.78.08.bin` (PLAN_GPU_COMO_LINUX F2a,
 /// 20-10): el GSP-RM con el que la 3060 arranca en ULTRA LinuX.
 ///
-/// [!] SIN FIJAR: a 0 hasta que `fw-huella` (toolchain/tools/fw-huella) lo
-/// calcule sobre el fichero del PC del propietario -- el GSP-RM de 615 no
-/// esta en ninguna fuente que el anfitrion pueda bajar. A 0 NINGUN GSP-RM es
-/// la 615: la version emparejada dice ROJO antes de tocar la tarjeta.
-pub const HASH_615: [u8; 32] = [0; 32];
+/// Fijado el 20-10 con `fw-huella` en el PC del propietario (0x19BE000 B desde 0x40).
+pub const HASH_615: [u8; 32] = [
+    0xaa, 0xf3, 0xb5, 0x27, 0xc1, 0x4f, 0x0b, 0xf6, 0x1d, 0xf2, 0xfe, 0xe6, 0xb7, 0x66, 0x12, 0x8a,
+    0xbf, 0xe4, 0x9b, 0x17, 0x1f, 0xe0, 0xcc, 0x97, 0xd3, 0x53, 0xfe, 0x33, 0x4f, 0xdb, 0x58, 0x8f,
+];
 
 /// **La version del GSP-RM**, por la huella de lo visto por la radix3. El
 /// resto del arranque (`rmargs`, la cola) habla el idioma de ESA version.
