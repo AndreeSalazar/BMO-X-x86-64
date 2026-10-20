@@ -237,12 +237,21 @@ Leido en `kgspBootstrap_TU102`, `kgspExecuteBooterLoad_TU102`,
 Con la 570, E3 solo dio `0x15` y E5 solo, mixto (17-10). NUNCA se probaron
 JUNTOS, ni con la 615, ni con el hueco FWSEC -> booter cerrado.
 
-- [ ] **F4a' -- OpenRM entero, con lo que ya hay.** `informe/estado/g0.txt` =
-  `riscv seguido reset`, sin recompilar, y la misma tanda: cuantos de N
-  arrancan, contra 2 de 14. Si sube, el `0x15` es del procedimiento.
-- [ ] **F4a'' -- cerrar el hueco.** FWSEC dentro de la misma llamada que
-  despertar y el booter, sin `save` en medio (un interruptor nuevo de G0).
-  Solo si F4a' no basta.
+- [ ] **F4a' -- OpenRM ENTERO, por defecto (codigo hecho el 20-10).** El
+  propietario: *"inspirar por completo el OpenRM de ULTRA"*. Sin `g0.txt`
+  corre `g0::OPENRM` = `riscv seguido reset junto`:
+  - `riscv` (E3), `reset` (E5) y `seguido` (E4), los de antes, a la vez.
+  - `junto` (E7, nuevo): `gpu_despertar::fwsec_y_despertar` -- el booter
+    leido y firmado y la huella ANTES; luego FWSEC-FRTS esperado en el
+    kernel (3 s), el GSP a RISC-V con LIBOS en los buzones, el SEC2 con el
+    booter, y STARTCPU, en una sola llamada, como `kgspBootstrap_TU102`. El
+    paso `fwsec` del director solo PREPARA. Motivo nuevo: 95,
+    `IOMMU_NO_FWSEC_JUNTO`.
+  - `gpu g0 normal` vuelve al camino de antes; `gpu g0 openrm`, a este.
+  - **Como se sabe:** la misma tanda que el 19-10 (2 de 14) y la fila `g0
+    corrio` de `gpu g0` con `riscv seguido reset junto`. Si sube, el `0x15`
+    era del procedimiento. AMARILLO: compila, guardianes limpios, QEMU
+    arranca; sin metal.
 
 # 5. Lo que este plan NO es
 

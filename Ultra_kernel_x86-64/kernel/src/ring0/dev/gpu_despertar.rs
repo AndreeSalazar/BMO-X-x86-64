@@ -76,6 +76,9 @@ pub const IOMMU_NO_YA_DESPIERTO: u32 = 45;
 /// La WPR2 ya empieza mas abajo que la de FWSEC-FRTS antes de nuestro
 /// booter: eso solo lo hace un booter, y otro no cargaria.
 pub const IOMMU_NO_GPU_CALIENTE: u32 = 67;
+/// E7 (`junto`): FWSEC-FRTS, corrido DENTRO de `despertar`, no se paro en 3
+/// s, o se paro con su buzon o su codigo distintos de 0, o sin la WPR2.
+pub const IOMMU_NO_FWSEC_JUNTO: u32 = 95;
 
 pub const DESPIERTO_VACIADO: u64 = 1 << 0;
 pub const DESPIERTO_GSP_ARRANCADO: u64 = 1 << 1;
@@ -106,6 +109,12 @@ static ESTADO: AtomicU64 = AtomicU64::new(0);
 //    seguido   E4: el booter cargado antes de despertar, sin hueco
 //    reset     E5: el RESET de GSP y SEC2 con diez lecturas por flanco
 //    ptimer    E6: PTIMER en hora antes de FWSEC (tmrSetCurrentTime_GV100)
+//    junto     E7: FWSEC, el GSP y el booter en UNA llamada (kgspBootstrap_TU102)
+//
+// ** DESDE EL 20-10, SIN `g0.txt` CORRE OpenRM ENTERO (`g0::OPENRM`: riscv,
+// seguido, reset y junto). El propietario: *"inspirar por completo el
+// OpenRM de ULTRA"* -- el driver con el que su 3060 arranca en ULTRA LinuX.
+// `gpu g0 normal` (un `g0.txt` sin palabras) vuelve al camino de antes.
 
 /// Donde vive la eleccion. 8.3, junto a `modo.txt`.
 pub const RUTA_G0: &str = "informe/estado/g0.txt";
@@ -118,11 +127,12 @@ static G0: AtomicU64 = AtomicU64::new(0);
 pub fn fijar_g0(texto: Option<&[u8]>) {
     use bmo_nvidia_gsp_control::g0;
     let mut v = g0::MIRADO;
-    if let Some(t) = texto {
-        v |= g0::FICHERO | g0::leer(t);
+    match texto {
+        Some(t) => v |= g0::FICHERO | g0::leer(t),
+        None => v |= g0::OPENRM,
     }
     G0.store(v, Ordering::Release);
-    crate::ring0::cabina::info("gpu", "G0: lo que pide informe/estado/g0.txt (bit 0 riscv, 1 seguido, 3 reset, 4 ptimer; 62 hay fichero)", v);
+    crate::ring0::cabina::info("gpu", "G0: lo que corre (bit 0 riscv, 1 seguido, 3 reset, 4 ptimer, 5 junto; 62 hay g0.txt; sin el, OpenRM entero)", v);
 }
 
 fn g0_pide(bit: u64) -> bool {
@@ -166,6 +176,11 @@ pub fn g0_seguido() -> bool {
     g0_pide(bmo_nvidia_gsp_control::g0::SEGUIDO)
 }
 
+/// E7: y ademas FWSEC-FRTS va dentro de esa llamada, delante.
+pub fn g0_junto() -> bool {
+    g0_pide(bmo_nvidia_gsp_control::g0::JUNTO) && g0_seguido()
+}
+
 /// `INFO_GPU_G0`: lo pedido (0..7), lo usado (8..15), palabras desconocidas
 /// (16..23), hay fichero (62) y se miro (63).
 pub fn info_g0() -> u64 {
@@ -193,13 +208,19 @@ fn memoria(fisica: u64, bytes: u64) -> &'static mut [u8] {
 /// Lo de antes, hecho EN ESTE ARRANQUE: la WPR2 de FWSEC, el GSP-RM por su
 /// radix3 y lo que el GSP escribe; y el candado de todo DMA de la 3060.
 fn antes() -> Result<Bar0, u32> {
+    antes_con(true)
+}
+
+/// `antes`, sin pedir la WPR2 si `con_wpr2` es falso: E7 corre FWSEC-FRTS
+/// en la misma llamada, asi que al entrar aun no esta.
+fn antes_con(con_wpr2: bool) -> Result<Bar0, u32> {
     let bar0 = pr::candado_dma()?;
     let wpr2 = (crate::ring0::dev::gpu::info_wpr2() >> 32) as u32 >> 4 != 0;
     let g = gpu_gsp::info_gsp();
     // La version emparejada: CUADRA y es una version conocida (570 o 615).
     let radix = g & gpu_gsp::GSP_CUADRA != 0 && gpu_gsp::version().is_some();
     let libos = gpu_libos::info_libos() & gpu_libos::LIBOS_COMPROBADO != 0;
-    if gpu_gsp::app_version().is_none() || !wpr2 || !radix || !libos {
+    if gpu_gsp::app_version().is_none() || (con_wpr2 && !wpr2) || !radix || !libos {
         return Err(IOMMU_NO_DESPERTAR_ANTES);
     }
     Ok(Bar0(bar0))
@@ -319,6 +340,78 @@ pub fn despertar_seguido(booter_fichero: Option<&mut dyn Fichero>) -> Result<u64
     soltar(&mut r, cargado, vigia)
 }
 
+/// **E7, JUNTO** (20-10, PLAN_GPU_COMO_LINUX 4b): FWSEC-FRTS, el GSP y el
+/// booter en UNA llamada, en el orden de OpenRM (`kgspBootstrap_TU102`):
+///
+/// ```text
+///    antes      el booter leido y firmado, y la huella de los 61 MB (lo lento)
+///    1. FWSEC   en el falcon del GSP; se ESPERA aqui a que pare, con la WPR2
+///    2. el GSP  reset a RISC-V y LIBOS en los buzones (`despertar`, E3)
+///    3. SEC2    reset, el booter por DMA, el BROM (`kgspExecuteBooterLoad`)
+///    4. soltar  wbinvd y STARTCPU del SEC2
+/// ```
+///
+/// Sin Ring 3 ni un `save` en medio: los ~522 ms de FWSEC al booter se
+/// quedan en lo que tarda FWSEC. Si la WPR2 ya estaba (`gpu fwsec` a mano),
+/// se sigue sin FWSEC y sin apuntar E7 como usado.
+pub fn fwsec_y_despertar(booter_fichero: Option<&mut dyn Fichero>) -> Result<u64, u32> {
+    use bmo_gpu_ga10x::falcon::Reloj;
+    use bmo_nvidia_gsp_control::g0;
+    if ESTADO.load(Ordering::Acquire) & DESPIERTO_SEC2_ARRANCADO != 0 {
+        return Err(IOMMU_NO_YA_DESPIERTO);
+    }
+    let wpr2_ya = (crate::ring0::dev::gpu::info_wpr2() >> 32) as u32 >> 4 != 0;
+    let mut r = match antes_con(wpr2_ya) {
+        Ok(r) => r,
+        Err(m) => return no(m),
+    };
+    let leido = leer_booter(&mut r, booter_fichero)?;
+    let vigia = huellas();
+    if wpr2_ya {
+        crate::ring0::cabina::warn("gpu", "G0 E7: la WPR2 ya estaba (FWSEC corrio aparte): sin junto", 0);
+    } else {
+        // 1. FWSEC-FRTS, y su final esperado AQUI, como `kgspExecuteFwsec`.
+        if let Err(m) = pr::fwsec_correr() {
+            return no(m);
+        }
+        let mut t = pr::reloj();
+        let desde = t.us();
+        loop {
+            if let Ok((true, _, _)) = fa::como_va(&mut r, fa::GSP) {
+                break;
+            }
+            if t.us() >= desde + 3_000_000 {
+                return no(IOMMU_NO_FWSEC_JUNTO);
+            }
+        }
+        // `info_fwsec` lo lee como lo leia el director: su foto y su autopsia.
+        let f = pr::info_fwsec();
+        let buzon = pr::info_fwsec_buzon() as u32;
+        let wpr2 = (crate::ring0::dev::gpu::info_wpr2() >> 32) as u32 >> 4 != 0;
+        if buzon != 0 || (f >> pr::FWSEC_ERROR_SHIFT) & 0xFFFF != 0 || !wpr2 {
+            return no(IOMMU_NO_FWSEC_JUNTO);
+        }
+        G0.fetch_or(g0::JUNTO_USADO, Ordering::AcqRel);
+        crate::ring0::cabina::count("gpu", "G0 E7: FWSEC-FRTS corrio dentro de despertar y monto la WPR2; us", t.us() - desde);
+    }
+    // 2. El GSP como OpenRM (con `riscv`, sin arrancarlo).
+    despertar()?;
+    if !g0_pide(g0::RISCV_USADO) {
+        let mut t = pr::reloj();
+        let fin = t.us() + 10_000;
+        while !matches!(fa::como_va(&mut r, fa::GSP), Ok((true, _, _))) {
+            if t.us() >= fin {
+                return no(IOMMU_NO_GSP_FALCON);
+            }
+        }
+        apuntar(|x| x | DESPIERTO_GSP_PARADO);
+    }
+    // 3 y 4. El booter al SEC2 y soltarlo.
+    let cargado = meter_booter(&mut r, leido)?;
+    G0.fetch_or(g0::SEGUIDO_USADO, Ordering::AcqRel);
+    soltar(&mut r, cargado, vigia)
+}
+
 /// **BOOTER**: 2 del orden, con el GSP ya parado. `Ok(la firma usada)` en
 /// cuanto el SEC2 arranca; si se paro, lo dice `INFO_GPU_DESPIERTO`.
 pub fn booter(booter_fichero: Option<&mut dyn Fichero>) -> Result<u64, u32> {
@@ -355,7 +448,20 @@ struct Cargado {
 /// El booter leido, firmado con la firma del fusible, prestado y copiado al
 /// SEC2. No toca el GSP: E4 lo hace antes de despertarlo.
 fn cargar_booter(r: &mut Bar0, booter_fichero: Option<&mut dyn Fichero>) -> Result<Cargado, u32> {
-    let no = |m: u32| no(m).and(Err::<Cargado, u32>(m));
+    let l = leer_booter(r, booter_fichero)?;
+    meter_booter(r, l)
+}
+
+/// Lo que deja `leer_booter`: el booter firmado y prestado, aun FUERA del SEC2.
+struct Leido {
+    b: booter::Booter,
+    idx: u32,
+}
+
+/// Lo lento del booter (E7 lo hace antes de FWSEC): leerlo del disco,
+/// firmarlo con la firma del fusible y prestarlo. No toca ningun falcon.
+fn leer_booter(r: &mut Bar0, booter_fichero: Option<&mut dyn Fichero>) -> Result<Leido, u32> {
+    let no = |m: u32| no(m).and(Err::<Leido, u32>(m));
     let Some(f) = booter_fichero else { return no(IOMMU_NO_BOOTER) };
     if BOOTER_F.load(Ordering::Acquire) == 0 {
         // La 3060 lo leera por DMA: NEUTRO.
@@ -391,6 +497,15 @@ fn cargar_booter(r: &mut Bar0, booter_fichero: Option<&mut dyn Fichero>) -> Resu
         }
     }
     apuntar(|v| (v & !(3 << DESPIERTO_FIRMA_SHIFT)) | DESPIERTO_BOOTER | (idx as u64 & 3) << DESPIERTO_FIRMA_SHIFT);
+    Ok(Leido { b, idx: idx as u32 })
+}
+
+/// El booter ya leido, al SEC2 (como `kgspExecuteBooterLoad_TU102`: reset
+/// del SEC2, FBIF, IMEM y DMEM por DMA, y los registros del BROM). Rapido: E7
+/// lo hace entre el GSP preparado y STARTCPU.
+fn meter_booter(r: &mut Bar0, l: Leido) -> Result<Cargado, u32> {
+    let no = |m: u32| no(m).and(Err::<Cargado, u32>(m));
+    let (b, idx) = (l.b, l.idx);
 
     // 2. El booter en el SEC2, con la WPR meta en el buzon.
     crate::ring0::cabina::info("gpu", "L0c3b: el booter al SEC2; la WPR meta en", IOVA_WPR_META);
@@ -410,7 +525,7 @@ fn cargar_booter(r: &mut Bar0, booter_fichero: Option<&mut dyn Fichero>) -> Resu
         return no(IOMMU_NO_SEC2);
     }
     fa::brom(r, fa::SEC2, b.pkc_data_offset(), b.engine_id_mask, b.ucode_id);
-    Ok(Cargado { idx: idx as u32, arranque: b.arranque() })
+    Ok(Cargado { idx, arranque: b.arranque() })
 }
 
 /// Suelta el booter ya cargado: la foto de antes, `wbinvd` y STARTCPU.

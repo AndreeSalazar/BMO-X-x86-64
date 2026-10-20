@@ -189,9 +189,9 @@ pub(crate) const PASOS: &[Paso] = &[
     // `gsp`, `radix`, `libos` ni `sistema` necesita la WPR2 montada.
     Paso {
         nombre: b"fwsec",
-        que: b"CORRER FWSEC-FRTS: el firmware firmado de la VBIOS monta la WPR2 (L0b)",
-        hecho: super::vbios::hay_wpr2,
-        dar: super::vbios::correr_fwsec,
+        que: b"FWSEC-FRTS: el firmware firmado de la VBIOS monta la WPR2 (L0b); con OpenRM entero (E7, sin g0.txt) aqui solo se PREPARA y corre dentro de `despertar`",
+        hecho: super::vbios::paso_fwsec_hecho,
+        dar: super::vbios::paso_fwsec,
         pide: Some(b"sistema"),
         consejo: b"`gpu`: la fila `wpr2` dice YA montada donde se pidio, y `frts` CORRIO -- la puerta del booter y del GSP",
         repinta: false,

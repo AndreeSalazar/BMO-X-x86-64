@@ -460,6 +460,8 @@ pub const IOMMU_NO_CANAL_MUERTO: u32 = 90;
 pub const IOMMU_NO_REVIVIR: u32 = 93;
 /// F2a: el paso habla el idioma de la 570 y el GSP-RM es la 615 (ver el ABI).
 pub const IOMMU_NO_IDIOMA_615: u32 = 94;
+/// E7: FWSEC-FRTS dentro de `despertar` no acabo bien (ver el ABI).
+pub const IOMMU_NO_FWSEC_JUNTO: u32 = 95;
 pub const IOMMU_NO_GPU_CALIENTE: u32 = 67;
 /// Mover el fader (1/256 dB con signo).
 pub const AUDIO_MANDO_FADER: u64 = 1;
