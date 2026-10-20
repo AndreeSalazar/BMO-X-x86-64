@@ -176,7 +176,7 @@ pub(crate) const PASOS: &[Paso] = &[
     Paso {
         nombre: b"sistema",
         que: b"ESCRIBIRLE AL GSP por primera vez: SetSystemInfo y SetRegistry en la cola de la CPU, antes de despertarlo (L0c4b2a)",
-        hecho: super::gspsistema::mandado,
+        hecho: super::gspsistema::hecho_o_no_toca,
         dar: super::gspsistema::mandar,
         pide: Some(b"libos"),
         consejo: b"`gpu`: la fila `sistema` dice los dos con suma 0, `sysinfo` las BAR y el PCI de tu 3060, y `leyo` que el GSP LOS LEYO (su puntero en 2) tras `despertar`",
