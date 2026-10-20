@@ -1,14 +1,14 @@
 <!-- GENERADO por toolchain/tools/planes. No se edita a mano. -->
 
-# LO QUE FALTA -- las casillas abiertas de los 91 planes
+# LO QUE FALTA -- las casillas abiertas de los 92 planes
 
 > Generado por `toolchain/tools/planes`. **El build comprueba que
 > este fichero y los planes dicen lo mismo**, asi que no puede
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   900 casillas ABIERTAS en 82 planes
-   709 hechas
+   905 casillas ABIERTAS en 83 planes
+   710 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -547,6 +547,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] D0 -- EL METRO (codigo HECHO 2026-09-23; se cierra con el primer numero)
 - [ ] D1 -- ASINCRONO + WAIT: cero congelones
 - [ ] D3 -- DMA directo al bloque prestado + PRD multiples
+- ... y 2 mas
+
+## [`PLAN_GPU_COMO_LINUX.md`](PLAN_GPU_COMO_LINUX.md) -- 5 abiertas, 1 hechas
+
+*PLAN GPU COMO LINUX -- aprender de como arranca la 3060 en Linux, sin traer Linux*
+
+- [ ] **GL0 -- LA LINEA BASE en ULTRA LinuX (del propietario, sin codigo de
+- [ ] GL1 -- LA TRAZA (del propietario, en ULTRA). mmiotrace del kernel
+- [ ] GL3 -- LA COMPARACION con BMO-X. La receta de NVIDIA, paso a paso,
 - ... y 2 mas
 
 ## [`PLAN_LAS_LIBRERIAS.md`](PLAN_LAS_LIBRERIAS.md) -- 5 abiertas, 9 hechas

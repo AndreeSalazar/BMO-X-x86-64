@@ -1,0 +1,16 @@
+[package]
+name = "bmo-traza-gpu"
+version = "0.1.0"
+edition = "2021"
+authors = ["BMO Project"]
+description = "La receta de NVIDIA, leida de tu propia RTX 3060: una traza mmiotrace de Linux (nvidia-open) recortada a la BAR0, con cada registro nombrado como lo nombra BMO-X, cortada donde arranca el booter, y comparada con otra traza. Solo DATOS: ni una linea de Linux entra en BMO-X."
+
+[dependencies]
+
+[[bin]]
+name = "traza-gpu"
+path = "src/main.rs"
+
+[lib]
+name = "bmo_traza_gpu"
+path = "src/lib.rs"

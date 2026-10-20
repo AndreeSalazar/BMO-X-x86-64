@@ -7,6 +7,9 @@
 > `f39e0658a` guarda GSP ANTES del booter; foto vista a las 23:23, argumentos
 > intactos antes y BADF despues. G0 sigue abierto. El
 > [plan GSP-CONTROL-BMO](PLAN_GSP_CONTROL_BMO.md) organiza la continuacion.
+> **20-10:** la misma 3060 arranca su GSP en ULTRA LinuX (`nvidia-open`
+> 615.78.08). [`PLAN_GPU_COMO_LINUX.md`](PLAN_GPU_COMO_LINUX.md): grabar
+> lo que hace NVIDIA en esta tarjeta y compararlo con BMO-X (`traza-gpu`).
 > [Evidencia](../metal/METAL_2026-10-16.md),
 > [investigacion vigente](../../platform/drivers/gpu/ga10x/DESPERTAR_FIABLE.md).
 
