@@ -1,5 +1,7 @@
 # PLAN LA 3060 AFINADA -- aislar mas, medir, y solo entonces optimizar
 
+> Estado: **SUPERADO** -- por PLAN_GPU_COMO_LINUX (20-10): el propietario archivo la pelea con el `0x15`; BMO-X pasa al firmware 615.78.08, el que arranca la 3060 en ULTRA LinuX. Se queda aqui (no en `terminado/`) porque el codigo de Ring 0 lo cita por esta ruta.
+
 > Escrito el **2026-09-25**, el dia despues de que la 3060 funcionara entera por
 > primera vez: `save mode` 51 de 51, el compositor por GPU (`volcado` en 649 us
 > la pantalla entera, contra ~27 ms de la CPU) y DOOM a 70 fps con 19866 tandas

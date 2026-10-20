@@ -7,11 +7,11 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   905 casillas ABIERTAS en 83 planes
-   710 hechas
+   853 casillas ABIERTAS en 80 planes
+   709 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
-     9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
-       (sus 68 casillas sueltas NO cuentan como abiertas)
+    12 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
+       (sus 120 casillas sueltas NO cuentan como abiertas)
      0 en plan/ SIN NI UNA CASILLA -- ver el final
 ```
 
@@ -99,15 +99,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] la PAGINA DE TITULO (Title:, Credit:, Author:, Draft date:...)
 - ... y 26 mas
 
-## [`PLAN_LA_3060_AFINADA.md`](PLAN_LA_3060_AFINADA.md) -- 25 abiertas, 18 hechas
-
-*PLAN LA 3060 AFINADA -- aislar mas, medir, y solo entonces optimizar*
-
-- [ ] A3 -- esperar a la 3060 con INTERRUPCION, y el trinquete E a cero
-- [ ] A4 -- los CARRILES de la 3060: una carpeta que no mezcla
-- [ ] A5 -- cada prestamo a la 3060 dice quien lo devuelve
-- ... y 22 mas
-
 ## [`EL_FOCO.md`](EL_FOCO.md) -- 24 abiertas, 31 hechas
 
 *EL FOCO -- estado vigente y orden de trabajo*
@@ -125,15 +116,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] F5 -- EL PANEL IZQUIERDO TAMBIEN SE ARMA. Sus secciones como placas
 - [ ] F6 -- LO DATA-DENSE. Graficos circulares (la carga por nucleo, los
 - ... y 16 mas
-
-## [`PLAN_LA_3060.md`](PLAN_LA_3060.md) -- 18 abiertas, 2 hechas
-
-*PLAN LA 3060 -- la grafica que ya hay, de la sonda al GSP*
-
-- [ ] E1 -- volcar DETRAS del rayo (2026-09-23, en codigo)
-- [ ] E3 -- el compositor al compas de la pantalla
-- [ ] M0 -- la IOMMU (AMD-Vi) encendida: el NEUTRO pasa de censo a frontera
-- ... y 15 mas
 
 ## [`PLAN_AUTOCURACION.md`](PLAN_AUTOCURACION.md) -- 17 abiertas, 0 hechas
 
@@ -322,15 +304,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] AY1 -- A0, el plazo. Un fotograma por VBlank, empezado tarde.
 - [ ] AY3 -- el mapa en la 3060. La imagen de tasas y su tabla por los
 - [ ] AY4 -- el juez sabe de tasas. El juez de la CPU dibuja con el mismo
-- ... y 6 mas
-
-## [`PLAN_GSP_CONTROL_BMO.md`](PLAN_GSP_CONTROL_BMO.md) -- 9 abiertas, 6 hechas
-
-*PLAN GSP-CONTROL-BMO -- gobernar el GSP, no reemplazarlo*
-
-- [ ] GCB2c: cambiar UNA variable a la vez donde GCB2b encuentre diferencia,
-- [ ] GCB3a: decodificar cada evento que ya se nombra (RC_TRIGGERED,
-- [ ] GCB3b: decodificar los logs LIBOS (LOGINIT, LOGINTR, LOGRM) que
 - ... y 6 mas
 
 ## [`PLAN_PROTON_X.md`](PLAN_PROTON_X.md) -- 9 abiertas, 11 hechas
@@ -549,13 +522,13 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] D3 -- DMA directo al bloque prestado + PRD multiples
 - ... y 2 mas
 
-## [`PLAN_GPU_COMO_LINUX.md`](PLAN_GPU_COMO_LINUX.md) -- 5 abiertas, 1 hechas
+## [`PLAN_GPU_COMO_LINUX.md`](PLAN_GPU_COMO_LINUX.md) -- 5 abiertas, 0 hechas
 
-*PLAN GPU COMO LINUX -- aprender de como arranca la 3060 en Linux, sin traer Linux*
+*PLAN GPU COMO LINUX -- la 3060 con el firmware que ya arranca en ULTRA LinuX*
 
-- [ ] **GL0 -- LA LINEA BASE en ULTRA LinuX (del propietario, sin codigo de
-- [ ] GL1 -- LA TRAZA (del propietario, en ULTRA). mmiotrace del kernel
-- [ ] GL3 -- LA COMPARACION con BMO-X. La receta de NVIDIA, paso a paso,
+- [ ] F0 -- LOS CUATRO FICHEROS de 615.78.08. El gsp_ga10x.bin del
+- [ ] F1 -- EL IDIOMA que cambia de 570.144 a 615.78.08. Lo que BMO-X
+- [ ] F2 -- LAS DOS VERSIONES lado a lado (Ring 0, del propietario). El
 - ... y 2 mas
 
 ## [`PLAN_LAS_LIBRERIAS.md`](PLAN_LAS_LIBRERIAS.md) -- 5 abiertas, 9 hechas
@@ -776,6 +749,9 @@ ya no aplican, o esperan a alguien que no es el codigo.
 - **CERRADO** [`terminado/PLAN_SUELO_RING3.md`](terminado/PLAN_SUELO_RING3.md) -- cumplido: las tres piezas del suelo de Ring 3 estan; lo que baje ahora se apoya en ellas.  *(4 hechas, 0 sueltas)*
 - **ESPERA** [`en_pausa/PLAN_DOCUMENTOS.md`](en_pausa/PLAN_DOCUMENTOS.md) -- una decision del propietario (.datex, .window/.data): idea suya, sin decidir a proposito; lo que si existe ya es CLASE_PANTALLA en los requisitos del BEF. Lo que hay aqui es el  *(0 hechas, 12 sueltas)*
 - **ESPERA** [`en_pausa/PLAN_EL_ASISTENTE.md`](en_pausa/PLAN_EL_ASISTENTE.md) -- a TITAN++ nivel 11 (gpu fn, PLAN_EL_CENTAURO.md; los niveles 9 y 10 ya estan): por decision del propietario del 2026-10-04 es la PRIMERA app de la F2, y se construye en TITAN++. Antes: APARCADO, "el ultimo" (2026-09-10).  *(3 hechas, 16 sueltas)*
+- **SUPERADO** [`PLAN_GSP_CONTROL_BMO.md`](PLAN_GSP_CONTROL_BMO.md) -- por PLAN_GPU_COMO_LINUX (20-10): el propietario archivo la pelea con el 0x15; BMO-X pasa al firmware 615.78.08, el que arranca la 3060 en ULTRA LinuX. Se queda aqui (no en terminado/) porque el codigo de Ring 0 lo cita por esta ruta.  *(6 hechas, 9 sueltas)*
+- **SUPERADO** [`PLAN_LA_3060.md`](PLAN_LA_3060.md) -- por PLAN_GPU_COMO_LINUX (20-10): el propietario archivo la pelea con el 0x15; BMO-X pasa al firmware 615.78.08, el que arranca la 3060 en ULTRA LinuX. Se queda aqui (no en terminado/) porque el codigo de Ring 0 lo cita por esta ruta.  *(2 hechas, 18 sueltas)*
+- **SUPERADO** [`PLAN_LA_3060_AFINADA.md`](PLAN_LA_3060_AFINADA.md) -- por PLAN_GPU_COMO_LINUX (20-10): el propietario archivo la pelea con el 0x15; BMO-X pasa al firmware 615.78.08, el que arranca la 3060 en ULTRA LinuX. Se queda aqui (no en terminado/) porque el codigo de Ring 0 lo cita por esta ruta.  *(18 hechas, 25 sueltas)*
 - **SUPERADO** [`en_pausa/PLAN_EL_CODEGEN.md`](en_pausa/PLAN_EL_CODEGEN.md) -- por PLAN_EL_TROQUEL.md (18/19-09): plegado (decidir/plegado.rs), operador con inmediato, comparacion fundida, troquel por variable, convencion de llamada hibrida. El metro dice 451.306 -> 183.875 instrucciones (-59 %); la MEDIDA de aqui fue el punto de partida y se conserva.  *(0 hechas, 9 sueltas)*
 - **SUPERADO** [`en_pausa/PLAN_EL_GUARDIAN.md`](en_pausa/PLAN_EL_GUARDIAN.md) -- por la decision del 2026-09-18 (el guardian isa, toolchain/tools/isa/isa.py: "este repositorio es de UNA arquitectura"): este repositorio es SOLO x86-64 y ARM/RISC-V son OTRO repositorio. Una placa RISC-V como guardian no cabe aqui; la idea se conserva para ese otro arbol.  *(0 hechas, 15 sueltas)*
 

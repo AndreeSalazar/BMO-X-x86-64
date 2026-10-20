@@ -1,5 +1,7 @@
 # PLAN LA 3060 -- la grafica que ya hay, de la sonda al GSP
 
+> Estado: **SUPERADO** -- por PLAN_GPU_COMO_LINUX (20-10): el propietario archivo la pelea con el `0x15`; BMO-X pasa al firmware 615.78.08, el que arranca la 3060 en ULTRA LinuX. Se queda aqui (no en `terminado/`) porque el codigo de Ring 0 lo cita por esta ruta.
+
 > **Estado vigente 16-10:** G0 sigue ABIERTO y va primero. Hay dibujo real
 > de MUNDO por la GPU en la cuarta tanda (325 fotogramas prestados), pero
 > la quinta vuelve a fallar en frio: booter 0x15 y descargador 0x15, WPR2
@@ -8,8 +10,7 @@
 > intactos antes y BADF despues. G0 sigue abierto. El
 > [plan GSP-CONTROL-BMO](PLAN_GSP_CONTROL_BMO.md) organiza la continuacion.
 > **20-10:** la misma 3060 arranca su GSP en ULTRA LinuX (`nvidia-open`
-> 615.78.08). [`PLAN_GPU_COMO_LINUX.md`](PLAN_GPU_COMO_LINUX.md): grabar
-> lo que hace NVIDIA en esta tarjeta y compararlo con BMO-X (`traza-gpu`).
+> 615.78.08). Lo que sigue esta en [`PLAN_GPU_COMO_LINUX.md`](PLAN_GPU_COMO_LINUX.md).
 > [Evidencia](../metal/METAL_2026-10-16.md),
 > [investigacion vigente](../../platform/drivers/gpu/ga10x/DESPERTAR_FIABLE.md).
 
