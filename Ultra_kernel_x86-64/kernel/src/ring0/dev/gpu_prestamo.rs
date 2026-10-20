@@ -339,10 +339,30 @@ pub fn fwsec_correr() -> Result<u64, u32> {
     if (w >> 32) as u32 >> 4 != 0 {
         return no(IOMMU_NO_WPR2_YA);
     }
-    let fb = crate::ring0::dev::gpu::info_fb();
-    if fb & crate::ring0::dev::gpu::GPU_FB_PLM_LEIBLE == 0 || (fb >> crate::ring0::dev::gpu::GPU_FB_GFW_SHIFT) & 0xFF != 0xFF {
-        return no(IOMMU_NO_GFW);
+    // ** ESPERAR A LA TARJETA COMO OpenRM (20-10, PLAN_GPU_COMO_LINUX 4c):
+    // `gpuWaitForGfwBootComplete_TU102` da hasta 2,05 s a que el falcon del
+    // GSP pare (alli corre el arranque de la propia tarjeta) y el GFW diga
+    // COMPLETED con su PLM legible. Antes BMO-X miraba UNA vez y decia NO.
+    use bmo_gpu_ga10x::falcon::Reloj;
+    let mut tr = reloj();
+    let desde = tr.us();
+    let fb = loop {
+        let fb = crate::ring0::dev::gpu::info_fb();
+        let gfw = fb & crate::ring0::dev::gpu::GPU_FB_PLM_LEIBLE != 0
+            && (fb >> crate::ring0::dev::gpu::GPU_FB_GFW_SHIFT) & 0xFF == 0xFF;
+        let parado = matches!(fa::como_va(&mut Bar0(bar0), fa::GSP), Ok((true, _, _)));
+        if gfw && parado {
+            break fb;
+        }
+        if tr.us() >= desde + GFW_ESPERA_US {
+            return no(IOMMU_NO_GFW);
+        }
+    };
+    let esperado = tr.us() - desde;
+    if esperado > 1000 {
+        crate::ring0::cabina::count("gpu", "L0b: se espero a la tarjeta (GFW COMPLETED y el GSP parado), como OpenRM; us", esperado);
     }
+    mirar_candado_mmu(&mut Bar0(bar0));
     // ** LA 3060 12G, Y SOLO ELLA (25-09): con el GFW acabado, la VRAM ya se
     // puede leer; FRTS y todo lo de despues se calcula desde ella.
     if !bmo_gpu_ga10x::identidad::vram_es_la_suya(fb as u32) {
@@ -392,6 +412,52 @@ pub fn fwsec_correr() -> Result<u64, u32> {
     FWSEC_AUTOPSIA.store(false, Ordering::Release);
     crate::ring0::cabina::count("gpu", "L0b: FWSEC-FRTS ARRANCADO en el falcon del GSP; firma", idx as u64);
     Ok(frts.desde)
+}
+
+/// Lo que `gpuWaitForGfwBootComplete_TU102` le da a la tarjeta: 50 ms de
+/// arranque y 2 s para acabar (`FWSECLIC_PROG_*_TIMEOUT`).
+const GFW_ESPERA_US: u64 = 2_050_000;
+
+/// `NV_PFB_PRI_MMU_LOCK_ADDR_LO`/`_HI` y el PLM de su lectura (GA100, el que
+/// usa la GA10x en OpenRM 615: `memmgrReadMmuLock_GA100`).
+const MMU_LOCK_LO: u32 = 0x001F_A82C;
+const MMU_LOCK_HI: u32 = 0x001F_A830;
+const MMU_LOCK_PLM: u32 = 0x001F_A7C8;
+
+/// La region bloqueada por la VBIOS en la MMU: `(desde, hasta)` en bytes, si
+/// se puede leer y es valida. OpenRM 615 pone el techo de la WPR2 en
+/// `min(este desde, la VGA)` (`kgspPopulateWprMeta_TU102`).
+static MMU_CANDADO: AtomicU64 = AtomicU64::new(0);
+
+/// **MEDIR antes de cambiar** (20-10): BMO-X no la tiene en cuenta. Se lee y
+/// se dice; si cae por debajo de la VGA, la WPR2 de BMO-X la pisa y CABINA
+/// lo dice en rojo. El reparto no cambia hasta ver que dice la 3060.
+fn mirar_candado_mmu(r: &mut Bar0) {
+    use bmo_gpu_ga10x::Registros;
+    let plm = r.leer(MMU_LOCK_PLM);
+    if bmo_gpu_ga10x::es_error_pri(plm) || plm & 1 == 0 {
+        crate::ring0::cabina::info("gpu", "L0b: el candado de la MMU de la VBIOS no se deja leer (PLM)", plm as u64);
+        return;
+    }
+    let lo = ((r.leer(MMU_LOCK_LO) >> 4) as u64) << 12;
+    let hi = ((r.leer(MMU_LOCK_HI) >> 4) as u64) << 12;
+    MMU_CANDADO.store(lo >> 12 | (hi >> 12) << 32, Ordering::Release);
+    if hi < lo {
+        crate::ring0::cabina::info("gpu", "L0b: sin candado de la MMU de la VBIOS (hi < lo); desde", lo);
+        return;
+    }
+    let vga = crate::ring0::dev::gpu::info_vga();
+    let vga = ((vga >> 8) & 0xFF_FFFF) << 16;
+    if vga != 0 && lo < vga {
+        crate::ring0::cabina::warn("gpu", "L0b: la VBIOS BLOQUEA memoria de la MMU por debajo de la VGA (OpenRM baja la WPR2 ahi; BMO-X no); desde", lo);
+    } else {
+        crate::ring0::cabina::count("gpu", "L0b: candado de la MMU de la VBIOS, por encima de la VGA; desde", lo);
+    }
+}
+
+/// `INFO`: el candado de la MMU leido -- desde y hasta en paginas de 4 KiB.
+pub fn info_mmu_candado() -> u64 {
+    MMU_CANDADO.load(Ordering::Acquire)
 }
 
 /// La firma que pide el fusible, el prestamo (una vez), la carga en el falcon
