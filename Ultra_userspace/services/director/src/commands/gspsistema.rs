@@ -50,6 +50,16 @@ pub(crate) fn mandado() -> bool {
     u32_en(CPU_ESCRITO) != 0
 }
 
+/// **El paso `sistema` de `save mode`**: mandado, o NO HAY QUE MANDARLO
+/// (F2a de PLAN_GPU_COMO_LINUX, 20-10). Con el GSP-RM de la 615.78.08
+/// `SetSystemInfo` y `SetRegistry` no existen: el sistema le llega despues
+/// de despertar, en `GSP_INIT` (F2b). Sin esto, `fwsec` y `despertar`, que
+/// piden `sistema`, no se darian nunca con la 615.
+pub(crate) fn hecho_o_no_toca() -> bool {
+    let g = bmo::info(bmo::INFO_GPU_GSP);
+    mandado() || (g & bmo::GSP_CUADRA != 0 && g & bmo::GSP_ES_615 != 0)
+}
+
 /// Uno de los dos, releido de la pagina `k`: su cabecera y si suma 0.
 fn releido(k: u64) -> (Mensaje, bool) {
     let base = CPU_DATOS + k * 4096;

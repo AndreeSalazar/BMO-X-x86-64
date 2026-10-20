@@ -1,7 +1,7 @@
 //! PP3: lectura de los MSR permitidos en el Ryzen 5 5600X.
 //!
-//! [carril] ROJO: ejecuta rdmsr en Ring 0, solo tras comprobar el perfil.
-//! [consumo] NADA: una lectura, sin memoria ni escritura de registros.
+//! [carril]  ROJO      ejecuta rdmsr en Ring 0, solo tras comprobar el perfil
+//! [consumo] NADA      una lectura, sin memoria ni escritura de registros
 
 /// Recibe la fila que concedio `bmo_msr_lista::decidir`, nunca el numero
 /// sin comprobar de la tarea. Quien llama ya comprobo la CPU del perfil.
