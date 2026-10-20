@@ -826,6 +826,14 @@ impl Machine {
                     }
                     return;
                 }
+                // PP3: CPU del perfil MODELADA; el prefijo dice EMU, no metal.
+                op if op == bmo_abi::syscalls::surface::TASK_OP_LEE_MSR => {
+                    match bmo_msr_lista::decidir(call.arg0, true) {
+                        Ok(fila) => self.finalizar_syscall(0x454D_5500_0000_0000 | u64::from(fila.msr)),
+                        Err(no) => self.fallar_syscall(u64::from(bmo_abi::syscalls::surface::ERROR_NEGADO) | ((no as u64) << 32)),
+                    }
+                    return;
+                }
                 // ** C4: los contadores, MODELADOS: el de instrucciones
                 // retiradas es el metro (`pasos`); los demas, 0 -- el
                 // emulador no tiene cache ni predictor, y lo dice asi --.

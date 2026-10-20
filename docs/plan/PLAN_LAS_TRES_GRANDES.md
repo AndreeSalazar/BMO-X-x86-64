@@ -544,7 +544,10 @@ vez"); BMOX-12, el cubo y HelloTexture de punta a punta.
 - [ ] D6.1 -- DXR (rayos): apagado en la configuracion del juego; la casa
   dice "no hay" en `OPTIONS5`.
 - [ ] D6.2 -- DLSS (`nvngx`), Reflex, la superposicion: EN VIVO, fuera.
-- [ ] D6.3 -- FSR 2 va dentro del juego como COMPUTE: sale gratis con D4.2.
+- [ ] D6.3 -- FSR pide su cadena de COMPUTE y sus recursos, no solo D4.2.
+  La carga dinamica de FSR 3.1 ya aparecio en Cyberpunk (`en_vivo.rs`);
+  validar las DLL y los Dispatch de la version real usada. No atribuir
+  soporte completo de FSR a una puerta de computo implementada.
 
 ---
 

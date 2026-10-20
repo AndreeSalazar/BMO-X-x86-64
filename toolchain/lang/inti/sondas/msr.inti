@@ -1,0 +1,49 @@
+# PP3: MSR de ESTE nucleo en el Ryzen del perfil; nunca escribe.
+# Una linea: numero de MSR, codigo (0 = bien, 11 = negado), valor.
+# Otra CPU: codigo 11 para los permitidos; no se lee el valor rechazado.
+# Anfitrion: valores MODELADOS con prefijo 454d5500 (EMU).
+perfil llano
+usa bmo
+
+funcion palabra(w es natural64)
+    invoca(mi_tarea, op_consola_escribir, w, 0, 0)
+
+funcion letra(d es natural64) devuelve natural64
+    si d < 10
+        devuelve 48 + d
+    devuelve 87 + d
+
+funcion ocho_hex(v es natural64, desde es natural64) devuelve natural64
+    cambiante w es natural64 = 0
+    cambiante i es natural64 = 0
+    repite mientras i < 8
+        d es natural64 = (v desplaza derecha (desde - i * 4)) bits_y 15
+        w = w bits_o (letra(d) desplaza izquierda (i * 8))
+        i = i + 1
+    devuelve w
+
+funcion hex(v es natural64)
+    palabra(ocho_hex(v, 60))
+    palabra(ocho_hex(v, 28))
+
+funcion fila(msr es natural64)
+    c es natural64 = invoca(mi_tarea, op_lee_msr, msr, 0, 0)
+    hex(msr)
+    palabra(32)
+    hex(c)
+    si c = 0
+        palabra(32)
+        hex(invoca_valor(mi_tarea, op_lee_msr, msr, 0, 0))
+    palabra(10)
+
+funcion principal devuelve natural64
+    fila(139)
+    fila(231)
+    fila(232)
+    fila(3221291105)
+    fila(3221291107)
+    cambiante msr es natural64 = 3221291108
+    repite mientras msr <= 3221291115
+        fila(msr)
+        msr = msr + 1
+    devuelve 0

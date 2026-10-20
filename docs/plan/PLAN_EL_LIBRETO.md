@@ -1,5 +1,12 @@
 # PLAN EL LIBRETO -- Cyberpunk 2077 entra por VERRANO
 
+**Auditoria vigente 18-10:** [matriz de PROTON-X](PLAN_PROTON_X.md).
+Las tablas de puertas fechadas abajo son historicas: texturas, MRT y
+computo tienen implementaciones parciales posteriores. Mandan las
+condiciones actuales de `censo.rs`/`puerta.rs` y sus pruebas, no la frase
+antigua "falta la instruccion". La intro por CPU sigue siendo el hito
+demostrado del juego; no hay nueva evidencia GPU en esta auditoria.
+
 > Abierto el **2026-10-07**, despues de ver en la SALIDA de la corrida de
 > 68 s que el primer lote de Cyberpunk llego a la puerta de la 3060 y el
 > juez dijo que no (`SV_Position en el de pixeles`). El propietario: *"es
@@ -244,7 +251,7 @@ y `puerta.rs`; el juez en `platform/drivers/gpu/ga10x/src/sass/juez.rs`):
       programa cambiado se reescribe ENTERO por PRAMIN en cada dibujo frio
       (hasta 64 KiB): si el metal lo dice lento, una cache de programas en
       la VRAM (cada uno subido UNA vez) es la pieza siguiente.
-- [ ] **LI2c -- texturas** (`TEX`; M3 de `PLAN_VERRANO.md`). El TIC y el
+- [ ] **LI2c -- texturas (parcial en anfitrion)** (`TEX`; M3 de `PLAN_VERRANO.md`). El TIC y el
       TSC ya se escriben (`muestreo.rs`, T0); falta la instruccion, el pool
       de descriptores en la VRAM y subir la textura. **Como se sabe:** el
       muestreo puntual da los bits de la CPU; el lineal, dentro de la
@@ -285,7 +292,7 @@ y `puerta.rs`; el juez en `platform/drivers/gpu/ga10x/src/sass/juez.rs`):
         ahi (el SRV nulo). Solo sin TEXTURA: con textura y sin muestreador,
         por la CPU (`Load` la leeria). Pruebas:
         `la_textura_sin_atar_va_a_la_3060_a_ceros`, `la_nula_son_ceros_a_32_b`.
-- [ ] **LI2d -- varios render targets y la profundidad** (N5.8; V2/M1 de
+- [ ] **LI2d -- varios render targets y la profundidad (parcial)** (N5.8; V2/M1 de
       `PLAN_VERRANO.md`). El G-buffer: hasta 8 destinos y el z-buffer en la
       VRAM. **Como se sabe:** la escena 3D dura (A11) pintada por la 3060
       con la huella de Windows.
@@ -396,7 +403,7 @@ y `puerta.rs`; el juez en `platform/drivers/gpu/ga10x/src/sass/juez.rs`):
       conversiones) y su juez, y el vigia lo da igual a la CPU.
       **Falta:** R11G11B10_FLOAT (lo dice el censo), varias instancias y el
       metal.
-- [ ] **LI2f -- el computo del juego en la 3060.** Un PSO de computo al QMD
+- [ ] **LI2f -- el computo del juego en la 3060 (implementado; falta metal).** Un PSO de computo al QMD
       (la 3060 ya corre computo fijo: `trabajos/blur.rs`), con UAV. **Como
       se sabe:** `olas` (A10) por la 3060, con su huella.
       **11-10, la mitad de VERRANO HECHA en el anfitrion:** la categoria
@@ -465,6 +472,17 @@ y `puerta.rs`; el juez en `platform/drivers/gpu/ga10x/src/sass/juez.rs`):
       compartida y la rejilla en 3D son nuevos), los UAV con tipo y de
       textura (los de formato: cuantizar como la casa), y un cuerpo de mas
       de 24 Ki instrucciones.
+- [ ] **LI2f-R -- retorno seguro tras computo fallido.** El cliente actual
+      devuelve un bool; `proton-x-casa/src/computo.rs` repite en CPU cuando
+      recibe false. El comentario de `computo3060.rs` admite que un trabajo
+      lanzado puede dejar UAV a medias. Antes de usar esa recuperacion con
+      el juego, distinguir no lanzado, completado y resultado parcial/
+      desconocido; restaurar las entradas afectadas o detener con motivo.
+      **Como se sabe:** una prueba de fallo tras una escritura/contador no
+      duplica efectos al volver a CPU y conserva diagnostico de canal.
+      Es un riesgo identificado en el codigo, no corrupcion observada en
+      la intro (ningun Dispatch llego a la puerta en esa tanda).
+
 - [ ] **LI2g -- DECISION DEL PROPIETARIO: los bits exactos o la tolerancia
       de D3D.** La regla de la casa es "los mismos bits que la CPU". La 3060
       APROXIMA la division, la raiz y el filtrado; D3D lo permite (unos

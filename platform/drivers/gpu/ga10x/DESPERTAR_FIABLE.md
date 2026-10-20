@@ -1,5 +1,11 @@
 # Despertar fiable de la RTX 3060 12G -- investigacion del 16-10
 
+**Orden vigente 18-10:** [HS al servicio de BMO](../Nvidia/HS_INVESTIGACION.md),
+HSA1..HSA5: contrato, fronteras, comparacion, correccion y validacion G0.
+Las propuestas E1..E6 de abajo son historia del estudio; revisar sus
+resultados en GCB2B_ENTRADAS antes de repetir una variante. No se ha
+demostrado que controlar HS elimine por si solo 0x15.
+
 **17-10, GCB2b:** [lo que recibe el booter](GCB2B_ENTRADAS.md) contra OpenRM
 570.144 y nova-core. El dato es el de nova-core y no cambia entre buenos y
 malos. La tabla de arranques: 7 de 7 buenos hasta el 29-09 06:25, 1 de 13

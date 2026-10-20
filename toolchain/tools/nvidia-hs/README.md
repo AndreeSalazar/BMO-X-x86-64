@@ -7,7 +7,8 @@ Herramienta anfitrion de Python 3, biblioteca estandar, sin aparato ni red.
 Emite JSON en stdout. Las rutas y los binarios no se incluyen en el JSON.
 
 El [plan NVIDIA](../../../platform/drivers/gpu/Nvidia/HS_INVESTIGACION.md)
-explica por que este es el primer paso hacia estudiar un reemplazo de firmware.
+explica la ruta vigente: contrato HS al servicio de BMO y gobierno del GSP;
+el reemplazo de firmware conserva su investigacion separada.
 La herramienta no descubre BROM, no lee registros y no verifica firmas NVIDIA.
 SHA-256 identifica los bytes leidos de una copia: no prueba identidad de lo
 ejecutado, coherencia DMA, atomicidad de captura ni funcionamiento de la GPU.
@@ -15,6 +16,14 @@ Build, intento, PCI y release son declarados por el usuario, no medidos aqui.
 Si faltan, salen como `null`; no se inventa una identidad.
 
 ## Registrar copias existentes
+
+Referencia real del 18-10: [Windows 610.74 frente a BMO](../../../platform/drivers/gpu/ga10x/ESTUDIO_WINDOWS_61074.md).
+`python toolchain/tools/nvidia-hs/consulta_windows.py` consulta modo/version
+GSP mediante NVML del sistema, sin cambiar configuracion. Conserva codigo de
+error y campos `null` si la consulta no responde; no transforma rechazo en
+modo deshabilitado confirmado. GPU 0, identificada aparte con `nvidia-smi`.
+El ejemplo Rust `contrato_hs` inspecciona el booter con el lector existente,
+sin aparato. Estas herramientas no reconstruyen una traza Windows.
 
 Desde la raiz, con archivos que ya tengas copiados en el anfitrion:
 

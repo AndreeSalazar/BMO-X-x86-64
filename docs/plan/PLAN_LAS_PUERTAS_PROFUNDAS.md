@@ -18,9 +18,8 @@
 > puerta que sigue abierta cuando la tarea muere.
 >
 > [!] **Todo esto es Ring 0** (`.github/CODEOWNERS`: lo que el kernel enlaza es
-> del propietario, para siempre). Este plan lo ESCRIBE y dice como probarlo;
-> no cambia una linea del kernel. Cada casilla se abre cuando el propietario
-> la decide (seccion 4).
+> del propietario, para siempre). Cada casilla se abre cuando el propietario
+> la decide (seccion 4). PP3 autorizado e integrado el 18-10; falta metal.
 
 ---
 
@@ -137,7 +136,8 @@ no de BMO-X.
 - [ ] **PP3 -- un MSR de una lista blanca, por `invoca`.** Una `op` de Ring 0
   que lee UN MSR si esta en la lista, y NO con su motivo si no; la lista sale
   de leer los MSR de la placa en el puente de TALK-CPU.
-  - **Bloquea:** PD1.
+  - **Estado 18-10:** autorizado por el propietario; ABI, kernel, emulador,
+    INTI y sonda integrados y probados en anfitrion. Falta la sonda en metal.
   - **Como se sabe:** una sonda de INTI que lee la energia y la temperatura
     por la op, y la op dice NO a `IA32_EFER` (`0xC0000080`) y a cualquier
     escritura.
@@ -152,12 +152,26 @@ no de BMO-X.
     syscall; la misma tarea con `0x64` fuera de su mapa da `#GP`; una tarea
     sin permiso, `#GP` en los dos; y al morir, su mapa no queda en el TSS.
 
-# 5b. PP3, LO QUE FALTA -- el relevo, pieza a pieza (18-10)
+# 5b. PP3, relevo aplicado -- falta la prueba en metal (18-10)
+
+**Estado actual:** el propietario autorizo aplicar las ocho piezas de este
+relevo, incluido Ring 0 y CODEOWNERS. Ya estan integradas: `0x49` lee solo
+la lista blanca tras comprobar la CPU del perfil; el emulador devuelve
+`0x454D_5500_0000_0000 | msr`, explicitamente MODELADO. No hay escritura.
+El kernel release compila; pasan los cuatro bancos indicados abajo, incluido
+el espejo de INTI y las tres pruebas nuevas de `tests/msr.rs` (lectura,
+rechazos con motivo y sonda completa). La sonda `sondas/msr.inti` lista el
+microcodigo, MPERF/APERF, los limites/estado y los ocho P-states; comprueba
+el codigo antes de pedir el valor. **PP3 sigue abierta hasta probarla en el
+Ryzen; QEMU con otra CPU debe rechazar los MSR permitidos.**
+
+Lo que sigue conserva el contexto del relevo original y el mapa de las
+ocho piezas ya aplicadas; no es una lista de cambios todavia pendientes.
 
 > El propietario: *"mejor poner eso en datos para que la otra IA haga ese
 > esfuerzo"*. Lo de abajo es lo que falta para cerrar PP3, escrito para que
-> quien lo tome no tenga que volver a estudiarlo. Se APARCA aqui: no hay
-> parche, hay piezas. Lo hecho y probado ya esta en el arbol.
+> quien lo tome no tenga que volver a estudiarlo. Se aparco originalmente
+> aqui; el relevo ya se aplico con la autorizacion posterior del propietario.
 
 **Hecho (commits `25a0921`, `bfc42a5`):** `platform/shared/bmo-msr-lista`, la
 decision sin dependencias: `BLANCA` (PATCH_LEVEL `0x8B`, MPERF `0xE7`, APERF
@@ -166,7 +180,7 @@ decision sin dependencias: `BLANCA` (PATCH_LEVEL `0x8B`, MPERF `0xE7`, APERF
 (`0xC001_0200`..`020B`), `No { FueraDeLaLista = 1, OtraCpu = 2 }` y
 `decidir(msr: u64, cpu_del_perfil: bool) -> Result<&Fila, No>`. Banco: 3 ok.
 
-**Por que se paro:** el clasificador de permisos de la sesion nego dos veces
+**Por que se paro entonces:** el clasificador de permisos de aquella sesion nego dos veces
 tocar Ring 0 y `.github/CODEOWNERS` ("Modify Shared Resources", "Security
 Weaken"). Quien lo tome necesita esas rutas permitidas, o que el propietario
 aplique a mano.
@@ -184,7 +198,7 @@ aplique a mano.
   `cargo +nightly build --release --target x86_64-unknown-none` desde
   `Ultra_kernel_x86-64/kernel` (~1 min).
 
-**Las piezas, en orden:**
+**Las piezas aplicadas, en orden:**
 
 1. `platform/abi/bmo-abi/src/syscalls/surface/tarea.rs`, detras de
    `CONTAR_PARA`: `TASK_OP_LEE_MSR: u64 = 0x49`, `LEE_MSR_FUERA: u32 = 1`,
@@ -236,6 +250,7 @@ solo se vera el NO de otra CPU (motivo 2), y eso tambien es la prueba.
 
 - **No es dar Ring 0 a una app.** Ninguna puerta deja escribir un MSR, un
   registro de control o una tabla del sistema.
-- **No cambia el kernel.** Lo escribe; el kernel es del propietario.
+- **El kernel es del propietario.** La integracion PP3 del 18-10 fue
+  autorizada por el; PP1 y PP2 conservan sus decisiones pendientes.
 - **No hace de TALK-CPU parte de BMO-X.** Es otra casa, con su propio camino
   al metal; aqui se usa como laboratorio, y lo que se mida alli se cita.

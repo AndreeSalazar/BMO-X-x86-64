@@ -1,5 +1,105 @@
 # PLAN PROTON-X -- un `.exe` de Windows en BMO-X, SOLO x86-64, y medido
 
+## Corte vigente 18-10-2026 -- que falta para jugar Cyberpunk en la RTX
+
+Auditoria del codigo y de los planes, a pedido del propietario. Este bloque
+ordena la continuacion; los relatos y cifras de septiembre que siguen
+conservan su fecha. No se ha ejecutado hoy el juego ni se acredita un nuevo
+fotograma de Cyberpunk por GPU.
+
+**Base demostrada:** intro vista en el Ryzen el 13-10 por CPU, unos 16 s por
+fotograma. En esa tanda: 11 PSO aceptables por el censo, 228 de 232 lotes
+elegibles, pero CERO lotes dibujados por RTX; canal GR muerto en el primer
+lote de un arranque, origen anterior no aislado. Los Dispatch tampoco
+llegaron a la puerta. Son datos de la intro, no cobertura de Night City.
+Fuente: [parte del 13-10](../metal/METAL_2026-10-13.md).
+
+**Ruta de la casa:** EXE/DLL x86-64 -> Win32/D3D12 de PROTON-X -> Programa
+de PROMETEO / VERRANO -> emisor SM86 y juez -> recursos/canal de la RTX.
+La CPU de reserva permite contrastar resultados; una intro por CPU no
+acredita la ruta GPU. Despertar GSP, mantener GR sano y ejecutar el programa
+del juego son tres condiciones distintas.
+
+### Matriz vigente: implementado, pendiente y prueba de llegada
+
+| Frente | Lo que ya hay | Pendiente verificable | Casilla propietaria |
+| --- | --- | --- | --- |
+| Arranque HS/GSP | FWSEC, booter, RPC, capturas por intento; GPU nativa demostrada | Causa 0x15 y G0 reproducible; no asumir que Windows usa el mismo GSP | HSA1..HSA5 y G0 de LA_3060 |
+| Canal GR | Diagnostico Xid, vigilante y `gpu revivir` implementados | Aislar primer trabajo que mata el canal; recuperacion y reutilizacion observadas | GCB5 / parte 13-10 |
+| Win32 y carga | PE/DLL, importaciones, TLS/SEH y llamadas reales hasta la intro | APIs y DLL que aparezcan al llegar al menu/partida; no afirmar Win32 completo | ESCALERA E0 y TRES_GRANDES |
+| PSO y shaders | Programa comun, SM86, juez, cache de cuerpos/BSF | Preparacion al crear, cobertura DXIL del Dispatch real, invalidacion de cache por identidad | LI1, VC1, LI2b y LI2f |
+| Recursos y vistas | Prestamo de reserva, formatos float y texturas parciales | TYPELESS/otra vista, HDR con Z, limpieza/presentacion float y limites MRT | LI2d, LI2i, LI2k |
+| Texturas | 2D, BC soportados, sRGB, mips y muestreo con pruebas host | BC6/signados, arrays/3D/cubos, MIN/MAG diferentes y otros casos que el censo nombra | LI2c; `censo::texturas_del_lote` |
+| Descriptores bindless | Texturas dinamicas interpretadas en CPU | `Op::EligeTextura` aun rechazado por SM86; otros rangos segun demanda del juego | N5.4, LI2c |
+| Raster | Hasta cuatro destinos en la puerta, mezcla y Z bajo condiciones | MRT con Z, stencil, instancias, ranuras IA adicionales y SV_Depth/StencilRef | LI2a, LI2d, LI2e |
+| Computo | SRV/UAV, compartida, atomicos, barreras, receta 0x52 y cliente PROTON-X | Primera prueba real completa y formas DXIL rechazadas en la intro; no rehacer la puerta | LI2f |
+| Recuperacion de computo | Rechazo previo puede volver a CPU | Distinguir no lanzado de ejecucion parcial; restaurar/rechazar sin repetir efectos UAV | LI2f-R |
+| Fotograma y presentacion | Camino actual por lote y respaldo CPU | Residencia/transferencias por pase, listas reutilizables y Present medido | LI3..LI6, VC2/VC4 |
+| Hilos, E/S, sonido, entrada | Hilos cooperativos; obreros para franjas CPU; base de audio/ventana | Concurrencia Win32 necesaria, streaming, controles, audio y guardar/cargar en partida | TRES_GRANDES H/A y ESCALERA FINAL |
+
+Referencias de codigo: `proton-x-sm86/src/censo.rs`, `puerta.rs`, `lib.rs`;
+`apps/proton-x/src/computo3060.rs`, `en_vivo.rs`, `obreros.rs`;
+`proton-x-casa/src/computo.rs`. Los estados de esta tabla no prometen que
+todo lo implementado haya pasado por la RTX real.
+
+### Orden de trabajo y evidencia, sin duplicar casillas
+
+1. **Mientras G0 esta abierto:** completar contrato/observacion HS y reducir
+   rechazos de DXIL con casos del juego conservados localmente. Las pruebas
+   host y el estudio de compatibilidad pueden avanzar sin reiniciar la GPU.
+2. **Con GSP operativo y canal sano en una sesion identificada:** banco
+   chico de dibujo y `--prueba-computo`. Comprobar finalizacion y resultado,
+   no solo aceptacion. El G0 fiable sigue siendo condicion de entrega.
+3. **Primer trabajo real de Cyberpunk:** una ejecucion identificada, censo
+   de Draw y Dispatch, primer rechazo/primer Xid, backend y ultimo trabajo
+   terminado. Si el canal ya estaba muerto, no culpar al primer shader del
+   nuevo proceso. Reutilizar el parte 13-10 y los inspectores existentes.
+4. **Un fotograma correcto por pases:** abrir primero el formato/operacion
+   que mas trabajos reales bloquea; contar tambien bloqueos conjuntos.
+   Registrar CPU/GPU y viajes RAM/VRAM: 98% elegible con cero trabajos GPU
+   no es aceleracion. Q0a3/MUNDO verifica una ruta comun, no todo D3D12.
+5. **Menu y partida repetible:** version/hashes del juego, configuracion,
+   resolucion y escena fijos; carga, movimiento de camara, entrada, audio,
+   guardado y recarga. Medir tiempos de fotograma y reparto CPU/GPU; una
+   intro no satisface este criterio. FPS objetivo se fija con esa carga.
+6. **Optimizar el camino comprobado:** cache al crear PSO, recursos
+   residentes, batches y envio/presentacion. LI5 es un cambio de autoridad
+   con sus precondiciones; no es requisito para corregir el primer shader.
+
+Para la primera partida se verifica que ray tracing y funciones opcionales
+no soportadas esten desactivadas; no se presupone que FSR, DLSS o frame
+generation sean gratuitos. FSR ejecutado pide sus propias DLL/Dispatch y
+recursos correctos. Cambiar ajustes requiere repetir el censo de esa escena.
+
+### Que tomar de Proton y vkd3d-proton
+
+[Proton de Valve](https://github.com/ValveSoftware/Proton/tree/proton_11.0)
+coordina Wine y componentes graficos. La referencia D3D12 es
+[vkd3d-proton, revision 212991fc2c266bc0d59f4c4ce8f80f7126508d71](https://github.com/HansKristian-Work/vkd3d-proton/tree/212991fc2c266bc0d59f4c4ce8f80f7126508d71),
+identificada en sus submodulos al revisar el 18-10. Sus contratos de
+descriptores, cache, sincronizacion y pruebas comparativas orientan las
+preguntas de BMO; las exigencias Vulkan pertenecen a ese backend.
+
+En BMO se contrastan esos contratos en Programa/VERRANO/SM86, sin convertir
+el repo en un port de Proton ni abrir otra ISA. La cache de traduccion es
+una referencia util, pero una cache de shader no equivale a un fotograma
+reutilizable. El metodo es reproducir una semantica en una muestra chica,
+compararla con D3D12 y volver al caso del juego.
+
+Hay una leccion especifica de Cyberpunk fuera del renderizador: el
+[changelog historico oficial de Proton](https://github.com/ValveSoftware/Proton/wiki/Changelog/4b86d2297c6e6e304c0c66094b4855e59867b17c)
+registra en 7.0-2 una correccion de caida con audio 4.0 y en 6.3-8 soporte
+de caracteres del launcher. Son antecedentes, no fallos actuales atribuidos
+a BMO. Justifican incluir formatos de audio, idioma y DLL/carga en la
+escena repetible, ademas de imagen y FPS.
+
+### Validacion de este corte
+
+`cargo test -p bmo-proton-x -p bmo-proton-x-sm86 -p bmo-verrano --offline`:
+379 pruebas aprobadas en el anfitrion Windows, sin fallos. No incluye los
+ejecutores integrales de `proton-x-casa/tests` condicionados a Linux x86-64
+ni una corrida nueva del Ryzen. Las casillas HOST no se cierran como METAL.
+
 > Pedido por el propietario (2026-09-27), tras investigar como se portea
 > Cyberpunk 2077: *"si, aplicar, y fijate eso en PROTON-X. Es exclusivo en
 > x86-64, por motivos PARA BMO"*.

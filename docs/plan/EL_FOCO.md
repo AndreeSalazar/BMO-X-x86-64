@@ -1,14 +1,26 @@
 # EL FOCO -- estado vigente y orden de trabajo
 
-**Actualizado el 17-10-2026.** Este bloque decide el trabajo actual. Las
+**Actualizado el 18-10-2026.** Este bloque decide el trabajo actual. Las
 notas de tandas anteriores y el plan acumulado conservan su fecha; no
 sustituyen el ultimo resultado. [Indice de documentos](../README.md).
 
 ## Ahora: G0, que la RTX arranque de forma fiable
 
+Auditoria GPU/PROTON-X del 18-10: [matriz para Cyberpunk](PLAN_PROTON_X.md).
+Orden de entrega G0 -> Q0a3/MUNDO conservado; se puede avanzar en host con
+DXIL, recursos y pruebas del juego. Elegibilidad del censo no es dibujo
+GPU acreditado. El retorno tras un Dispatch parcial queda en LI2f-R.
+
 El [plan GSP-CONTROL-BMO](PLAN_GSP_CONTROL_BMO.md) se redefinio el 17-10:
 el GSP ejecuta y BMO-X lo GOBIERNA (dar posesion, conceder, pedir, escuchar,
-revocar). El estudio del RISC-V y el firmware propio interno quedan APARCADOS.
+revocar). El 18-10 se redefine el trabajo HS: usar la cadena firmada como
+ejecutor privilegiado de un contrato que BMO prepara y verifica. Orden vigente:
+[HSA1..HSA6](../../platform/drivers/gpu/Nvidia/HS_INVESTIGACION.md), contrato,
+fronteras de fallo, comparacion y correccion causal; despues validar G0.
+La investigacion de firmware propio queda separada, sin bloquear ese camino.
+Primera referencia Windows estudiada el 18-10:
+[610.74 instalado](../../platform/drivers/gpu/ga10x/ESTUDIO_WINDOWS_61074.md),
+NVML GSP no soportado; no presumir que usa el mismo camino GSP-RM de BMO.
 GCB0/GCB1 ya implementados: contrato, supervisor puro con ocho pruebas y
 `gpu control`, incluido en `save`. El resumen indica etapa, datos crudos y
 build/intento disponibles tras GCB2a; no arma recuperacion ni cambia el arranque.

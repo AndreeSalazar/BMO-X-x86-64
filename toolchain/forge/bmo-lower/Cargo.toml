@@ -22,3 +22,4 @@ emulator = []
 # La UNICA fuente de verdad de la superficie congelada. Nada de numeros
 # duplicados a mano: si el ABI cambia, esta crate deja de compilar.
 bmo-abi = { path = "../../../platform/abi/bmo-abi" }
+bmo-msr-lista = { path = "../../../platform/shared/bmo-msr-lista" }

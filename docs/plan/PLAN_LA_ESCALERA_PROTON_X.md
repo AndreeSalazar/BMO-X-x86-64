@@ -1,5 +1,12 @@
 # PLAN LA ESCALERA DE PROTON-X -- de HelloWindow a Cyberpunk, una capa por escalon
 
+**Orden actualizado 18-10:** [matriz y llegada a partida](PLAN_PROTON_X.md).
+Las muestras siguen siendo pruebas semanticas: sus cierres HOST no
+acreditan Cyberpunk por RTX. Prioridad: G0/canal, primer Draw y Dispatch
+completados, fotograma por pases, menu y partida con controles/guardado.
+E0.4 y otros relatos antiguos se contrastan con `en_vivo.rs` y el parte de
+la intro antes de volver a perseguir un nulo de una corrida anterior.
+
 > **Hito y prioridad actualizados 16-10:** la introduccion de Cyberpunk se
 > vio en metal el 13-10, con dibujo CPU a unos 16 s/fotograma. Acredita
 > cargador, compatibilidad y salida grafica trabajando juntos; NO jugabilidad

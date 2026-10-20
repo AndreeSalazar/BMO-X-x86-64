@@ -7,8 +7,8 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   852 casillas ABIERTAS en 80 planes
-   711 hechas
+   901 casillas ABIERTAS en 82 planes
+   709 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
     12 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 120 casillas sueltas NO cuentan como abiertas)
@@ -234,6 +234,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] M3 -- ordenar (pierde 2,6 con Rust, 1,6 con Clang). El bucle de
 - ... y 9 mas
 
+## [`PLAN_EL_LIBRETO.md`](PLAN_EL_LIBRETO.md) -- 11 abiertas, 1 hechas
+
+*PLAN EL LIBRETO -- Cyberpunk 2077 entra por VERRANO*
+
+- [ ] LI1 -- traducir y juzgar al CREAR, no al dibujar. Es VC1 de
+- [ ] LI2c -- texturas (parcial en anfitrion) (TEX; M3 de PLAN_VERRANO.md). El TIC y el
+- [ ] LI2d -- varios render targets y la profundidad (parcial) (N5.8; V2/M1 de
+- ... y 8 mas
+
 ## [`PLAN_LA_PUERTA_SE_PARTE.md`](PLAN_LA_PUERTA_SE_PARTE.md) -- 11 abiertas, 8 hechas
 
 *PLAN LA PUERTA SE PARTE -- dividir lo que no se puede abaratar*
@@ -260,15 +269,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] MC3 -- la fisica. Gravedad, saltar, y el jugador como una CAJA
 - [ ] MC4 -- un mundo grande: trozos. Trozos de 16 x 16 x 16, generados
 - ... y 8 mas
-
-## [`PLAN_EL_LIBRETO.md`](PLAN_EL_LIBRETO.md) -- 10 abiertas, 1 hechas
-
-*PLAN EL LIBRETO -- Cyberpunk 2077 entra por VERRANO*
-
-- [ ] LI1 -- traducir y juzgar al CREAR, no al dibujar. Es VC1 de
-- [ ] LI2c -- texturas (TEX; M3 de PLAN_VERRANO.md). El TIC y el
-- [ ] LI2d -- varios render targets y la profundidad (N5.8; V2/M1 de
-- ... y 7 mas
 
 ## [`PLAN_LA_DEUDA.md`](PLAN_LA_DEUDA.md) -- 10 abiertas, 7 hechas
 
@@ -304,6 +304,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] AY1 -- A0, el plazo. Un fotograma por VBlank, empezado tarde.
 - [ ] AY3 -- el mapa en la 3060. La imagen de tasas y su tabla por los
 - [ ] AY4 -- el juez sabe de tasas. El juez de la CPU dibuja con el mismo
+- ... y 6 mas
+
+## [`PLAN_GSP_CONTROL_BMO.md`](PLAN_GSP_CONTROL_BMO.md) -- 9 abiertas, 6 hechas
+
+*PLAN GSP-CONTROL-BMO -- HS ejecuta lo privilegiado, BMO gobierna la RTX*
+
+- [ ] GCB2c: cambiar UNA variable a la vez donde GCB2b encuentre diferencia,
+- [ ] GCB3a: decodificar cada evento que ya se nombra (RC_TRIGGERED,
+- [ ] GCB3b: decodificar los logs LIBOS (LOGINIT, LOGINTR, LOGRM) que
 - ... y 6 mas
 
 ## [`PLAN_PROTON_X.md`](PLAN_PROTON_X.md) -- 9 abiertas, 11 hechas
