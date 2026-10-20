@@ -10,7 +10,9 @@ sustituyen el ultimo resultado. [Indice de documentos](../README.md).
 4b..4d. El metal del 19-10 dio 2/14 con 615 en reinicios pedidos, no una
 tanda en frio. Arranque conjunto OpenRM y espera GFW implementados; la
 auditoria posterior valida PRI/candado MMU y mejora el informe al vencer
-la espera. Falta la nueva tanda RTX; no se declara corregido 0x15.
+la espera. La [tanda RTX del 20-10](../metal/G0_2026-10-20_05A482C51.md)
+trae cinco conjuntos validos del build 05A482C51: todos terminan en 0x15,
+sin INIT_DONE; no se declara corregido. FWSEC-FRTS si termina correctamente.
 Prueba del 20-10 en [QEMU](../metal/QEMU_OPENRM_2026-10-20.md): EFI y shell
 arrancan sin USB virtual; pendientes MMIO alto de xHCI e imagen GPT de
 datos. VGA emulada: no acredita G0 ni el GSP de la RTX.
