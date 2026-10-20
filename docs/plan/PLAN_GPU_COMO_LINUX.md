@@ -87,20 +87,56 @@ sirven, no una estadistica.
   `platform/drivers/gpu/ga10x/ESTUDIO_BOOTER_LOAD_570144.md` (BinHdr,
   HsHeaderV2, regiones), sin ejecutar nada.
   - **Como se sabe:** las cabeceras de 615 en una tabla al lado de las de 570.
-- [ ] **F1 -- EL IDIOMA que cambia de 570.144 a 615.78.08.** Lo que BMO-X
-  habla con el GSP, mensaje a mensaje, en las cabeceras de OpenRM de las dos
-  versiones: los `_v03_00`, `_v17_00` y `_v17_02` que usa el driver, la
-  meta de la WPR (`GSP_FW_WPR_META`), los argumentos de LIBOS, el registro y
-  las ordenes del secuenciador (`arranque/secuenciador.rs`). Una tabla:
-  igual, cambiado (y como), nuevo.
-  - **Bloquea:** F0.
-  - **Como se sabe:** cada fila con el fichero y la linea de OpenRM de cada
-    version. Son 36 ficheros de Rust del driver y del kernel los que nombran
-    570.144: la tabla dice cuales cambian de verdad.
+- [x] **F1 -- EL IDIOMA que cambia de 570.144 a 615.78.08.** HECHO el
+  20-10, leido en las cabeceras y fuentes de OpenRM de las dos etiquetas
+  (`open-gpu-kernel-modules` 570.144 y 615.78.08, MIT). En corto: **615 no
+  es un cambio de huella, es otro idioma de arranque.** Lo que BMO-X habla
+  hoy con el GSP (los mensajes `0x1001`, `0x1002`, `SET_SYSTEM_INFO`,
+  `SET_REGISTRY`) 615 lo cambia por una orden nueva, GMCAPI.
+
+  | pieza (donde en BMO-X) | 570.144 | 615.78.08 | |
+  |---|---|---|---|
+  | meta de la WPR, `GspFwWprMeta` (`arranque/wpr.rs`) | magic `0xdc3aae21371a60b3`, revision 1 | la misma magic y revision; `padding[2]` pasa a `NvU16 pagingConfig`; 256 bytes; sin `GspFwHeapFreeList` | cambiado, poco |
+  | regiones de LIBOS, `LibosMemoryRegionInitArgument` (`arranque/libos.rs`) | id8, pa, size, kind, loc | igual byte a byte (`libos_init_args.h`) | igual |
+  | `RM_RISCV_UCODE_DESC` (cabecera de `gsp.bin`) | ... `bSignedAsCode` | + `bIsSmp`, `bIsPlicEnabled` al final | cambiado, se lee mas largo |
+  | `GSP_ARGUMENTS_CACHED` (`arranque/libos.rs`) | sin magic; `bDmemStack` | magic `'GSP '`, `size`, `flags` (IN_PM_TRANSITION, STACK_IN_DMEM, RECOVERY_MARGIN...) | cambiado |
+  | `MESSAGE_QUEUE_INIT_ARGUMENTS` (`arranque/libos.rs`) | offsets `NvLength` | + `flags`, offsets `NvU64`, medidas y alineaciones del elemento, `reserved[8]` | cambiado |
+  | elemento de la cola, `GSP_MSG_QUEUE_ELEMENT` (`rm/orden.rs`) | authTag, aad, checkSum, seqNum, elemCount, y la cabecera RPC | MCTP (`"MCTP"`, medida, cabecera MCTP, cabecera NVDM; 16 B), [etiqueta de cifrado 16 B], NVDM (medida + reservado; 8 B), y dentro una RPC vieja **o** una GMCAPI | **otro formato** |
+  | cabecera RPC (`rm/rpc.rs`) | `g_rpc-message-header.h` | igual (solo la fecha del copyright) | igual |
+  | numeros de funcion y de evento (`rm/rpc.rs`) | ALLOC 103, CONTROL 76, FREE 10, GET_GSP_STATIC_INFO 65, eventos 0x1001.. | los mismos numeros; `GSP_SET_SYSTEM_INFO` (72) y `SET_REGISTRY` (73) marcados *deprecated* | igual de numero |
+  | sistema y registro (`rm/estatica.rs`, `rm/contrato.rs`) | `GspSystemInfo` como struct en la RPC 72; el registro empaquetado en la 73; luego esperar `GSP_INIT_DONE` (0x1001) y pedir la 65 | **una sola orden** `GMCAPI_CMD_GSP_INIT` (`0x010001`): entra el sistema como pares clave/valor de 64 bits (`NVGMC_SI_*`, `gmcapi_system_info.h`), con el registro dentro; sale la info estatica tambien en clave/valor (`gmcapi_gsp_config.h`); ya no se espera `INIT_DONE` | **nuevo** |
+  | `GspStaticConfigInfo` (`rm/estatica.rs`) | struct fijo | struct distinto (sin ecid, fb_*, l2_cache_size...; con pdi, vbiosRevision...) y ademas llega por clave/valor | **otro formato** |
+  | el secuenciador (`arranque/secuenciador.rs`) | evento `0x1002` RUN_CPU_SEQUENCER con REG_WRITE/MODIFY/POLL/DELAY/STORE/CORE_* | `rmgspseq.h` sin opcodes ni `rpc_run_cpu_sequencer`: el GSP pide `EXEC_GENERIC_BOOTLOADER` (`0x010002`) y `EXEC_HS_BINARY` (`0x010003`) por GMCAPI, y la CPU carga el HS (reset, DMA IMEM/DMEM, PKC, BOOTVEC, esperar halt, `CORE_RESUME`) | **nuevo** |
+  | `rpc_gsp_rm_control_v03_00` (`rm/control.rs`) | ... paramsSize, `flags`, params a +24 | `rmapiRpcFlags`, `rmctrlFlags`, `rmctrlAccessRight`, `reserved0` (u64), params a **+40** | cambiado (todas las ordenes de control) |
+  | `rpc_gsp_rm_alloc_v03_00`, `rpc_free_v03_00` (`rm/objeto.rs`, `rm/liberar.rs`) | | iguales | igual |
+  | `rpc_rc_triggered_v17_02` (`rm/rc.rs`) | | + rcChannelInfoType, instblkAddrLo/Hi, instblkAperture al final | cambiado, se lee mas largo |
+  | `rpc_os_error_log_v17_00` (`rm/vigilante.rs`) | exceptType, runlistId, chid, errString, preemptive... | `preemptiveRemovalPreviousXid` pasa a segundo: **mismo nombre, otro orden** | cambiado |
+  | el booter y FWSEC (`arranque/booter.rs`, `arranque/fwsec.rs`) | | `kernel_gsp_booter_tu102.c` y `_frts_` casi iguales; `kernel_gsp_fwsec.c` igual | igual |
+  | el orden de `kgspBootstrap_TU102` | ... esperar `INIT_DONE` | el scrubber antes; si el GSP ya se suspendio para hablar con la CPU, cuenta como arrancado; luego `GSP_INIT` | cambiado |
+
+  - **Lo que dice la tabla para el `0x15`:** el camino del booter (el que
+    da el `0x15`) casi no cambia en el lado de la CPU; lo que cambia es el
+    booter mismo (los ficheros de F0) y todo lo que viene DESPUES de que el
+    GSP-RM arranca. Asi que F4 puede contestar la pregunta del `0x15` con
+    solo la parte del booter portada: si con el booter de 615 el GSP-RM
+    llega a correr (WPR2 arriba y el RISC-V vivo), el `0x15` era de
+    version, aunque el GSP-RM no entienda aun nada mas.
+  - **[!] El extractor de F0 y el `0x15`**: los booters de 615 salen de
+    un extractor parcheado y sin fichero oficial con que comparar; si
+    falla el booter, lo primero es descartar el parche.
 - [ ] **F2 -- LAS DOS VERSIONES lado a lado (Ring 0, del propietario).** El
   driver elige por la huella del firmware: 615.78.08 con su idioma de F1, y
   570.144 como reserva hasta que 615 pase F4. Con el guardian de la version
-  emparejada (seccion 2).
+  emparejada (seccion 2). Por F1 se hace en dos pasos:
+  - **F2a -- hasta que el GSP-RM corre.** Huellas de 615 en `firmware.ps1`
+    y en `gpu_gsp.rs`; la cabecera `RM_RISCV_UCODE_DESC` larga; la meta de
+    la WPR con `pagingConfig`; `GSP_ARGUMENTS_CACHED` y
+    `MESSAGE_QUEUE_INIT_ARGUMENTS` nuevos. Basta para la pregunta del
+    `0x15` (F4a).
+  - **F2b -- hablarle.** La cola MCTP/NVDM, GMCAPI (`GSP_INIT` con clave/
+    valor, `EXEC_HS_BINARY` en lugar del secuenciador), el control a +40,
+    y los eventos mas largos. Es la parte grande: sin ella, no hay
+    pantalla ni juego.
   - **Bloquea:** F1.
   - **Como se sabe:** el kernel compila; con un firmware de otra version, el
     ROJO antes de tocar la tarjeta; y lo de F3 en verde.
@@ -109,8 +145,9 @@ sirven, no una estadistica.
   leer las respuestas de ejemplo, contra lo que dicen las fuentes de OpenRM.
   - **Bloquea:** F1.
 - [ ] **F4 -- EL METAL: diez arranques en frio con 615.78.08.** Apagar y
-  esperar, no reiniciar, como pedia G0. El GSP-RM arriba en los diez, con
-  su informe.
+  esperar, no reiniciar, como pedia G0. **F4a** (tras F2a): el booter sin
+  `0x15` y el RISC-V vivo en los diez. **F4b** (tras F2b): el GSP-RM
+  contesta `GSP_INIT` en los diez, con su informe.
   - **Bloquea:** F2.
   - **Como se sabe:** la tabla de los diez aqui. Con diez de diez, el `0x15`
     deja de ser una pelea y se retira la reserva 570.

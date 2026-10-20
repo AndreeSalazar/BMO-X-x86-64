@@ -7,8 +7,8 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   853 casillas ABIERTAS en 80 planes
-   710 hechas
+   852 casillas ABIERTAS en 80 planes
+   711 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
     12 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 120 casillas sueltas NO cuentan como abiertas)
@@ -522,15 +522,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] D3 -- DMA directo al bloque prestado + PRD multiples
 - ... y 2 mas
 
-## [`PLAN_GPU_COMO_LINUX.md`](PLAN_GPU_COMO_LINUX.md) -- 5 abiertas, 1 hechas
-
-*PLAN GPU COMO LINUX -- la 3060 con el firmware que ya arranca en ULTRA LinuX*
-
-- [ ] F0b -- SU ESTUDIO ESTATICO. El BLAKE3 de cada uno (el del
-- [ ] F1 -- EL IDIOMA que cambia de 570.144 a 615.78.08. Lo que BMO-X
-- [ ] F2 -- LAS DOS VERSIONES lado a lado (Ring 0, del propietario). El
-- ... y 2 mas
-
 ## [`PLAN_LAS_LIBRERIAS.md`](PLAN_LAS_LIBRERIAS.md) -- 5 abiertas, 9 hechas
 
 *PLAN LAS LIBRERIAS -- TITAN++, el modelo general; cada GPU, una libreria (la primera: SM86, la R*
@@ -592,6 +583,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] Paso 0b -- el lanzador que inyecta en el juego
 - [ ] Paso 1 -- las DLL del juego y las que llegan tarde
 - [ ] Paso 2 -- las vigiladas, con sus datos
+- ... y 1 mas
+
+## [`PLAN_GPU_COMO_LINUX.md`](PLAN_GPU_COMO_LINUX.md) -- 4 abiertas, 2 hechas
+
+*PLAN GPU COMO LINUX -- la 3060 con el firmware que ya arranca en ULTRA LinuX*
+
+- [ ] F0b -- SU ESTUDIO ESTATICO. El BLAKE3 de cada uno (el del
+- [ ] F2 -- LAS DOS VERSIONES lado a lado (Ring 0, del propietario). El
+- [ ] F3 -- EL BANCO sin metal. Lo que se puede probar en el anfitrion:
 - ... y 1 mas
 
 ## [`PLAN_LAS_PUERTAS_PROFUNDAS.md`](PLAN_LAS_PUERTAS_PROFUNDAS.md) -- 4 abiertas, 0 hechas
