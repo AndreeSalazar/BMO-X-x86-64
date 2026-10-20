@@ -331,6 +331,14 @@ seleccion y actividad separadas, y limites MMU completos aun si VGA no da
 base. Un PRI del Falcon tras seleccionar RISC-V no es prueba de reset roto.
 Instrumental nuevo pendiente de metal; no se declara resuelto 0x15.
 
+Actualizacion metal posterior: [build 202B6F2A1](../metal/G0_2026-10-20_202B6F2A1.md),
+dos conjuntos validos del mismo build, uno 0x15 y otro booter cero con
+RISC-V activo y LOGINIT 69. Las fotos detalladas de CABINA son del primero:
+BCR 0x111 y LIBOS releido correcto aun en el fallo. G0 no queda cerrado.
+En el segundo, la cola exportada es toda cero: el aviso de forma/suma
+incluye cero mensajes, no demuestra un mensaje corrupto. F2b debe comprobar
+preparacion, direcciones y transporte 615, ademas de su decodificador.
+
 # 5. Lo que este plan NO es
 
 - No toca ULTRA LinuX: se lee.

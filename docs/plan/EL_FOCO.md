@@ -15,7 +15,11 @@ trae cinco conjuntos validos del build 05A482C51: todos terminan en 0x15,
 sin INIT_DONE; no se declara corregido. FWSEC-FRTS si termina correctamente.
 Contraste con [ULTRA y OpenRM 615](../metal/CONTRASTE_ULTRA_BMO_G0_2026-10-20.md):
 separar seleccion BCR de actividad RISC-V; PRI Falcon no demuestra reset
-fallido. Nuevas fotos FWSEC/BCR/LIBOS y ambos limites MMU; falta metal nuevo.
+fallido. La [nueva tanda 202B6F2A1](../metal/G0_2026-10-20_202B6F2A1.md)
+trae dos conjuntos validos: uno 0x15 y otro booter cero, RISC-V activo y
+LOGINIT 69. G0 sigue mixto. El segundo se detiene en cola vacia; el aviso
+de forma/suma no prueba corrupcion (gspcola.bin entero en cero). Avanzar
+F2b de 615 sin declarar cerrado G0; INIT_DONE antiguo no es su criterio.
 Prueba del 20-10 en [QEMU](../metal/QEMU_OPENRM_2026-10-20.md): EFI y shell
 arrancan sin USB virtual; pendientes MMIO alto de xHCI e imagen GPT de
 datos. VGA emulada: no acredita G0 ni el GSP de la RTX.
