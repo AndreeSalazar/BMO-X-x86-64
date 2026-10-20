@@ -318,7 +318,45 @@ pub(crate) fn hay_wpr2() -> bool {
     (bmo::info(bmo::INFO_GPU_WPR2) >> 32) as u32 >> 4 != 0
 }
 
-/// **`gpu fwsec`, y el paso de `save mode`.** `Ok(donde empieza FRTS)`.
+/// FWSEC preparado (su ucode en sus marcos) en este arranque, sin correr: lo
+/// que deja el paso `fwsec` con E7, para que lo corra `despertar`.
+static FWSEC_PREPARADO: core::sync::atomic::AtomicBool = core::sync::atomic::AtomicBool::new(false);
+
+/// **E7 (20-10, OpenRM entero, lo de SIN `g0.txt`)**: FWSEC-FRTS no es un
+/// paso aparte; lo corre el kernel dentro de `despertar`, seguido del GSP y
+/// del booter, como `kgspBootstrap_TU102`.
+pub(crate) fn junto() -> bool {
+    use bmo_nvidia_gsp_control::g0;
+    let g = bmo::info(bmo::INFO_GPU_G0);
+    g & g0::JUNTO != 0 && g & g0::SEGUIDO != 0
+}
+
+/// **El paso `fwsec` de `save mode`.** Con E7, solo PREPARAR (leer la VBIOS y
+/// copiar el ucode a sus marcos): correrlo es de `despertar`.
+pub(crate) fn paso_fwsec() -> Result<u64, u32> {
+    if !junto() {
+        return correr_fwsec();
+    }
+    if resumen().is_none() {
+        leer()?;
+    }
+    let Some(en_rom) = resumen().and_then(|r| r.fwsec.ok()).map(|f| f.en_rom) else {
+        return Err(NO_SIN_VBIOS);
+    };
+    let n = bmo::iommu_orden_con(bmo::IOMMU_OP_FWSEC_PREPARAR, en_rom as u64)?;
+    for k in 0..n {
+        bmo::iommu_orden_con(bmo::IOMMU_OP_FWSEC_TROZO, k)?;
+    }
+    FWSEC_PREPARADO.store(true, core::sync::atomic::Ordering::Relaxed);
+    Ok(n)
+}
+
+/// Hecho: la WPR2 montada, o (E7) FWSEC preparado para `despertar`.
+pub(crate) fn paso_fwsec_hecho() -> bool {
+    hay_wpr2() || (junto() && FWSEC_PREPARADO.load(core::sync::atomic::Ordering::Relaxed))
+}
+
+/// **`gpu fwsec`, y el paso de `save mode` sin E7.** `Ok(donde empieza FRTS)`.
 pub(crate) fn correr_fwsec() -> Result<u64, u32> {
     if resumen().is_none() {
         leer()?;

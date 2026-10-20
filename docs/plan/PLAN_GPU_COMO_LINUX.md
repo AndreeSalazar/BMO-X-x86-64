@@ -208,6 +208,51 @@ vuelve a lo ya estudiado, que sigue en los planes superados y en
 primer lugar a la hipotesis G0-MODO (BMO-X prepara el GSP como Falcon y
 OpenRM como RISC-V).
 
+## 4a. Lo que dio el metal con la 615 (19-10, 21:54 a 22:03 hora local)
+
+14 arranques de `save mode` seguidos (reinicios PEDIDOS cada ~30 s, no en
+frio), build 120A0DDD4E91B7, GSP-RM 615 verificado por radix3 en los 14:
+**2 arrancan, 12 dan `0x15`.** La 615 NO quita el `0x15`: es intermitente, no
+de version. En los 2 buenos el RISC-V queda ACTIVO, el booter deja 0 y el
+GSP-RM escribe 69 entradas en LOGINIT (sin diccionario en el ELF de 615). Lo
+que separa bueno de malo en la captura de la fase 4 (`HALTED`, tras el
+booter) es CONSECUENCIA: en los malos todo el bloque del GSP contesta
+`0xBADF...` (pri-mask 0x200F); en los buenos solo CPUCTL (0x0004).
+
+## 4b. OpenRM 615 contra BMO-X, paso a paso antes del booter (20-10)
+
+Leido en `kgspBootstrap_TU102`, `kgspExecuteBooterLoad_TU102`,
+`kgspExecuteHsFalcon_GA102`, `kflcnResetIntoRiscv_GA102`,
+`kflcnReset_TU102`, `ksec2ResetHw_TU102` (OpenRM 615.78.08, MIT):
+
+| | OpenRM (lo que corre en ULTRA) | BMO-X hoy (sin `g0.txt`) | interruptor de BMO-X |
+|---|---|---|---|
+| el GSP tras FWSEC | `kflcnResetIntoRiscv`: reset, BCR = RISC-V + VALID + BRFETCH, SIN arrancar; LIBOS en los buzones | reset a FALCON y STARTCPU del falcon VACIO; esperar que se pare | `riscv` (E3) |
+| el pulso del reset (GSP y SEC2) | 10 LECTURAS del registro por flanco (`FLCN_RESET_PROPAGATION_DELAY_COUNT`) | 10 us de espera en la CPU | `reset` (E5) |
+| FWSEC -> booter | en la MISMA funcion: milisegundos | ~522 ms, con Ring 3 y un `save` a disco en medio | ninguno (`seguido`, E4, solo junta despertar y booter) |
+| el SEC2 antes del booter | reset, esperar RESET_READY y MEM_SCRUBBING, nucleo FALCON, `RM` = chipId | lo mismo (`resetear_con`) | -- |
+| el DMA del booter | sysmem coherente, fisica | sysmem coherente por la IOMMU | -- |
+| el scrubber | no-op en GA10x: la VBIOS deja limpios los 256 MB de arriba | no hay | -- (la region del GSP mide ~157 MB: cabe) |
+
+Con la 570, E3 solo dio `0x15` y E5 solo, mixto (17-10). NUNCA se probaron
+JUNTOS, ni con la 615, ni con el hueco FWSEC -> booter cerrado.
+
+- [ ] **F4a' -- OpenRM ENTERO, por defecto (codigo hecho el 20-10).** El
+  propietario: *"inspirar por completo el OpenRM de ULTRA"*. Sin `g0.txt`
+  corre `g0::OPENRM` = `riscv seguido reset junto`:
+  - `riscv` (E3), `reset` (E5) y `seguido` (E4), los de antes, a la vez.
+  - `junto` (E7, nuevo): `gpu_despertar::fwsec_y_despertar` -- el booter
+    leido y firmado y la huella ANTES; luego FWSEC-FRTS esperado en el
+    kernel (3 s), el GSP a RISC-V con LIBOS en los buzones, el SEC2 con el
+    booter, y STARTCPU, en una sola llamada, como `kgspBootstrap_TU102`. El
+    paso `fwsec` del director solo PREPARA. Motivo nuevo: 95,
+    `IOMMU_NO_FWSEC_JUNTO`.
+  - `gpu g0 normal` vuelve al camino de antes; `gpu g0 openrm`, a este.
+  - **Como se sabe:** la misma tanda que el 19-10 (2 de 14) y la fila `g0
+    corrio` de `gpu g0` con `riscv seguido reset junto`. Si sube, el `0x15`
+    era del procedimiento. AMARILLO: compila, guardianes limpios, QEMU
+    arranca; sin metal.
+
 # 5. Lo que este plan NO es
 
 - No toca ULTRA LinuX: se lee.

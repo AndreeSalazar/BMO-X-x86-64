@@ -7,7 +7,7 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   852 casillas ABIERTAS en 80 planes
+   853 casillas ABIERTAS en 80 planes
    712 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
     12 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
@@ -585,6 +585,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] Paso 2 -- las vigiladas, con sus datos
 - ... y 1 mas
 
+## [`PLAN_GPU_COMO_LINUX.md`](PLAN_GPU_COMO_LINUX.md) -- 4 abiertas, 3 hechas
+
+*PLAN GPU COMO LINUX -- la 3060 con el firmware que ya arranca en ULTRA LinuX*
+
+- [ ] F2 -- LAS DOS VERSIONES lado a lado (Ring 0, del propietario). El
+- [ ] F3 -- EL BANCO sin metal. Lo que se puede probar en el anfitrion:
+- [ ] F4 -- EL METAL: diez arranques en frio con 615.78.08. Apagar y
+- ... y 1 mas
+
 ## [`PLAN_LAS_PUERTAS_PROFUNDAS.md`](PLAN_LAS_PUERTAS_PROFUNDAS.md) -- 4 abiertas, 0 hechas
 
 *PLAN LAS PUERTAS PROFUNDAS -- que la CPU hable mas directo, porque el kernel lo deja*
@@ -653,14 +662,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] S5 -- EN EL RYZEN: el JIT, y el primer uso de verdad de SELLAR
 - [ ] S6 -- EL SOBRE: el codigo ya hecho viaja dentro del .bex
 - [ ] S7 -- LOS CARRILES: 4 u 8 invocaciones por instruccion
-
-## [`PLAN_GPU_COMO_LINUX.md`](PLAN_GPU_COMO_LINUX.md) -- 3 abiertas, 3 hechas
-
-*PLAN GPU COMO LINUX -- la 3060 con el firmware que ya arranca en ULTRA LinuX*
-
-- [ ] F2 -- LAS DOS VERSIONES lado a lado (Ring 0, del propietario). El
-- [ ] F3 -- EL BANCO sin metal. Lo que se puede probar en el anfitrion:
-- [ ] F4 -- EL METAL: diez arranques en frio con 615.78.08. Apagar y
 
 ## [`PLAN_LA_LENGUA_DE_LA_3060.md`](PLAN_LA_LENGUA_DE_LA_3060.md) -- 3 abiertas, 8 hechas
 

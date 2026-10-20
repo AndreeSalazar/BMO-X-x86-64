@@ -890,7 +890,10 @@ fn iommu_(arg0: u64, arg1: u64) -> BmoStatus {
             if !crate::ring0::dev::disk::flush() {
                 crate::ring0::cabina::warn("gpu", "el FLUSH del disco antes de despertar el GSP no se pudo: se sigue", 0);
             }
-            if arg0 == IOMMU_OP_GSP_DESPERTAR && crate::ring0::dev::gpu_despertar::g0_seguido() {
+            if arg0 == IOMMU_OP_GSP_DESPERTAR && crate::ring0::dev::gpu_despertar::g0_junto() {
+                // E7: OpenRM entero -- FWSEC, el GSP y el booter seguidos (sin `g0.txt`).
+                super::op_gsp::fwsec_y_despertar()
+            } else if arg0 == IOMMU_OP_GSP_DESPERTAR && crate::ring0::dev::gpu_despertar::g0_seguido() {
                 // E4 de GCB2c: `g0.txt` dice `seguido`.
                 super::op_gsp::despertar_seguido()
             } else if arg0 == IOMMU_OP_GSP_DESPERTAR {

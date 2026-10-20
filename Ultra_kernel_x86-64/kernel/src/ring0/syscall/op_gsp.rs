@@ -81,6 +81,13 @@ pub(super) fn despertar_seguido() -> Result<u64, u32> {
     crate::ring0::dev::gpu_despertar::despertar_seguido(b.as_mut().map(|f| f as &mut dyn Fichero))
 }
 
+/// **E7, JUNTO** (20-10): lo mismo, con FWSEC-FRTS delante y en la misma
+/// llamada, como OpenRM.
+pub(super) fn fwsec_y_despertar() -> Result<u64, u32> {
+    let mut b = Fat::abrir(crate::ring0::dev::gpu_despertar::RUTA_BOOTER);
+    crate::ring0::dev::gpu_despertar::fwsec_y_despertar(b.as_mut().map(|f| f as &mut dyn Fichero))
+}
+
 /// **DESCARGADOR** (L0c5): abre `boot_ul.bin` y se lo da al apagado.
 pub(super) fn descargador() -> Result<u64, u32> {
     let mut b = Fat::abrir(crate::ring0::dev::gpu_despertar::RUTA_DESCARGADOR);

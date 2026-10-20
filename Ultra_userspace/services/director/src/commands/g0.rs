@@ -6,7 +6,8 @@
 //! ```text
 //!    gpu g0                    lo pedido, lo que corrio y que hace cada una
 //!    gpu g0 riscv seguido      lo guarda; se aplica al reiniciar
-//!    gpu g0 normal             el arranque de siempre
+//!    gpu g0 normal             el arranque de antes del 20-10
+//!    gpu g0 openrm             OpenRM entero: lo mismo que sin `g0.txt`
 //! ```
 //!
 //! [consumo] NADA      corre cuando el propietario lo teclea
@@ -21,11 +22,12 @@ use crate::scene::output::{Output, INK_ERR, INK_GOOD, INK_PLAIN};
 const RUTA: &[u8] = b"informe/estado/g0.txt";
 
 /// Que hace cada palabra, en una linea.
-const QUE: [(&[u8], &[u8]); 4] = [
+const QUE: [(&[u8], &[u8]); 5] = [
     (b"riscv", b"E3: el GSP como OpenRM 570.144 -- nucleo RISC-V y buzones, sin arrancar el falcon vacio"),
     (b"seguido", b"E4: el booter ya cargado en el SEC2 antes de despertar al GSP, sin el hueco de 120 ms"),
     (b"reset", b"E5: el RESET de GSP y SEC2 como OpenRM, diez lecturas por flanco"),
     (b"ptimer", b"E6: el reloj de la 3060 (PTIMER) en hora antes de FWSEC, como OpenRM"),
+    (b"junto", b"E7: FWSEC, el GSP y el booter en UNA llamada, como kgspBootstrap_TU102 (pide seguido)"),
 ];
 
 /// Las palabras de un modo, separadas por espacios; `normal` si ninguna.
@@ -55,7 +57,7 @@ pub(crate) fn filas(s: &mut Output) {
         return;
     }
     palabras(s, v);
-    s.text(if v & g0::FICHERO != 0 { b"  (informe/estado/g0.txt)" as &[u8] } else { b"  (sin fichero: el de siempre)" });
+    s.text(if v & g0::FICHERO != 0 { b"  (informe/estado/g0.txt)" as &[u8] } else { b"  (sin fichero: OpenRM entero, desde el 20-10)" });
     if g0::desconocidas(v) > 0 {
         s.text(b"; palabras desconocidas ");
         s.dec(g0::desconocidas(v));
@@ -83,7 +85,7 @@ pub(crate) fn orden(dsk: &mut Desktop, args: &[u8]) -> After {
             g.text(que);
             g.byte(b'\n');
         }
-        g.text(b"  `gpu g0 <palabras>` las guarda para el PROXIMO arranque; `gpu g0 normal` vuelve al de siempre.\n");
+        g.text(b"  Sin g0.txt corre OpenRM entero (riscv seguido reset junto). `gpu g0 <palabras>` las guarda para el PROXIMO arranque; `gpu g0 openrm` es lo mismo que sin fichero; `gpu g0 normal`, el camino de antes del 20-10.\n");
         g.text(b"  Una prueba cada vez, y un `save` al final salga bien o mal (GCB2B_ENTRADAS.md, seccion 4).\n");
         dsk.field.n = 0;
         return After::Settle;
@@ -92,7 +94,7 @@ pub(crate) fn orden(dsk: &mut Desktop, args: &[u8]) -> After {
     let modo = g0::leer(pedido);
     if g0::desconocidas(modo) > 0 {
         g.with_ink(INK_ERR);
-        g.text(b"  NO: solo valen riscv, seguido, reset, ptimer o normal; no se guardo nada\n");
+        g.text(b"  NO: solo valen riscv, seguido, reset, ptimer, junto, openrm o normal; no se guardo nada\n");
         g.with_ink(INK_PLAIN);
         dsk.field.n = 0;
         return After::Settle;
