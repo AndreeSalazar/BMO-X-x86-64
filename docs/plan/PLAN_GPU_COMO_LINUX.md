@@ -54,15 +54,39 @@ sirven, no una estadistica.
 
 # 3. Las casillas
 
-- [ ] **F0 -- LOS CUATRO FICHEROS de 615.78.08.** El `gsp_ga10x.bin` del
-  paquete de NVIDIA de esa version (el mismo que usa ULTRA), y el booter de
-  carga, el de descarga y el bootloader de las fuentes de OpenRM 615.78.08
-  (MIT: igual que se hizo con 570.144). En `BMO-externo/firmware/`, con su
-  SHA-256 y su BLAKE3, y su estudio estatico como el de
-  `platform/drivers/gpu/ga10x/ESTUDIO_BOOTER_LOAD_570144.md` (cabeceras y
-  regiones, sin ejecutar nada).
-  - **Como se sabe:** las huellas apuntadas aqui, y las cabeceras leidas
-    con la misma forma que las de 570.
+- [x] **F0 -- LOS CUATRO FICHEROS de 615.78.08.** HECHO el 20-10 en el PC
+  del propietario (lo hizo otra IA alli, con este plan como encargo). En
+  `BMO-externo\firmware\nvidia\ga102\gsp\`, al lado de los de 570.144, que
+  no se tocaron (`sha256sum -c`: los cuatro OK):
+  ```text
+     fichero                       bytes      SHA-256
+     booter_load-615.78.08.bin     61816      ad36e2044f76df6d0715031acb665c20cfcc70b0611748e41391b733a0d1db50
+     booter_unload-615.78.08.bin   42616      8f68eb5bc034009f5b874aa0aa5da81ecc1fdad8e892c16afd862d78cf34fdc2
+     bootloader-615.78.08.bin      24684      82428f532240727e95bb3083fbaaba9b2cc7b937314323f2d546ce7245f27fad
+     gsp-615.78.08.bin             27043992   a20100cafd5a85e22b3e13188339730c6ced94bd5f654984dd2ed274ed58d584
+  ```
+  - **De donde:** el GSP es el `gsp_ga10x.bin` de ULTRA, leido sin montar
+    de `build\pc\sistema-a.erofs` (`/usr/lib/firmware/nvidia/615.78.08/`);
+    su SHA-256 es el que registra pacman en esa imagen (`nvidia-utils
+    615.78.08-1`). Los booters y el bootloader salen de OpenRM 615.78.08
+    (`open-gpu-kernel-modules`, commit `1a82fbfda8f3`) con su
+    `extract-firmware-nouveau.py`.
+  - **[!] El extractor se PARCHEO**: el de esa etiqueta (y el de `main`) no
+    lee los arrays que 615 declara como `NvU64` y se para al empezar. Una
+    copia con tres cambios los lee como palabras de 64 bits little-endian;
+    las comprobaciones del propio script (medida comprimida, descomprimida
+    y gzip) pasan en todos. linux-firmware no publica la 615: no hay un
+    fichero oficial con el que comparar los booters.
+  - **Lo que dicen los numeros**: el `bootloader` es el MISMO byte a byte
+    que el de 570.144 (mismo SHA-256); los dos booters cambian (y el de
+    carga mide 512 bytes mas: 61816 contra 61304); el GSP-RM pasa de 63 MB a
+    27 MB. El GSP-RM entero es otro: F1 dice que cambio de su idioma.
+- [ ] **F0b -- SU ESTUDIO ESTATICO.** El BLAKE3 de cada uno (el del
+  `.fwimage` del GSP, como `ring0/dev/gpu_gsp.rs:91` para 570) y sus
+  cabeceras leidas como en
+  `platform/drivers/gpu/ga10x/ESTUDIO_BOOTER_LOAD_570144.md` (BinHdr,
+  HsHeaderV2, regiones), sin ejecutar nada.
+  - **Como se sabe:** las cabeceras de 615 en una tabla al lado de las de 570.
 - [ ] **F1 -- EL IDIOMA que cambia de 570.144 a 615.78.08.** Lo que BMO-X
   habla con el GSP, mensaje a mensaje, en las cabeceras de OpenRM de las dos
   versiones: los `_v03_00`, `_v17_00` y `_v17_02` que usa el driver, la

@@ -8,7 +8,7 @@
 
 ```text
    853 casillas ABIERTAS en 80 planes
-   709 hechas
+   710 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
     12 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 120 casillas sueltas NO cuentan como abiertas)
@@ -522,11 +522,11 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] D3 -- DMA directo al bloque prestado + PRD multiples
 - ... y 2 mas
 
-## [`PLAN_GPU_COMO_LINUX.md`](PLAN_GPU_COMO_LINUX.md) -- 5 abiertas, 0 hechas
+## [`PLAN_GPU_COMO_LINUX.md`](PLAN_GPU_COMO_LINUX.md) -- 5 abiertas, 1 hechas
 
 *PLAN GPU COMO LINUX -- la 3060 con el firmware que ya arranca en ULTRA LinuX*
 
-- [ ] F0 -- LOS CUATRO FICHEROS de 615.78.08. El gsp_ga10x.bin del
+- [ ] F0b -- SU ESTUDIO ESTATICO. El BLAKE3 de cada uno (el del
 - [ ] F1 -- EL IDIOMA que cambia de 570.144 a 615.78.08. Lo que BMO-X
 - [ ] F2 -- LAS DOS VERSIONES lado a lado (Ring 0, del propietario). El
 - ... y 2 mas
