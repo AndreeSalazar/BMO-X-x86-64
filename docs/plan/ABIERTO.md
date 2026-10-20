@@ -589,7 +589,7 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 
 *PLAN GPU COMO LINUX -- la 3060 con el firmware que ya arranca en ULTRA LinuX*
 
-- [ ] F0b -- SU ESTUDIO ESTATICO. El BLAKE3 de cada uno (el del
+- [ ] F0b -- SU ESTUDIO ESTATICO. Casi hecho el 20-10; falta UNA
 - [ ] F2 -- LAS DOS VERSIONES lado a lado (Ring 0, del propietario). El
 - [ ] F3 -- EL BANCO sin metal. Lo que se puede probar en el anfitrion:
 - ... y 1 mas

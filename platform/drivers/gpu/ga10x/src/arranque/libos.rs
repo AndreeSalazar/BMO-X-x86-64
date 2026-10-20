@@ -144,6 +144,99 @@ pub fn leer_cabecera(b: &[u8]) -> (u32, u32, u32, u32, u32, u32, u32) {
 }
 
 // ===================================================================
+//  615.78.08 (F2a de PLAN_GPU_COMO_LINUX, 20-10)
+// ===================================================================
+//
+// Lo mismo, en los bytes de la 615.78.08 (`gsp_init_args.h` y
+// `msgq_priv.h` de OpenRM 615.78.08). Los argumentos de LIBOS, los logs y
+// las medidas de GspMem NO cambian (129 paginas, colas en 0x1000 y
+// 0x41000). Cambian dos cosas:
+//
+// ```text
+//    rmargs   184 B: magic 'GSP ', su medida y `flags` delante; las colas
+//             dicen la medida de su elemento (MCTP+NVDM = 24 B), 4 KiB a
+//             64 KiB, y sus alineaciones; la pila en DMEM es un BIT de flags
+//    cola     `msgqTxHeader` v2.0: version 2.0, size, msgSize, msgCount,
+//             entryOff y tres reservados -- sin writePtr ni rxHdrOff: los
+//             punteros viven en REGISTROS del GSP, no en la cola
+// ```
+
+/// Lo que mide `GSP_ARGUMENTS_CACHED` (615.78.08).
+pub const RMARGS_615_BYTES: usize = 184;
+/// `GSP_ARGUMENTS_MAGIC_VALUE`: "GSP " en little-endian.
+pub const RMARGS_615_MAGIC: u32 = u32::from_le_bytes(*b"GSP ");
+/// `GSP_ARGUMENTS_FLAG_STACK_IN_DMEM`.
+pub const RMARGS_615_PILA_EN_DMEM: u64 = 0x02;
+/// `GSP_MSG_QUEUE_ELEMENT_SIZE_NO_ENCRYPTION`: MCTP (16) + NVDM (8).
+pub const ELEMENTO_615_CABECERA: u32 = 24;
+/// `queueElementSizeMin` / `Max`: una pagina, dieciseis.
+pub const ELEMENTO_615_MIN: u32 = PAGINA as u32;
+pub const ELEMENTO_615_MAX: u32 = 16 * PAGINA as u32;
+/// `queueHeaderAlign` y `queueElementAlign` (log2: 4 y 12).
+pub const COLA_615_ALINEA_CABECERA: u32 = 4;
+pub const COLA_615_ALINEA_ELEMENTO: u32 = 12;
+
+/// **`rmargs` de 615**: magic, medida, la pila en DMEM, y GspMem con sus
+/// colas. Lo demas (perfilador, heap de sysmem, bindata...) a 0, como
+/// OpenRM en una GA102 con VRAM.
+pub fn rmargs_615(gspmem: u64) -> [u8; RMARGS_615_BYTES] {
+    let mut b = [0u8; RMARGS_615_BYTES];
+    poner(&mut b, 0, &RMARGS_615_MAGIC.to_le_bytes());
+    poner(&mut b, 4, &(RMARGS_615_BYTES as u16).to_le_bytes());
+    poner(&mut b, 8, &RMARGS_615_PILA_EN_DMEM.to_le_bytes());
+    // 16..80 MESSAGE_QUEUE_INIT_ARGUMENTS; `flags` (16) a 0: sin cifrado.
+    poner(&mut b, 24, &gspmem.to_le_bytes());
+    poner(&mut b, 32, &CMDQ_OFFSET.to_le_bytes());
+    poner(&mut b, 40, &STATQ_OFFSET.to_le_bytes());
+    poner(&mut b, 48, &ELEMENTO_615_CABECERA.to_le_bytes());
+    poner(&mut b, 52, &ELEMENTO_615_MIN.to_le_bytes());
+    poner(&mut b, 56, &ELEMENTO_615_MAX.to_le_bytes());
+    poner(&mut b, 60, &COLA_615_ALINEA_CABECERA.to_le_bytes());
+    poner(&mut b, 64, &COLA_615_ALINEA_ELEMENTO.to_le_bytes());
+    poner(&mut b, 68, &(GSPMEM_PAGINAS as u32).to_le_bytes());
+    // 80..96 srInitArguments, 100 gpuInstance, 104.. los args: a 0.
+    b
+}
+
+/// `rmargs` de 615 leido, en la forma del de 570: `(gspmem, paginas, cmdq,
+/// statq, pila en DMEM)`, o `None` si no lleva la magic ni su medida.
+pub fn leer_rmargs_615(b: &[u8]) -> Option<(u64, u32, u64, u64, u8)> {
+    if b.len() < RMARGS_615_BYTES || u32_de(b, 0) != RMARGS_615_MAGIC || u16::from_le_bytes([b[4], b[5]]) as usize != RMARGS_615_BYTES {
+        return None;
+    }
+    let pila = (u64_de(b, 8) & RMARGS_615_PILA_EN_DMEM != 0) as u8;
+    Some((u64_de(b, 24), u32_de(b, 68), u64_de(b, 32), u64_de(b, 40), pila))
+}
+
+/// `MSGQ_VERSION_MAJOR` y `_MINOR` de 615.
+pub const MSGQ_615_VERSION: (u16, u16) = (2, 0);
+
+/// **La cabecera de la cola del CPU de 615** (`msgqTxCreate`): la primera
+/// entrada a una pagina de la cabecera, y 63 entradas de 4 KiB.
+pub fn cabecera_cpu_615() -> [u8; 32] {
+    let mut b = [0u8; 32];
+    poner(&mut b, 0, &MSGQ_615_VERSION.0.to_le_bytes());
+    poner(&mut b, 2, &MSGQ_615_VERSION.1.to_le_bytes());
+    let entrada = PAGINA as u32;
+    let campos = [COLA_BYTES as u32, ELEMENTO_615_MIN, (COLA_BYTES as u32 - entrada) / ELEMENTO_615_MIN, entrada];
+    for (k, v) in campos.iter().enumerate() {
+        poner(&mut b, 4 + k * 4, &v.to_le_bytes());
+    }
+    b
+}
+
+/// La cabecera de 615 leida: `((major, minor), size, msgSize, msgCount, entryOff)`.
+pub fn leer_cabecera_615(b: &[u8]) -> ((u16, u16), u32, u32, u32, u32) {
+    (
+        (u16::from_le_bytes([b[0], b[1]]), u16::from_le_bytes([b[2], b[3]])),
+        u32_de(b, 4),
+        u32_de(b, 8),
+        u32_de(b, 12),
+        u32_de(b, 16),
+    )
+}
+
+// ===================================================================
 //  PRUEBAS
 // ===================================================================
 
@@ -187,6 +280,33 @@ mod pruebas {
         let c = cabecera_cpu();
         assert_eq!(leer_cabecera(&c), (0x40000, 0x1000, 63, 0, 1, 32, 0x1000));
         assert_eq!(&c[..4], &[0; 4], "version 0");
+    }
+
+    #[test]
+    fn rmargs_de_615_en_los_bytes_de_openrm() {
+        let r = rmargs_615(0x3D00_0000);
+        // offsetof de GSP_ARGUMENTS_CACHED y MESSAGE_QUEUE_INIT_ARGUMENTS (615.78.08).
+        assert_eq!(&r[0..4], b"GSP ");
+        assert_eq!(u16::from_le_bytes([r[4], r[5]]), 184);
+        assert_eq!(u64_de(&r, 8), 0x02, "solo STACK_IN_DMEM");
+        assert_eq!(u64_de(&r, 16), 0, "la cola sin cifrado");
+        assert_eq!((u32_de(&r, 48), u32_de(&r, 52), u32_de(&r, 56)), (24, 0x1000, 0x10000));
+        assert_eq!((u32_de(&r, 60), u32_de(&r, 64)), (4, 12));
+        assert!(r[72..].iter().all(|&x| x == 0), "srInit, gpuInstance y los args a 0");
+        assert_eq!(leer_rmargs_615(&r), Some((0x3D00_0000, 129, 0x1000, 0x41000, 1)));
+        // Un rmargs de 570 no pasa por uno de 615.
+        let mut viejo = [0u8; RMARGS_615_BYTES];
+        viejo[..RMARGS_BYTES].copy_from_slice(&rmargs(0x3D00_0000));
+        assert_eq!(leer_rmargs_615(&viejo), None);
+    }
+
+    #[test]
+    fn la_cabecera_de_la_cola_de_615() {
+        let c = cabecera_cpu_615();
+        assert_eq!(leer_cabecera_615(&c), ((2, 0), 0x40000, 0x1000, 63, 0x1000));
+        assert!(c[20..].iter().all(|&x| x == 0), "los tres reservados");
+        // msgqTxCreate: entryOff = NV_ALIGN_UP(32, 1 << 12); msgCount = (size - entryOff) / msgSize.
+        assert_eq!(MSGQ_PAGINAS as u32, (0x40000 - 0x1000) / 0x1000);
     }
 
     #[test]

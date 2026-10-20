@@ -81,12 +81,38 @@ sirven, no una estadistica.
     que el de 570.144 (mismo SHA-256); los dos booters cambian (y el de
     carga mide 512 bytes mas: 61816 contra 61304); el GSP-RM pasa de 63 MB a
     27 MB. El GSP-RM entero es otro: F1 dice que cambio de su idioma.
-- [ ] **F0b -- SU ESTUDIO ESTATICO.** El BLAKE3 de cada uno (el del
-  `.fwimage` del GSP, como `ring0/dev/gpu_gsp.rs:91` para 570) y sus
-  cabeceras leidas como en
-  `platform/drivers/gpu/ga10x/ESTUDIO_BOOTER_LOAD_570144.md` (BinHdr,
-  HsHeaderV2, regiones), sin ejecutar nada.
-  - **Como se sabe:** las cabeceras de 615 en una tabla al lado de las de 570.
+- [ ] **F0b -- SU ESTUDIO ESTATICO.** Casi hecho el 20-10; falta UNA
+  linea, la del GSP-RM, que solo puede salir del PC del propietario.
+  - **Los booters y el bootloader, comprobados por segunda vez.** En el
+    anfitrion, de las fuentes de OpenRM 615.78.08 con un lector de arrays
+    `NvU64` ESCRITO APARTE del parche de F0: salen los tres con el MISMO
+    SHA-256 de la tabla de F0. Dos parches independientes que coinciden: el
+    `[!]` del extractor queda descartado. (Y los de 570.144, con su
+    extractor sin parchear, dan los SHA-256 de `firmware.ps1`.)
+  - **Sus cabeceras, leidas por el lector del kernel** (`booter.rs`, con
+    `toolchain/tools/fw-huella`):
+    ```text
+                         570.144                     615.78.08
+       booter_load    ucode 0x378+0xec00          ucode 0x378+0xee00
+                      2 firmas de 384 B           2 firmas de 384 B
+                      parche 0x8a10               parche 0x8c10
+                      fuse_ver 1, engine 1, id 3  fuse_ver 1, engine 1, id 3
+                      imem 0x100 -> 0, 0x8900     imem 0x100 -> 0, 0x8b00
+                      dmem 0x8a00 -> 0, 0x6200    dmem 0x8c00 -> 0, 0x6200
+       booter_unload  imem 0x4f00, dmem 0x4d00    imem 0x5500, dmem 0x4d00
+       bootloader     RISC-V v5, codigo 0x1800, datos 0x800 (los dos IGUALES)
+    ```
+    La misma forma, la misma firma pedida (fusible 1, SEC2, ucode 3): solo
+    crece el codigo. Ni un numero de 570 esta fijado en el kernel
+    (`gpu_despertar` lee los tramos del fichero).
+  - **`fw-huella` se valido con la 570.144**: sobre el `gsp-570.144.bin` de
+    linux-firmware da `e7856ee2...eea0`, el `HASH_570` de `gpu_gsp.rs` byte a
+    byte.
+  - **Lo que falta, en el PC del propietario:**
+    `cargo run --release -p bmo-fw-huella -- <BMO-externo>\firmware\nvidia\ga102\gsp 615.78.08`.
+    Imprime el `HASH_615` listo para pegar en `ring0/dev/gpu_gsp.rs` (hoy a 0:
+    ningun GSP-RM es la 615, y el kernel no la arranca), y dice si el ELF de
+    615 trae `.fwimage` y `.fwsignature_ga10x`.
 - [x] **F1 -- EL IDIOMA que cambia de 570.144 a 615.78.08.** HECHO el
   20-10, leido en las cabeceras y fuentes de OpenRM de las dos etiquetas
   (`open-gpu-kernel-modules` 570.144 y 615.78.08, MIT). En corto: **615 no
@@ -128,11 +154,25 @@ sirven, no una estadistica.
   driver elige por la huella del firmware: 615.78.08 con su idioma de F1, y
   570.144 como reserva hasta que 615 pase F4. Con el guardian de la version
   emparejada (seccion 2). Por F1 se hace en dos pasos:
-  - **F2a -- hasta que el GSP-RM corre.** Huellas de 615 en `firmware.ps1`
-    y en `gpu_gsp.rs`; la cabecera `RM_RISCV_UCODE_DESC` larga; la meta de
-    la WPR con `pagingConfig`; `GSP_ARGUMENTS_CACHED` y
-    `MESSAGE_QUEUE_INIT_ARGUMENTS` nuevos. Basta para la pregunta del
-    `0x15` (F4a).
+  - **F2a -- hasta que el GSP-RM corre.** CODIGO HECHO el 20-10 (AMARILLO:
+    compila, sus pruebas pasan; sin metal). Lo que cambio:
+    - `ring0/dev/gpu_gsp.rs`: `HASH_615` (a 0 hasta F0b), `Version`,
+      `GSP_ES_615` (bit 61 de `INFO_GPU_GSP`), y `version()`: la version
+      emparejada sale de la huella de lo visto por la radix3.
+    - `ga10x/arranque/libos.rs`: `rmargs_615` (184 B, magic `'GSP '`) y la
+      cabecera `msgqTxHeader` v2.0, con sus pruebas; los offsets, contra un
+      `offsetof` compilado de las cabeceras de OpenRM 615.
+    - `ring0/dev/gpu_libos.rs`: escribe y COMPRUEBA `rmargs` y la cola en el
+      idioma de la version; sin version conocida, `IOMMU_NO_LIBOS_ORDEN`.
+    - `gpu_despertar.rs`: acepta 570 o 615; `secuenciar` y
+      `escribir_sistema` dicen `IOMMU_NO_IDIOMA_615` (94) con la 615: son
+      del idioma de 570.
+    - `build/firmware.ps1`: prepara la 615.78.08 si estan sus cuatro en
+      `BMO-externo`, si no la 570.144; nunca mezcla; `version.txt` al lado;
+      `$env:BMO_GSP_VERSION` fuerza una. Probado con pwsh: los tres casos.
+    - El director dice la version que ve.
+    - Sin cambio, porque 615 no lo cambio: la WPR meta (`pagingConfig` a 0
+      es el `padding` de antes), LIBOS, el bootloader, el heap de una GA102.
   - **F2b -- hablarle.** La cola MCTP/NVDM, GMCAPI (`GSP_INIT` con clave/
     valor, `EXEC_HS_BINARY` en lugar del secuenciador), el control a +40,
     y los eventos mas largos. Es la parte grande: sin ella, no hay

@@ -458,6 +458,8 @@ pub const IOMMU_NO_COMPLETA: u32 = 92;
 pub const IOMMU_NO_CANAL_MUERTO: u32 = 90;
 /// E7b: revivir el canal de GR no se puede (ver el ABI).
 pub const IOMMU_NO_REVIVIR: u32 = 93;
+/// F2a: el paso habla el idioma de la 570 y el GSP-RM es la 615 (ver el ABI).
+pub const IOMMU_NO_IDIOMA_615: u32 = 94;
 pub const IOMMU_NO_GPU_CALIENTE: u32 = 67;
 /// Mover el fader (1/256 dB con signo).
 pub const AUDIO_MANDO_FADER: u64 = 1;
@@ -1264,6 +1266,7 @@ pub const GSP_COPIADO: u64 = 1 << 57;
 pub const GSP_PRESTADO: u64 = 1 << 58;
 pub const GSP_CUADRA: u64 = 1 << 59;
 pub const GSP_ES_570: u64 = 1 << 60;
+pub const GSP_ES_615: u64 = 1 << 61;
 pub const GSP_VALIDO: u64 = 1 << 63;
 pub const INFO_GPU_GSP_HASH: u64 = 0xBD;
 /// L0c3a (2026-09-24). Ver `bmo_abi::...::informe`.

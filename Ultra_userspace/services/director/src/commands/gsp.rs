@@ -430,16 +430,30 @@ pub(crate) fn radix() -> Result<u64, u32> {
         bmo::yield_screen();
     }
     let g = bmo::info(bmo::INFO_GPU_GSP);
-    if g & bmo::GSP_CUADRA == 0 || g & bmo::GSP_ES_570 == 0 {
+    if g & bmo::GSP_CUADRA == 0 || !conocida(g) {
         return Err(NO_RADIX_NO_CUADRA);
     }
     Ok((g >> bmo::GSP_PRESTADAS_SHIFT) & 0xFF_FFFF)
 }
 
-/// Lo pregunta `save mode`: prestado, y lo visto por la radix3 es la 570.144.
+/// Lo visto por la radix3 es una version conocida: la 570.144 o la 615.78.08.
+pub(crate) fn conocida(g: u64) -> bool {
+    g & (bmo::GSP_ES_570 | bmo::GSP_ES_615) != 0
+}
+
+/// El nombre de la version del GSP-RM prestado, como lo dice el kernel.
+pub(crate) fn version_gsp(g: u64) -> &'static [u8] {
+    if g & bmo::GSP_ES_615 != 0 {
+        b"615.78.08"
+    } else {
+        b"570.144"
+    }
+}
+
+/// Lo pregunta `save mode`: prestado, y lo visto por la radix3 es una version conocida.
 pub(crate) fn radix_hecho() -> bool {
     let g = bmo::info(bmo::INFO_GPU_GSP);
-    g & bmo::GSP_PRESTADO != 0 && g & bmo::GSP_CUADRA != 0 && g & bmo::GSP_ES_570 != 0
+    g & bmo::GSP_PRESTADO != 0 && g & bmo::GSP_CUADRA != 0 && conocida(g)
 }
 
 /// `gpu radix`.
@@ -456,7 +470,9 @@ pub(crate) fn orden_radix(dsk: &mut Desktop, p: &bmo::Pantalla) -> After {
             g.with_ink(INK_GOOD);
             g.text(b"  GSP-RM PRESTADO: ");
             g.dec(paginas);
-            g.text(b" paginas, y por la radix3 la 3060 vera la 570.144 ENTERA\n");
+            g.text(b" paginas, y por la radix3 la 3060 vera la ");
+            g.text(version_gsp(bmo::info(bmo::INFO_GPU_GSP)));
+            g.text(b" ENTERA\n");
         }
         Err(m) => {
             g.with_ink(INK_ERR);
@@ -480,7 +496,7 @@ pub(crate) fn fila_radix(s: &mut Output) {
     }
     campo(s, b"radix");
     let (copiados, totales, comprobados) = (g & 0xFF, (g >> bmo::GSP_TOTALES_SHIFT) & 0xFF, (g >> bmo::GSP_COMPROBADOS_SHIFT) & 0xFF);
-    let bien = g & bmo::GSP_PRESTADO != 0 && g & bmo::GSP_CUADRA != 0 && g & bmo::GSP_ES_570 != 0;
+    let bien = g & bmo::GSP_PRESTADO != 0 && g & bmo::GSP_CUADRA != 0 && conocida(g);
     s.with_ink(if bien { INK_GOOD } else if g & bmo::GSP_PRESTADO != 0 { INK_ERR } else { INK_ECHO });
     if g & bmo::GSP_PRESTADO == 0 {
         s.text(b"sin prestar: ");
@@ -489,15 +505,19 @@ pub(crate) fn fila_radix(s: &mut Output) {
         s.dec(totales);
         s.text(b" trozos copiados");
     } else {
-        s.text(if bien {
-            b"PRESTADO y la radix3 lleva al GSP-RM de la 570.144 entero" as &[u8]
-        } else if comprobados < totales {
-            b"PRESTADO, sin comprobar entero por la radix3"
-        } else if g & bmo::GSP_CUADRA == 0 {
-            b"PRESTADO, pero lo que se ve por la radix3 NO es lo copiado"
+        if bien {
+            s.text(b"PRESTADO y la radix3 lleva al GSP-RM de la ");
+            s.text(version_gsp(g));
+            s.text(b" entero");
         } else {
-            b"PRESTADO y cuadra, pero NO es la 570.144"
-        });
+            s.text(if comprobados < totales {
+                b"PRESTADO, sin comprobar entero por la radix3" as &[u8]
+            } else if g & bmo::GSP_CUADRA == 0 {
+                b"PRESTADO, pero lo que se ve por la radix3 NO es lo copiado"
+            } else {
+                b"PRESTADO y cuadra, pero NO es una version conocida (570.144 o 615.78.08)"
+            });
+        }
         s.with_ink(INK_ECHO);
         s.text(b"   ");
         s.dec((g >> bmo::GSP_PRESTADAS_SHIFT) & 0xFF_FFFF);
@@ -892,7 +912,9 @@ pub(crate) fn fila_despierto(s: &mut Output) {
     campo(s, b"despierto");
     if d & bmo::DESPIERTO_RISCV_ACTIVO != 0 {
         s.with_ink(INK_GOOD);
-        s.text(b"el RISC-V del GSP esta ACTIVO: el GSP-RM de la 570.144 corre en tu 3060 ");
+        s.text(b"el RISC-V del GSP esta ACTIVO: el GSP-RM de la ");
+        s.text(version_gsp(bmo::info(bmo::INFO_GPU_GSP)));
+        s.text(b" corre en tu 3060 ");
     } else if d & bmo::DESPIERTO_VISTO != 0 && super::gspvaciar::espera_secuenciador() {
         // ** Metal 24-09 08:14: salia en rojo "YA NO lo esta", y es lo que
         // toca: el GSP-RM se para solo tras pedir el secuenciador (L0c4b2).

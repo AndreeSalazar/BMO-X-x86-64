@@ -1379,6 +1379,9 @@ pub const IOMMU_NO_CANAL_MUERTO: u32 = 90;
 /// `FREE` antes (el 3D, el computo, el canal: en ese orden), el GR esta en uso,
 /// o el `RC_TRIGGERED` viejo sigue en la cola del GSP.
 pub const IOMMU_NO_REVIVIR: u32 = 93;
+/// F2a (20-10): el paso habla el idioma de la 570.144 (`SET_SYSTEM_INFO`, el
+/// secuenciador) y el GSP-RM prestado es la 615.78.08: su idioma es F2b.
+pub const IOMMU_NO_IDIOMA_615: u32 = 94;
 // 91 fue el motivo del reintento del GSP, retirado el 17-10.
 /// L0c3b: la WPR2 ya EXTENDIDA antes de nuestro booter (otro booter corrio).
 pub const IOMMU_NO_GPU_CALIENTE: u32 = 67;

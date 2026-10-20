@@ -52,63 +52,103 @@ if (-not (Get-Command Hash256 -ErrorAction SilentlyContinue)) {
 if (-not $root) { $root = Split-Path -Parent $PSScriptRoot }
 if (-not $dataBase) { $dataBase = Join-Path $root 'staging\BMO-DATA' }
 
+# ** LA VERSION EMPAREJADA (20-10, PLAN_GPU_COMO_LINUX F2a)
+#
+# Ahora hay dos: la 615.78.08 -- la que arranca la 3060 en ULTRA LinuX -- y la
+# 570.144 de reserva hasta que la 615 pase sus diez arranques en frio (F4).
+# Los cuatro ficheros van SIEMPRE de la misma version: un booter de una con
+# el GSP-RM de otra es un ROJO sin explicacion. Se prepara la primera version
+# cuyos cuatro esten y cuadren; `$env:BMO_GSP_VERSION` fuerza una.
+#
+# [!] La 615 no tiene de donde bajarse: linux-firmware no la publica. Sus
+# cuatro se dejan a mano en `BMO-externo\firmware\nvidia\ga102\gsp\` (F0 del
+# plan). El kernel la reconoce por el BLAKE3 de su `.fwimage`
+# (`HASH_615` de `ring0/dev/gpu_gsp.rs`, sacado con `fw-huella`).
 Step 'Staging firmware del GSP (L0c, 3060)...'
-$fwVersion = '570.144'
-$fwOrigen  = 'https://gitlab.com/kernel-firmware/linux-firmware/-/raw/main/nvidia/ga102/gsp/'
 $fwCache   = Join-Path (Split-Path -Parent (Split-Path -Parent $root)) 'BMO-externo\firmware\nvidia\ga102\gsp'
 $fwDestino = Join-Path $dataBase 'fw\gsp'
-# nombre en linux-firmware, nombre 8.3 en BMO-DATA, SHA-256
-$fwLista = @(
-    @('booter_load',   'boot_ld.bin', '4497e3eff7e95c774b8a569d17b27c08c9650158d10b229d2be81cdcad9a085b'),
-    @('booter_unload', 'boot_ul.bin', '8e63db5b78d7d3e349f20a2d11099c3d7109081393cb09ffc0a28133324ae009'),
-    @('bootloader',    'bootldr.bin', '82428f532240727e95bb3083fbaaba9b2cc7b937314323f2d546ce7245f27fad'),
-    @('gsp',           'gsp.bin',     'a8c3ebeed280323aedb51c061f321e73379cce7a9ae643a33dd03915df027f7f')
+# por version: de donde se baja (o $null), y nombre, nombre 8.3 en BMO-DATA, SHA-256
+$fwVersiones = @(
+    @{ Version = '615.78.08'; Origen = $null; Lista = @(
+        @('booter_load',   'boot_ld.bin', 'ad36e2044f76df6d0715031acb665c20cfcc70b0611748e41391b733a0d1db50'),
+        @('booter_unload', 'boot_ul.bin', '8f68eb5bc034009f5b874aa0aa5da81ecc1fdad8e892c16afd862d78cf34fdc2'),
+        @('bootloader',    'bootldr.bin', '82428f532240727e95bb3083fbaaba9b2cc7b937314323f2d546ce7245f27fad'),
+        @('gsp',           'gsp.bin',     'a20100cafd5a85e22b3e13188339730c6ced94bd5f654984dd2ed274ed58d584')
+    ) },
+    @{ Version = '570.144'; Origen = 'https://gitlab.com/kernel-firmware/linux-firmware/-/raw/main/nvidia/ga102/gsp/'; Lista = @(
+        @('booter_load',   'boot_ld.bin', '4497e3eff7e95c774b8a569d17b27c08c9650158d10b229d2be81cdcad9a085b'),
+        @('booter_unload', 'boot_ul.bin', '8e63db5b78d7d3e349f20a2d11099c3d7109081393cb09ffc0a28133324ae009'),
+        @('bootloader',    'bootldr.bin', '82428f532240727e95bb3083fbaaba9b2cc7b937314323f2d546ce7245f27fad'),
+        @('gsp',           'gsp.bin',     'a8c3ebeed280323aedb51c061f321e73379cce7a9ae643a33dd03915df027f7f')
+    ) }
 )
+if ($env:BMO_GSP_VERSION) {
+    $fwVersiones = @($fwVersiones | Where-Object { $_.Version -eq $env:BMO_GSP_VERSION })
+    if ($fwVersiones.Count -eq 0) {
+        Write-Host ('    [fw] BMO_GSP_VERSION=' + $env:BMO_GSP_VERSION + ' no es una version conocida (615.78.08, 570.144)') -ForegroundColor Yellow
+    }
+}
 New-Item -ItemType Directory -Path $fwCache -Force | Out-Null
 New-Item -ItemType Directory -Path $fwDestino -Force | Out-Null
-$fwListos = 0
-foreach ($fw in $fwLista) {
-    $nombre = $fw[0] + '-' + $fwVersion + '.bin'
-    $local  = Join-Path $fwCache $nombre
-    if ((Test-Path $local) -and ((Hash256 $local) -ne $fw[2])) {
-        Write-Host ('    [fw] ' + $nombre + ': el SHA-256 no cuadra, se baja otra vez') -ForegroundColor Yellow
-        Remove-Item -LiteralPath $local -Force
-    }
-    if (-not (Test-Path $local)) {
-        Write-Host ('    [fw] bajando ' + $nombre + ' de linux-firmware...') -ForegroundColor DarkGray
-        # PowerShell 5.1 no ofrece TLS 1.2 si no se le pide, y sin barra de
-        # progreso los 63 MB bajan en segundos en vez de minutos.
-        $progresoPrevio = $ProgressPreference
-        try {
-            [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
-            $ProgressPreference = 'SilentlyContinue'
-            Invoke-WebRequest -Uri ($fwOrigen + $nombre) -OutFile $local -UseBasicParsing
-        } catch {
-            Write-Host ('    [fw] no se pudo bajar ' + $nombre + ': ' + $_.Exception.Message) -ForegroundColor Yellow
-            Remove-Item -LiteralPath $local -Force -ErrorAction SilentlyContinue
-        } finally {
-            $ProgressPreference = $progresoPrevio
+$fwElegida = $null
+foreach ($fv in $fwVersiones) {
+    $fwVersion = $fv.Version
+    $fwListos = 0
+    foreach ($fw in $fv.Lista) {
+        $nombre = $fw[0] + '-' + $fwVersion + '.bin'
+        $local  = Join-Path $fwCache $nombre
+        if ((Test-Path $local) -and ((Hash256 $local) -ne $fw[2])) {
+            Write-Host ('    [fw] ' + $nombre + ': el SHA-256 no cuadra, no se usa') -ForegroundColor Yellow
+            if ($fv.Origen) { Remove-Item -LiteralPath $local -Force }
+            continue
         }
+        if (-not (Test-Path $local) -and $fv.Origen) {
+            Write-Host ('    [fw] bajando ' + $nombre + ' de linux-firmware...') -ForegroundColor DarkGray
+            # PowerShell 5.1 no ofrece TLS 1.2 si no se le pide, y sin barra de
+            # progreso los 63 MB bajan en segundos en vez de minutos.
+            $progresoPrevio = $ProgressPreference
+            try {
+                [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
+                $ProgressPreference = 'SilentlyContinue'
+                Invoke-WebRequest -Uri ($fv.Origen + $nombre) -OutFile $local -UseBasicParsing
+            } catch {
+                Write-Host ('    [fw] no se pudo bajar ' + $nombre + ': ' + $_.Exception.Message) -ForegroundColor Yellow
+                Remove-Item -LiteralPath $local -Force -ErrorAction SilentlyContinue
+            } finally {
+                $ProgressPreference = $progresoPrevio
+            }
+        }
+        if (-not (Test-Path $local)) { continue }
+        if ((Hash256 $local) -ne $fw[2]) {
+            Write-Host ('    [fw] ' + $nombre + ' bajo con OTRO SHA-256: no se usa') -ForegroundColor Yellow
+            Remove-Item -LiteralPath $local -Force
+            continue
+        }
+        $fwListos++
     }
-    if (-not (Test-Path $local)) { continue }
-    if ((Hash256 $local) -ne $fw[2]) {
-        Write-Host ('    [fw] ' + $nombre + ' bajo con OTRO SHA-256: no se copia') -ForegroundColor Yellow
-        Remove-Item -LiteralPath $local -Force
-        continue
-    }
-    $copia = Join-Path $fwDestino $fw[1]
-    Copy-Item -LiteralPath $local -Destination $copia -Force
-    if ((Hash256 $copia) -ne $fw[2]) {
-        Write-Host ('    [fw] ' + $fw[1] + ': la copia a staging salio distinta') -ForegroundColor Yellow
-        continue
-    }
-    $fwListos++
-    Write-Host ('    [fw] ' + $fw[1] + ' (' + (Get-Item $local).Length + ' B) <- ' + $nombre) -ForegroundColor DarkGray
+    if ($fwListos -eq $fv.Lista.Count) { $fwElegida = $fv; break }
+    Write-Host ('    [fw] ' + $fwVersion + ': ' + $fwListos + ' de ' + $fv.Lista.Count + ' en ' + $fwCache) -ForegroundColor Yellow
 }
-if ($fwListos -lt $fwLista.Count) {
-    Write-Host ('    [fw] faltan ' + ($fwLista.Count - $fwListos) + ' de 4: el build sigue, pero L0c no tendra con que arrancar el GSP') -ForegroundColor Yellow
-    Write-Host ('    [fw]   se pueden dejar a mano en ' + $fwCache) -ForegroundColor Yellow
-    Write-Host '    [fw]   (de /lib/firmware/nvidia/ga102/gsp/ de un Linux, descomprimidos)' -ForegroundColor Yellow
+if ($fwElegida) {
+    # Los cuatro de UNA version, juntos; y la version escrita al lado.
+    $fwCopiados = 0
+    foreach ($fw in $fwElegida.Lista) {
+        $local = Join-Path $fwCache ($fw[0] + '-' + $fwElegida.Version + '.bin')
+        $copia = Join-Path $fwDestino $fw[1]
+        Copy-Item -LiteralPath $local -Destination $copia -Force
+        if ((Hash256 $copia) -ne $fw[2]) {
+            Write-Host ('    [fw] ' + $fw[1] + ': la copia a staging salio distinta') -ForegroundColor Yellow
+            continue
+        }
+        $fwCopiados++
+        Write-Host ('    [fw] ' + $fw[1] + ' (' + (Get-Item $local).Length + ' B) <- ' + $fw[0] + '-' + $fwElegida.Version + '.bin') -ForegroundColor DarkGray
+    }
+    Set-Content -LiteralPath (Join-Path $fwDestino 'version.txt') -Value $fwElegida.Version -Encoding ascii
+    if ($fwCopiados -eq $fwElegida.Lista.Count) {
+        Write-Host ('    [fw] los 4 del GSP ' + $fwElegida.Version + ', SHA-256 OK -> ' + $fwDestino) -ForegroundColor Green
+    }
 } else {
-    Write-Host ('    [fw] los 4 del GSP, SHA-256 OK -> ' + $fwDestino) -ForegroundColor Green
+    Write-Host '    [fw] ninguna version tiene sus 4: el build sigue, pero L0c no tendra con que arrancar el GSP' -ForegroundColor Yellow
+    Write-Host ('    [fw]   se pueden dejar a mano en ' + $fwCache) -ForegroundColor Yellow
+    Write-Host '    [fw]   (la 615.78.08: F0 de docs/plan/PLAN_GPU_COMO_LINUX.md)' -ForegroundColor Yellow
 }
