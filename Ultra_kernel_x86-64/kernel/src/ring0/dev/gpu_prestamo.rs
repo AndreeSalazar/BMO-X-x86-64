@@ -354,7 +354,13 @@ pub fn fwsec_correr() -> Result<u64, u32> {
         if gfw && parado {
             break fb;
         }
-        if tr.us() >= desde + GFW_ESPERA_US {
+        if tr.us().saturating_sub(desde) >= GFW_ESPERA_US {
+            // El motivo 24 no dice cual de las dos condiciones falto.
+            crate::ring0::cabina::warn("gpu", "L0b: espera GFW agotada; INFO_FB final", fb);
+            use bmo_gpu_ga10x::Registros;
+            let mut r = Bar0(bar0);
+            crate::ring0::cabina::warn("gpu", "L0b: espera GFW agotada; GSP CPUCTL crudo", r.leer(fa::GSP + fa::CPUCTL) as u64);
+            crate::ring0::cabina::warn("gpu", "L0b: espera GFW agotada; PLM crudo", r.leer(bmo_gpu_ga10x::aon::GFW_PLM) as u64);
             return no(IOMMU_NO_GFW);
         }
     };
@@ -378,7 +384,7 @@ pub fn fwsec_correr() -> Result<u64, u32> {
     // ** EL MAPA DE LA 3060 TERCA (29-09, PLAN_LA_3060): lo que se sabia
     // JUSTO ANTES de FRTS, solo leido, para comparar el arranque bueno con
     // el malo: si el falcon del GSP ya estaba PARADO (NVIDIA lo espera antes
-    // de mirar el GFW, `gpuWaitForGfwBootComplete_TU102`; aqui no), el
+    // de mirar el GFW, `gpuWaitForGfwBootComplete_TU102`; aqui tambien), el
     // espacio VGA crudo del que sale la region, si hay pantalla y si la 3060
     // anuncia FLR. No cambia ningun paso.
     let antes = match fa::como_va(&mut r, fa::GSP) {
@@ -418,44 +424,53 @@ pub fn fwsec_correr() -> Result<u64, u32> {
 /// arranque y 2 s para acabar (`FWSECLIC_PROG_*_TIMEOUT`).
 const GFW_ESPERA_US: u64 = 2_050_000;
 
-/// `NV_PFB_PRI_MMU_LOCK_ADDR_LO`/`_HI` y el PLM de su lectura (GA100, el que
-/// usa la GA10x en OpenRM 615: `memmgrReadMmuLock_GA100`).
-const MMU_LOCK_LO: u32 = 0x001F_A82C;
-const MMU_LOCK_HI: u32 = 0x001F_A830;
-const MMU_LOCK_PLM: u32 = 0x001F_A7C8;
-
 /// La region bloqueada por la VBIOS en la MMU: `(desde, hasta)` en bytes, si
 /// se puede leer y es valida. OpenRM 615 pone el techo de la WPR2 en
 /// `min(este desde, la VGA)` (`kgspPopulateWprMeta_TU102`).
 static MMU_CANDADO: AtomicU64 = AtomicU64::new(0);
 
 /// **MEDIR antes de cambiar** (20-10): BMO-X no la tiene en cuenta. Se lee y
-/// se dice; si cae por debajo de la VGA, la WPR2 de BMO-X la pisa y CABINA
-/// lo dice en rojo. El reparto no cambia hasta ver que dice la 3060.
+/// se dice; si cae por debajo de la VGA, podria condicionar el techo WPR.
+/// No demuestra solapamiento. El reparto no cambia hasta verlo en la 3060.
 fn mirar_candado_mmu(r: &mut Bar0) {
     use bmo_gpu_ga10x::Registros;
+    use bmo_gpu_ga10x::aon::{self, MMU_LOCK_PLM, MMU_LOCK_LO, MMU_LOCK_HI};
+    // Un intento que no puede leer no hereda la region del anterior.
+    MMU_CANDADO.store(0, Ordering::Release);
     let plm = r.leer(MMU_LOCK_PLM);
     if bmo_gpu_ga10x::es_error_pri(plm) || plm & 1 == 0 {
         crate::ring0::cabina::info("gpu", "L0b: el candado de la MMU de la VBIOS no se deja leer (PLM)", plm as u64);
         return;
     }
-    let lo = ((r.leer(MMU_LOCK_LO) >> 4) as u64) << 12;
-    let hi = ((r.leer(MMU_LOCK_HI) >> 4) as u64) << 12;
-    MMU_CANDADO.store(lo >> 12 | (hi >> 12) << 32, Ordering::Release);
-    if hi < lo {
-        crate::ring0::cabina::info("gpu", "L0b: sin candado de la MMU de la VBIOS (hi < lo); desde", lo);
-        return;
-    }
-    let vga = crate::ring0::dev::gpu::info_vga();
-    let vga = ((vga >> 8) & 0xFF_FFFF) << 16;
-    if vga != 0 && lo < vga {
-        crate::ring0::cabina::warn("gpu", "L0b: la VBIOS BLOQUEA memoria de la MMU por debajo de la VGA (OpenRM baja la WPR2 ahi; BMO-X no); desde", lo);
+    let lo = r.leer(MMU_LOCK_LO);
+    let hi = r.leer(MMU_LOCK_HI);
+    let c = match aon::candado_mmu(plm, lo, hi) {
+        Ok(Some(c)) => c,
+        Ok(None) => {
+            MMU_CANDADO.store(1 << 63, Ordering::Release);
+            crate::ring0::cabina::info("gpu", "L0b: sin candado MMU (hi < lo); limites crudos", lo as u64 | (hi as u64) << 32);
+            return;
+        }
+        Err(_) => {
+            crate::ring0::cabina::warn("gpu", "L0b: candado MMU con lectura PRI; limites crudos, no direcciones", lo as u64 | (hi as u64) << 32);
+            return;
+        }
+    };
+    MMU_CANDADO.store(3 << 62 | c.desde >> 12 | (c.hasta >> 12) << 32, Ordering::Release);
+    crate::ring0::cabina::count("gpu", "L0b: candado MMU valido; hasta (bytes)", c.hasta);
+    let raw_vga = crate::ring0::dev::gpu::info_vga() as u32;
+    let vga = (((raw_vga >> 8) & 0xFF_FFFF) as u64) << 16;
+    if bmo_gpu_ga10x::es_error_pri(raw_vga) || vga == 0 {
+        crate::ring0::cabina::info("gpu", "L0b: candado MMU valido, comparacion VGA sin dato; VGA cruda", raw_vga as u64);
+    } else if c.desde < vga {
+        crate::ring0::cabina::warn("gpu", "L0b: el candado MMU condicionaria el techo WPR de OpenRM; no demuestra solapamiento; desde", c.desde);
     } else {
-        crate::ring0::cabina::count("gpu", "L0b: candado de la MMU de la VBIOS, por encima de la VGA; desde", lo);
+        crate::ring0::cabina::count("gpu", "L0b: candado de la MMU de la VBIOS, por encima de la VGA; desde", c.desde);
     }
 }
 
-/// `INFO`: el candado de la MMU leido -- desde y hasta en paginas de 4 KiB.
+/// Consulta interna: paginas desde/hasta en bits 0..27/32..59; bit 63 lectura
+/// valida, bit 62 region presente. Cero indica ausencia de lectura valida.
 pub fn info_mmu_candado() -> u64 {
     MMU_CANDADO.load(Ordering::Acquire)
 }

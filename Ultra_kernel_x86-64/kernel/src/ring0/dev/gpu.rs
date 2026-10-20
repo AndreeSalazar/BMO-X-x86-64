@@ -458,7 +458,12 @@ pub fn info_fb() -> u64 {
     let mut x = GPU_FB_VALIDA | if ga10x::es_error_pri(mb) { 0 } else { mb as u64 };
     let plm = leer(bar0, ga10x::aon::GFW_PLM);
     if !ga10x::es_error_pri(plm) && plm & 1 != 0 {
-        x |= GPU_FB_PLM_LEIBLE | ((leer(bar0, ga10x::aon::GFW_PROGRESO) & 0xFF) as u64) << GPU_FB_GFW_SHIFT;
+        let progreso = leer(bar0, ga10x::aon::GFW_PROGRESO);
+        // Conservar un PRI como no completado; truncarlo a ocho bits puede
+        // convertir BAD...FF o todo unos en un falso GFW COMPLETED.
+        if let Some(progreso) = ga10x::aon::gfw_leido(plm, progreso) {
+            x |= GPU_FB_PLM_LEIBLE | (progreso as u64) << GPU_FB_GFW_SHIFT;
+        }
     }
     if leer(bar0, 0x0082_0C04) & 1 != 0 {
         x |= GPU_FB_SIN_PANTALLA;

@@ -87,9 +87,42 @@ pub const WPR2_LO: u32 = 0x001F_A824;
 /// 24-09 07:48), y FWSEC-FRTS solo corre con ella vacia.
 pub const WPR2_HI: u32 = 0x001F_A828;
 
+/// OpenRM 615.78.08, GA100 dev_fb.h: campos VAL 31:4, paginas de 4 KiB.
+pub const MMU_LOCK_LO: u32 = 0x001F_A82C;
+pub const MMU_LOCK_HI: u32 = 0x001F_A830;
+pub const MMU_LOCK_PLM: u32 = 0x001F_A7C8;
+
+/// Una region MMU leida, no una autorizacion para modificar WPR2.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct CandadoMmu {
+    pub desde: u64,
+    pub hasta: u64,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum NoCandadoMmu {
+    Plm,
+    Pri,
+}
+
+/// `None` significa hi < lo, no lectura fallida. Cero/cero es una region
+/// valida segun OpenRM; el llamador conserva la validez por separado.
+pub fn candado_mmu(plm: u32, lo: u32, hi: u32) -> Result<Option<CandadoMmu>, NoCandadoMmu> {
+    if crate::es_error_pri(plm) || plm & 1 == 0 {
+        return Err(NoCandadoMmu::Plm);
+    }
+    if crate::es_error_pri(lo) || crate::es_error_pri(hi) {
+        return Err(NoCandadoMmu::Pri);
+    }
+    let desde = u64::from(lo >> 4) << 12;
+    let hasta = u64::from(hi >> 4) << 12;
+    Ok((hasta >= desde).then_some(CandadoMmu { desde, hasta }))
+}
+
 /// Si `reg` cae en lo que este fichero guarda.
 pub const fn es_de_aqui(reg: u32) -> bool {
     (reg >= PGC6_DESDE && reg <= PGC6_HASTA) || reg == WPR2_LO || reg == WPR2_HI
+        || reg == MMU_LOCK_LO || reg == MMU_LOCK_HI || reg == MMU_LOCK_PLM
 }
 
 /// El bit de "el GSP-RM volvio", de una lectura de [`BSI_14`].
@@ -99,7 +132,17 @@ pub const fn handoff(bsi_14: u32) -> bool {
 
 /// El progreso del GFW, de una lectura de [`GFW_PROGRESO`].
 pub const fn gfw_acabo(progreso: u32) -> bool {
-    progreso & 0xFF == GFW_ACABO
+    !crate::es_error_pri(progreso) && progreso & 0xFF == GFW_ACABO
+}
+
+/// Solo una lectura autorizada y sin PRI tiene un progreso de ocho bits.
+/// `None` no se convierte en cero medido por INFO_FB.
+pub const fn gfw_leido(plm: u32, progreso: u32) -> Option<u8> {
+    if crate::es_error_pri(plm) || plm & 1 == 0 || crate::es_error_pri(progreso) {
+        None
+    } else {
+        Some((progreso & 0xFF) as u8)
+    }
 }
 
 #[cfg(test)]
@@ -119,5 +162,37 @@ mod pruebas {
     fn los_bits_se_leen_bien() {
         assert!(handoff(1 << 26) && !handoff(0) && !handoff(1 << 25));
         assert!(gfw_acabo(0xFF) && gfw_acabo(0x1234_56FF) && !gfw_acabo(0xFE));
+    }
+
+    #[test]
+    fn un_error_pri_que_acaba_en_ff_no_es_gfw_completado() {
+        for dato in [0xFFFF_FFFF, 0xBAD0_00FF, 0xBADF_FFFF] {
+            assert!(!gfw_acabo(dato));
+            assert_eq!(gfw_leido(1, dato), None);
+            assert_eq!(gfw_leido(dato, 0xFF), None);
+        }
+        assert_eq!(gfw_leido(0, 0xFF), None);
+        assert_eq!(gfw_leido(1, 0), Some(0));
+        assert_eq!(gfw_leido(1, 0xFF), Some(0xFF));
+    }
+
+    #[test]
+    fn el_candado_distingue_cero_ausencia_y_error() {
+        assert_eq!(candado_mmu(1, 0, 0), Ok(Some(CandadoMmu { desde: 0, hasta: 0 })));
+        assert_eq!(candado_mmu(1, 0x20, 0x10), Ok(None));
+        for plm in [0, 0xBAD0_0001, 0xFFFF_FFFF] {
+            assert_eq!(candado_mmu(plm, 0, 0), Err(NoCandadoMmu::Plm));
+        }
+        for pri in [0xBADF_1002, 0xFFFF_FFFF] {
+            assert_eq!(candado_mmu(1, pri, 0), Err(NoCandadoMmu::Pri));
+            assert_eq!(candado_mmu(1, 0, pri), Err(NoCandadoMmu::Pri));
+        }
+    }
+
+    #[test]
+    fn el_candado_usa_40_bits_y_no_confunde_las_banderas_con_paginas() {
+        let c = candado_mmu(1, 0x02F4_000F, 0x02FF_EE0F).unwrap().unwrap();
+        assert_eq!((c.desde, c.hasta), (0x2F4000000, 0x2FFEE0000));
+        assert!(es_de_aqui(MMU_LOCK_LO) && es_de_aqui(MMU_LOCK_HI) && es_de_aqui(MMU_LOCK_PLM));
     }
 }

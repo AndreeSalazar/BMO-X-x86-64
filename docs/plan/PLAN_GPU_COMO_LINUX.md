@@ -1,5 +1,11 @@
 # PLAN GPU COMO LINUX -- la 3060 con el firmware que ya arranca en ULTRA LinuX
 
+**Auditoria 20-10, despues de `c292e50bc`:** el arranque conjunto de
+`31579672b` y la espera nueva estan implementados, sin validacion nueva en
+la RTX. La tanda 2/14 no fue en frio y no demuestra una causa de version.
+La seccion 4d fija las correcciones de lectura y el criterio del siguiente
+ensayo. G0 y F2b siguen abiertos.
+
 > Pedido por el propietario (2026-10-20). ULTRA LinuX es SU esquema
 > (`AndreeSalazar/ULTRA-LinuX`: el kernel oficial, destripado y mejorado
 > por el), y en el la RTX 3060 arranca normal. Sus palabras: *"es una forma
@@ -249,8 +255,9 @@ JUNTOS, ni con la 615, ni con el hueco FWSEC -> booter cerrado.
     `IOMMU_NO_FWSEC_JUNTO`.
   - `gpu g0 normal` vuelve al camino de antes; `gpu g0 openrm`, a este.
   - **Como se sabe:** la misma tanda que el 19-10 (2 de 14) y la fila `g0
-    corrio` de `gpu g0` con `riscv seguido reset junto`. Si sube, el `0x15`
-    era del procedimiento. AMARILLO: compila, guardianes limpios, QEMU
+    corrio` de `gpu g0` con `riscv seguido reset junto`. Una mejora apoya
+    estudiar el procedimiento; no aisla cual de sus variables fue causal.
+    AMARILLO: compila, guardianes limpios, QEMU
     arranca; sin metal.
 
 ## 4c. Lo que OpenRM 615 espera y repite (20-10, el propietario: *"algo me huele que la grafica demora y BMO-X no espera"*)
@@ -261,7 +268,7 @@ Leido en `kgspInitRm_IMPL`, `_kgspBootGspRm`, `gpuWaitForGfwBootComplete_TU102`,
 | | OpenRM 615 | BMO-X |
 |---|---|---|
 | esperar a la tarjeta | hasta 2,05 s a que el falcon del GSP PARE y el GFW diga COMPLETED (PLM legible) | HECHO el 20-10: la misma espera en `fwsec_correr`; antes miraba una vez y decia NO |
-| el techo de la WPR2 | `min(candado de la MMU de la VBIOS, VGA)` (`memmgrReadMmuLock_GA100`) | solo la VGA. MEDIDO el 20-10 (`mirar_candado_mmu`, a CABINA): si el candado cae bajo la VGA lo dice en rojo; el reparto no cambia hasta verlo en la 3060 |
+| el techo de la WPR2 | `min(candado de la MMU de la VBIOS, VGA)` (`memmgrReadMmuLock_GA100`) | solo la VGA. INSTRUMENTADO el 20-10 (`mirar_candado_mmu`, a CABINA), pendiente de observar en la 3060. Un inicio menor condicionaria el techo, sin demostrar solapamiento; el reparto no cambia |
 | si el arranque FALLA | **NUEVO en 615, para GeForce sin ECC**: hasta 4 intentos; cada uno BAJA la region del GSP (`wprEndMargin *= intento`, `RECOVERY_MARGIN_PRESENT`) y pide al GSP-RM escanear la memoria (`SCAN_RECOVERY_MARGIN`): *"subsequent attempts will shift the GSP region in an attempt to avoid the unstable memory"*. En Windows el desplazamiento se GUARDA para el siguiente arranque | un solo intento, siempre en el mismo sitio |
 
 [!] En ULTRA el primer intento sale (el dmesg no tiene ni un error NVRM), asi
@@ -272,6 +279,49 @@ GeForce el arranque del GSP puede fallar por la VRAM de arriba.
   siguiente arranque baja la region lo que mide la region (en
   `informe/estado`), hasta 4, con `RECOVERY_MARGIN_PRESENT` en `rmargs`.
   Solo si F4a' no basta.
+
+## 4d. Auditoria del cambio OpenRM y mejoras verificadas (20-10)
+
+Referencia: fuentes oficiales del tag 615.78.08,
+[`gpuWaitForGfwBootComplete_TU102`](https://github.com/NVIDIA/open-gpu-kernel-modules/blob/615.78.08/src/nvidia/src/kernel/gpu/arch/turing/kern_gpu_tu102.c),
+[`memmgrReadMmuLock_GA100`](https://github.com/NVIDIA/open-gpu-kernel-modules/blob/615.78.08/src/nvidia/src/kernel/gpu/mem_mgr/arch/ampere/mem_mgr_ga100.c)
+y `published/ampere/ga100/dev_fb.h`. Copias de estudio, fuera de Git,
+en `target/gsp-investigacion/615.78.08-auditoria/`.
+
+OpenRM espera HALT con plazo y despues consulta GFW/PLM; BMO sondea ambas
+condiciones dentro del plazo. El modo `openrm` identifica la receta de
+BMO inspirada en esa referencia; no certifica identidad de todo el driver.
+Se conserva el limite de 2.050.000 us, sin afirmar que aumentarlo cure 0x15.
+
+Corregido tras revisar `c292e50bc`:
+
+- `INFO_FB` ya no trunca un PRI de progreso a ocho bits antes de validarlo:
+  `FFFFFFFF` y `BAD...FF` no se convierten en GFW COMPLETED.
+- `aon::gfw_acabo` rechaza esos patrones; sus pruebas negativas los fijan.
+- Las direcciones MMU tienen un unico propietario en `aon`; su lector puro
+  distingue PLM/PRI, hi < lo y region valida, incluida cero/cero. No se
+  convierten respuestas PRI en direcciones. La consulta interna lleva
+  validez y presencia explicitas y se limpia antes de cada lectura nueva.
+- CABINA conserva ambos limites validos, o los crudos rechazados; una VGA
+  ilegible no se anuncia como direccion. Un inicio menor que VGA se describe
+  como restriccion posible del techo, no como solapamiento demostrado.
+- Si vence GFW, CABINA conserva INFO_FB final, CPUCTL y PLM; el motivo 24
+  no queda solo. La cuenta del plazo usa resta saturada.
+
+Verificacion anfitrion: kernel release compilado y 457 pruebas GA10x /
+supervisor GSP aprobadas, incluidas tres regresiones nuevas de lectura.
+Esto no ejecuta la RTX ni acredita nuevos resultados de la tanda 2/14.
+
+Siguiente metal: mismo firmware/build/modo e instrumental para cada intento;
+conservar tipo de llegada real, `g0 corrio`, tiempos, fase terminal, motivo,
+buzones y logs. Si no alcanza FWSEC, estudiar GFW/PLM/HALT; si FWSEC termina
+y SEC2 devuelve 0x15, conservar esa frontera por separado. Si arranca 615,
+recordar que F2b (GMCAPI/MCTP/NVDM) sigue pendiente: RISC-V activo no prueba
+que el escritorio o Cyberpunk sepan hablar con ese runtime.
+
+F4a3 requiere esquema de layout emparejado, liberacion previa, margen y
+postcondiciones probados; no se activa por interpretar un PRI como candado
+ni por atribuir memoria inestable a cualquier 0x15.
 
 # 5. Lo que este plan NO es
 

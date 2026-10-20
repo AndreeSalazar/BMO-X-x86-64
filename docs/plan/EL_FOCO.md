@@ -1,10 +1,18 @@
 # EL FOCO -- estado vigente y orden de trabajo
 
-**Actualizado el 18-10-2026.** Este bloque decide el trabajo actual. Las
+**Actualizado el 20-10-2026.** Este bloque decide el trabajo actual. Las
 notas de tandas anteriores y el plan acumulado conservan su fecha; no
 sustituyen el ultimo resultado. [Indice de documentos](../README.md).
 
 ## Ahora: G0, que la RTX arranque de forma fiable
+
+**Orden vigente:** [GPU COMO LINUX](PLAN_GPU_COMO_LINUX.md), secciones
+4b..4d. El metal del 19-10 dio 2/14 con 615 en reinicios pedidos, no una
+tanda en frio. Arranque conjunto OpenRM y espera GFW implementados; la
+auditoria posterior valida PRI/candado MMU y mejora el informe al vencer
+la espera. Falta la nueva tanda RTX; no se declara corregido 0x15.
+F2b de 615 sigue pendiente: runtime arrancado no equivale a GPU operativa
+para juegos. Las notas 570/HS que siguen conservan su contexto anterior.
 
 Auditoria GPU/PROTON-X del 18-10: [matriz para Cyberpunk](PLAN_PROTON_X.md).
 Orden de entrega G0 -> Q0a3/MUNDO conservado; se puede avanzar en host con
