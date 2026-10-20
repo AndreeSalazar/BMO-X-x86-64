@@ -70,6 +70,33 @@ halt_handler!(exc_mcheck,      "#MC Machine Check");
 halt_handler!(exc_no_err2,     "EXCEPTION (no err, mirror)");
 halt_handler!(irq_stub,        "IRQ stub");
 
+/// **El IRQ del firmware BAJO UN HIPERVISOR (20-10, QEMU).** OVMF deja su
+/// reloj en la LAPIC, y cada llamada a la UEFI entre `lidt` y
+/// ExitBootServices (`con_mark`) vuelve con las interrupciones encendidas: el
+/// tic llegaba a `irq_stub` y la maquina se paraba. Aqui se le da su EOI (a
+/// la LAPIC y al 8259, que esta enmascarado) y se vuelve.
+///
+/// Solo se instala si CPUID dice que hay hipervisor (hoja 1, ECX bit 31). En
+/// el Ryzen ese bit es 0: la IDT es la de siempre, bit a bit.
+extern "x86-interrupt" fn irq_hipervisor(_sf: u64) {
+    unsafe {
+        let base = rdmsr(0x1B);
+        if base & (1 << 10) != 0 {
+            // x2APIC: el EOI es un MSR.
+            asm!("wrmsr", in("ecx") 0x80Bu32, in("eax") 0u32, in("edx") 0u32);
+        } else {
+            let eoi = ((base & 0xF_FFFF_F000) + 0xB0) as *mut u32;
+            core::ptr::write_volatile(eoi, 0);
+        }
+        asm!("out 0x20, al", in("al") 0x20u8);
+    }
+}
+
+/// Hay un hipervisor debajo (CPUID hoja 1, ECX bit 31).
+pub fn bajo_hipervisor() -> bool {
+    cpuid(1, 0).2 & (1 << 31) != 0
+}
+
 pub extern "x86-interrupt" fn exc_with_err(_sf: u64, _e: u64) { unsafe { put_str("[s1_cpu] EXCEPTION (with err) -- halting\n"); } loop { unsafe { asm!("hlt"); } } }
 pub extern "x86-interrupt" fn exc_double_fault(_sf: u64, _e: u64) { unsafe { put_str("[s1_cpu] #DF Double Fault -- halting\n"); } loop { unsafe { asm!("cli; hlt"); } } }
 pub extern "x86-interrupt" fn exc_gpf(_sf: u64, _e: u64) { unsafe { put_str("[s1_cpu] #GP General Protection -- halting\n"); } loop { unsafe { asm!("hlt"); } } }
@@ -159,7 +186,8 @@ pub unsafe fn init_idt() {
         };
         IDT[v].set(h, ist);
     }
-    for v in 32..256 { IDT[v].set(fa!(irq_stub), 0); }
+    let irq = if bajo_hipervisor() { fa!(irq_hipervisor) } else { fa!(irq_stub) };
+    for v in 32..256 { IDT[v].set(irq, 0); }
     let idtr = Idtr { limit: (core::mem::size_of::<[IdtEntry; 256]>() - 1) as u16, base: core::ptr::addr_of!(IDT) as u64 };
     asm!("lidt [{}]", in(reg) &idtr);
 }

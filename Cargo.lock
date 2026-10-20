@@ -383,6 +383,14 @@ name = "bmo-futex"
 version = "0.1.0"
 
 [[package]]
+name = "bmo-fw-huella"
+version = "0.1.0"
+dependencies = [
+ "bmo-gpu-ga10x",
+ "bmo-hash",
+]
+
+[[package]]
 name = "bmo-golpe"
 version = "0.1.0"
 

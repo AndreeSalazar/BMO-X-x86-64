@@ -10,6 +10,8 @@ conecta el gobierno con los clientes. Este bloque prevalece sobre recetas
 historicas; GCB conserva los identificadores y trabajos ya implementados.
 Ni la causa de 0x15 ni ejecucion HS propia estan demostradas.
 
+> Estado: **SUPERADO** -- por PLAN_GPU_COMO_LINUX (20-10): el propietario archivo la pelea con el `0x15`; BMO-X pasa al firmware 615.78.08, el que arranca la 3060 en ULTRA LinuX. Se queda aqui (no en `terminado/`) porque el codigo de Ring 0 lo cita por esta ruta.
+
 Pedido del propietario, 16-10-2026: un crate propio en carpeta `Nvidia`,
 que crezca entendiendo SU RTX 3060 12G. **Redefinido el 17-10-2026** por el
 propietario: *"no se trata de tomar todo, el GSP ya hace bien lo que hace

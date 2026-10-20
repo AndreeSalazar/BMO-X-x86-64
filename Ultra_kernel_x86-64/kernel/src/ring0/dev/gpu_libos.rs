@@ -43,6 +43,8 @@ use core::sync::atomic::{AtomicU64, Ordering};
 
 use bmo_gpu_ga10x::libos as lb;
 
+use crate::ring0::dev::gpu_gsp::Version;
+
 use crate::ring0::mm::phys;
 use crate::ring0::plat::iommu as io;
 
@@ -58,7 +60,9 @@ const CHICAS: u64 = 3;
 const LOGS: u64 = 3 * lb::LOG_PAGINAS;
 const LOG_BYTES: u64 = lb::LOG_PAGINAS * PAGINA;
 
-/// Sin el GSP-RM prestado (L0c2) no hay a quien darle esto.
+/// Sin el GSP-RM prestado (L0c2), y de una version CONOCIDA (570.144 o
+/// 615.78.08: `gpu_gsp::version`), no hay a quien darle esto -- ni en que
+/// idioma escribir `rmargs` y la cola.
 pub const IOMMU_NO_LIBOS_ORDEN: u32 = 34;
 /// No hubo marcos para los argumentos, los logs o las colas.
 pub const IOMMU_NO_LIBOS_MARCOS: u32 = 35;
@@ -132,6 +136,7 @@ pub fn libos() -> Result<u64, u32> {
         return comprobar();
     }
     let gsp = crate::ring0::dev::gpu_gsp::info_gsp();
+    let Some(version) = crate::ring0::dev::gpu_gsp::version() else { return no(IOMMU_NO_LIBOS_ORDEN) };
     if gsp & crate::ring0::dev::gpu_gsp::GSP_PRESTADO == 0 {
         return no(IOMMU_NO_LIBOS_ORDEN);
     }
@@ -150,12 +155,18 @@ pub fn libos() -> Result<u64, u32> {
             let iova = IOVA_LOGS + j * LOG_BYTES;
             lb::tabla(&mut memoria(logs + j * LOG_BYTES, PAGINA)[8..], iova, lb::LOG_PAGINAS);
         }
-        // rmargs: donde esta GspMem y sus colas.
-        let r = lb::rmargs(IOVA_GSPMEM);
-        memoria(chicas + PAGINA, PAGINA)[..r.len()].copy_from_slice(&r);
+        // rmargs: donde esta GspMem y sus colas, en el idioma de SU version.
+        let r: &[u8] = match version {
+            Version::V570 => &lb::rmargs(IOVA_GSPMEM),
+            Version::V615 => &lb::rmargs_615(IOVA_GSPMEM),
+        };
+        memoria(chicas + PAGINA, PAGINA)[..r.len()].copy_from_slice(r);
         // GspMem: su tabla, y la cabecera de la cola del CPU.
         lb::tabla(memoria(gspmem, PAGINA), IOVA_GSPMEM, lb::GSPMEM_PAGINAS);
-        let c = lb::cabecera_cpu();
+        let c = match version {
+            Version::V570 => lb::cabecera_cpu(),
+            Version::V615 => lb::cabecera_cpu_615(),
+        };
         memoria(gspmem + lb::COLA_CPU, PAGINA)[..c.len()].copy_from_slice(&c);
         // Los argumentos de LIBOS: los cuatro, en el orden de nova-core.
         let args = memoria(chicas, PAGINA);
@@ -238,9 +249,13 @@ fn comprobar() -> Result<u64, u32> {
                 }
             }
         }
-        // 3. rmargs: GspMem y sus colas.
+        // 3. rmargs: GspMem y sus colas, leido en el idioma de su version.
+        let version = crate::ring0::dev::gpu_gsp::version().ok_or(IOMMU_NO_LIBOS_ORDEN)?;
         let rmargs = por_la_iommu(lb::leer_argumento(&args[3 * lb::ARGUMENTO..]).1).ok_or(IOMMU_NO_LIBOS_PUNTERO)?;
-        let (mem, paginas, cmdq, statq, pila) = lb::leer_rmargs(rmargs);
+        let (mem, paginas, cmdq, statq, pila) = match version {
+            Version::V570 => lb::leer_rmargs(rmargs),
+            Version::V615 => lb::leer_rmargs_615(rmargs).ok_or(IOMMU_NO_LIBOS_PUNTERO)?,
+        };
         sigue(paginas as u64 == lb::GSPMEM_PAGINAS && cmdq == lb::CMDQ_OFFSET && statq == lb::STATQ_OFFSET && pila == 1)?;
         // 4. La tabla de GspMem: cada pagina, suya y escribible.
         let tabla = por_la_iommu(mem).ok_or(IOMMU_NO_LIBOS_PUNTERO)?;
@@ -253,7 +268,11 @@ fn comprobar() -> Result<u64, u32> {
         // Sin su `writePtr`: tras `gpu sistema` (L0c4b2a) esta en 2, y un
         // `gpu libos` de despues no tiene que llamarlo roto.
         let sin_puntero = |c: (u32, u32, u32, u32, u32, u32, u32)| (c.0, c.1, c.2, c.4, c.5, c.6);
-        sigue(sin_puntero(lb::leer_cabecera(cola)) == sin_puntero(lb::leer_cabecera(&lb::cabecera_cpu())))?;
+        sigue(match version {
+            Version::V570 => sin_puntero(lb::leer_cabecera(cola)) == sin_puntero(lb::leer_cabecera(&lb::cabecera_cpu())),
+            // En 615 los punteros viven en registros: la cabecera no se mueve.
+            Version::V615 => cola[..32] == lb::cabecera_cpu_615(),
+        })?;
         // Y la de vaciado, para L0c3b.
         sigue(escribible(IOVA_VACIADO, chicas + 2 * PAGINA))?;
         Ok(())
@@ -397,6 +416,9 @@ fn barra(bus: u8, dev: u8, func: u8, off: u8) -> u64 {
 /// **Escribir SetSystemInfo y SetRegistry** en las paginas 0 y 1 de la cola
 /// de la CPU y mover su `writePtr` a 2. `Ok(2)`.
 pub fn escribir_sistema() -> Result<u64, u32> {
+    if crate::ring0::dev::gpu_gsp::version() == Some(Version::V615) {
+        return Err(crate::ring0::dev::gpu_gsp::IOMMU_NO_IDIOMA_615);
+    }
     let f = GSPMEM_F.load(Ordering::Acquire);
     if f == 0 {
         return Err(IOMMU_NO_SISTEMA_ANTES);

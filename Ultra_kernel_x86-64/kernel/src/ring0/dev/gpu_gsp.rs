@@ -37,8 +37,9 @@
 //! # Como se sabe
 //!
 //! El BLAKE3 de lo que se ve POR LA RADIX3 tiene que ser el de lo que se
-//! copio, y el de lo que se copio el del `.fwimage` de la 570.144, calculado
-//! en el anfitrion con el mismo `bmo-hash` ([`HASH_570`]). Si cuadran los tres,
+//! copio, y el de lo que se copio el del `.fwimage` de una version conocida
+//! (la 570.144, [`HASH_570`], o la 615.78.08, [`HASH_615`]), calculado en el
+//! anfitrion con el mismo `bmo-hash`. Si cuadran los tres,
 //! el GSP vera su firmware entero, en orden, y solo para leer.
 //!
 //! # Lo que NO hace
@@ -95,6 +96,34 @@ pub const HASH_570: [u8; 32] = [
     0xde, 0xfd, 0x32, 0xe5, 0x87, 0xeb, 0x58, 0x9e, 0x17, 0x81, 0xe9, 0x60, 0x93, 0x72, 0xee, 0xa0,
 ];
 
+/// El BLAKE3 del `.fwimage` de `gsp-615.78.08.bin` (PLAN_GPU_COMO_LINUX F2a,
+/// 20-10): el GSP-RM con el que la 3060 arranca en ULTRA LinuX.
+///
+/// [!] SIN FIJAR: a 0 hasta que `fw-huella` (toolchain/tools/fw-huella) lo
+/// calcule sobre el fichero del PC del propietario -- el GSP-RM de 615 no
+/// esta en ninguna fuente que el anfitrion pueda bajar. A 0 NINGUN GSP-RM es
+/// la 615: la version emparejada dice ROJO antes de tocar la tarjeta.
+pub const HASH_615: [u8; 32] = [0; 32];
+
+/// **La version del GSP-RM**, por la huella de lo visto por la radix3. El
+/// resto del arranque (`rmargs`, la cola) habla el idioma de ESA version.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum Version {
+    V570,
+    V615,
+}
+
+/// `Some(version)` si `digesto` es el de un GSP-RM conocido.
+pub fn version_de(digesto: &[u8; 32]) -> Option<Version> {
+    if *digesto == HASH_570 {
+        Some(Version::V570)
+    } else if HASH_615 != [0; 32] && *digesto == HASH_615 {
+        Some(Version::V615)
+    } else {
+        None
+    }
+}
+
 /// No esta `fw/gsp/gsp.bin` o `bootldr.bin` en el volumen de datos.
 pub const IOMMU_NO_GSP_FICHERO: u32 = 26;
 /// Estan, pero no son lo que se espera (el ELF, sus secciones, el bootloader).
@@ -111,6 +140,10 @@ pub const IOMMU_NO_GSP_YA_PRESTADO: u32 = 31;
 pub const IOMMU_NO_GSP_SIN_VRAM: u32 = 32;
 /// La radix3 no lleva, por la IOMMU, a donde tiene que llevar.
 pub const IOMMU_NO_GSP_RADIX: u32 = 33;
+/// F2a (20-10): el paso habla el idioma de la 570.144 (`SET_SYSTEM_INFO`,
+/// el secuenciador) y el GSP-RM prestado es la 615.78.08, que no lo
+/// entiende: su idioma (GMCAPI, la cola MCTP) es F2b.
+pub const IOMMU_NO_IDIOMA_615: u32 = 94;
 
 pub const GSP_TOTALES_SHIFT: u64 = 8;
 pub const GSP_COMPROBADOS_SHIFT: u64 = 16;
@@ -121,6 +154,7 @@ pub const GSP_COPIADO: u64 = 1 << 57;
 pub const GSP_PRESTADO: u64 = 1 << 58;
 pub const GSP_CUADRA: u64 = 1 << 59;
 pub const GSP_ES_570: u64 = 1 << 60;
+pub const GSP_ES_615: u64 = 1 << 61;
 pub const GSP_VALIDO: u64 = 1 << 63;
 
 /// Banderas, motivo y paginas prestadas (ver `info_gsp`).
@@ -524,7 +558,7 @@ pub fn comprobar(k: u64) -> Result<u64, u32> {
     let hash = unsafe {
         if k == 0 {
             *core::ptr::addr_of_mut!(HASH_RADIX) = Some(bmo_hash::Hasher::new());
-            apuntar(|v| v & !(GSP_CUADRA | GSP_ES_570));
+            apuntar(|v| v & !(GSP_CUADRA | GSP_ES_570 | GSP_ES_615));
         }
         &mut *core::ptr::addr_of_mut!(HASH_RADIX)
     };
@@ -558,12 +592,17 @@ pub fn comprobar(k: u64) -> Result<u64, u32> {
             (d, *core::ptr::addr_of!(DIGESTO_COPIA))
         };
         let cuadra = radix == copia;
-        let es_570 = radix == HASH_570;
-        apuntar(|v| v | if cuadra { GSP_CUADRA } else { 0 } | if es_570 { GSP_ES_570 } else { 0 });
-        if cuadra && es_570 {
-            crate::ring0::cabina::count("gpu", "L0c2: la radix3 lleva al GSP-RM de la 570.144 ENTERO, por la IOMMU; bytes", p.imagen.bytes);
-        } else {
-            crate::ring0::cabina::warn("gpu", "L0c2: lo que se ve por la radix3 NO es lo copiado, o no es la 570.144", cuadra as u64);
+        let version = version_de(&radix);
+        let bit = match version {
+            Some(Version::V570) => GSP_ES_570,
+            Some(Version::V615) => GSP_ES_615,
+            None => 0,
+        };
+        apuntar(|v| v | if cuadra { GSP_CUADRA } else { 0 } | bit);
+        match (cuadra, version) {
+            (true, Some(Version::V570)) => crate::ring0::cabina::count("gpu", "L0c2: la radix3 lleva al GSP-RM de la 570.144 ENTERO, por la IOMMU; bytes", p.imagen.bytes),
+            (true, Some(Version::V615)) => crate::ring0::cabina::count("gpu", "L0c2: la radix3 lleva al GSP-RM de la 615.78.08 ENTERO, por la IOMMU; bytes", p.imagen.bytes),
+            _ => crate::ring0::cabina::warn("gpu", "L0c2: lo que se ve por la radix3 NO es lo copiado, o no es una version conocida", cuadra as u64),
         }
     }
     Ok(k + 1)
@@ -572,7 +611,7 @@ pub fn comprobar(k: u64) -> Result<u64, u32> {
 /// `INFO_GPU_GSP`: `0..7` trozos copiados | `8..15` trozos totales | `16..23`
 /// comprobados | `24..31` el ultimo NO | `32..55` paginas prestadas | 56
 /// preparado | 57 copiado | 58 PRESTADO | 59 CUADRA (radix3 = copia) | 60 es
-/// la 570.144 | 63 valido.
+/// la 570.144 | 61 es la 615.78.08 | 63 valido.
 pub fn info_gsp() -> u64 {
     let v = ESTADO.load(Ordering::Acquire);
     if v & GSP_VALIDO == 0 {
@@ -594,4 +633,20 @@ pub fn info_gsp_hash() -> u64 {
 /// registro `OS` del GSP antes de esperar a su RISC-V (`write_os_version`).
 pub fn app_version() -> Option<u32> {
     plan().map(|p| p.bootloader.app_version)
+}
+
+/// **La version del GSP-RM prestado y comprobado** (CUADRA y conocida), o
+/// `None`: lo que `gpu_libos` y `gpu_despertar` piden antes de hablarle.
+pub fn version() -> Option<Version> {
+    let g = info_gsp();
+    if g & GSP_CUADRA == 0 {
+        return None;
+    }
+    if g & GSP_ES_570 != 0 {
+        Some(Version::V570)
+    } else if g & GSP_ES_615 != 0 {
+        Some(Version::V615)
+    } else {
+        None
+    }
 }

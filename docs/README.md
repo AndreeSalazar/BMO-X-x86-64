@@ -12,6 +12,7 @@
 | Aprendizajes del hardware | [BITACORA](../BITACORA.md); una causa pendiente se conserva como pendiente. |
 | Lo que cada app pide a TITAN++, hasta ILLAPA | [LAS_APPS](../toolchain/lang/titan/LAS_APPS.md): lo hecho, lo que falta y de quien es; la casa en [casa/](../toolchain/lang/titan/casa/README.md). |
 | Gobierno del GSP (el GSP ejecuta, BMO-X gobierna) | [GSP-CONTROL-BMO](plan/PLAN_GSP_CONTROL_BMO.md): contrato y supervisor inicial implementados; `gpu control` explica etapa y datos ausentes. |
+| La 3060 como en Linux, sin traer Linux | [GPU-COMO-LINUX](plan/PLAN_GPU_COMO_LINUX.md): la misma 3060 arranca en ULTRA LinuX con el firmware 615.78.08; BMO-X pasa a esa version, con el esquema de ULTRA (version emparejada, firmware fijo, informe por arranque). Los planes del `0x15` quedan SUPERADOS. |
 
 ### Recorrido de hitos con evidencia
 

@@ -158,7 +158,7 @@ fn leer() -> Estado {
     // Las mismas preguntas que los pasos de `save mode`, hechas aqui.
     let hechos = [
         (bmo::info(bmo::INFO_GPU_WPR2) >> 32) as u32 >> 4 != 0,
-        g & bmo::GSP_PRESTADO != 0 && g & bmo::GSP_CUADRA != 0 && g & bmo::GSP_ES_570 != 0,
+        g & bmo::GSP_PRESTADO != 0 && g & bmo::GSP_CUADRA != 0 && g & (bmo::GSP_ES_570 | bmo::GSP_ES_615) != 0,
         bmo::info(bmo::INFO_GPU_LIBOS) & bmo::LIBOS_COMPROBADO != 0,
         bmo::info(bmo::INFO_GPU_GSP_MEM | CPU_ESCRITO << 8) & 0xFFFF_FFFF != 0,
         d & bmo::DESPIERTO_VISTO != 0,

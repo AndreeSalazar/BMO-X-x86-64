@@ -1777,6 +1777,8 @@ pub const GSP_COPIADO: u64 = 1 << 57;
 pub const GSP_PRESTADO: u64 = 1 << 58;
 pub const GSP_CUADRA: u64 = 1 << 59;
 pub const GSP_ES_570: u64 = 1 << 60;
+/// F2a (20-10): lo visto por la radix3 es el GSP-RM de la 615.78.08.
+pub const GSP_ES_615: u64 = 1 << 61;
 pub const GSP_VALIDO: u64 = 1 << 63;
 pub const INFO_GPU_GSP_HASH: u64 = 0xBD;
 

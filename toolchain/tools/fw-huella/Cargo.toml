@@ -1,0 +1,15 @@
+[package]
+name = "bmo-fw-huella"
+version = "0.1.0"
+edition = "2021"
+authors = ["BMO Project"]
+description = "Las huellas y cabeceras de los cuatro ficheros del GSP de la 3060 (F0b de PLAN_GPU_COMO_LINUX), leidos con los MISMOS lectores que usa el kernel: el BLAKE3 del .fwimage que fija gpu_gsp.rs, y lo que dicen el booter y el bootloader. Solo lee; no trae firmware al repo."
+license = "Apache-2.0"
+
+[dependencies]
+bmo-gpu-ga10x = { path = "../../../platform/drivers/gpu/ga10x" }
+bmo-hash = { path = "../../../platform/shared/bmo-hash" }
+
+[[bin]]
+name = "fw-huella"
+path = "src/main.rs"

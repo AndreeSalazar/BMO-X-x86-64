@@ -196,7 +196,8 @@ fn antes() -> Result<Bar0, u32> {
     let bar0 = pr::candado_dma()?;
     let wpr2 = (crate::ring0::dev::gpu::info_wpr2() >> 32) as u32 >> 4 != 0;
     let g = gpu_gsp::info_gsp();
-    let radix = g & gpu_gsp::GSP_CUADRA != 0 && g & gpu_gsp::GSP_ES_570 != 0;
+    // La version emparejada: CUADRA y es una version conocida (570 o 615).
+    let radix = g & gpu_gsp::GSP_CUADRA != 0 && gpu_gsp::version().is_some();
     let libos = gpu_libos::info_libos() & gpu_libos::LIBOS_COMPROBADO != 0;
     if gpu_gsp::app_version().is_none() || !wpr2 || !radix || !libos {
         return Err(IOMMU_NO_DESPERTAR_ANTES);
@@ -951,6 +952,10 @@ fn cargar() -> Result<usize, u32> {
 /// **Un tramo del secuenciador.** `Ok(info_secuencia)`: con `SEC_HECHO`, el
 /// GSP-RM volvio y los huecos del mensaje ya son suyos; si no, llamar otra vez.
 pub fn secuenciar() -> Result<u64, u32> {
+    // En 615 no hay secuenciador: el GSP-RM pide `EXEC_HS_BINARY` por GMCAPI (F2b).
+    if gpu_gsp::version() == Some(gpu_gsp::Version::V615) {
+        return Err(gpu_gsp::IOMMU_NO_IDIOMA_615);
+    }
     if ESTADO.load(Ordering::Acquire) & DESPIERTO_VISTO == 0 {
         return Err(IOMMU_NO_SEC_ANTES);
     }

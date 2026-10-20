@@ -189,6 +189,7 @@ pub(crate) fn motivo(m: u32) -> &'static [u8] {
         bmo::IOMMU_NO_IMAGEN => b"la 3060 no puede poner la imagen: sin el canal de GR (`gpu lienzo` antes), sin la pantalla en modo fisico, un formato mas grande que la pantalla, o una ya en marcha",
         bmo::IOMMU_NO_COMPLETA => b"la 3060 no puede completar: sin el canal de GR (`gpu lienzo` antes), sin la pantalla en modo fisico, un bloque que no cabe en el mapa (8 MiB) o que no es tuyo, un paso de mas, o una pasada ya en marcha",
         bmo::IOMMU_NO_BODRIO => b"[BMO-X Juez V3b]: TOMA TU BODRIO! el juez del SASS, en la puerta del kernel, no dejo subir un programa del BSF a la 3060 (la regla y la instruccion, en la cabina). UN FRACASADO! UN FRACASADO!!!",
+        bmo::IOMMU_NO_IDIOMA_615 => b"el GSP-RM prestado es la 615.78.08 y este paso habla el idioma de la 570.144 (SET_SYSTEM_INFO, el secuenciador): el de la 615 es F2b de PLAN_GPU_COMO_LINUX",
         bmo::IOMMU_NO_REVIVIR => b"el canal de GR no se puede revivir: no esta muerto, falta un FREE antes (el 3D, el computo, el canal: en ese orden), el GR esta en uso, o el RC viejo sigue en la cola del GSP",
         bmo::IOMMU_NO_CANAL_MUERTO => b"el canal de GR de la 3060 esta MUERTO: tomo una excepcion (el Xid, en la cabina y en `gpu aviso`) y el GSP-RM lo mato; todo trabajo del GR dice NO al instante; `gpu revivir` lo pide otra vez sin reiniciar",
         bmo::IOMMU_NO_PASE => b"el pase de la GPU no se abrio: `gpu pase` dice el por que (pantalla, IOMMU, VBLANK, lienzo u ocupado)",
