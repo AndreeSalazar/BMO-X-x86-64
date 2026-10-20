@@ -27,7 +27,7 @@ use bmo_userland as bmo;
 use super::tabla::campo;
 use super::After;
 use crate::desktop::Desktop;
-use crate::scene::output::{Output, INK_ECHO, INK_ERR, INK_GOOD, INK_PLAIN};
+use crate::scene::output::{Output, INK_ECHO, INK_ERR, INK_GOOD, INK_NVIDIA, INK_PLAIN};
 use crate::scene::{paint_status, INK_DIM};
 
 /// Donde los deja el build (`build\firmware.ps1`). 8.3.
@@ -911,7 +911,7 @@ pub(crate) fn fila_despierto(s: &mut Output) {
     }
     campo(s, b"despierto");
     if d & bmo::DESPIERTO_RISCV_ACTIVO != 0 {
-        s.with_ink(INK_GOOD);
+        s.with_ink(INK_NVIDIA);
         s.text(b"el RISC-V del GSP esta ACTIVO: el GSP-RM de la ");
         s.text(version_gsp(bmo::info(bmo::INFO_GPU_GSP)));
         s.text(b" corre en tu 3060 ");

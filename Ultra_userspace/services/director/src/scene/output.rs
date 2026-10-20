@@ -41,12 +41,18 @@ pub(crate) const INK_ECHO: u8 = 1;
 pub(crate) const INK_ERR: u8 = 2;
 /// Algo salio bien y merece verse.
 pub(crate) const INK_GOOD: u8 = 3;
+/// **La GPU de NVIDIA TRABAJA** (20-10, el propietario: *"en color verde que
+/// representa NVIDIA GPU que trabaje"*): su verde, solo para eso.
+pub(crate) const INK_NVIDIA: u8 = 4;
+/// El verde de NVIDIA.
+pub(crate) const NVIDIA_VERDE: u32 = 0x0076_B900;
 
 pub(crate) fn ink_color(t: u8) -> u32 {
     match t {
         INK_ECHO => OUT_ECHO,
         INK_ERR => INK_BAD,
         INK_GOOD => INK_OK,
+        INK_NVIDIA => NVIDIA_VERDE,
         _ => OUT_TEXT,
     }
 }

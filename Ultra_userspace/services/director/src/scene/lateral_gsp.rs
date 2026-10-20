@@ -60,6 +60,9 @@ const PALABRAS: [&str; PASOS] = ["WPR2", "prestado", "libos", "escrito", "despie
 const NOMBRES_NO: [&str; PASOS] = ["NO fwsec", "NO radix", "NO libos", "NO sistema", "NO desperto", "NO secuen", "NO init"];
 
 const VERDE: u32 = 0x0022_C55E;
+/// LISTO y el RISC-V vivo: la GPU TRABAJA, en el verde de NVIDIA (20-10, el
+/// propietario).
+const NVIDIA: u32 = super::output::NVIDIA_VERDE;
 const ROJO: u32 = 0x00EF_4444;
 
 /// Lo que mide el bloque: la palabra, el camino de nodos y sus letras, y los
@@ -261,19 +264,21 @@ pub(crate) fn pintar(p: &bmo::Pantalla, x0: u32, y: u32, iw: u32) {
     // La palabra, y su luz.
     let listo = e.hechos & 1 << 6 != 0;
     let ultimo = (0..PASOS).rev().find(|&k| e.hechos & 1 << k != 0);
-    let hecho = if listo { VERDE } else { acento() };
+    let hecho = if listo { NVIDIA } else { acento() };
     let (palabra, tinta, luz) = if !e.hallada {
         ("sin NVIDIA", INK_DIM, borde)
     } else if e.fallo < PASOS {
         (NOMBRES_NO[e.fallo], ROJO, ROJO)
     } else if listo {
-        ("LISTO", VERDE, VERDE)
+        ("LISTO", NVIDIA, NVIDIA)
     } else {
         match ultimo {
             None => ("dormida", INK_DIM, borde),
             // Despierto, sin secuenciador corrido y el RISC-V parado: el GSP-RM
             // se paro solo y espera al secuenciador.
             Some(4) if !e.riscv => ("espera sec", INK, acento()),
+            // El RISC-V del GSP vivo: la GPU TRABAJA, en su verde.
+            Some(k) if e.riscv => (PALABRAS[k], NVIDIA, NVIDIA),
             Some(k) => (PALABRAS[k], INK, acento()),
         }
     };
