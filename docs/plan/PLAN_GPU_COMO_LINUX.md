@@ -253,6 +253,26 @@ JUNTOS, ni con la 615, ni con el hueco FWSEC -> booter cerrado.
     era del procedimiento. AMARILLO: compila, guardianes limpios, QEMU
     arranca; sin metal.
 
+## 4c. Lo que OpenRM 615 espera y repite (20-10, el propietario: *"algo me huele que la grafica demora y BMO-X no espera"*)
+
+Leido en `kgspInitRm_IMPL`, `_kgspBootGspRm`, `gpuWaitForGfwBootComplete_TU102`,
+`kgspPopulateWprMeta_TU102` y `kgspGetWprEndMargin_TU102`:
+
+| | OpenRM 615 | BMO-X |
+|---|---|---|
+| esperar a la tarjeta | hasta 2,05 s a que el falcon del GSP PARE y el GFW diga COMPLETED (PLM legible) | HECHO el 20-10: la misma espera en `fwsec_correr`; antes miraba una vez y decia NO |
+| el techo de la WPR2 | `min(candado de la MMU de la VBIOS, VGA)` (`memmgrReadMmuLock_GA100`) | solo la VGA. MEDIDO el 20-10 (`mirar_candado_mmu`, a CABINA): si el candado cae bajo la VGA lo dice en rojo; el reparto no cambia hasta verlo en la 3060 |
+| si el arranque FALLA | **NUEVO en 615, para GeForce sin ECC**: hasta 4 intentos; cada uno BAJA la region del GSP (`wprEndMargin *= intento`, `RECOVERY_MARGIN_PRESENT`) y pide al GSP-RM escanear la memoria (`SCAN_RECOVERY_MARGIN`): *"subsequent attempts will shift the GSP region in an attempt to avoid the unstable memory"*. En Windows el desplazamiento se GUARDA para el siguiente arranque | un solo intento, siempre en el mismo sitio |
+
+[!] En ULTRA el primer intento sale (el dmesg no tiene ni un error NVRM), asi
+que la memoria inestable no es lo primero; pero NVIDIA reconoce que en
+GeForce el arranque del GSP puede fallar por la VRAM de arriba.
+
+- [ ] **F4a3 -- el desplazamiento, como Windows.** Tras un `0x15`, el
+  siguiente arranque baja la region lo que mide la region (en
+  `informe/estado`), hasta 4, con `RECOVERY_MARGIN_PRESENT` en `rmargs`.
+  Solo si F4a' no basta.
+
 # 5. Lo que este plan NO es
 
 - No toca ULTRA LinuX: se lee.
