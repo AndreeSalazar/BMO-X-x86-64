@@ -275,6 +275,7 @@ pub fn despertar() -> Result<u64, u32> {
 
     // Lo que dijo FWSEC, antes de quitarle su falcon.
     pr::fotografiar_fwsec();
+    foto_preparacion(&mut r, 1);
     // 1. El GSP, con sus argumentos de LIBOS en el buzon, arranca (y se para
     // solo: aun no tiene codigo; el que lo pondra es el booter).
     crate::ring0::cabina::info("gpu", "L0c3b: el GSP con sus argumentos de LIBOS en el buzon", gpu_libos::IOVA_LIBOS);
@@ -288,8 +289,10 @@ pub fn despertar() -> Result<u64, u32> {
         // (`kgspProgramLibosBootArgsAddr`), SIN arrancar el falcon vacio.
         crate::ring0::cabina::info("gpu", "G0 E3: el GSP como OpenRM 570.144 -- nucleo RISC-V y buzones, sin STARTCPU", 0);
         fa::resetear_en_riscv_con(&mut r, &mut t, fa::GSP, g0_pulso()).map(|_| {
+            foto_preparacion(&mut r, 2);
             r.escribir(fa::GSP + fa::MAILBOX0, l as u32);
             r.escribir(fa::GSP + fa::MAILBOX1, (l >> 32) as u32);
+            foto_preparacion(&mut r, 3);
             G0.fetch_or(bmo_nvidia_gsp_control::g0::RISCV_USADO, Ordering::AcqRel);
         })
     } else {
@@ -303,6 +306,28 @@ pub fn despertar() -> Result<u64, u32> {
     apuntar(|x| x | DESPIERTO_GSP_ARRANCADO);
     GSP_TSC.store(crate::ring0::task::scheduler::rdtsc(), Ordering::Release);
     Ok(l)
+}
+
+/// G0, observacion antes de STARTCPU del SEC2: 1 tras FWSEC, 2 tras BCR,
+/// 3 tras LIBOS. No interpreta un PRI Falcon como fallo del nucleo RISC-V.
+/// No modifica la receta ni convierte estas lecturas en nuevas condiciones.
+fn foto_preparacion(r: &mut Bar0, fase: u64) {
+    let desde = crate::ring0::task::scheduler::rdtsc();
+    let f = fa::foto_nucleos(r, fa::GSP);
+    let hasta = crate::ring0::task::scheduler::rdtsc();
+    let c = |s: &'static str, v| crate::ring0::cabina::info("gpu", s, v);
+    c("G0 foto preparacion: fase (1 FWSEC, 2 BCR, 3 LIBOS)", fase);
+    c("G0 foto: TSC antes de las lecturas", desde);
+    c("G0 foto: TSC despues de las lecturas", hasta);
+    c("G0 foto: BCR | RISCV_CPUCTL << 32, crudos", f.bcr as u64 | (f.riscv_cpuctl as u64) << 32);
+    c("G0 foto: FALCON_CPUCTL crudo", f.falcon_cpuctl as u64);
+    c("G0 foto: MAILBOX0 | MAILBOX1 << 32, crudos", f.mailbox0 as u64 | (f.mailbox1 as u64) << 32);
+    // Bits separados de validez y valor: un PRI no se disfraza de cero medido.
+    let mut v = 0;
+    if let Some(riscv) = f.seleccionado() { v |= 1 | (riscv as u64) << 1; }
+    if let Some((activo, parado)) = f.actividad() { v |= 4 | (activo as u64) << 3 | (parado as u64) << 4; }
+    if let Some(args) = f.argumentos() { v |= 32 | ((args == gpu_libos::IOVA_LIBOS) as u64) << 6; }
+    c("G0 foto: BCR valido/seleccion, RV valido/activo/halt, args validos/iguales (bits 0..6)", v);
 }
 
 /// **E4, SEGUIDO** (17-10): `despertar` y el booter en la MISMA llamada, como

@@ -457,6 +457,9 @@ fn mirar_candado_mmu(r: &mut Bar0) {
         }
     };
     MMU_CANDADO.store(3 << 62 | c.desde >> 12 | (c.hasta >> 12) << 32, Ordering::Release);
+    // Siempre ambos limites: VGA sin dato no debe esconder el inferior.
+    crate::ring0::cabina::info("gpu", "L0b: MMU_LOCK limites crudos (lo | hi << 32)", lo as u64 | (hi as u64) << 32);
+    crate::ring0::cabina::count("gpu", "L0b: candado MMU valido; desde (bytes)", c.desde);
     crate::ring0::cabina::count("gpu", "L0b: candado MMU valido; hasta (bytes)", c.hasta);
     let raw_vga = crate::ring0::dev::gpu::info_vga() as u32;
     let vga = (((raw_vga >> 8) & 0xFF_FFFF) as u64) << 16;

@@ -435,6 +435,47 @@ pub fn riscv(r: &mut impl Registros, base: u32) -> Result<(bool, bool), NoFuego>
     Ok((c & RISCV_ACTIVO != 0, c & RISCV_PARADO != 0))
 }
 
+/// Lecturas secuenciales, sin reset ni escritura. BCR selecciona el nucleo;
+/// ACTIVE lo declara RISCV_CPUCTL. Un PRI del Falcon tras seleccionar RISC-V
+/// no decide si el RISC-V esta activo (OpenRM 615, kernel_falcon_ga102.c).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct FotoNucleos {
+    pub bcr: u32,
+    pub riscv_cpuctl: u32,
+    pub falcon_cpuctl: u32,
+    pub mailbox0: u32,
+    pub mailbox1: u32,
+}
+
+impl FotoNucleos {
+    pub fn seleccionado(&self) -> Option<bool> {
+        (!es_error_pri(self.bcr) && self.bcr & BCR_VALIDO != 0)
+            .then_some(self.bcr & BCR_RISCV != 0)
+    }
+
+    pub fn actividad(&self) -> Option<(bool, bool)> {
+        (!es_error_pri(self.riscv_cpuctl)).then_some((
+            self.riscv_cpuctl & RISCV_ACTIVO != 0,
+            self.riscv_cpuctl & RISCV_PARADO != 0,
+        ))
+    }
+
+    pub fn argumentos(&self) -> Option<u64> {
+        (!es_error_pri(self.mailbox0) && !es_error_pri(self.mailbox1))
+            .then_some(self.mailbox0 as u64 | (self.mailbox1 as u64) << 32)
+    }
+}
+
+pub fn foto_nucleos(r: &mut impl Registros, base: u32) -> FotoNucleos {
+    FotoNucleos {
+        bcr: r.leer(base + BCR_CTRL),
+        riscv_cpuctl: r.leer(base + RISCV_CPUCTL),
+        falcon_cpuctl: r.leer(base + CPUCTL),
+        mailbox0: r.leer(base + MAILBOX0),
+        mailbox1: r.leer(base + MAILBOX1),
+    }
+}
+
 /// **Leer la DMEM por PIO**: `n` palabras desde `dmem`, con autoincremento.
 pub fn leer_dmem(r: &mut impl Registros, base: u32, dmem: u32, fuera: &mut [u32]) {
     r.escribir(base + DMEMC, DMEMC_LEER | dmem);
@@ -760,5 +801,34 @@ mod pruebas {
         assert_eq!(GSP + BCR_CTRL, 0x111668);
         assert_eq!(CMD_256B, 0x600);
         assert_eq!(SEC2 + DMATRFCMD, 0x840118);
+    }
+
+    #[test]
+    fn la_foto_no_escribe_y_separa_seleccion_de_actividad() {
+        let mut f = Falcon::nuevo();
+        f.poner(GSP + CPUCTL, 0xBADF_5620);
+        f.poner(GSP + RISCV_CPUCTL, RISCV_PARADO);
+        f.poner(GSP + MAILBOX0, 0x3C00_0000);
+        let foto = foto_nucleos(&mut f, GSP);
+        assert!(f.escritos.is_empty());
+        assert_eq!(foto.seleccionado(), Some(true));
+        assert_eq!(foto.actividad(), Some((false, true)));
+        assert_eq!(foto.argumentos(), Some(0x3C00_0000));
+        f.poner(GSP + RISCV_CPUCTL, RISCV_ACTIVO);
+        assert_eq!(foto_nucleos(&mut f, GSP).actividad(), Some((true, false)));
+    }
+
+    #[test]
+    fn la_foto_no_interpreta_pri_como_nucleo_activo_o_argumentos() {
+        let bien = FotoNucleos { bcr: 0x111, riscv_cpuctl: 0x80,
+            falcon_cpuctl: 0xBADF_5620, mailbox0: 0x3C00_0000, mailbox1: 0 };
+        for pri in [0xBADF_1002, 0xBADF_FFFF, 0xFFFF_FFFF] {
+            assert_eq!(FotoNucleos { bcr: pri, ..bien }.seleccionado(), None);
+            assert_eq!(FotoNucleos { riscv_cpuctl: pri, ..bien }.actividad(), None);
+            assert_eq!(FotoNucleos { mailbox0: pri, ..bien }.argumentos(), None);
+            assert_eq!(FotoNucleos { mailbox1: pri, ..bien }.argumentos(), None);
+        }
+        assert_eq!(FotoNucleos { bcr: 0x110, ..bien }.seleccionado(), None);
+        assert_eq!(FotoNucleos { bcr: 1, ..bien }.seleccionado(), Some(false));
     }
 }

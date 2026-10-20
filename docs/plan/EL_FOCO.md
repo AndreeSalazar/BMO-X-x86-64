@@ -13,6 +13,9 @@ auditoria posterior valida PRI/candado MMU y mejora el informe al vencer
 la espera. La [tanda RTX del 20-10](../metal/G0_2026-10-20_05A482C51.md)
 trae cinco conjuntos validos del build 05A482C51: todos terminan en 0x15,
 sin INIT_DONE; no se declara corregido. FWSEC-FRTS si termina correctamente.
+Contraste con [ULTRA y OpenRM 615](../metal/CONTRASTE_ULTRA_BMO_G0_2026-10-20.md):
+separar seleccion BCR de actividad RISC-V; PRI Falcon no demuestra reset
+fallido. Nuevas fotos FWSEC/BCR/LIBOS y ambos limites MMU; falta metal nuevo.
 Prueba del 20-10 en [QEMU](../metal/QEMU_OPENRM_2026-10-20.md): EFI y shell
 arrancan sin USB virtual; pendientes MMIO alto de xHCI e imagen GPT de
 datos. VGA emulada: no acredita G0 ni el GSP de la RTX.

@@ -258,7 +258,8 @@ JUNTOS, ni con la 615, ni con el hueco FWSEC -> booter cerrado.
     corrio` de `gpu g0` con `riscv seguido reset junto`. Una mejora apoya
     estudiar el procedimiento; no aisla cual de sus variables fue causal.
     AMARILLO: compila, guardianes limpios, QEMU
-    arranca; sin metal.
+    arranca. Metal 20-10, build 05A482C51: cinco conjuntos cerrados validos,
+    todos con SEC2 0x15; sin INIT_DONE. El modo conjunto no basto.
 
 ## 4c. Lo que OpenRM 615 espera y repite (20-10, el propietario: *"algo me huele que la grafica demora y BMO-X no espera"*)
 
@@ -322,6 +323,13 @@ que el escritorio o Cyberpunk sepan hablar con ese runtime.
 F4a3 requiere esquema de layout emparejado, liberacion previa, margen y
 postcondiciones probados; no se activa por interpretar un PRI como candado
 ni por atribuir memoria inestable a cualquier 0x15.
+
+Contraste posterior a esa tanda con
+[ULTRA/OpenRM 615](../metal/CONTRASTE_ULTRA_BMO_G0_2026-10-20.md): BMO conserva
+su arquitectura. Se agregan fotos de solo lectura en FWSEC/BCR/LIBOS, con
+seleccion y actividad separadas, y limites MMU completos aun si VGA no da
+base. Un PRI del Falcon tras seleccionar RISC-V no es prueba de reset roto.
+Instrumental nuevo pendiente de metal; no se declara resuelto 0x15.
 
 # 5. Lo que este plan NO es
 
