@@ -11,6 +11,9 @@ sustituyen el ultimo resultado. [Indice de documentos](../README.md).
 tanda en frio. Arranque conjunto OpenRM y espera GFW implementados; la
 auditoria posterior valida PRI/candado MMU y mejora el informe al vencer
 la espera. Falta la nueva tanda RTX; no se declara corregido 0x15.
+Prueba del 20-10 en [QEMU](../metal/QEMU_OPENRM_2026-10-20.md): EFI y shell
+arrancan sin USB virtual; pendientes MMIO alto de xHCI e imagen GPT de
+datos. VGA emulada: no acredita G0 ni el GSP de la RTX.
 F2b de 615 sigue pendiente: runtime arrancado no equivale a GPU operativa
 para juegos. Las notas 570/HS que siguen conservan su contexto anterior.
 
