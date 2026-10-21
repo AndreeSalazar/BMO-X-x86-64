@@ -1,5 +1,11 @@
 # PLAN GPU COMO LINUX -- la 3060 con el firmware que ya arranca en ULTRA LinuX
 
+**Actualizacion vigente, 21-10:** G0 sigue abierto con 615. La regresion
+FWSEC de 43DB9E231 se corrigio en cd4018237; falta metal del paquete
+corregido. F2b inicial sigue sin respuesta GSP_INIT acreditada. La seccion
+4e agrega HSG1..HSG5 para investigar control HS propio sobre GA106, sin
+confundir resultados de GA100/GA104 con compatibilidad de esta tarjeta.
+
 **Auditoria 20-10, despues de `c292e50bc`:** el arranque conjunto de
 `31579672b` y la espera nueva estan implementados, sin validacion nueva en
 la RTX. La tanda 2/14 no fue en frio y no demuestra una causa de version.
@@ -217,11 +223,12 @@ sirven, no una estadistica.
 
 # 4. Si 615 no basta
 
-Si el booter de 615.78.08 tambien da `0x15` en frio, no es la version: se
-vuelve a lo ya estudiado, que sigue en los planes superados y en
-`platform/drivers/gpu/ga10x/` (`DESPERTAR_FIABLE.md`, `EL_0x15.md`), y en
-primer lugar a la hipotesis G0-MODO (BMO-X prepara el GSP como Falcon y
-OpenRM como RISC-V).
+Un `0x15` con 615 demuestra que esa version no basto en ese intento; no
+descarta toda influencia del firmware ni identifica la causa. Se usan los
+contratos y pares de capturas conservados. G0-MODO/RISC-V y el arranque
+conjunto ya estan implementados; no se repiten como descubrimientos nuevos.
+Los antecedentes en `DESPERTAR_FIABLE.md` y `EL_0x15.md`, dentro de
+`platform/drivers/gpu/ga10x/`, se leen con su fecha y condiciones.
 
 ## 4a. Lo que dio el metal con la 615 (19-10, 21:54 a 22:03 hora local)
 
@@ -347,6 +354,49 @@ BCR 0x111 y LIBOS releido correcto aun en el fallo. G0 no queda cerrado.
 En el segundo, la cola exportada es toda cero: el aviso de forma/suma
 incluye cero mensajes, no demuestra un mensaje corrupto. F2b debe comprobar
 preparacion, direcciones y transporte 615, ademas de su decodificador.
+
+## 4e. Investigacion HS para GA106 (21-10)
+
+La via de entrega sigue siendo G0 -> respuesta GSP_INIT 615 -> primer
+trabajo GPU -> clientes. La investigacion alternativa empieza en anfitrion
+con las copias existentes. Detalle y fuentes:
+[HS_INVESTIGACION](../../platform/drivers/gpu/Nvidia/HS_INVESTIGACION.md).
+Aqui viven las casillas para que el indice general las cuente una sola vez.
+
+- [ ] **HSG1 -- Corpus de procedencia y alcance.** Fijar revisiones y
+  huellas de las referencias publicas y los binarios BMO 615, identificar
+  chip/version probados, dependencias, licencias y resultados negativos.
+  Llegada: matriz que distingue afirmacion del autor, reproduccion externa
+  y observacion propia. Una rama mutable o un titular no cierran la tarea.
+- [ ] **HSG2 -- Compatibilidad GA106.** Comparar contratos, formatos y
+  flujo relevante de las referencias con las copias de ESTA tarjeta.
+  Llegada: por cada via, APLICABLE, NO APLICABLE o SIN DATO, con evidencia,
+  precondicion y criterio de refutacion. No trasladar offsets de GA100.
+  Depende de HSG1; un resultado negativo documentado tambien es una salida.
+- [ ] **HSG3 -- Modelo anfitrion comprobable.** Seleccionar o extender
+  herramientas de analisis/emulacion con cobertura declarada de instrucciones,
+  DMA y perifericos; reproducir un caso conocido y controles negativos.
+  Llegada: trazas deterministas comparables y limites explicitos. Crypto
+  simulada y una ejecucion que solo gira no acreditan acceso HS real.
+  Depende de la via identificada en HSG2; no exige emular toda la GPU.
+- [ ] **HSG4 -- Una capacidad propia observable en metal.** Solo para una
+  via con precondiciones GA106 identificadas y modelo comprobado, delimitar
+  un prototipo temporal con una operacion reversible, control negativo,
+  resultado independiente y finalizacion. Conservar build, firmware,
+  fase y estado posterior. Llegada: esa capacidad comprobada, o el limite
+  concreto que impide obtenerla; no declarar acceso total por un buzon.
+  Depende de HSG2/HSG3. No reemplaza la validacion G0 del arranque normal.
+- [ ] **HSG5 -- Gobierno util y duracion medida.** Si HSG4 obtiene una
+  capacidad, medir su duracion frente a reset, nueva inicializacion y corte,
+  distinguiendo reaplicacion de persistencia fisica. Integrar solo la
+  capacidad delimitada con propietario y contrato BMO; comprobar GSP_INIT,
+  primer trabajo y despedida. Llegada: tabla de resultados y operacion util,
+  sin prometer HS permanentemente abierto. Depende de HSG4 y del runtime 615.
+
+Siguiente accion de esta linea: HSG1 y despues el contraste estatico HSG2.
+Una tecnica incompatible se descarta con su motivo; no se fuerza la tarjeta
+para conseguir que encaje con el ejemplo. Esta edicion define trabajo:
+no ejecuta un prototipo HS ni cambia firmware o permisos del kernel.
 
 # 5. Lo que este plan NO es
 

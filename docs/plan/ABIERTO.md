@@ -7,7 +7,7 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   854 casillas ABIERTAS en 80 planes
+   859 casillas ABIERTAS en 80 planes
    712 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
     12 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
@@ -270,6 +270,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] MC4 -- un mundo grande: trozos. Trozos de 16 x 16 x 16, generados
 - ... y 8 mas
 
+## [`PLAN_GPU_COMO_LINUX.md`](PLAN_GPU_COMO_LINUX.md) -- 10 abiertas, 3 hechas
+
+*PLAN GPU COMO LINUX -- la 3060 con el firmware que ya arranca en ULTRA LinuX*
+
+- [ ] F2 -- LAS DOS VERSIONES lado a lado (Ring 0, del propietario). El
+- [ ] F3 -- EL BANCO sin metal. Lo que se puede probar en el anfitrion:
+- [ ] F4 -- EL METAL: diez arranques en frio con 615.78.08. Apagar y
+- ... y 7 mas
+
 ## [`PLAN_LA_DEUDA.md`](PLAN_LA_DEUDA.md) -- 10 abiertas, 7 hechas
 
 *PLAN LA DEUDA -- lo que el arbol debe, medido el 2026-09-17*
@@ -520,15 +529,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] D0 -- EL METRO (codigo HECHO 2026-09-23; se cierra con el primer numero)
 - [ ] D1 -- ASINCRONO + WAIT: cero congelones
 - [ ] D3 -- DMA directo al bloque prestado + PRD multiples
-- ... y 2 mas
-
-## [`PLAN_GPU_COMO_LINUX.md`](PLAN_GPU_COMO_LINUX.md) -- 5 abiertas, 3 hechas
-
-*PLAN GPU COMO LINUX -- la 3060 con el firmware que ya arranca en ULTRA LinuX*
-
-- [ ] F2 -- LAS DOS VERSIONES lado a lado (Ring 0, del propietario). El
-- [ ] F3 -- EL BANCO sin metal. Lo que se puede probar en el anfitrion:
-- [ ] F4 -- EL METAL: diez arranques en frio con 615.78.08. Apagar y
 - ... y 2 mas
 
 ## [`PLAN_LAS_LIBRERIAS.md`](PLAN_LAS_LIBRERIAS.md) -- 5 abiertas, 9 hechas

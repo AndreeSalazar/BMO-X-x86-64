@@ -45,6 +45,13 @@ detecta una regresion previa al booter: la validacion rechazo DMEM con SEC=1
 de FWSEC (motivo interno 7). Corregida esa restriccion, con dos pruebas
 nuevas, incluida la VBIOS real del informe; banco 479 aprobado. No es otra
 tanda de 0x15: no hubo STARTCPU del booter ni conjunto cerrado de captura.
+Nuevo trabajo autorizado de investigacion:
+[HSG1..HSG5, control HS en GA106](PLAN_GPU_COMO_LINUX.md#4e-investigacion-hs-para-ga106-21-10),
+con [criterios y fuentes](../../platform/drivers/gpu/Nvidia/HS_INVESTIGACION.md).
+Corpus fijado -> compatibilidad -> modelo anfitrion -> capacidad observable
+-> duracion e integracion. Las casillas siguen abiertas; no hay ruta propia
+GA106 demostrada ni persistencia fisica acreditada. Esta linea puede avanzar
+en anfitrion mientras el paquete cd4018237 espera su informe de metal.
 
 Auditoria GPU/PROTON-X del 18-10: [matriz para Cyberpunk](PLAN_PROTON_X.md).
 Orden de entrega G0 -> Q0a3/MUNDO conservado; se puede avanzar en host con

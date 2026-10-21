@@ -1,5 +1,79 @@
 # HS en la RTX 3060 12G -- poner la cadena segura al servicio de BMO
 
+## Ampliacion vigente -- investigacion GA106, 21-10-2026
+
+Pedido del propietario: inspirarse en las investigaciones publicas para
+obtener mas control de SU GPU. Se incorpora HSG1..HSG5 en el
+[plan GPU vigente](../../../../docs/plan/PLAN_GPU_COMO_LINUX.md#4e-investigacion-hs-para-ga106-21-10).
+Este bloque actualiza el orden del 18-10: el arranque firmado G0/F2b sigue
+siendo la via de entrega; el estudio de otras rutas HS tiene resultados y
+criterios propios. La ausencia de una ruta alternativa no bloquea G0.
+
+### Base disponible, sin mezclar conclusiones
+
+- [REGISTRO] GA106 A1, 10DE:2504, subsistema 1462:397D, 12 GiB. Firmware
+  emparejado 615.78.08. Booters/bootloader tienen huellas fijadas por el
+  build; las capturas buenas y malas existentes conservan su identidad.
+- [REGISTRO] cd4018237 corrige el rechazo agregado a DMEM SEC de FWSEC;
+  479 pruebas y paquete completo compilados. Pendiente metal de esa
+  correccion. No sumar el fallo previo de 43DB9E231 a los retornos 0x15.
+- [CITADO] La documentacion general de NVIDIA describe HS autenticado y
+  estado interno restringido. Es el modelo documentado, no una prueba de
+  que todo firmware este libre de defectos.
+- [CITADO, no reproducido por BMO] cmpunlocker documenta una ruta sobre
+  CMP/GA100 y reaplica sus cambios al inicializar el driver. Eso no acredita
+  compatibilidad GA106 ni persistencia fisica tras quitar alimentacion.
+- [CITADO, no reproducido por BMO] GPU- documenta experimentos GA104 y
+  afirmaciones iniciales de control de ejecucion; sus conclusiones posteriores
+  describen limites de autenticacion y flujo que cerraron la ruta de boot
+  que investigaban. Una primera demostracion no acredita el resultado final.
+- [SIN DATO] Una ruta HS propia, una apertura PLM util o un cambio permanente
+  que funcione en esta GA106 con estos binarios 615. No inferirlo de GA100,
+  de una emulacion o de compartir el nombre Ampere.
+
+Fuentes consultadas el 21-10 (ramas mutables; HSG1 exige fijar revision
+antes de convertirlas en codigo o experimento):
+[modelo NVIDIA](https://nvidia.github.io/open-gpu-doc/Falcon-Security/Falcon-Security.html),
+[arquitectura de cmpunlocker](https://github.com/bayley/cmpunlocker/blob/master/docs/ARCHITECTURE.md),
+[historial y conclusiones GA104](https://github.com/Cheurteenyt/GPU-/blob/main/README.md).
+
+### Que se transfiere de esas investigaciones
+
+El metodo: identificar el binario exacto, modelar efectos de DMA junto con
+las instrucciones, conservar los resultados negativos y comprobar una
+prediccion en el hardware correspondiente. Las direcciones, cargas y permisos
+de otra tarjeta no constituyen un contrato para GA106. El primer producto
+de HSG1/HSG2 es una matriz de compatibilidad que pueda concluir SIN DATO o
+NO APLICABLE, con motivo y evidencia.
+
+El modelo anfitrion debe declarar su cobertura: instrucciones realmente
+interpretadas, perifericos modelados, DMA, memoria inicial, limites y salidas
+desconocidas. Una comprobacion criptografica simulada no demuestra que BROM
+acepte una imagen en metal. QEMU sin una RTX asignada tampoco mide esa ROM.
+
+### Que significa entrar y que significa permanecer
+
+| Resultado | Evidencia necesaria en GA106 | Lo que todavia no demuestra |
+| --- | --- | --- |
+| El firmware firmado entro en HS | Resultado del arranque identificado y postcondicion de esa etapa | Ejecucion arbitraria propia o registro accesible desde CPU. |
+| Una operacion privilegiada propia se completo | Efecto acotado previamente definido, lectura independiente, control negativo y fin del ensayo | Apertura de todos los permisos o runtime funcional. |
+| El anfitrion obtuvo una capacidad adicional | Acceso concreto comprobado antes/despues, mascara y propietario identificados | Que toda la GPU quede abierta o que se pueda dibujar. |
+| El resultado dura la sesion | Estado observado antes/despues de uso y despedida | Supervivencia a reset, recarga de driver o corte electrico. |
+| Se reaplica al arrancar | Nuevo intento y nueva ejecucion registrados | Cambio permanente del hardware. |
+| Es persistente fisicamente | Estado posterior al corte sin reaplicar, con condiciones documentadas | Hoy no hay ese resultado para esta tarjeta. |
+
+HSG4 solo tiene sentido si HSG2 identifica una precondicion concreta de
+esta tarjeta y HSG3 permite comprobarla. El prototipo se delimita a una
+operacion reversible y observable, con sus postcondiciones; no basta una
+parada, un buzon nuevo o un bucle HS. Debe terminar y permitir contrastar
+el arranque normal. La configuracion experimental no se convierte en el
+camino por defecto por un resultado aislado.
+
+HSG5 necesita tambien el resultado del GSP_INIT 615 y una operacion GPU
+identificada antes de hablar de integracion util. Ejecucion HS, permisos,
+protocolo del runtime y Cyberpunk son hitos diferentes. Este trabajo no
+requiere reemplazar la arquitectura de capacidades/IOMMU de BMO.
+
 ## Orden vigente -- redefinicion completa, 18-10-2026
 
 El propietario pide que Heavy Secure juegue a favor de BMO-X para tener
@@ -19,7 +93,7 @@ El primer resultado exigido es G0, no un desensamblado completo del firmware.
 | BROM | Autentica la entrada HS | Imagen entregada y parametros de carga documentados | Separar resultado del ejecutor de resultado del booter por intento |
 | FWSEC en GSP | Preparacion protegida FRTS/WPR | Peticion admitida, datos y secuencia | Postcondiciones observadas y validez, sin suponer que toda WPR correcta implica toda firma correcta |
 | Booter HS en SEC2 | Carga/autentica el runtime | Firma seleccionada, tramos, DMA, metadata y buzones de entrada | Resultado de ejecucion HS separado de MAILBOX0 y transicion a runtime |
-| GSP-RM | Gestion interna de la tarjeta | Recursos concedidos y RPC admitidos | INIT_DONE, respuesta RPC y primer trabajo finalizado |
+| GSP-RM | Gestion interna de la tarjeta | Recursos concedidos y RPC admitidos | GSP_INIT en 615 o INIT_DONE en 570, respuesta y primer trabajo finalizado |
 | SM86 | Computo y dibujo de las apps | Programa juzgado, recursos y plazo | Validacion de cada cliente; un shader no concede autoridad HS |
 
 [CITADO, revisado 18-10] El modelo general de NVIDIA exige ucode firmado
@@ -83,7 +157,8 @@ HSA1/HSA2 permanecen abiertos: este estudio no cierra G0.
       y cumple G0; un arranque bueno o cambiar el codigo de error no bastan.
 - [ ] HSA5 -- Validar control recuperado. Diez arranques consecutivos de
       validacion con todos los intentos conservados, procedencia Windows/BMO
-      y tipo de apagado registrados, booter correcto e INIT_DONE. No mezclar
+      y tipo de apagado registrados, booter correcto e inicializacion segun
+      version (GSP_INIT en 615, INIT_DONE en 570). No mezclar
       builds ni reciclar los dos buenos historicos; no forzar reinicios en
       serie. Diez de diez es el criterio operativo de G0, no garantia
       estadistica de fallo imposible. Despues: RPC, primer trabajo GPU y
