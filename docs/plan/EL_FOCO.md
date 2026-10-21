@@ -55,7 +55,12 @@ en anfitrion mientras el paquete cd4018237 espera su informe de metal.
 Implementado el [lente externo HS](../metal/LENTE_HS_2026-10-21.md):
 entradas/huellas/fases por operacion en CABINA, 21 registros con PRI y
 traductor anfitrion de fotos. Incluye FWSEC, booters y EXEC_HS_BINARY 615.
-Pendiente metal del instrumental. HSG1 parcial; HSG2..HSG5 no se cierran:
+El [metal 4A1437648 del 21-10](../metal/LENTE_HS_METAL_2026-10-21_4A1437648.md)
+valida cuatro conjuntos: uno booter cero/RISC-V activo/LOGINIT 69, tres
+0x15. En el primero se publica GSP_INIT sin confirmacion en 30 s. El lente
+aporta 12 fotos externas distintas de 21 registros y huella de copia CPU
+coincidente con el contrato anfitrion. G0 mixto y F2b abiertos.
+HSG1 parcial; HSG2..HSG5 no se cierran:
 esto no expone PC/TCM protegidos ni demuestra acceso HS propio.
 
 Auditoria GPU/PROTON-X del 18-10: [matriz para Cyberpunk](PLAN_PROTON_X.md).
