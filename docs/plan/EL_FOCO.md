@@ -40,6 +40,11 @@ FULL antes de BASE/control DMA, limites completos, carga SEC2 contra TCM
 real y rechazo de PRI al elegir firmas. ABI WPR/RISC-V/GMCAPI/HS contrastado
 con cabeceras oficiales; banco 615 con binarios reales. Pendiente metal de
 este cambio; no declara resuelto 0x15 ni completa toda la API OpenRM.
+El [informe 43DB9E231 de las 11:30](../metal/REGRESION_FWSEC_2026-10-21_43DB9E231.md)
+detecta una regresion previa al booter: la validacion rechazo DMEM con SEC=1
+de FWSEC (motivo interno 7). Corregida esa restriccion, con dos pruebas
+nuevas, incluida la VBIOS real del informe; banco 479 aprobado. No es otra
+tanda de 0x15: no hubo STARTCPU del booter ni conjunto cerrado de captura.
 
 Auditoria GPU/PROTON-X del 18-10: [matriz para Cyberpunk](PLAN_PROTON_X.md).
 Orden de entrega G0 -> Q0a3/MUNDO conservado; se puede avanzar en host con

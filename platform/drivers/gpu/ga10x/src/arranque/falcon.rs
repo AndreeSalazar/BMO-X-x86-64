@@ -345,7 +345,6 @@ pub fn copiar_etiquetado(
     if bytes == 0 { return Ok(()); }
     let n = bytes as u64;
     if (iova | origen as u64 | destino as u64 | n) & 255 != 0
-        || (seguro && !imem)
         || (destino as u64 + n) > (1 << 24)
         || (origen as u64 + n) > (1u64 << 32)
         || iova.checked_add(origen as u64).and_then(|v| v.checked_add(n))
@@ -625,7 +624,7 @@ mod pruebas {
             for k in 0..(TROZO as usize / 4) {
                 let dir = desde + k as u64 * 4;
                 let (base, ref pag) = self.prestada;
-                let w = if dir >= base && dir < base + 4096 {
+                let w = if dir >= base && dir < base + pag.len() as u64 * 4 {
                     pag[((dir - base) / 4) as usize]
                 } else {
                     if !self.fallos.contains(&(dir & !0xFFF)) {
@@ -864,6 +863,43 @@ mod pruebas {
         let cmds: Vec<u32> = f.escritos.iter().filter(|(r, _)| *r == GSP + DMATRFCMD).map(|e| e.1).collect();
         assert_eq!(cmds, [0x614, 0x614], "256 B | IMEM | sec=1, como nouveau");
         assert_eq!(f.reg(GSP + DMATRFBASE), 0x0011_0000);
+    }
+
+    #[test]
+    fn fwsec_carga_imem_y_dmem_con_sec_sin_rechazar_sus_datos() {
+        // firmar_cargar_arrancar carga ambos tramos de FWSEC con SEC=1.
+        // SEC no implica IMEM: rechazar esa combinacion impide STARTCPU.
+        let mut f = Falcon::nuevo();
+        f.prestada.0 = 0x1100_0000;
+        let mut t = Tic(0);
+        copiar(&mut f, &mut t, GSP, 0x1100_0000, 0, 512, true, true, 1000).unwrap();
+        copiar(&mut f, &mut t, GSP, 0x1100_0200, 0, 512, false, true, 1000).unwrap();
+        let cmds: Vec<u32> = f.escritos.iter().filter(|(r, _)| *r == GSP+DMATRFCMD).map(|e| e.1).collect();
+        assert_eq!(cmds, [0x614, 0x614, 0x604, 0x604]);
+        assert_eq!(&f.dmem[..128], &f.prestada.1[128..256]);
+    }
+
+    #[test]
+    fn fwsec_de_la_vbios_real_si_esta_reproduce_la_carga_del_kernel() {
+        let Ok(ruta) = std::env::var("BMO_FWSEC_ROM") else { return };
+        let rom = std::fs::read(ruta).unwrap();
+        let fw = crate::vbios::fwsec(&rom).unwrap();
+        let d = fw.desc;
+        let n = d.imem_load_size + d.dmem_load_size.next_multiple_of(256);
+        let mut ram = vec![0u8; n as usize];
+        let reales = (d.imem_load_size+d.dmem_load_size) as usize;
+        ram[..reales].copy_from_slice(&rom[fw.ucode..fw.ucode+reales]);
+        let mut f = Falcon::nuevo();
+        f.prestada = (0x11000000, ram.chunks_exact(4).map(|v| u32::from_le_bytes(v.try_into().unwrap())).collect());
+        let mut t = Tic(0);
+        copiar(&mut f, &mut t, GSP, 0x11000000, d.imem_phys_base, d.imem_load_size, true, true, 100).unwrap();
+        copiar(&mut f, &mut t, GSP, 0x11000000+d.imem_load_size as u64,
+            d.dmem_phys_base, d.dmem_load_size.next_multiple_of(256), false, true, 100).unwrap();
+        let inicio = d.imem_load_size as usize / 4;
+        let fin = reales / 4;
+        let destino = d.dmem_phys_base as usize / 4;
+        assert_eq!(&f.dmem[destino..destino+fin-inicio], &f.prestada.1[inicio..fin]);
+        assert!(f.fallos.is_empty());
     }
 
     #[test]
