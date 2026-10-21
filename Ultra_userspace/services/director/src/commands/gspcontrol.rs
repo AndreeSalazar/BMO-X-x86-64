@@ -117,6 +117,8 @@ pub(crate) fn report(s: &mut Output) {
     }
     s.byte(b'\n');
     super::g0::filas(s);
+    campo(s, b"lente HS");
+    s.text(b"detalle por operacion/fase en CABINA (CAIDA.TXT): entradas DMA, firma, registros y PRI; PC/TCM HS internos no observados.\n");
     campo(s, b"limite");
     s.text(if identity.complete() {
         b"identidad completa; foto derivada, sin historia de eventos ni permiso para recuperar.\n" as &[u8]

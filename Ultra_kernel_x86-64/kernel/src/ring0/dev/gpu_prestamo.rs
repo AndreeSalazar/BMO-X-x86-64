@@ -483,7 +483,7 @@ pub fn info_mmu_candado() -> u64 {
 /// La firma que pide el fusible, el prestamo (una vez), la carga en el falcon
 /// del GSP y el arranque: lo mismo para FRTS (al arrancar) y para SB (L0c5, al
 /// apagar). `Ok(indice de la firma)`; el `Err` es el motivo, sin apuntar.
-fn firmar_cargar_arrancar(r: &mut Bar0, d: &vb::Descriptor, ucode: &mut [u8], que: &str) -> Result<u32, u32> {
+fn firmar_cargar_arrancar(r: &mut Bar0, d: &vb::Descriptor, ucode: &mut [u8], que: &'static str) -> Result<u32, u32> {
     use crate::ring0::plat::iommu as io;
     // La firma: la que pide el FUSIBLE (el fallo 4 de FastOS).
     let Some(reg) = vb::registro_fusible(d.engine_id_mask, d.ucode_id) else { return Err(IOMMU_NO_FWSEC_FIRMA) };
@@ -496,12 +496,17 @@ fn firmar_cargar_arrancar(r: &mut Bar0, d: &vb::Descriptor, ucode: &mut [u8], qu
     let Some(idx) = vb::indice_de_firma(d.signature_versions, version).filter(|&i| i < d.signature_count as u32) else {
         return Err(IOMMU_NO_FWSEC_FIRMA);
     };
+    let hs = super::gpu_hs::Tramo::nuevo(bmo_gpu_ga10x::arranque::hs_observacion::Motor::Gsp,
+        que, idx, reg, crudo);
+    hs.dato("HS entrada: FWSEC motor mask | ucode id << 32", d.engine_id_mask as u64 | (d.ucode_id as u64) << 32);
+    hs.dato("HS entrada: firma DMEM offset | bytes << 32", d.pkc_data_offset as u64 | (vb::FIRMA as u64) << 32);
     let mut firma = [0u8; vb::FIRMA];
     let en_rom = FWSEC_EN_ROM.load(Ordering::Acquire) as usize;
     rom_a(r, en_rom + vb::DESCRIPTOR + idx as usize * vb::FIRMA, &mut firma);
     if bmo_gpu_ga10x::fwsec::poner_firma(ucode, d, &firma).is_err() {
         return Err(IOMMU_NO_FWSEC_PARCHE);
     }
+    hs.huella(ucode);
     apuntar(|v| (v & !(3 << FWSEC_FIRMA_SHIFT)) | (idx as u64 & 3) << FWSEC_FIRMA_SHIFT);
 
     // El prestamo, solo para leer, una vez.
@@ -516,20 +521,19 @@ fn firmar_cargar_arrancar(r: &mut Bar0, d: &vb::Descriptor, ucode: &mut [u8], qu
     crate::ring0::cabina::info("gpu", que, 0);
     let mut tr = reloj();
     let boot0 = bmo_gpu_ga10x::Registros::leer(r, bmo_gpu_ga10x::BOOT_0);
-    let cargado = fa::resetear_con(r, &mut tr, fa::GSP, boot0, crate::ring0::dev::gpu_despertar::g0_pulso())
-        .and_then(|_| fa::preparar_fbif(r, fa::GSP))
-        .and_then(|_| fa::copiar(r, &mut tr, fa::GSP, IOVA_FWSEC, d.imem_phys_base, d.imem_load_size, true, true, 50_000))
+    let cargado = hs.ejecutar(r, "HS fase: reset GSP para FWSEC; id", |r| fa::resetear_con(r, &mut tr, fa::GSP, boot0, crate::ring0::dev::gpu_despertar::g0_pulso()))
+        .and_then(|_| hs.ejecutar(r, "HS fase: preparar FBIF; id", |r| fa::preparar_fbif(r, fa::GSP)))
+        .and_then(|_| hs.dma(r, &mut tr, IOVA_FWSEC, 0, d.imem_phys_base, d.imem_load_size, true, true))
         .and_then(|_| {
-            fa::copiar(
+            hs.dma(
                 r,
                 &mut tr,
-                fa::GSP,
                 IOVA_FWSEC + d.imem_load_size as u64,
+                0,
                 d.dmem_phys_base,
                 (d.dmem_load_size).next_multiple_of(256),
                 false,
                 true,
-                50_000,
             )
         });
     if let Err(e) = cargado {
@@ -537,9 +541,12 @@ fn firmar_cargar_arrancar(r: &mut Bar0, d: &vb::Descriptor, ucode: &mut [u8], qu
         return Err(IOMMU_NO_FWSEC_FALCON);
     }
     fa::brom(r, fa::GSP, d.pkc_data_offset, d.engine_id_mask, d.ucode_id);
-    if fa::arrancar(r, fa::GSP, 0).is_err() {
+    hs.paso("HS fase: BROM programado, autenticacion aun no acreditada; id");
+    hs.foto(r, "HS foto externa previa a STARTCPU; id");
+    if hs.ejecutar(r, "HS fase: solicitar STARTCPU FWSEC; id", |r| fa::arrancar(r, fa::GSP, 0)).is_err() {
         return Err(IOMMU_NO_FWSEC_FALCON);
     }
+    hs.paso("HS fase: STARTCPU solicitado; no prueba autenticacion; id");
     Ok(idx)
 }
 
@@ -666,6 +673,7 @@ fn capacidades_extendidas() -> u64 {
 
 /// **La autopsia**: con el falcon del GSP PARADO tras FWSEC-FRTS.
 fn autopsiar_fwsec(r: &mut Bar0) {
+    super::gpu_hs::parado(r, bmo_gpu_ga10x::arranque::hs_observacion::Motor::Gsp);
     if FWSEC_AUTOPSIA.swap(true, Ordering::AcqRel) {
         return;
     }

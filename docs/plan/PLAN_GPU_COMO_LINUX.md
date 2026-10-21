@@ -394,6 +394,9 @@ Aqui viven las casillas para que el indice general las cuente una sola vez.
   sin prometer HS permanentemente abierto. Depende de HSG4 y del runtime 615.
 
 Siguiente accion de esta linea: HSG1 y despues el contraste estatico HSG2.
+Avance implementado: [lente externo HS y corpus local inicial](../metal/LENTE_HS_2026-10-21.md),
+con fotos por operacion, huellas CPU y traductor de registros. Falta metal
+del instrumental y el corpus externo fijado; las cinco casillas siguen abiertas.
 Una tecnica incompatible se descarta con su motivo; no se fuerza la tarjeta
 para conseguir que encaje con el ejemplo. Esta edicion define trabajo:
 no ejecuta un prototipo HS ni cambia firmware o permisos del kernel.

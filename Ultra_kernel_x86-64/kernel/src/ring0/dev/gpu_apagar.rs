@@ -153,6 +153,7 @@ pub fn info() -> u64 {
             v |= (m0 as u64) << APAGADO_BUZON_SHIFT;
             if parado {
                 v |= APAGADO_SB_PARADO;
+                super::gpu_hs::parado(&mut r, bmo_gpu_ga10x::arranque::hs_observacion::Motor::Gsp);
                 let err = r.leer(dc::SB_ERROR);
                 v |= (err as u64 & 0xFFFF) << APAGADO_SB_ERROR_SHIFT;
                 if !bmo_gpu_ga10x::es_error_pri(err) && dc::sb_bien(err) {
@@ -166,6 +167,7 @@ pub fn info() -> u64 {
             v |= (m0 as u64) << APAGADO_BUZON_SHIFT;
             if parado {
                 v |= APAGADO_SEC2_PARADO;
+                super::gpu_hs::parado(&mut r, bmo_gpu_ga10x::arranque::hs_observacion::Motor::Sec2);
                 if dc::descargado(r.leer(dc::WPR2_HI)) {
                     v |= APAGADO_HECHO;
                     if ESTADO.load(Ordering::Acquire) & APAGADO_HECHO == 0 {

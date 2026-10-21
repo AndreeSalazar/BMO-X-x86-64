@@ -1,6 +1,11 @@
 # Inventario HS -- las copias antes de las hipotesis
 
 Ampliacion: [laboratorio, sesiones, RISC-V y camino TITAN++](LABORATORIO.md).
+Instrumental del 21-10: [lente externo HS del kernel](../../../docs/metal/LENTE_HS_2026-10-21.md).
+`python toolchain/tools/nvidia-hs/lente.py C:/copias/CAIDA.TXT` traduce sus
+fotos externas a JSON con registros hexadecimales y validez. No lee la GPU
+ni convierte una lectura PRI en respuesta del firmware. Las fotos parciales
+se conservan como incompletas; los informes antiguos no generan fotos falsas.
 
 Pregunta: con QUE bytes se hizo una investigacion de la RTX 3060 12G?
 Herramienta anfitrion de Python 3, biblioteca estandar, sin aparato ni red.

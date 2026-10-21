@@ -468,6 +468,7 @@ pub fn booter(booter_fichero: Option<&mut dyn Fichero>) -> Result<u64, u32> {
 struct Cargado {
     idx: u32,
     arranque: u32,
+    hs: super::gpu_hs::Tramo,
 }
 
 /// El booter leido, firmado con la firma del fusible, prestado y copiado al
@@ -481,6 +482,8 @@ fn cargar_booter(r: &mut Bar0, booter_fichero: Option<&mut dyn Fichero>) -> Resu
 struct Leido {
     b: booter::Booter,
     idx: u32,
+    fusible: u32,
+    crudo: u32,
 }
 
 /// Lo lento del booter (E7 lo hace antes de FWSEC): leerlo del disco,
@@ -509,7 +512,8 @@ fn leer_booter(r: &mut Bar0, booter_fichero: Option<&mut dyn Fichero>) -> Result
         return no(IOMMU_NO_BOOTER);
     }
     let Some(reg) = vb::registro_fusible(b.engine_id_mask, b.ucode_id) else { return no(IOMMU_NO_BOOTER_FIRMA) };
-    let Some(idx) = b.indice_de_firma(r.leer(reg)) else { return no(IOMMU_NO_BOOTER_FIRMA) };
+    let crudo = r.leer(reg);
+    let Some(idx) = b.indice_de_firma(crudo) else { return no(IOMMU_NO_BOOTER_FIRMA) };
     ucode[..b.bin.bytes as usize].copy_from_slice(b.bin.ucode(fichero));
     if booter::firmar(fichero, &b, idx, ucode).is_err() {
         return no(IOMMU_NO_BOOTER_FIRMA);
@@ -522,7 +526,7 @@ fn leer_booter(r: &mut Bar0, booter_fichero: Option<&mut dyn Fichero>) -> Result
         }
     }
     apuntar(|v| (v & !(3 << DESPIERTO_FIRMA_SHIFT)) | DESPIERTO_BOOTER | (idx as u64 & 3) << DESPIERTO_FIRMA_SHIFT);
-    Ok(Leido { b, idx: idx as u32 })
+    Ok(Leido { b, idx: idx as u32, fusible: reg, crudo })
 }
 
 /// El booter ya leido, al SEC2 (como `kgspExecuteBooterLoad_TU102`: reset
@@ -531,33 +535,39 @@ fn leer_booter(r: &mut Bar0, booter_fichero: Option<&mut dyn Fichero>) -> Result
 fn meter_booter(r: &mut Bar0, l: Leido) -> Result<Cargado, u32> {
     let no = |m: u32| no(m).and(Err::<Cargado, u32>(m));
     let (b, idx) = (l.b, l.idx);
+    let hs = super::gpu_hs::Tramo::nuevo(bmo_gpu_ga10x::arranque::hs_observacion::Motor::Sec2,
+        "HS entrada: BOOTER_LOAD; id", idx, l.fusible, l.crudo);
+    hs.dato("HS entrada: ucode bytes", b.bin.bytes as u64);
+    hs.huella(memoria(BOOTER_F.load(Ordering::Acquire), b.bin.bytes as u64));
+    hs.dato("HS entrada: firma DMEM offset | bytes << 32", b.pkc_data_offset() as u64 | (b.firma_bytes as u64) << 32);
 
     // 2. El booter en el SEC2, con la WPR meta en el buzon.
     crate::ring0::cabina::info("gpu", "L0c3b: el booter al SEC2; la WPR meta en", IOVA_WPR_META);
     let mut t = pr::reloj();
     let boot0 = r.leer(bmo_gpu_ga10x::BOOT_0);
     let a256 = |n: u32| n.next_multiple_of(256);
-    let cargado = fa::resetear_con(r, &mut t, fa::SEC2, boot0, g0_pulso())
-        .and_then(|_| {
+    let cargado = hs.ejecutar(r, "HS fase: reset SEC2; id", |r| fa::resetear_con(r, &mut t, fa::SEC2, boot0, g0_pulso()))
+        .and_then(|_| hs.ejecutar(r, "HS fase: validar TCM y preparar FBIF; id", |r| {
             let caps = fa::ficha(r, fa::SEC2)?;
             if !b.carga_valida(UCODE_BYTES, caps.imem, caps.dmem) {
                 return Err(fa::NoFuego::DmaFuera);
             }
             crate::ring0::cabina::info("gpu", "G0 contrato 615: carga HS validada contra IMEM/DMEM SEC2", caps.imem as u64 | (caps.dmem as u64) << 32);
             fa::preparar_fbif(r, fa::SEC2)
+        }))
+        .and_then(|_| {
+            hs.dma(r, &mut t, IOVA_BOOTER, b.imem.origen, b.imem.destino, a256(b.imem.bytes), true, true)
         })
         .and_then(|_| {
-            fa::copiar_etiquetado(r, &mut t, fa::SEC2, IOVA_BOOTER, b.imem.origen, b.imem.destino, a256(b.imem.bytes), true, true, 50_000)
-        })
-        .and_then(|_| {
-            fa::copiar(r, &mut t, fa::SEC2, IOVA_BOOTER + b.dmem.origen as u64, b.dmem.destino, a256(b.dmem.bytes), false, false, 50_000)
+            hs.dma(r, &mut t, IOVA_BOOTER + b.dmem.origen as u64, 0, b.dmem.destino, a256(b.dmem.bytes), false, false)
         });
     if let Err(e) = cargado {
         crate::ring0::cabina::warn("gpu", "L0c3b: el SEC2 no dejo cargar el booter; motivo", pr::motivo(e));
         return no(IOMMU_NO_SEC2);
     }
     fa::brom(r, fa::SEC2, b.pkc_data_offset(), b.engine_id_mask, b.ucode_id);
-    Ok(Cargado { idx, arranque: b.arranque() })
+    hs.paso("HS fase: BROM programado, autenticacion aun no acreditada; id");
+    Ok(Cargado { idx, arranque: b.arranque(), hs })
 }
 
 /// Suelta el booter ya cargado: la foto de antes, `wbinvd` y STARTCPU.
@@ -611,9 +621,14 @@ fn soltar(r: &mut Bar0, c: Cargado, vigia: (u64, u64)) -> Result<u64, u32> {
     AUTOPSIA[19].store(gpu_libos::IOVA_LIBOS | 1 << 63, Ordering::Release);
     fotografiar_honda(r);
     super::gpu_capture::record(r, intento, bmo_nvidia_gsp_control::capture::BEFORE_BOOTER);
-    if fa::arrancar_con(r, fa::SEC2, Some(c.arranque), Some(m as u32), Some((m >> 32) as u32)).is_err() {
+    c.hs.dato("HS entrada: intento booter al soltar", intento);
+    c.hs.dato("HS entrada: BOOTVEC solicitado", c.arranque as u64);
+    c.hs.dato("HS entrada: buzones SEC2 solicitados (WPR meta IOVA)", m);
+    c.hs.foto(r, "HS foto externa previa a STARTCPU; id");
+    if c.hs.ejecutar(r, "HS fase: solicitar STARTCPU SEC2; id", |r| fa::arrancar_con(r, fa::SEC2, Some(c.arranque), Some(m as u32), Some((m >> 32) as u32))).is_err() {
         return no(IOMMU_NO_SEC2);
     }
+    c.hs.paso("HS fase: STARTCPU solicitado; no prueba autenticacion; id");
     apuntar(|x| x | DESPIERTO_SEC2_ARRANCADO);
     crate::ring0::cabina::count("gpu", "L0c3b: el BOOTER ARRANCADO en el SEC2; firma", idx as u64);
     Ok(idx as u64)
@@ -751,6 +766,7 @@ pub fn info_intento() -> u64 {
 
 /// La foto del SEC2 recien parado, UNA vez por arranque.
 fn autopsiar(r: &mut Bar0) {
+    super::gpu_hs::parado(r, bmo_gpu_ga10x::arranque::hs_observacion::Motor::Sec2);
     // El diario es por intento, independiente de la antigua primera autopsia.
     super::gpu_capture::record(r, info_intento(), bmo_nvidia_gsp_control::capture::HALTED);
     if AUTOPSIA[1].load(Ordering::Acquire) != 0 {
@@ -839,28 +855,32 @@ pub fn descargador(fichero: Option<&mut dyn Fichero>) -> Result<u64, u32> {
         return Err(IOMMU_NO_BOOTER);
     }
     let Some(reg) = vb::registro_fusible(b.engine_id_mask, b.ucode_id) else { return Err(IOMMU_NO_BOOTER_FIRMA) };
-    let Some(idx) = b.indice_de_firma(r.leer(reg)) else { return Err(IOMMU_NO_BOOTER_FIRMA) };
+    let crudo = r.leer(reg);
+    let Some(idx) = b.indice_de_firma(crudo) else { return Err(IOMMU_NO_BOOTER_FIRMA) };
+    let hs = super::gpu_hs::Tramo::nuevo(bmo_gpu_ga10x::arranque::hs_observacion::Motor::Sec2,
+        "HS entrada: BOOTER_UNLOAD; id", idx, reg, crudo);
     ucode[..b.bin.bytes as usize].copy_from_slice(b.bin.ucode(fichero));
     if booter::firmar(fichero, &b, idx, ucode).is_err() {
         return Err(IOMMU_NO_BOOTER_FIRMA);
     }
+    hs.huella(&ucode[..b.bin.bytes as usize]);
     crate::ring0::cabina::info("gpu", "L0c5: el booter de DESCARGA al SEC2; firma", idx as u64);
     let mut t = pr::reloj();
     let boot0 = r.leer(bmo_gpu_ga10x::BOOT_0);
     let a256 = |n: u32| n.next_multiple_of(256);
-    let cargado = fa::resetear(&mut r, &mut t, fa::SEC2, boot0)
-        .and_then(|_| {
-            let caps = fa::ficha(&mut r, fa::SEC2)?;
+    let cargado = hs.ejecutar(&mut r, "HS fase: reset SEC2 descarga; id", |r| fa::resetear(r, &mut t, fa::SEC2, boot0))
+        .and_then(|_| hs.ejecutar(&mut r, "HS fase: validar TCM y preparar FBIF descarga; id", |r| {
+            let caps = fa::ficha(r, fa::SEC2)?;
             if !b.carga_valida(UCODE_BYTES, caps.imem, caps.dmem) {
                 return Err(fa::NoFuego::DmaFuera);
             }
-            fa::preparar_fbif(&mut r, fa::SEC2)
+            fa::preparar_fbif(r, fa::SEC2)
+        }))
+        .and_then(|_| {
+            hs.dma(&mut r, &mut t, IOVA_BOOTER, b.imem.origen, b.imem.destino, a256(b.imem.bytes), true, true)
         })
         .and_then(|_| {
-            fa::copiar_etiquetado(&mut r, &mut t, fa::SEC2, IOVA_BOOTER, b.imem.origen, b.imem.destino, a256(b.imem.bytes), true, true, 50_000)
-        })
-        .and_then(|_| {
-            fa::copiar(&mut r, &mut t, fa::SEC2, IOVA_BOOTER + b.dmem.origen as u64, b.dmem.destino, a256(b.dmem.bytes), false, false, 50_000)
+            hs.dma(&mut r, &mut t, IOVA_BOOTER + b.dmem.origen as u64, 0, b.dmem.destino, a256(b.dmem.bytes), false, false)
         });
     if let Err(e) = cargado {
         crate::ring0::cabina::warn("gpu", "L0c5: el SEC2 no dejo cargar el booter de descarga; motivo", pr::motivo(e));
@@ -868,7 +888,8 @@ pub fn descargador(fichero: Option<&mut dyn Fichero>) -> Result<u64, u32> {
     }
     fa::brom(&mut r, fa::SEC2, b.pkc_data_offset(), b.engine_id_mask, b.ucode_id);
     let m = dc::BUZON_DESCARGA;
-    if fa::arrancar_con(&mut r, fa::SEC2, Some(b.arranque()), Some(m), Some(m)).is_err() {
+    hs.foto(&mut r, "HS foto externa previa a STARTCPU descarga; id");
+    if hs.ejecutar(&mut r, "HS fase: solicitar STARTCPU descarga; id", |r| fa::arrancar_con(r, fa::SEC2, Some(b.arranque()), Some(m), Some(m))).is_err() {
         return Err(IOMMU_NO_SEC2);
     }
     crate::ring0::cabina::count("gpu", "L0c5: el booter de DESCARGA ARRANCADO en el SEC2; firma", idx as u64);

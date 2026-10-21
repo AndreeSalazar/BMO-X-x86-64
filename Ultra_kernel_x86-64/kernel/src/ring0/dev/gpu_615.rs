@@ -94,11 +94,19 @@ fn tramo_hs(r: &mut Bar0) -> Result<u64, u32> {
     match resultado {
         Tramo::Sigue => Ok(info()),
         Tramo::Hecho => {
+            super::gpu_hs::foto_actual(r, bmo_gpu_ga10x::arranque::hs_observacion::Motor::Gsp,
+                "HS foto externa tras corredor 615 y reanudacion; id");
             HS_N.store(0, Ordering::Release);
             crate::ring0::cabina::info("gpu", "F2b 615: HS completado y RISC-V reanudado", n as u64);
             Ok(info())
         }
         Tramo::Falla(f) => {
+            if let bmo_gpu_ga10x::correr::Falla::Falcon(_, e) = &f {
+                let (texto, valor) = bmo_gpu_ga10x::arranque::hs_observacion::fallo(*e);
+                crate::ring0::cabina::warn("gpu", texto, valor as u64);
+            }
+            super::gpu_hs::foto_actual(r, bmo_gpu_ga10x::arranque::hs_observacion::Motor::Gsp,
+                "HS foto externa al fallar corredor 615; id");
             crate::ring0::cabina::warn("gpu", "F2b 615: fallo al ejecutar HS, orden", unsafe { (*core::ptr::addr_of!(CORREDOR_HS)).i as u64 });
             let dato = match f {
                 bmo_gpu_ga10x::correr::Falla::Fuera(_, r) | bmo_gpu_ga10x::correr::Falla::NoContesta(_, r)
@@ -187,6 +195,8 @@ pub fn paso() -> Result<u64, u32> {
             Ok(n) => n, Err(_) => return fallar(IOMMU_NO_615_EVENTO, m.comando as u64),
         };
         if bmo_gpu_ga10x::correr::validar(&ordenes[..n]).is_err() { return fallar(IOMMU_NO_615_EVENTO, n as u64); }
+        let hs = super::gpu_hs::Tramo::runtime(m.datos);
+        hs.foto(&mut r, "HS foto externa previa al corredor 615; id");
         unsafe { *core::ptr::addr_of_mut!(CORREDOR_HS) = Corredor::default(); }
         HS_N.store(n as u64, Ordering::Release);
         HS_EVENTOS.fetch_add(1, Ordering::AcqRel);

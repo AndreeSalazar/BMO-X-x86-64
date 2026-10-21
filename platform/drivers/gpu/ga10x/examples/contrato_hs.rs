@@ -4,6 +4,10 @@
 use bmo_gpu_ga10x::arranque::booter;
 use std::{env, error::Error, fs};
 
+fn huella(bytes: &[u8]) -> String {
+    bmo_hash::hash(bytes).iter().map(|b| format!("{b:02x}")).collect()
+}
+
 fn main() -> Result<(), Box<dyn Error>> {
     let args: Vec<_> = env::args().collect();
     if !(2..=3).contains(&args.len()) {
@@ -12,18 +16,23 @@ fn main() -> Result<(), Box<dyn Error>> {
     let bytes = fs::read(&args[1])?;
     let b = booter::booter(&bytes).map_err(|e| format!("booter rechazado: {e:?}"))?;
     println!("AMBITO=anfitrion; no prueba autenticacion BROM ni ejecucion HS");
+    println!("archivo_blake3={}", huella(&bytes));
+    println!("ucode_original_blake3={}", huella(b.bin.ucode(&bytes)));
     println!("bytes={} version={} ucode_offset={:#x} ucode_bytes={:#x}", bytes.len(), b.bin.version, b.bin.datos, b.bin.bytes);
     println!("firmas_offset={:#x} firmas={} firma_bytes={:#x} parche_ucode={:#x}", b.firmas_en, b.firmas, b.firma_bytes, b.parche);
     println!("fuse_ver={} engine_mask={:#x} ucode_id={}", b.fuse_ver, b.engine_id_mask, b.ucode_id);
     println!("IMEM origen={:#x} destino={:#x} bytes={:#x}", b.imem.origen, b.imem.destino, b.imem.bytes);
     println!("DMEM origen={:#x} destino={:#x} bytes={:#x}", b.dmem.origen, b.dmem.destino, b.dmem.bytes);
     println!("BROM_PARAADDR={:#x} arranque={:#x}", b.pkc_data_offset(), b.arranque());
+    println!("contrato_sec2_64k={}; capacidades=perfil_declarado_no_medido", b.carga_valida(65536, 65536, 65536));
     if let Some(raw) = args.get(2) {
         let fuse = u32::from_str_radix(raw.trim_start_matches("0x"), 16)?;
         let idx = b.indice_de_firma(fuse).ok_or("el fusible declarado no tiene firma compatible")?;
         let mut copia = b.bin.ucode(&bytes).to_vec();
         booter::firmar(&bytes, &b, idx, &mut copia).map_err(|e| format!("firma rechazada: {e:?}"))?;
         println!("fusible=DECLARADO:{fuse:#x} indice={idx} insercion_en_copia=OK; no verificacion criptografica");
+        println!("ucode_firma_insertada_blake3={}", huella(&copia));
+        println!("firma_elegida_blake3={}", huella(b.firma(&bytes, idx).ok_or("firma fuera del fichero")?));
     } else {
         println!("fusible=ausente indice=desconocido; no se presume fusible cero");
     }

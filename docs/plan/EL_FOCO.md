@@ -52,6 +52,11 @@ Corpus fijado -> compatibilidad -> modelo anfitrion -> capacidad observable
 -> duracion e integracion. Las casillas siguen abiertas; no hay ruta propia
 GA106 demostrada ni persistencia fisica acreditada. Esta linea puede avanzar
 en anfitrion mientras el paquete cd4018237 espera su informe de metal.
+Implementado el [lente externo HS](../metal/LENTE_HS_2026-10-21.md):
+entradas/huellas/fases por operacion en CABINA, 21 registros con PRI y
+traductor anfitrion de fotos. Incluye FWSEC, booters y EXEC_HS_BINARY 615.
+Pendiente metal del instrumental. HSG1 parcial; HSG2..HSG5 no se cierran:
+esto no expone PC/TCM protegidos ni demuestra acceso HS propio.
 
 Auditoria GPU/PROTON-X del 18-10: [matriz para Cyberpunk](PLAN_PROTON_X.md).
 Orden de entrega G0 -> Q0a3/MUNDO conservado; se puede avanzar en host con

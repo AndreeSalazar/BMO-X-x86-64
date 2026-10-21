@@ -259,6 +259,7 @@ pub mod dev {
     pub mod gpu_despertar;
     /// Capturas de diagnostico por fase e intento; ninguna escritura GPU.
     pub mod gpu_capture;
+    pub mod gpu_hs;
     /// L0c5: el GSP apagado en orden, para que el siguiente arranque la encuentre limpia (2026-09-25).
     pub mod gpu_apagar;
     /// P1 (2026-09-25): EL PASE de la GPU -- NEUTRO: el lienzo prestado una vez y
