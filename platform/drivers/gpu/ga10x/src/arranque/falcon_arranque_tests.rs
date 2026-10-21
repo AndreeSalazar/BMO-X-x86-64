@@ -1,5 +1,6 @@
 //! Regresion del punto de observacion: argumentos escritos, CPU sin arrancar.
 //! [carril] AMARILLO
+//! [estado]  VOLATIL  banco simulado local; no accede a registros de aparato.
 use super::*;
 extern crate std;
 use std::{vec, vec::Vec};
