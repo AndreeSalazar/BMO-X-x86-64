@@ -69,6 +69,7 @@ NO_SON_LAMINAS = {
     0x10DE: "el id de NVIDIA en el firmware del booter: ajeno",
     0xDC3A_AE21_371A_60B3: "la WPR del GSP: firmware ajeno",
     0x2050_5347: "'GSP ' de los argumentos del GSP-RM 615 (GSP_ARGUMENTS_CACHED): firmware ajeno",
+    0x4D43_5450: "MCTP: trama del protocolo externo NVIDIA 615 dentro de la cola DMA, no una clase de lamina BMO",
     0x4341_4231: "CAB1: el formato de un evento de CABINA",
     0x5254_4E41_B4D0_424D: "la lista de huecos del monton, dentro del bloque de UN programa",
     0x6382_5363: "la cookie de DHCP: protocolo ajeno (RFC 2131)",

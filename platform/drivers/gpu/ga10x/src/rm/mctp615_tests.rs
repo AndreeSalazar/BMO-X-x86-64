@@ -89,3 +89,17 @@ fn el_contrato_no_deja_salir_otro_comando_ni_datos_inyectados() {
         assert!(crate::contrato::permitido_615(&alterado[..n], 1, &s).is_err());
     }
 }
+
+#[test]
+fn tx_no_hereda_contador_y_exige_que_se_relea_cero() {
+    struct Regs { respuesta: u32, accesos: Vec<(bool, u32, u32)> }
+    impl crate::Registros for Regs {
+        fn escribir(&mut self, r: u32, v: u32) { self.accesos.push((true, r, v)); }
+        fn leer(&mut self, r: u32) -> u32 { self.accesos.push((false, r, self.respuesta)); self.respuesta }
+    }
+    for respuesta in [0, 7, 0xBADF_1002, u32::MAX] {
+        let mut r = Regs { respuesta, accesos: Vec::new() };
+        assert_eq!(iniciar_tx(&mut r).is_ok(), respuesta == 0);
+        assert_eq!(r.accesos, [(true, TX_HEAD, 0), (false, TX_HEAD, respuesta)]);
+    }
+}

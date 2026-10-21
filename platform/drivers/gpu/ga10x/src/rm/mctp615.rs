@@ -24,6 +24,13 @@ pub const MAX_RESPUESTA: usize = 48 * 1024;
 pub const HUECOS: u32 = 63;
 pub const PAGINA: usize = 4096;
 
+/// msgqTxCreate: unica escritura de contador inicial, con lectura de vuelta.
+/// El llamador publica antes la cabecera TX y aporta su barrera de memoria.
+pub fn iniciar_tx(r: &mut impl crate::Registros) -> Result<(), No> {
+    r.escribir(TX_HEAD, 0);
+    if r.leer(TX_HEAD) == 0 { Ok(()) } else { Err(No::Puntero) }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum No { Corta, Forma, Medida, Protocolo, Puntero, Llena, Correlacion, Estado(u32), Kv }
 

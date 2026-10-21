@@ -180,6 +180,15 @@ pub fn libos() -> Result<u64, u32> {
             let a = lb::argumento(lb::NOMBRES[k], *iova, *bytes);
             args[k * lb::ARGUMENTO..(k + 1) * lb::ARGUMENTO].copy_from_slice(&a);
         }
+        if version == Version::V615 {
+            // msgqTxCreate 615 inicializa TX_HEAD ANTES del booter. El GSP
+            // no debe ver un contador viejo mientras la cola nueva esta vacia.
+            let bar = match super::gpu_prestamo::candado_dma() { Ok(b) => b, Err(m) => return no(m) };
+            let mut r = super::gpu_prestamo::Bar0(bar);
+            core::sync::atomic::fence(Ordering::SeqCst);
+            if bmo_gpu_ga10x::mctp615::iniciar_tx(&mut r).is_err() { return no(IOMMU_NO_LIBOS_PUNTERO); }
+            crate::ring0::cabina::info("gpu", "F2b 615: TX_HEAD inicializado en cero antes del booter", 0);
+        }
         apuntar(|v| v | LIBOS_VALIDO | LIBOS_PREPARADO);
     }
 
