@@ -27,6 +27,21 @@ pub const NOMBRES: [&str; CAMPOS] = [
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Foto { pub motor: Motor, pub crudos: [u32; CAMPOS], pub pri: u32 }
 impl Foto {
+    /// Bits 0 BOOTVEC, 1 MAILBOX0, 2 MAILBOX1. No confunde None con cero.
+    /// Devuelve (solicitados, legibles, iguales) solo para campos pedidos.
+    pub fn argumentos(&self, esperados: [Option<u32>; 3]) -> (u8, u8, u8) {
+        let mut mascaras = (0, 0, 0);
+        for (i, (indice, esperado)) in [16, 0, 1].into_iter().zip(esperados).enumerate() {
+            if let Some(e) = esperado {
+                mascaras.0 |= 1 << i;
+                if let Some(v) = self.valor(indice) {
+                    mascaras.1 |= 1 << i;
+                    if v == e { mascaras.2 |= 1 << i; }
+                }
+            }
+        }
+        mascaras
+    }
     pub fn leer(r: &mut impl Registros, motor: Motor) -> Self {
         let mut foto = Self { motor, crudos: [0; CAMPOS], pri: 0 };
         for (i, offset) in REGISTROS.into_iter().enumerate() {
@@ -84,6 +99,15 @@ mod pruebas {
             assert_eq!(f.valor(CAMPOS), None);
             assert_eq!(f.dma(), Some((false, false)));
         }
+    }
+    #[test]
+    fn comparacion_de_argumentos_distingue_omitido_cero_diferente_y_pri() {
+        let mut foto = Foto { motor: Motor::Sec2, crudos: [0; CAMPOS], pri: 0 };
+        assert_eq!(foto.argumentos([None, Some(0), Some(1)]), (6, 6, 2));
+        foto.crudos[1] = 0xBADF1002;
+        foto.pri = 2;
+        assert_eq!(foto.argumentos([Some(0), Some(0), Some(0xBADF1002)]), (7, 3, 3));
+        assert_eq!(foto.argumentos([None; 3]), (0, 0, 0));
     }
     #[test]
     fn pri_no_se_convierte_en_full_idle_actividad_o_seleccion() {

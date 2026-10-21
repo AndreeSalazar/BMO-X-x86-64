@@ -70,6 +70,10 @@ El [metal 5A1C419F9 de las 13:19](../metal/G0_2026-10-21_5A1C419F9.md)
 confirma paquete nuevo, pero sus cuatro conjuntos nuevos terminan en 0x15,
 LOGINIT cero y sin publicar INIT. Las cuatro capturas anteriores siguen en
 la carpeta; no son resultados nuevos. El lente de colas no se alcanzo.
+Aplicada la [foto HS con argumentos puestos](../metal/HS_ARGUMENTOS_ANTES_STARTCPU_2026-10-21.md):
+BOOTVEC/buzones se leen despues de escribirlos y antes de STARTCPU, con
+mascaras de solicitados, legibles e iguales. La foto anterior era previa
+tambien a esas escrituras. Mismos valores y escrituras; pendiente metal.
 
 Auditoria GPU/PROTON-X del 18-10: [matriz para Cyberpunk](PLAN_PROTON_X.md).
 Orden de entrega G0 -> Q0a3/MUNDO conservado; se puede avanzar en host con

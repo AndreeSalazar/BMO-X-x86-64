@@ -81,7 +81,15 @@ impl Tramo {
         if x.is_ok() { self.paso("HS fase: DMA completo e IDLE observado; id"); }
         x
     }
+    pub fn arrancar(&self, r: &mut impl Registros, vector: Option<u32>, m0: Option<u32>, m1: Option<u32>, fase: &'static str) -> Result<(), f::NoFuego> {
+        self.ejecutar(r, fase, |r| f::arrancar_con_observador(r, self.motor.base(), vector, m0, m1, |r| {
+            self.foto_con_entrada(r, "HS foto externa argumentos puestos antes STARTCPU; id", Some([vector, m0, m1]));
+        }))
+    }
     pub fn foto(&self, r: &mut impl Registros, fase: &'static str) {
+        self.foto_con_entrada(r, fase, None);
+    }
+    fn foto_con_entrada(&self, r: &mut impl Registros, fase: &'static str, entrada: Option<[Option<u32>; 3]>) {
         if self.id == 0 { return; }
         self.paso(fase);
         let desde = crate::ring0::task::scheduler::rdtsc();
@@ -96,6 +104,13 @@ impl Tramo {
             self.dato(texto, (self.motor.base()+offset) as u64 | self.id << 24 | (foto.crudos[i] as u64) << 32);
         }
         self.paso("HS limite: foto externa; autenticacion interna y PC/TCM HS no observados; id");
+        if let Some(e) = entrada {
+            let (pedidos, legibles, iguales) = foto.argumentos(e);
+            self.dato("HS arranque: pedidos | legibles << 8 | iguales << 16", pedidos as u64 | (legibles as u64) << 8 | (iguales as u64) << 16);
+            for (nombre, v) in ["HS arranque: BOOTVEC esperado", "HS arranque: MAILBOX0 esperado", "HS arranque: MAILBOX1 esperado"].into_iter().zip(e) {
+                if let Some(v) = v { self.dato(nombre, v as u64); }
+            }
+        }
     }
 }
 pub fn foto_actual(r: &mut impl Registros, motor: Motor, fase: &'static str) {

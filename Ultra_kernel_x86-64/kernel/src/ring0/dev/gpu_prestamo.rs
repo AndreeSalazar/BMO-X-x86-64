@@ -542,8 +542,7 @@ fn firmar_cargar_arrancar(r: &mut Bar0, d: &vb::Descriptor, ucode: &mut [u8], qu
     }
     fa::brom(r, fa::GSP, d.pkc_data_offset, d.engine_id_mask, d.ucode_id);
     hs.paso("HS fase: BROM programado, autenticacion aun no acreditada; id");
-    hs.foto(r, "HS foto externa previa a STARTCPU; id");
-    if hs.ejecutar(r, "HS fase: solicitar STARTCPU FWSEC; id", |r| fa::arrancar(r, fa::GSP, 0)).is_err() {
+    if hs.arrancar(r, Some(0), Some(0), None, "HS fase: solicitar STARTCPU FWSEC; id").is_err() {
         return Err(IOMMU_NO_FWSEC_FALCON);
     }
     hs.paso("HS fase: STARTCPU solicitado; no prueba autenticacion; id");

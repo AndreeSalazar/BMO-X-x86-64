@@ -14,6 +14,13 @@ def captura(base=0x110000):
 
 
 class LenteTests(unittest.TestCase):
+    def test_foto_de_argumentos_puestos_no_se_confunde_con_la_foto_antigua(self):
+        lineas = captura(0x840000)
+        lineas[0] = "[   gpu] HS foto externa argumentos puestos antes STARTCPU; id =1"
+        f = lente.analizar("\n".join(lineas))["fotos"][0]
+        self.assertTrue(f["completa"])
+        self.assertIn("argumentos puestos", f["fase"])
+
     def test_cero_legible_y_full_idle_distintos_en_ambos_motores(self):
         for base, motor in lente.BASES.items():
             f = lente.analizar("\n".join(captura(base)))["fotos"][0]

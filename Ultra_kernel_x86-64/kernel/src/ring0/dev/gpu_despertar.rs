@@ -624,8 +624,7 @@ fn soltar(r: &mut Bar0, c: Cargado, vigia: (u64, u64)) -> Result<u64, u32> {
     c.hs.dato("HS entrada: intento booter al soltar", intento);
     c.hs.dato("HS entrada: BOOTVEC solicitado", c.arranque as u64);
     c.hs.dato("HS entrada: buzones SEC2 solicitados (WPR meta IOVA)", m);
-    c.hs.foto(r, "HS foto externa previa a STARTCPU; id");
-    if c.hs.ejecutar(r, "HS fase: solicitar STARTCPU SEC2; id", |r| fa::arrancar_con(r, fa::SEC2, Some(c.arranque), Some(m as u32), Some((m >> 32) as u32))).is_err() {
+    if c.hs.arrancar(r, Some(c.arranque), Some(m as u32), Some((m >> 32) as u32), "HS fase: solicitar STARTCPU SEC2; id").is_err() {
         return no(IOMMU_NO_SEC2);
     }
     c.hs.paso("HS fase: STARTCPU solicitado; no prueba autenticacion; id");
@@ -888,8 +887,7 @@ pub fn descargador(fichero: Option<&mut dyn Fichero>) -> Result<u64, u32> {
     }
     fa::brom(&mut r, fa::SEC2, b.pkc_data_offset(), b.engine_id_mask, b.ucode_id);
     let m = dc::BUZON_DESCARGA;
-    hs.foto(&mut r, "HS foto externa previa a STARTCPU descarga; id");
-    if hs.ejecutar(&mut r, "HS fase: solicitar STARTCPU descarga; id", |r| fa::arrancar_con(r, fa::SEC2, Some(b.arranque()), Some(m), Some(m))).is_err() {
+    if hs.arrancar(&mut r, Some(b.arranque()), Some(m), Some(m), "HS fase: solicitar STARTCPU descarga; id").is_err() {
         return Err(IOMMU_NO_SEC2);
     }
     crate::ring0::cabina::count("gpu", "L0c5: el booter de DESCARGA ARRANCADO en el SEC2; firma", idx as u64);

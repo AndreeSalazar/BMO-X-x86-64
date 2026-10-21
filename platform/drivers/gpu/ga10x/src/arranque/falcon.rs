@@ -420,6 +420,15 @@ pub fn arrancar_con(
     mbox0: Option<u32>,
     mbox1: Option<u32>,
 ) -> Result<(), NoFuego> {
+    arrancar_con_observador(r, base, bootvec, mbox0, mbox1, |_| {})
+}
+
+/// Punto de observacion DESPUES de los argumentos y ANTES de STARTCPU.
+/// El observador del kernel solo lee; el camino sin observador es identico.
+pub fn arrancar_con_observador<R: Registros>(
+    r: &mut R, base: u32, bootvec: Option<u32>, mbox0: Option<u32>,
+    mbox1: Option<u32>, antes: impl FnOnce(&mut R),
+) -> Result<(), NoFuego> {
     if let Some(v) = bootvec {
         r.escribir(base + BOOTVEC, v);
     }
@@ -429,6 +438,7 @@ pub fn arrancar_con(
     if let Some(v) = mbox1 {
         r.escribir(base + MAILBOX1, v);
     }
+    antes(r);
     if leer(r, base + CPUCTL)? & CPUCTL_ALIAS_EN != 0 {
         r.escribir(base + CPUCTL_ALIAS, CPUCTL_ARRANCAR);
     } else {
@@ -958,3 +968,7 @@ mod pruebas {
         assert_eq!(FotoNucleos { bcr: 1, ..bien }.seleccionado(), Some(false));
     }
 }
+
+#[cfg(test)]
+#[path = "falcon_arranque_tests.rs"]
+mod arranque_observado_tests;
