@@ -74,6 +74,11 @@ Aplicada la [foto HS con argumentos puestos](../metal/HS_ARGUMENTOS_ANTES_STARTC
 BOOTVEC/buzones se leen despues de escribirlos y antes de STARTCPU, con
 mascaras de solicitados, legibles e iguales. La foto anterior era previa
 tambien a esas escrituras. Mismos valores y escrituras; pendiente metal.
+El [metal AA25256BE de las 13:55](../metal/HS_ARGUMENTOS_METAL_2026-10-21_AA25256BE.md)
+valida tres conjuntos, todos 0x15/LOGINIT cero. Antes de STARTCPU, SEC2
+devuelve BOOTVEC=0x100 y buzones=0x3E007000/0, iguales a lo pedido,
+mascara 0x070707. Frontera externa comprobada; no identifica la rama
+interna ni prueba consumo DMA o autenticacion. G0 permanece abierto.
 
 Auditoria GPU/PROTON-X del 18-10: [matriz para Cyberpunk](PLAN_PROTON_X.md).
 Orden de entrega G0 -> Q0a3/MUNDO conservado; se puede avanzar en host con
