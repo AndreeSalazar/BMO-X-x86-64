@@ -84,6 +84,9 @@ traduccion RAM de ambos extremos, pagina propia/permisos y comparacion
 de los 256 bytes contra la copia escrita; fallo previo impide STARTCPU.
 Fotos previa/autopsia y traductor de campos, sin cambiar permisos ni DMA.
 Pendiente metal; una igualdad no acredita TLB, transaccion GPU ni firma.
+El [mapa de opciones GPU/PROTON-X del 21-10](../metal/MAPA_GPU_OPCIONES_2026-10-21.md)
+reune trabajo aplicado, evidencia, alternativas y limites; es inventario,
+sin nuevas casillas ni experimentos activados.
 
 Auditoria GPU/PROTON-X del 18-10: [matriz para Cyberpunk](PLAN_PROTON_X.md).
 Orden de entrega G0 -> Q0a3/MUNDO conservado; se puede avanzar en host con
