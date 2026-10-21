@@ -9,6 +9,7 @@
 
 /// L0c4a: los mensajes del GSP -- su cabecera, su suma y su nombre (2026-09-24).
 pub mod rpc;
+pub mod mctp615;
 pub mod rc;
 /// L0c4b2a: lo que la CPU le escribe al GSP -- SetSystemInfo y SetRegistry (2026-09-24).
 pub mod orden;

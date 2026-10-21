@@ -25,6 +25,10 @@ arrancan sin USB virtual; pendientes MMIO alto de xHCI e imagen GPT de
 datos. VGA emulada: no acredita G0 ni el GSP de la RTX.
 F2b de 615 sigue pendiente: runtime arrancado no equivale a GPU operativa
 para juegos. Las notas 570/HS que siguen conservan su contexto anterior.
+Aplicado el [camino inicial F2b](../metal/F2B_615_INICIAL_2026-10-20.md):
+punteros en registros, MCTP/NVDM, GSP_INIT GMCAPI/NVKV y HS Ampere acotado.
+Pendiente comprobar respuesta en metal; RPC posteriores de 570 cerradas
+para 615. El 0x15 sigue su investigacion separada, sin cambiar el booter.
 
 Auditoria GPU/PROTON-X del 18-10: [matriz para Cyberpunk](PLAN_PROTON_X.md).
 Orden de entrega G0 -> Q0a3/MUNDO conservado; se puede avanzar en host con

@@ -9,6 +9,7 @@
 
 /// M0d3: el DMA de un falcon, la prueba de fuego de la traduccion (2026-09-24).
 pub mod falcon;
+pub mod hs615;
 /// G0: argumentos y controles del GSP antes de arrancar el booter.
 pub mod boot_probe;
 /// E6 (17-10): el reloj de la 3060 en hora, como OpenRM antes del booter.

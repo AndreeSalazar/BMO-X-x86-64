@@ -348,6 +348,9 @@ pub const IOMMU_NO_COLA_PUNTERO: u32 = 47;
 
 /// **Mover el `readPtr` de la CPU a `nuevo`.** `Ok(el que habia)`.
 pub fn mover_lectura(nuevo: u64) -> Result<u64, u32> {
+    if crate::ring0::dev::gpu_gsp::version() == Some(Version::V615) {
+        return Err(crate::ring0::dev::gpu_gsp::IOMMU_NO_IDIOMA_615);
+    }
     use crate::ring0::dev::gpu_despertar as d;
     if d::info_despierto() & d::DESPIERTO_VISTO == 0 {
         return Err(IOMMU_NO_COLA_ANTES);
@@ -565,6 +568,7 @@ pub fn pedir_control(que: u64) -> Result<u64, u32> {
 
 /// La cola de la CPU esta lista para una RPC (el GSP-RM arrancado).
 fn rpc_lista() -> bool {
+    if crate::ring0::dev::gpu_gsp::version() != Some(Version::V570) { return false; }
     use crate::ring0::dev::gpu_despertar as d;
     GSPMEM_F.load(Ordering::Acquire) != 0 && crate::ring0::dev::gpu::bar0() != 0 && d::info_secuencia() >> 24 & d::SEC_HECHO != 0
 }

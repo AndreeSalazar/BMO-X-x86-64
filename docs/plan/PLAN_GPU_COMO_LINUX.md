@@ -191,6 +191,12 @@ sirven, no una estadistica.
     valor, `EXEC_HS_BINARY` en lugar del secuenciador), el control a +40,
     y los eventos mas largos. Es la parte grande: sin ella, no hay
     pantalla ni juego.
+    Implementacion inicial del 20-10:
+    [transporte, GSP_INIT y HS Ampere](../metal/F2B_615_INICIAL_2026-10-20.md).
+    Punteros en registros, validacion de tramas/respuesta/NVKV y diagnostico
+    separado de vacio/lectura/formato; falta confirmar en metal. Operaciones
+    posteriores de objetos/control/estatica no portadas aun: quedan cerradas
+    para 615. F2b no se marca completo por terminar el constructor INIT.
   - **Bloquea:** F1.
   - **Como se sabe:** el kernel compila; con un firmware de otra version, el
     ROJO antes de tocar la tarjeta; y lo de F3 en verde.

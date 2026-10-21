@@ -130,6 +130,7 @@ fn esperar_mas(hasta: u32, fin: u64, hz: u64) -> bool {
 
 /// **Vaciar lo que se puede consumir sin contestar.** `Ok(consumidos)`.
 pub(crate) fn vaciar() -> Result<u64, u32> {
+    if super::gsp615::es_615() { return super::gsp615::correr(); }
     if bmo::info(bmo::INFO_GPU_DESPIERTO) & bmo::DESPIERTO_VISTO == 0 {
         return Err(NO_COLA_SIN_GSP);
     }
@@ -223,6 +224,7 @@ pub(crate) fn espera_secuenciador() -> bool {
 
 /// Lo pregunta `save mode`: se vacio sin que nada saliera mal.
 pub(crate) fn vaciada() -> bool {
+    if super::gsp615::es_615() { return super::gsp615::listo(); }
     resumen().map_or(false, |r| !r.malo && r.negado == 0)
 }
 

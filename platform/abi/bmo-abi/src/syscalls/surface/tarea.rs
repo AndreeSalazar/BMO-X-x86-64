@@ -1392,6 +1392,11 @@ pub const IOMMU_NO_IDIOMA_615: u32 = 94;
 /// E7 (20-10, `junto`): FWSEC-FRTS corrido dentro de `despertar` no se paro en
 /// 3 s, o se paro con su buzon o su codigo distintos de 0, o sin la WPR2.
 pub const IOMMU_NO_FWSEC_JUNTO: u32 = 95;
+/// Transporte 615: registro/punteros ilegibles, trama invalida, evento no admitido o respuesta fallida.
+pub const IOMMU_NO_615_LECTURA: u32 = 96;
+pub const IOMMU_NO_615_FORMA: u32 = 97;
+pub const IOMMU_NO_615_EVENTO: u32 = 98;
+pub const IOMMU_NO_615_RESPUESTA: u32 = 99;
 // 91 fue el motivo del reintento del GSP, retirado el 17-10.
 /// L0c3b: la WPR2 ya EXTENDIDA antes de nuestro booter (otro booter corrio).
 pub const IOMMU_NO_GPU_CALIENTE: u32 = 67;

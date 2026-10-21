@@ -135,8 +135,17 @@ pub(crate) fn leer() -> Result<u64, u32> {
     if bmo::info(bmo::INFO_GPU_DESPIERTO) & bmo::DESPIERTO_VISTO == 0 {
         return Err(NO_COLA_SIN_GSP);
     }
+    if super::gsp615::es_615() {
+        let r = super::gsp615::correr();
+        let _ = guardar();
+        return r;
+    }
     let escrito = esperar_al_gsp();
     let leido = (mem(LEIDO_CPU) & 0xFFFF_FFFF) as u32;
+    if bmo::info(bmo::INFO_GPU_LIBOS) & bmo::LIBOS_COMPROBADO == 0
+        || escrito >= PAGINAS as u32 || leido >= PAGINAS as u32 {
+        return Err(NO_COLA_LECTURA);
+    }
     let mut r = Resumen {
         escrito,
         leido,
@@ -188,9 +197,9 @@ pub(crate) fn leer() -> Result<u64, u32> {
     unsafe {
         *core::ptr::addr_of_mut!(RESUMEN) = Some(r);
     }
-    if r.mensajes == 0 || r.malformados != 0 || r.sumas_mal != 0 {
-        return Err(NO_COLA_MAL);
-    }
+    if r.malformados != 0 { return Err(NO_COLA_MAL); }
+    if r.sumas_mal != 0 { return Err(NO_COLA_SUMA); }
+    if r.mensajes == 0 { return Err(NO_COLA_VACIA); }
     Ok(r.mensajes as u64)
 }
 
@@ -212,9 +221,13 @@ fn guardar() -> bool {
 /// Motivos del escritorio (`gsp.rs` va hasta 0x11A).
 pub(crate) const NO_COLA_SIN_GSP: u32 = 0x11B;
 pub(crate) const NO_COLA_MAL: u32 = 0x11C;
+pub(crate) const NO_COLA_VACIA: u32 = 0x200;
+pub(crate) const NO_COLA_SUMA: u32 = 0x201;
+pub(crate) const NO_COLA_LECTURA: u32 = 0x202;
 
 /// Lo pregunta `save mode`: leida, con mensajes, y todos bien.
 pub(crate) fn leida() -> bool {
+    if super::gsp615::es_615() { return super::gsp615::listo(); }
     resumen().map_or(false, |r| r.mensajes > 0 && r.malformados == 0 && r.sumas_mal == 0)
 }
 
@@ -246,6 +259,7 @@ pub(crate) fn orden(dsk: &mut Desktop, p: &bmo::Pantalla) -> After {
 
 /// **Las filas de L0c4a**, si se leyo.
 pub(crate) fn fila(s: &mut Output) {
+    if super::gsp615::es_615() { super::gsp615::fila(s); return; }
     let Some(r) = resumen() else { return };
     campo(s, b"cola");
     let bien = r.mensajes > 0 && r.malformados == 0 && r.sumas_mal == 0;

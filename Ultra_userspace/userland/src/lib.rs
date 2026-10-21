@@ -462,6 +462,10 @@ pub const IOMMU_NO_REVIVIR: u32 = 93;
 pub const IOMMU_NO_IDIOMA_615: u32 = 94;
 /// E7: FWSEC-FRTS dentro de `despertar` no acabo bien (ver el ABI).
 pub const IOMMU_NO_FWSEC_JUNTO: u32 = 95;
+pub const IOMMU_NO_615_LECTURA: u32 = 96;
+pub const IOMMU_NO_615_FORMA: u32 = 97;
+pub const IOMMU_NO_615_EVENTO: u32 = 98;
+pub const IOMMU_NO_615_RESPUESTA: u32 = 99;
 pub const IOMMU_NO_GPU_CALIENTE: u32 = 67;
 /// Mover el fader (1/256 dB con signo).
 pub const AUDIO_MANDO_FADER: u64 = 1;

@@ -59,6 +59,15 @@ pub enum No {
     Control,
 }
 
+/// Contrato 615 inicial: SOLO GSP_INIT con identidad y parametros del kernel.
+/// No acepta NVKV, comandos ni direcciones suministradas por Ring 3.
+pub fn permitido_615(m: &[u8], secuencia: u64, s: &crate::orden::Sistema) -> Result<u32, No> {
+    let mut esperado = [0; 4096];
+    let n = crate::mctp615::iniciar(&mut esperado, secuencia, s).map_err(|_| No::Forma)?;
+    if m != &esperado[..n] { return Err(No::Forma); }
+    Ok(crate::mctp615::INIT)
+}
+
 fn u32_de(b: &[u8], o: usize) -> u32 {
     u32::from_le_bytes([b[o], b[o + 1], b[o + 2], b[o + 3]])
 }

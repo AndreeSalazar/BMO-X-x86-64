@@ -66,6 +66,7 @@ pub(crate) const NO_SEC_MAL: u32 = 0x11F;
 
 /// **Leer el secuenciador**, sin tocarlo. `Ok(ordenes)`.
 pub(crate) fn leer() -> Result<u64, u32> {
+    if super::gsp615::es_615() { return super::gsp615::correr(); }
     if bmo::info(bmo::INFO_GPU_DESPIERTO) & bmo::DESPIERTO_VISTO == 0 {
         return Err(super::gspcola::NO_COLA_SIN_GSP);
     }
@@ -157,6 +158,7 @@ fn guardar(datos: &[u8]) -> bool {
 
 /// Lo pregunta `save mode`: leido entero, y entendido.
 pub(crate) fn leido() -> bool {
+    if super::gsp615::es_615() { return super::gsp615::listo(); }
     resumen().map_or(false, |r| r.roto.is_none() && r.total > 0)
 }
 

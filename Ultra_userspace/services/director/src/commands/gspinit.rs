@@ -80,6 +80,7 @@ fn sec() -> u64 {
 /// **Correrlo y esperar a `GSP_INIT_DONE`** (el paso de `save mode`).
 /// `Ok(ordenes corridas)`.
 pub(crate) fn correr() -> Result<u64, u32> {
+    if super::gsp615::es_615() { return super::gsp615::correr(); }
     // ** UNA VEZ POR ARRANQUE (15-10, el save del Ryzen de las 08:30). El
     // secuenciador no se corre dos veces (`IOMMU_NO_SEC_YA`), y la segunda
     // llamada -- un `gpu init` tecleado despues de que `save mode` ya hizo
@@ -184,10 +185,12 @@ pub(crate) fn correr() -> Result<u64, u32> {
 /// Lo pregunta `save mode`: el GSP-RM dijo `GSP_INIT_DONE`.
 /// Observacion local: None significa que esta instancia no vio el resultado.
 pub(crate) fn observado() -> Option<bool> {
+    if super::gsp615::es_615() { return None; } // INIT_DONE pertenece a 570.
     resumen().map(|r| r.init_done)
 }
 
 pub(crate) fn listo() -> bool {
+    if super::gsp615::es_615() { return super::gsp615::listo(); }
     resumen().map_or(false, |r| r.init_done)
 }
 
@@ -195,6 +198,14 @@ pub(crate) fn listo() -> bool {
 /// queda quieta (metal 24-09 09:54, era BAR1: desde L0c4b3a se devuelve). En
 /// `save mode` es el paso `init`, seguido de `estatica` y `objetos`.
 pub(crate) fn orden(dsk: &mut Desktop, p: &bmo::Pantalla) -> After {
+    if super::gsp615::es_615() {
+        if !super::files::antes_de_arriesgar(dsk, p, b"gpu init 615") { return After::Settle; }
+        let _ = super::gsp615::correr();
+        super::gsp615::fila(&mut dsk.out.grid);
+        let _ = super::save_maestro::maestro(dsk, crate::DEFAULT_DUMP, p.rayo());
+        dsk.field.n = 0;
+        return After::Settle;
+    }
     // Ya arrancado en este arranque (por `save mode` o por otro `gpu init`):
     // se dice y no se toca nada -- ni el secuenciador, que no se repite, ni
     // los objetos, que ya estan pedidos.
@@ -301,6 +312,7 @@ pub(crate) fn orden_bar1(dsk: &mut Desktop, p: &bmo::Pantalla) -> After {
 
 /// **Las filas de L0c4b2c**, si se intento.
 pub(crate) fn fila(s: &mut Output) {
+    if super::gsp615::es_615() { super::gsp615::fila(s); return; }
     let Some(r) = resumen() else { return };
     let (i, fase, como, dato) = ((r.sec & 0xFFFF) as usize, r.sec >> 16 & 0xFF, r.sec >> 24 & 0xFF, (r.sec >> 32) as u32);
     campo(s, b"corrio");

@@ -35,6 +35,7 @@ pub(crate) mod pasos;
 pub(crate) mod vbios;
 pub(crate) mod gsp;
 pub(crate) mod gspcola;
+pub(crate) mod gsp615;
 pub(crate) mod gspsistema;
 pub(crate) mod gspsecuencia;
 pub(crate) mod gspinit;

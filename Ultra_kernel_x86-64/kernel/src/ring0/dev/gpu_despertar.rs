@@ -1094,7 +1094,7 @@ fn cargar() -> Result<usize, u32> {
 pub fn secuenciar() -> Result<u64, u32> {
     // En 615 no hay secuenciador: el GSP-RM pide `EXEC_HS_BINARY` por GMCAPI (F2b).
     if gpu_gsp::version() == Some(gpu_gsp::Version::V615) {
-        return Err(gpu_gsp::IOMMU_NO_IDIOMA_615);
+        return super::gpu_615::paso();
     }
     if ESTADO.load(Ordering::Acquire) & DESPIERTO_VISTO == 0 {
         return Err(IOMMU_NO_SEC_ANTES);
@@ -1181,6 +1181,16 @@ pub fn bar1_fisica() -> bool {
 const BAR_ENLACE: u32 = 0x00B8_0F50;
 /// `BAR1_BLOCK` antes del secuenciador; bit 63 = apuntado.
 static BAR1_ANTES: AtomicU64 = AtomicU64::new(0);
+/// Foto previa a GMCAPI 615; solo guarda un valor legible del aparato.
+pub(super) fn guardar_bar1() -> bool {
+    if BAR1_ANTES.load(Ordering::Acquire) != 0 { return true; }
+    let bar = crate::ring0::dev::gpu::bar0();
+    if bar == 0 { return false; }
+    let v = Bar0(bar).leer(BAR1_BLOCK);
+    if bmo_gpu_ga10x::es_error_pri(v) { return false; }
+    BAR1_ANTES.store(1 << 63 | v as u64, Ordering::Release);
+    true
+}
 /// No hay BAR1 que devolver: el GSP-RM no arranco, o no se apunto la de antes.
 pub const IOMMU_NO_BAR1: u32 = 53;
 
@@ -1197,7 +1207,7 @@ pub const IOMMU_NO_BAR1: u32 = 53;
 /// que el mismo registro tenia: nada que venga del escritorio.
 pub fn devolver_bar1() -> Result<u64, u32> {
     let a = BAR1_ANTES.load(Ordering::Acquire);
-    if SEC.load(Ordering::Acquire) >> 24 & SEC_HECHO == 0 || a >> 63 == 0 {
+    if info_secuencia() >> 24 & SEC_HECHO == 0 || a >> 63 == 0 {
         return Err(IOMMU_NO_BAR1);
     }
     let bar0 = crate::ring0::dev::gpu::bar0();
@@ -1237,5 +1247,6 @@ pub fn info_bar1() -> u64 {
 /// | dato << 32` -- `i` la orden en curso (o la que fallo), y el dato de la
 /// falla (el registro, o MAILBOX0 del SEC2, o el motivo del falcon).
 pub fn info_secuencia() -> u64 {
+    if gpu_gsp::version() == Some(gpu_gsp::Version::V615) { return super::gpu_615::info(); }
     SEC.load(Ordering::Acquire)
 }

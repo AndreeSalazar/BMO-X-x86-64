@@ -14,7 +14,10 @@ pub(crate) fn report(s: &mut Output) {
     let firmware = bmo::info(bmo::INFO_GPU_GSP);
     let hash = bmo::info(bmo::INFO_GPU_GSP_HASH);
     let libos = bmo::info(bmo::INFO_GPU_LIBOS);
-    let init_done = super::gspinit::observado();
+    // El supervisor guarda finalizacion de inicializacion; el rotulo distingue
+    // la observacion GMCAPI 615 del evento INIT_DONE 570.
+    let es_615 = firmware & bmo::GSP_ES_615 != 0;
+    let init_done = if es_615 { super::gsp615::listo().then_some(true) } else { super::gspinit::observado() };
     // Solo las caches existentes; no se piden nuevas lecturas del chip.
     let stop = bmo::info(bmo::INFO_GPU_DESPIERTO_BUZON | 5 << 8);
     let stop_mailboxes = bmo::info(bmo::INFO_GPU_DESPIERTO_BUZON | 6 << 8);
@@ -57,6 +60,7 @@ pub(crate) fn report(s: &mut Output) {
         Some(State::Unprepared) => b"SinPreparar" as &[u8],
         Some(State::Prepared) => b"Preparado",
         Some(State::Starting) => b"Arrancando",
+        Some(State::Ready) if es_615 => b"Inicializacion observada: GSP_INIT GMCAPI respondido; motores y salud no demostrados",
         Some(State::Ready) => b"Operativo observado: INIT_DONE recibido; salud actual no demostrada",
         Some(State::Failed) => b"Fallido: hay motivo registrado; conservar autopsia",
         Some(State::RecoveryBlocked) => b"RecuperacionBloqueada",
@@ -67,7 +71,7 @@ pub(crate) fn report(s: &mut Output) {
     s.text(b"LIBOS 0x"); s.hex(libos, 16);
     s.text(b"; despertar 0x"); s.hex(before, 16);
     s.text(b" -> 0x"); s.hex(after, 16); s.byte(b'\n');
-    campo(s, b"init_done");
+    campo(s, if es_615 { b"gmc_init" } else { b"init_done" });
     s.text(match init_done { Some(true) => b"recibido" as &[u8],
         Some(false) => b"no recibido en el intento local", None => b"sin observacion local" });
     s.text(b"; motivo 0x"); s.hex(reason as u64, 2);

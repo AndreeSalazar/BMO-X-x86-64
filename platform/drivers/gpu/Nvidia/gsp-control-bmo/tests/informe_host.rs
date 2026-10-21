@@ -28,6 +28,7 @@ abi! {
     GPU_HALLADA: u64 = 1 << 63;
     INFO_GPU_GSP: u64 = 0xBC;
     GSP_VALIDO: u64 = 1 << 63;
+    GSP_ES_615: u64 = 1 << 61;
     INFO_GPU_GSP_HASH: u64 = 0xBD;
     INFO_GPU_LIBOS: u64 = 0xBE;
     LIBOS_COMPROBADO: u64 = 1 << 58;
@@ -44,7 +45,7 @@ abi! {
 
 #[derive(Default)]
 struct Door { attempt: u64, attempt_after: u64, attempt_reads: usize,
-              raw: u64, init: Option<bool> }
+              raw: u64, init: Option<bool>, es615: bool, gmc_ready: bool }
 thread_local! { static DOOR: RefCell<Door> = RefCell::new(Door::default()); }
 
 pub fn info(selector: u64) -> u64 {
@@ -57,7 +58,7 @@ pub fn info(selector: u64) -> u64 {
             }
             INFO_GPU_DESPIERTO => d.raw,
             INFO_GPU_CHIP => GPU_HALLADA | 0x176,
-            INFO_GPU_GSP => GSP_VALIDO,
+            INFO_GPU_GSP => GSP_VALIDO | if d.es615 { GSP_ES_615 } else { 0 },
             INFO_GPU_GSP_HASH => 123,
             INFO_GPU_LIBOS => LIBOS_VALIDO | LIBOS_COMPROBADO,
             x if x == INFO_GPU_DESPIERTO_BUZON | 5 << 8 => 1 << 63 | 247011 << 32,
@@ -95,6 +96,9 @@ mod obs_build {
 }
 mod gspinit {
     pub fn observado() -> Option<bool> { super::DOOR.with(|d| d.borrow().init) }
+}
+mod gsp615 {
+    pub fn listo() -> bool { super::DOOR.with(|d| d.borrow().gmc_ready) }
 }
 mod g0 { pub fn filas(_: &mut crate::scene::output::Output) {} }
 
@@ -143,7 +147,7 @@ fn detailed_autopsy_is_hidden_without_first_attempt_identity() {
 
 fn report(code: u32, reason: u32, attempt: u64, attempt_after: u64, halted: bool) -> String {
     DOOR.with(|d| *d.borrow_mut() = Door {
-        attempt, attempt_after, attempt_reads: 0, init: Some(false),
+        attempt, attempt_after, attempt_reads: 0, init: Some(false), es615: false, gmc_ready: false,
         raw: DESPIERTO_VALIDO | DESPIERTO_GSP_ARRANCADO | DESPIERTO_SEC2_ARRANCADO
             | if halted { DESPIERTO_SEC2_PARADO } else { 0 }
             | (code as u64) << DESPIERTO_BUZON_SHIFT | (reason as u64) << DESPIERTO_MOTIVO_SHIFT,
@@ -191,4 +195,19 @@ fn failed_read_and_contradiction_do_not_announce_success() {
     let contradictory = report(0, 44, 1, 1, true);
     assert!(contradictory.contains("estado: Fallido"));
     assert!(contradictory.contains("hechos no compatibles"));
+}
+
+#[test]
+fn el_supervisor_615_exige_gmcapi_y_no_reetiqueta_init_done() {
+    for listo in [false, true] {
+        let _ = report(0, 0, 1, 1, true);
+        DOOR.with(|d| { let mut d = d.borrow_mut(); d.attempt_reads = 0;
+            d.es615 = true; d.gmc_ready = listo; d.init = Some(true); });
+        let mut out = scene::output::Output::default();
+        actual_report::report(&mut out);
+        let texto = String::from_utf8(out.0).unwrap();
+        assert!(texto.contains("gmc_init:"));
+        assert_eq!(texto.contains("GSP_INIT GMCAPI respondido"), listo);
+        assert!(!texto.contains("INIT_DONE recibido"));
+    }
 }
