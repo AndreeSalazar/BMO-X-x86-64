@@ -177,3 +177,37 @@ todo lo observable coincide y falta una hipotesis nueva, aparcar el ensayo
 fisico es una opcion razonable. Las rutas AMD, Vulkan, virtualizacion o HS
 propio se deciden como trabajos separados por su alcance, no como curas
 ya disponibles del 0x15. Este inventario no cambia el estado de los planes.
+
+## Motivo expresado por el propietario y limite de la conclusion
+
+El propietario pide conservar toda esta lista y resume su desgaste como
+"la GPU de nvidia no se deja". Considera que haria falta un ingeniero de
+hardware al lado para comprender su idioma y llegar al juego. Se registra
+ese motivo como experiencia y preocupacion del propietario, no como una
+conclusion de que la tarjeta este rota o sea imposible usarla desde BMO.
+
+Resumen tecnico: el arranque nativo NVIDIA de BMO sigue bloqueado por un
+retorno 0x15 cuya causa interna no se ha identificado. La observabilidad
+externa mejoro, pero no autoriza prometer una correccion ni prolongar
+ensayos fisicos sin una hipotesis que se pueda refutar. La auditoria WPR
+del paquete a4c34f5530bc permanece pendiente de metal en este corte.
+
+La referencia ULTRA registro un arranque de esta RTX con NVIDIA 615;
+existe por tanto un antecedente funcional bajo otro SO. No es una prueba
+de fiabilidad general ni de que BMO complete la misma entrega.
+
+Un especialista en controladores GPU, firmware Falcon/GSP, memoria/IOMMU
+o compiladores podria ayudar a localizar la divergencia. No esta demostrado
+que su presencia sea indispensable, que garantice resolverla, ni que haga
+falta romper fisicamente la GPU o mantener HS abierto para jugar.
+
+"Idioma nativo" comprende dos trabajos diferentes: emitir instrucciones
+para SM86, cuyo backend ya existe parcialmente, e inicializar/gobernar el
+aparato por sus protocolos, memoria y firmware. Ampliar el emisor de shaders
+no elimina automaticamente el rechazo del booter. Arrancar GSP tampoco
+completa las funciones del juego pendientes en PROTON-X.
+
+Quedan conservados los commits, partes, corpus privados, resultados
+negativos y alternativas de este inventario. Aparcar el ensayo NVIDIA y
+seguir otros frentes es una opcion documentada; esta anotacion no declara
+una cancelacion, un G0 resuelto ni una nueva promesa de soporte AMD.

@@ -87,6 +87,10 @@ Pendiente metal; una igualdad no acredita TLB, transaccion GPU ni firma.
 El [mapa de opciones GPU/PROTON-X del 21-10](../metal/MAPA_GPU_OPCIONES_2026-10-21.md)
 reune trabajo aplicado, evidencia, alternativas y limites; es inventario,
 sin nuevas casillas ni experimentos activados.
+El mismo mapa conserva el motivo de desgaste expresado por el propietario:
+rechazo 0x15 aun sin causa interna, con limites de lo observable. Ayuda
+especializada es una posibilidad; no se da por necesario romper HS ni
+por imposible el controlador nativo. Todo el trabajo queda retomable.
 
 Auditoria GPU/PROTON-X del 18-10: [matriz para Cyberpunk](PLAN_PROTON_X.md).
 Orden de entrega G0 -> Q0a3/MUNDO conservado; se puede avanzar en host con
