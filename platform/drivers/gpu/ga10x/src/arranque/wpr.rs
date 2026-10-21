@@ -27,10 +27,12 @@
 //! `r570_144/bindings.rs`: el carveout del OS, el RM al arrancar, UN cliente y
 //! 96 KiB por GiB de VRAM, entre 88 y 280 MiB.
 //!
-//! # [!] Las constantes son de la version 570.144
+//! # Version del contrato
 //!
-//! `GspFwWprMeta` y el heap cambian con la version del GSP-RM, y por eso el
-//! build baja la 570.144 y no otra: es la que nova-core arranca.
+//! Las versiones admitidas son 570.144 y 615.78.08. Para Ampere, OpenRM
+//! 615 conserva WPR V1 de 256 bytes y este heap LIBOS3 baremetal. El probe
+//! tests/openrm615_layout.c comprueba offsets contra sus cabeceras reales;
+//! no se presume compatible otra version ni el layout V2 de otras GPU.
 
 use crate::booter::Riscv;
 use crate::vbios::Frts;
@@ -273,6 +275,22 @@ mod pruebas {
     fn una_vram_que_no_llega_no_se_reparte() {
         let f = frts(64, 0, false);
         assert_eq!(mapa(&f, 0x6000, 0x3C9_9000), None);
+    }
+
+    #[test]
+    fn reparto_615_ampere_contra_las_entradas_y_limites_del_metal() {
+        let m = mapa(&la_3060(), 0x6000, 0x19BE000).unwrap();
+        assert_eq!(m.elf.desde, 0x2_FE43_0000);
+        assert_eq!(m.heap, Rango { desde: 0x2_F640_0000, hasta: 0x2_FE40_0000 });
+        assert_eq!(m.wpr2, Rango { desde: 0x2_F630_0000, hasta: 0x2_FFF0_0000 });
+        assert_eq!(m.no_wpr.desde, 0x2_F620_0000);
+        assert!(m.vram - m.no_wpr.desde <= 256*MIB, "sin scrubber solo cabe en la region pre-limpiada");
+        let bl = Riscv { bin: Bin { bytes: 0x6000, ..Bin::default() },
+            codigo: 0x1800, datos: 0x800, ..Riscv::default() };
+        let b = wpr_meta(&m, &bl, 0x19BE000, 0x1000,
+            &Prestado { radix3: 0x3F000000, bootloader: 0x3E000000, firma: 0x3E006000 });
+        assert_eq!(u64::from_le_bytes(b[112..120].try_into().unwrap()), 0x2_F630_0000);
+        assert!(b[200..].iter().all(|v| *v == 0), "sin boost, paging ni CrashCat no declarados");
     }
 
     #[test]

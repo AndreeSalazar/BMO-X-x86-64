@@ -112,6 +112,8 @@ pub(crate) fn motivo(e: NoFuego) -> u64 {
         NoFuego::NoNucleo => 3,
         NoFuego::DmemChica(_) => 4,
         NoFuego::DmaNoAcaba(_) => 5,
+        NoFuego::DmaColaLlena(_) => 6,
+        NoFuego::DmaFuera => 7,
     }
 }
 
@@ -485,7 +487,12 @@ fn firmar_cargar_arrancar(r: &mut Bar0, d: &vb::Descriptor, ucode: &mut [u8], qu
     use crate::ring0::plat::iommu as io;
     // La firma: la que pide el FUSIBLE (el fallo 4 de FastOS).
     let Some(reg) = vb::registro_fusible(d.engine_id_mask, d.ucode_id) else { return Err(IOMMU_NO_FWSEC_FIRMA) };
-    let version = vb::version_del_fusible(bmo_gpu_ga10x::Registros::leer(r, reg));
+    let crudo = bmo_gpu_ga10x::Registros::leer(r, reg);
+    if bmo_gpu_ga10x::es_error_pri(crudo) {
+        crate::ring0::cabina::warn("gpu", "G0 contrato: fusible FWSEC inaccesible; no elegir firma como version cero", crudo as u64);
+        return Err(IOMMU_NO_FWSEC_FIRMA);
+    }
+    let version = vb::version_del_fusible(crudo);
     let Some(idx) = vb::indice_de_firma(d.signature_versions, version).filter(|&i| i < d.signature_count as u32) else {
         return Err(IOMMU_NO_FWSEC_FIRMA);
     };

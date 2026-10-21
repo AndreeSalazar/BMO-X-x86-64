@@ -152,7 +152,7 @@ impl Booter {
     /// **Cual de las firmas pide ESTE fusible** (su valor crudo). `None` si
     /// ninguna: la ROM del SEC2 rechazaria cualquiera.
     pub const fn indice_de_firma(&self, fusible_crudo: u32) -> Option<u32> {
-        if self.firmas == 0 {
+        if self.firmas == 0 || crate::es_error_pri(fusible_crudo) {
             return None;
         }
         let hw = version_del_fusible(fusible_crudo);
@@ -165,6 +165,28 @@ impl Booter {
             }
         };
         if i < self.firmas { Some(i) } else { None }
+    }
+
+    /// Contrato de carga HS Ampere: incluye los bytes de relleno que lee
+    /// el DMA, las capacidades TCM y la firma dentro de los datos cargados.
+    /// No toca registros; el kernel lo comprueba antes de copiar o arrancar.
+    pub fn carga_valida(&self, prestados: u64, imem: u32, dmem: u32) -> bool {
+        if self.engine_id_mask != 1 || self.firma_bytes != 384 || self.firmas == 0
+            || self.bin.bytes as u64 > prestados || self.imem.bytes == 0 || self.dmem.bytes == 0 {
+            return false;
+        }
+        for (tramo, capacidad) in [(self.imem, imem), (self.dmem, dmem)] {
+            let Some(n) = tramo.bytes.checked_add(255).map(|v| v & !255) else { return false };
+            if (tramo.origen | tramo.destino) & 255 != 0
+                || tramo.origen.checked_add(n).filter(|v| *v as u64 <= prestados).is_none()
+                || tramo.destino.checked_add(n).filter(|v| *v <= capacidad).is_none() {
+                return false;
+            }
+        }
+        self.parche.checked_sub(self.dmem.origen)
+            .and_then(|v| v.checked_add(self.firma_bytes))
+            .filter(|v| *v <= self.dmem.bytes).is_some()
+            && self.pkc_data_offset() & 3 == 0
     }
 
     /// Los bytes de la firma `i`, del fichero.
@@ -194,8 +216,11 @@ pub fn booter(f: &[u8]) -> Result<Booter, NoBooter> {
     let firmas = w(num_sig_en)?;
     let parche = w(patch_loc_en)?;
     let firmas_en = sig_prod.checked_add(w(patch_sig_en)?).ok_or(NoBooter::Fuera)?;
-    let firma_bytes = if firmas == 0 { 0 } else { sig_bytes / firmas };
-    if firmas != 0 && (firma_bytes == 0 || !cabe(firmas_en, sig_bytes, medida)) {
+    if firmas == 0 || sig_bytes == 0 || sig_bytes % firmas != 0 {
+        return Err(NoBooter::FirmaRara);
+    }
+    let firma_bytes = sig_bytes / firmas;
+    if !cabe(firmas_en, sig_bytes, medida) {
         return Err(NoBooter::Fuera);
     }
 
@@ -351,7 +376,38 @@ mod pruebas {
         assert_eq!(b.indice_de_firma(0), Some(1), "fusible a 0: la ultima");
         assert_eq!(b.indice_de_firma(0b1), Some(0), "version 1 quemada, fuse_ver 1: la 0");
         assert_eq!(b.indice_de_firma(0b11), None, "version 2 > fuse_ver 1: ninguna");
-        assert_eq!(b.indice_de_firma(0xBADF_1100), Some(1), "un error PRI cuenta como 0");
+        assert_eq!(b.indice_de_firma(0xBADF_1100), None, "un error PRI no es una version cero del fusible");
+        assert_eq!(b.indice_de_firma(u32::MAX), None);
+    }
+
+    #[test]
+    fn contrato_hs_incluye_relleno_tcm_y_firma() {
+        let b = booter(&booter_de_mentira()).unwrap();
+        assert!(b.carga_valida(65536, 65536, 65536));
+        assert!(!b.carga_valida(65536, 0x8800, 65536));
+        assert!(!b.carga_valida(65536, 65536, 0x6100));
+        assert!(!b.carga_valida(0xEBFF, 65536, 65536));
+        for mutante in [Booter { engine_id_mask: 0x401, ..b },
+                        Booter { firma_bytes: 383, ..b },
+                        Booter { parche: b.dmem.origen + b.dmem.bytes - 380, ..b },
+                        Booter { imem: Tramo { origen: 0x101, ..b.imem }, ..b },
+                        Booter { dmem: Tramo { bytes: u32::MAX, ..b.dmem }, ..b }] {
+            assert!(!mutante.carga_valida(65536, 65536, 65536));
+        }
+        let parcial = Booter { bin: Bin { bytes: 65535, ..b.bin },
+            dmem: Tramo { origen: 0x8A00, bytes: 0x75FF, ..b.dmem }, ..b };
+        assert!(!parcial.carga_valida(65535, 65536, 65536), "el DMA lee tambien el relleno");
+        assert!(parcial.carga_valida(65536, 65536, 65536));
+    }
+
+    #[test]
+    fn firmas_vacias_o_division_inexacta_no_son_un_booter() {
+        for (n, total) in [(0, 768), (2, 0), (3, 767)] {
+            let mut f = booter_de_mentira();
+            p32(&mut f, 0x350, n);
+            p32(&mut f, 0x1C, total);
+            assert_eq!(booter(&f), Err(NoBooter::FirmaRara));
+        }
     }
 
     #[test]
@@ -431,6 +487,27 @@ mod pruebas {
         let u = booter(&leer("booter_unload")).unwrap();
         assert_eq!((u.firmas, u.engine_id_mask), (2, 1));
         let r = riscv(&leer("bootloader")).unwrap();
+        assert_eq!((r.codigo, r.datos, r.bin.bytes), (0x1800, 0x800, 0x6000));
+    }
+
+    /// BMO_FW_GSP615 apunta al paquete REAL emparejado por el build.
+    /// La prueba es adicional al banco sintetico; el log debe decir si se activo.
+    #[test]
+    fn contrato_sobre_el_paquete_615_real_si_esta() {
+        let Ok(dir) = std::env::var("BMO_FW_GSP615") else { return };
+        let leer = |n: &str| std::fs::read(std::format!("{dir}/{n}")).unwrap();
+        assert_eq!(std::str::from_utf8(&leer("version.txt")).unwrap().trim(), "615.78.08");
+        for nombre in ["boot_ld.bin", "boot_ul.bin"] {
+            let f = leer(nombre);
+            let b = booter(&f).unwrap();
+            assert!(b.carga_valida(65536, 65536, 65536), "{nombre}: {b:?}");
+            for i in 0..b.firmas {
+                let mut u = b.bin.ucode(&f).to_vec();
+                firmar(&f, &b, i, &mut u).unwrap();
+                assert_eq!(&u[b.parche as usize..(b.parche+b.firma_bytes) as usize], b.firma(&f, i).unwrap());
+            }
+        }
+        let r = riscv(&leer("bootldr.bin")).unwrap();
         assert_eq!((r.codigo, r.datos, r.bin.bytes), (0x1800, 0x800, 0x6000));
     }
 }

@@ -35,6 +35,11 @@ GSP_INIT. Build nuevo confirmado; TX_HEAD cero observado antes del booter.
 No prueba fallo del intercambio F2b, que no se intento. Prioridad: comparar
 preparacion/entradas del booter con OpenRM 615 y el conjunto bueno guardado;
 el retorno aislado no identifica una correccion causal.
+Aplicado el [contrato de carga OpenRM 615](../metal/CONTRATO_OPENRM_615_2026-10-21.md):
+FULL antes de BASE/control DMA, limites completos, carga SEC2 contra TCM
+real y rechazo de PRI al elegir firmas. ABI WPR/RISC-V/GMCAPI/HS contrastado
+con cabeceras oficiales; banco 615 con binarios reales. Pendiente metal de
+este cambio; no declara resuelto 0x15 ni completa toda la API OpenRM.
 
 Auditoria GPU/PROTON-X del 18-10: [matriz para Cyberpunk](PLAN_PROTON_X.md).
 Orden de entrega G0 -> Q0a3/MUNDO conservado; se puede avanzar en host con

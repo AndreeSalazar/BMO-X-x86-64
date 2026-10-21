@@ -203,6 +203,9 @@ sirven, no una estadistica.
 - [ ] **F3 -- EL BANCO sin metal.** Lo que se puede probar en el anfitrion:
   leer las cabeceras de los ficheros de 615, armar los mensajes nuevos y
   leer las respuestas de ejemplo, contra lo que dicen las fuentes de OpenRM.
+    Ampliado el 21-10: [contrato de carga y ABI oficial 615](../metal/CONTRATO_OPENRM_615_2026-10-21.md),
+    con cola DMA ocupada, rechazos de intervalos/fusibles y paquete real.
+    La cobertura de runtime posterior a INIT sigue incompleta.
   - **Bloquea:** F1.
 - [ ] **F4 -- EL METAL: diez arranques en frio con 615.78.08.** Apagar y
   esperar, no reiniciar, como pedia G0. **F4a** (tras F2a): el booter sin

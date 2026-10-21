@@ -88,6 +88,7 @@ const TRANSCFG_MASCARA: u32 = 0x0001_0007;
 const TRANSCFG_PC_COHERENTE_FISICA: u32 = 1 | 1 << 2;
 const CMD_256B: u32 = 6 << 8;
 const CMD_LIBRE: u32 = 1 << 1;
+const CMD_LLENO: u32 = 1;
 /// `sec` = 1 (bits 2..3) y la IMEM (bit 4): nouveau `ga102_flcn_dma_init`.
 const CMD_SEGURO: u32 = 1 << 2;
 const CMD_IMEM: u32 = 1 << 4;
@@ -115,6 +116,10 @@ pub enum NoFuego {
     DmemChica(u32),
     /// Un trozo de DMA no acabo en su plazo: el desplazamiento.
     DmaNoAcaba(u32),
+    /// Cola llena antes de cambiar base/control: no se publican mas ordenes.
+    DmaColaLlena(u32),
+    /// Direccion, alineacion o intervalo no representable por el DMA Ampere.
+    DmaFuera,
 }
 
 /// Lo que dijo el falcon al preguntarle, antes de tocar nada.
@@ -335,11 +340,31 @@ pub fn copiar_etiquetado(
     seguro: bool,
     plazo_trozo_us: u64,
 ) -> Result<(), NoFuego> {
+    // BASE tiene 41 bits (direccion de 49 bits en unidades de 256 B).
+    // MOFFS tiene 24 bits y FBOFFS 32. Validar TODO antes de escribir.
+    if bytes == 0 { return Ok(()); }
+    let n = bytes as u64;
+    if (iova | origen as u64 | destino as u64 | n) & 255 != 0
+        || (seguro && !imem)
+        || (destino as u64 + n) > (1 << 24)
+        || (origen as u64 + n) > (1u64 << 32)
+        || iova.checked_add(origen as u64).and_then(|v| v.checked_add(n))
+            .filter(|v| *v <= (1u64 << 49)).is_none() {
+        return Err(NoFuego::DmaFuera);
+    }
+    // OpenRM 615 s_dmaTransfer_GA102: una cola llena hace inseguro cambiar
+    // incluso BASE. IDLE y FULL son condiciones distintas.
+    if !esperar(r, t, base + DMATRFCMD, plazo_trozo_us, |v| v & CMD_LLENO == 0)? {
+        return Err(NoFuego::DmaColaLlena(0));
+    }
     r.escribir(base + DMATRFBASE, (iova >> 8) as u32);
     r.escribir(base + DMATRFBASE1, ((iova >> 40) & 0x1FF) as u32);
     let cmd = CMD_256B | if imem { CMD_IMEM } else { 0 } | if seguro { CMD_SEGURO } else { 0 };
     let mut pos = 0;
     while pos < bytes {
+        if !esperar(r, t, base + DMATRFCMD, plazo_trozo_us, |v| v & CMD_LLENO == 0)? {
+            return Err(NoFuego::DmaColaLlena(pos));
+        }
         r.escribir(base + DMATRFMOFFS, destino + pos);
         r.escribir(base + DMATRFFBOFFS, origen + pos);
         r.escribir(base + DMATRFCMD, cmd);
@@ -658,6 +683,71 @@ mod pruebas {
         fn us(&mut self) -> u64 {
             self.0 += 1;
             self.0
+        }
+    }
+
+    /// FULL puede persistir aunque IDLE aparezca: se modelan por separado.
+    struct ColaDma {
+        estados: std::collections::VecDeque<u32>,
+        ultimo: u32,
+        accesos: Vec<(char, u32, u32)>,
+    }
+    impl ColaDma {
+        fn nueva(estados: &[u32]) -> Self {
+            Self { estados: estados.iter().copied().collect(), ultimo: 0, accesos: Vec::new() }
+        }
+    }
+    impl Registros for ColaDma {
+        fn leer(&mut self, reg: u32) -> u32 {
+            assert_eq!(reg, SEC2 + DMATRFCMD);
+            if let Some(v) = self.estados.pop_front() { self.ultimo = v; }
+            self.accesos.push(('r', reg, self.ultimo));
+            self.ultimo
+        }
+        fn escribir(&mut self, reg: u32, v: u32) {
+            assert_eq!(self.ultimo & CMD_LLENO, 0, "no tocar base/control con FULL");
+            self.accesos.push(('w', reg, v));
+        }
+    }
+
+    #[test]
+    fn dma_ampere_espera_espacio_antes_de_base_y_controles_y_acaba_idle() {
+        let mut f = ColaDma::nueva(&[3, 1, 0, 1, 0, 0, 2, 1, 0, 0, 2]);
+        copiar_etiquetado(&mut f, &mut Tic(0), SEC2, 0x3B00_0000, 0x100, 0, 512, true, true, 20).unwrap();
+        assert!(f.estados.is_empty());
+        assert_eq!(f.accesos.last(), Some(&('r', SEC2 + DMATRFCMD, 2)));
+        assert_eq!(f.accesos.iter().filter(|e| e.0 == 'w' && e.1 == SEC2 + DMATRFCMD).count(), 2);
+        assert_eq!(&f.accesos[..4], &[('r', SEC2+DMATRFCMD, 3), ('r', SEC2+DMATRFCMD, 1),
+                                    ('r', SEC2+DMATRFCMD, 0), ('w', SEC2+DMATRFBASE, 0x3B0000)]);
+    }
+
+    #[test]
+    fn dma_lleno_o_pri_antes_de_base_no_escribe_nada() {
+        for (estado, error) in [(3, NoFuego::DmaColaLlena(0)),
+                               (0xBADF5620, NoFuego::NoContesta(SEC2+DMATRFCMD))] {
+            let mut f = ColaDma::nueva(&[estado]);
+            assert_eq!(copiar(&mut f, &mut Tic(0), SEC2, 0x3B00_0000, 0, 256, true, true, 3), Err(error));
+            assert!(f.accesos.iter().all(|e| e.0 == 'r'));
+        }
+    }
+
+    #[test]
+    fn dma_lleno_entre_bloques_no_publica_el_siguiente() {
+        let mut f = ColaDma::nueva(&[0, 0, 2, 3]);
+        assert_eq!(copiar(&mut f, &mut Tic(0), SEC2, 0x3B00_0000, 0, 512, true, true, 3),
+                   Err(NoFuego::DmaColaLlena(256)));
+        assert_eq!(f.accesos.iter().filter(|e| e.0 == 'w' && e.1 == SEC2+DMATRFCMD).count(), 1);
+    }
+
+    #[test]
+    fn dma_rechaza_direcciones_truncadas_y_desbordamientos_antes_de_tocar_el_aparato() {
+        for (base, origen, destino, bytes) in [(1, 0, 0, 256), (0, 0, 0, 255),
+            (1u64 << 49, 0, 0, 256), ((1u64 << 49)-256, 256, 0, 256),
+            (0, 0xFFFFFF00, 0, 512), (0, 0, 0xFFFF00, 512), (u64::MAX-255, 0, 0, 512)] {
+            let mut f = ColaDma::nueva(&[]);
+            assert_eq!(copiar_etiquetado(&mut f, &mut Tic(0), SEC2, base, origen, destino, bytes, true, true, 10),
+                       Err(NoFuego::DmaFuera));
+            assert!(f.accesos.is_empty());
         }
     }
 

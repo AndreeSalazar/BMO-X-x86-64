@@ -505,7 +505,7 @@ fn leer_booter(r: &mut Bar0, booter_fichero: Option<&mut dyn Fichero>) -> Result
     }
     let fichero = &fichero[..medida as usize];
     let Ok(b) = booter::booter(fichero) else { return no(IOMMU_NO_BOOTER) };
-    if b.bin.bytes as u64 > UCODE_BYTES || b.engine_id_mask & 1 == 0 || b.dmem.origen % 256 != 0 {
+    if !b.carga_valida(UCODE_BYTES, 65536, 65536) {
         return no(IOMMU_NO_BOOTER);
     }
     let Some(reg) = vb::registro_fusible(b.engine_id_mask, b.ucode_id) else { return no(IOMMU_NO_BOOTER_FIRMA) };
@@ -538,7 +538,14 @@ fn meter_booter(r: &mut Bar0, l: Leido) -> Result<Cargado, u32> {
     let boot0 = r.leer(bmo_gpu_ga10x::BOOT_0);
     let a256 = |n: u32| n.next_multiple_of(256);
     let cargado = fa::resetear_con(r, &mut t, fa::SEC2, boot0, g0_pulso())
-        .and_then(|_| fa::preparar_fbif(r, fa::SEC2))
+        .and_then(|_| {
+            let caps = fa::ficha(r, fa::SEC2)?;
+            if !b.carga_valida(UCODE_BYTES, caps.imem, caps.dmem) {
+                return Err(fa::NoFuego::DmaFuera);
+            }
+            crate::ring0::cabina::info("gpu", "G0 contrato 615: carga HS validada contra IMEM/DMEM SEC2", caps.imem as u64 | (caps.dmem as u64) << 32);
+            fa::preparar_fbif(r, fa::SEC2)
+        })
         .and_then(|_| {
             fa::copiar_etiquetado(r, &mut t, fa::SEC2, IOVA_BOOTER, b.imem.origen, b.imem.destino, a256(b.imem.bytes), true, true, 50_000)
         })
@@ -828,7 +835,7 @@ pub fn descargador(fichero: Option<&mut dyn Fichero>) -> Result<u64, u32> {
     }
     let fichero = &fichero[..medida as usize];
     let Ok(b) = booter::booter(fichero) else { return Err(IOMMU_NO_BOOTER) };
-    if b.bin.bytes as u64 > UCODE_BYTES || b.engine_id_mask & 1 == 0 || b.dmem.origen % 256 != 0 {
+    if !b.carga_valida(UCODE_BYTES, 65536, 65536) {
         return Err(IOMMU_NO_BOOTER);
     }
     let Some(reg) = vb::registro_fusible(b.engine_id_mask, b.ucode_id) else { return Err(IOMMU_NO_BOOTER_FIRMA) };
@@ -842,7 +849,13 @@ pub fn descargador(fichero: Option<&mut dyn Fichero>) -> Result<u64, u32> {
     let boot0 = r.leer(bmo_gpu_ga10x::BOOT_0);
     let a256 = |n: u32| n.next_multiple_of(256);
     let cargado = fa::resetear(&mut r, &mut t, fa::SEC2, boot0)
-        .and_then(|_| fa::preparar_fbif(&mut r, fa::SEC2))
+        .and_then(|_| {
+            let caps = fa::ficha(&mut r, fa::SEC2)?;
+            if !b.carga_valida(UCODE_BYTES, caps.imem, caps.dmem) {
+                return Err(fa::NoFuego::DmaFuera);
+            }
+            fa::preparar_fbif(&mut r, fa::SEC2)
+        })
         .and_then(|_| {
             fa::copiar_etiquetado(&mut r, &mut t, fa::SEC2, IOVA_BOOTER, b.imem.origen, b.imem.destino, a256(b.imem.bytes), true, true, 50_000)
         })
