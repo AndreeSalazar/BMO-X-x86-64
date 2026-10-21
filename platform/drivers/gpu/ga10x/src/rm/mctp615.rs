@@ -6,6 +6,9 @@
 
 use crate::{es_error_pri, orden::Sistema};
 
+#[path = "mctp615_observacion.rs"]
+pub mod observacion;
+
 pub const TX_HEAD: u32 = 0x0011_0C00;
 pub const TX_TAIL: u32 = 0x0011_0C04;
 pub const RX_HEAD: u32 = 0x0011_0C80;

@@ -23,9 +23,17 @@ static HS_N: AtomicU64 = AtomicU64::new(0);
 static EVENTOS: AtomicU64 = AtomicU64::new(0);
 static HS_EVENTOS: AtomicU64 = AtomicU64::new(0);
 static FOTO_RX: AtomicU64 = AtomicU64::new(u64::MAX);
+// SAFETY: solo se toca mientras OCUPADO esta adquirido en paso().
+static mut SEGUIMIENTO: q::observacion::Seguimiento = q::observacion::Seguimiento::nuevo();
+static FOTOS_COLA: AtomicU64 = AtomicU64::new(0);
 const SECUENCIA: u64 = 1;
 const ENVIADO: u64 = 0x40 << 24;
 const HECHO: u64 = 0x80 << 24;
+
+fn ahora_us() -> u64 {
+    crate::ring0::task::scheduler::rdtsc()
+        / (crate::ring0::task::scheduler::tsc_freq() / 1_000_000).max(1)
+}
 
 struct Turno;
 impl Drop for Turno { fn drop(&mut self) { OCUPADO.store(false, Ordering::Release); } }
@@ -58,6 +66,38 @@ fn copiar(f: u64, tail: u32, destino: &mut [u8]) {
         trozo.copy_from_slice(&w[..trozo.len()]);
     }
 }
+/// Lista cerrada de lecturas; no publica, reconoce ni consume mensajes.
+fn foto_cola(r: &mut Bar0, f: u64, fase: u64, transcurrido: u64) {
+    let id = FOTOS_COLA.fetch_add(1, Ordering::AcqRel) + 1;
+    // Una previa, seis plazos y una final. Defensa adicional de volumen.
+    if id > 8 { return; }
+    let inicio = crate::ring0::task::scheduler::rdtsc();
+    let foto = q::observacion::Foto::leer(r);
+    let mut cabeceras = [0u64; 8];
+    for i in 0..4 {
+        cabeceras[i] = palabra(f, lb::COLA_CPU + i as u64 * 8);
+        cabeceras[i + 4] = palabra(f, lb::COLA_GSP + i as u64 * 8);
+    }
+    let fin = crate::ring0::task::scheduler::rdtsc();
+    use crate::ring0::cabina::info;
+    info("gpu", "F2b foto: id | fase << 32 (0 previa,1 espera,2 respuesta)", id | fase << 32);
+    info("gpu", "F2b foto: us desde publicacion observada", transcurrido);
+    info("gpu", "F2b foto: TSC antes", inicio);
+    info("gpu", "F2b foto: TSC despues", fin);
+    info("gpu", "F2b foto: mascara PRI de ocho registros", foto.pri as u64);
+    for (dir, v) in q::observacion::REGISTROS.iter().zip(foto.crudos) {
+        info("gpu", "F2b foto: dir[31:0] raw[63:32]", *dir as u64 | (v as u64) << 32);
+    }
+    let (tx, rx) = foto.pendientes();
+    info("gpu", "F2b foto: pendientes TX (MAX invalido; no prueba ejecucion)", tx.map(u64::from).unwrap_or(u64::MAX));
+    info("gpu", "F2b foto: disponibles RX (MAX invalido)", rx.map(u64::from).unwrap_or(u64::MAX));
+    for (i, w) in cabeceras.iter().enumerate() {
+        info("gpu", "F2b foto: cabecera indice (0..3 TX,4..7 RX)", i as u64);
+        info("gpu", "F2b foto: palabra RAM cruda de cabecera", *w);
+    }
+    info("gpu", "F2b foto: cierre id; lecturas secuenciales", id);
+}
+
 fn enviar(r: &mut Bar0, f: u64) -> Result<(), u32> {
     let Some((bus, dev, func)) = gpu::bdf() else { return Err(IOMMU_NO_615_LECTURA) };
     let pci = |off| super::pci::cfg_read32(bus, dev, func, off);
@@ -74,6 +114,12 @@ fn enviar(r: &mut Bar0, f: u64) -> Result<(), u32> {
     // Segunda llave: identidad, secuencia, comando y bytes EXACTOS construidos.
     if bmo_gpu_ga10x::contrato::permitido_615(&dst[..n], SECUENCIA, &s).is_err() {
         return Err(IOMMU_NO_615_FORMA);
+    }
+    foto_cola(r, f, 0, 0);
+    let huella = bmo_hash::hash(&dst[..n]);
+    for (i, w) in huella.chunks_exact(8).enumerate() {
+        crate::ring0::cabina::info("gpu", "F2b TX: BLAKE3 indice de palabra LE", i as u64);
+        crate::ring0::cabina::info("gpu", "F2b TX: BLAKE3 copia CPU; no prueba consumo GPU", u64::from_le_bytes(w.try_into().unwrap_or([0; 8])));
     }
     core::sync::atomic::fence(Ordering::SeqCst);
     r.escribir(q::TX_HEAD, 1);
@@ -136,12 +182,23 @@ pub fn paso() -> Result<u64, u32> {
     let f = gpu_libos::gspmem();
     if f == 0 { return Err(gpu_libos::IOMMU_NO_RPC_ANTES); }
     let mut r = Bar0(bar);
+    if info() != 0 {
+        let ahora = ahora_us();
+        // SAFETY: _turno mantiene OCUPADO hasta salir de paso.
+        if let Some(us) = unsafe { (&mut *core::ptr::addr_of_mut!(SEGUIMIENTO)).toca(ahora) } {
+            foto_cola(&mut r, f, 1, us);
+        }
+    }
     if HS_N.load(Ordering::Acquire) != 0 { return tramo_hs(&mut r); }
     if info() == 0 {
         // No se reutilizan punteros de una sesion anterior. La cabecera TX
         // ya fue creada/comprobada por gpu_libos antes de despertar.
         if !super::gpu_despertar::guardar_bar1() { return fallar(IOMMU_NO_615_LECTURA, 0); }
         if let Err(m) = enviar(&mut r, f) { return fallar(m, 0); }
+        let ahora = ahora_us();
+        // SAFETY: OCUPADO adquirido; empieza al observar la publicacion.
+        let us = unsafe { (&mut *core::ptr::addr_of_mut!(SEGUIMIENTO)).toca(ahora) };
+        if let Some(us) = us { foto_cola(&mut r, f, 1, us); }
         crate::ring0::cabina::info("gpu", "F2b 615: TX head | tail << 32, crudos", r.leer(q::TX_HEAD) as u64 | (r.leer(q::TX_TAIL) as u64) << 32);
     }
     let head = match reg(&mut r, q::RX_HEAD) { Ok(v) => v, Err(m) => return fallar(m, q::RX_HEAD as u64) };
@@ -210,6 +267,9 @@ pub fn paso() -> Result<u64, u32> {
     core::sync::atomic::fence(Ordering::SeqCst);
     r.escribir(q::RX_TAIL, tail.wrapping_add(marco.paginas));
     ESTADO.store(HECHO | 1, Ordering::Release);
+    // SAFETY: _turno mantiene OCUPADO; no crea nuevas fotos de espera.
+    let us = unsafe { (&*core::ptr::addr_of!(SEGUIMIENTO)).transcurrido(ahora_us()) };
+    foto_cola(&mut r, f, 2, us);
     crate::ring0::cabina::info("gpu", "F2b 615: GSP_INIT respondido, estado cero; claves NVKV", cfg.claves as u64);
     crate::ring0::cabina::info("gpu", "F2b 615: asas internas cliente/dispositivo", cfg.cliente as u64 | (cfg.dispositivo as u64) << 32);
     if super::gpu_despertar::devolver_bar1().is_err() { return fallar(IOMMU_NO_615_RESPUESTA, 0); }

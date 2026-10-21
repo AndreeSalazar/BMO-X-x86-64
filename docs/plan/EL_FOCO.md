@@ -62,6 +62,10 @@ aporta 12 fotos externas distintas de 21 registros y huella de copia CPU
 coincidente con el contrato anfitrion. G0 mixto y F2b abiertos.
 HSG1 parcial; HSG2..HSG5 no se cierran:
 esto no expone PC/TCM protegidos ni demuestra acceso HS propio.
+Preparado el [lente temporal de colas 615](../metal/F2B_LENTE_COLAS_2026-10-21.md):
+TX/RX, cabeceras RAM, estado GSP y huella del INIT construido; ocho fotos
+como maximo hasta 29 s y respuesta. Pendiente metal: distinguir falta de
+avance TX, publicacion RX y respuesta; no cambia la receta del booter.
 
 Auditoria GPU/PROTON-X del 18-10: [matriz para Cyberpunk](PLAN_PROTON_X.md).
 Orden de entrega G0 -> Q0a3/MUNDO conservado; se puede avanzar en host con
