@@ -108,6 +108,11 @@ pub(crate) fn orden(dsk: &mut Desktop, p: &bmo::Pantalla) -> After {
 
 /// **Las filas de L0c4b2a**, si se mandaron.
 pub(crate) fn fila(s: &mut Output) {
+    if super::gsp615::es_615() {
+        campo(s, b"sistema");
+        s.text(b"615: sistema y registro por GSP_INIT GMCAPI; la cabecera no contiene writePtr/readPtr de 570\n");
+        return;
+    }
     let escrito = u32_en(CPU_ESCRITO);
     if escrito == 0 {
         return;

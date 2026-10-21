@@ -179,6 +179,7 @@ pub(crate) fn usable(dir: u64, medida: u64) -> Option<bool> {
 
 /// **Preguntar y esperar la respuesta.** `Ok(rpc_result)`.
 pub(crate) fn preguntar() -> Result<u64, u32> {
+    if super::gsp615::es_615() { return Err(bmo::IOMMU_NO_IDIOMA_615); }
     let mut r = Resumen { numero: 0, e: None, resultado: 0, espera_us: 0, otros: Otros::default(), no: 0 };
     match bmo::iommu_orden(bmo::IOMMU_OP_GSP_ESTATICA) {
         Ok(v) => r.numero = (v >> 32) as u32,

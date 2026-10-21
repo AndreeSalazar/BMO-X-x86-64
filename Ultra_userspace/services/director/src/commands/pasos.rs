@@ -207,7 +207,7 @@ pub(crate) const PASOS: &[Paso] = &[
     },
     Paso {
         nombre: b"cola",
-        que: b"LEER lo que el GSP ya dijo: los mensajes de su cola, sin contestar ni mover un puntero (L0c4a)",
+        que: b"570: leer la cola; 615: GSP_INIT por GMCAPI y peticiones HS por tramos; guardar la cola cruda",
         hecho: super::gspcola::leida,
         dar: super::gspcola::leer,
         pide: Some(b"despertar"),
@@ -216,7 +216,7 @@ pub(crate) const PASOS: &[Paso] = &[
     },
     Paso {
         nombre: b"vaciar",
-        que: b"CONSUMIR lo que el GSP solo cuenta (NOCAT, LIBOS_PRINT) moviendo el puntero de lectura de la CPU; lo que pide algo se queda (L0c4b1)",
+        que: b"570: consumir avisos dejando peticiones; 615: comprobar la inicializacion GMCAPI ya realizada",
         hecho: super::gspvaciar::vaciada,
         dar: super::gspvaciar::vaciar,
         pide: Some(b"cola"),
@@ -225,7 +225,7 @@ pub(crate) const PASOS: &[Paso] = &[
     },
     Paso {
         nombre: b"secuenciador",
-        que: b"LEER el secuenciador que pide el GSP, orden a orden, SIN correr ninguna (L0c4b2b)",
+        que: b"570: leer el secuenciador sin ejecutarlo; 615: no hay secuenciador 570, comprobar GMCAPI",
         hecho: super::gspsecuencia::leido,
         dar: super::gspsecuencia::leer,
         pide: Some(b"vaciar"),
@@ -237,7 +237,7 @@ pub(crate) const PASOS: &[Paso] = &[
     // (VISTO 10:13) `correr` se la devuelve al GOP, y aqui se repinta todo.
     Paso {
         nombre: b"init",
-        que: b"CORRER el secuenciador hasta GSP_INIT_DONE: el GSP-RM de la 570.144 ARRANCA, y BAR1 vuelve a la pantalla (L0c4b2c)",
+        que: b"570: secuenciador e INIT_DONE; 615: respuesta GSP_INIT GMCAPI; devolver BAR1 a la pantalla",
         hecho: super::gspinit::listo,
         dar: super::gspinit::correr,
         pide: Some(b"secuenciador"),
