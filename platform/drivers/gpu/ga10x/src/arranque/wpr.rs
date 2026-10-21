@@ -37,6 +37,9 @@
 use crate::booter::Riscv;
 use crate::vbios::Frts;
 
+#[path = "wpr_auditoria.rs"]
+pub mod auditoria;
+
 const K4: u64 = 4 * 1024;
 const K64: u64 = 64 * 1024;
 const K128: u64 = 128 * 1024;

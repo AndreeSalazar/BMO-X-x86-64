@@ -79,6 +79,11 @@ valida tres conjuntos, todos 0x15/LOGINIT cero. Antes de STARTCPU, SEC2
 devuelve BOOTVEC=0x100 y buzones=0x3E007000/0, iguales a lo pedido,
 mascara 0x070707. Frontera externa comprobada; no identifica la rama
 interna ni prueba consumo DMA o autenticacion. G0 permanece abierto.
+Aplicada la [auditoria WPR antes del booter](../metal/WPR_AUDITORIA_2026-10-21.md):
+traduccion RAM de ambos extremos, pagina propia/permisos y comparacion
+de los 256 bytes contra la copia escrita; fallo previo impide STARTCPU.
+Fotos previa/autopsia y traductor de campos, sin cambiar permisos ni DMA.
+Pendiente metal; una igualdad no acredita TLB, transaccion GPU ni firma.
 
 Auditoria GPU/PROTON-X del 18-10: [matriz para Cyberpunk](PLAN_PROTON_X.md).
 Orden de entrega G0 -> Q0a3/MUNDO conservado; se puede avanzar en host con

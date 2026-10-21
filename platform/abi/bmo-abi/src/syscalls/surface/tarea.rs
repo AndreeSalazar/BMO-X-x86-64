@@ -1241,7 +1241,7 @@ pub const IOMMU_NO_OTRA_TARJETA: u32 = 84;
 pub const IOMMU_NO_FWSEC_FALCON: u32 = 25;
 /// L0c2: no esta `fw/gsp/gsp.bin` o `fw/gsp/bootldr.bin`.
 pub const IOMMU_NO_GSP_FICHERO: u32 = 26;
-/// L0c2: estan, pero no son un GSP-RM (ELF, `.fwimage`, firma ga10x) o un bootloader.
+/// Forma GSP/bootloader invalida, o copia WPR distinta antes de STARTCPU.
 pub const IOMMU_NO_GSP_FORMATO: u32 = 27;
 /// L0c2: no hubo marcos para la imagen, la radix3 o lo auxiliar.
 pub const IOMMU_NO_GSP_MARCOS: u32 = 28;
@@ -1253,7 +1253,7 @@ pub const IOMMU_NO_GSP_DISCO: u32 = 30;
 pub const IOMMU_NO_GSP_YA_PRESTADO: u32 = 31;
 /// L0c2: la VRAM no se deja repartir.
 pub const IOMMU_NO_GSP_SIN_VRAM: u32 = 32;
-/// L0c2: la radix3 no lleva, por la IOMMU, a donde tiene que llevar.
+/// Radix3 o WPR no llevan, por la IOMMU/permisos, a donde tienen que llevar.
 pub const IOMMU_NO_GSP_RADIX: u32 = 33;
 /// L0c3a: sin el GSP-RM prestado (L0c2) no hay a quien darle LIBOS.
 pub const IOMMU_NO_LIBOS_ORDEN: u32 = 34;

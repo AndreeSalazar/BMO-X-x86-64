@@ -6,6 +6,10 @@ Instrumental del 21-10: [lente externo HS del kernel](../../../docs/metal/LENTE_
 fotos externas a JSON con registros hexadecimales y validez. No lee la GPU
 ni convierte una lectura PRI en respuesta del firmware. Las fotos parciales
 se conservan como incompletas; los informes antiguos no generan fotos falsas.
+La [auditoria WPR](../../../docs/metal/WPR_AUDITORIA_2026-10-21.md) agrega
+`python toolchain/tools/nvidia-hs/meta.py C:/copias/CAIDA.TXT`: nombra los
+32 campos/palabras de la metadata, compara copia y traduccion declaradas
+por el kernel y valida los cierres. No verifica transacciones DMA ni HS.
 
 Pregunta: con QUE bytes se hizo una investigacion de la RTX 3060 12G?
 Herramienta anfitrion de Python 3, biblioteca estandar, sin aparato ni red.

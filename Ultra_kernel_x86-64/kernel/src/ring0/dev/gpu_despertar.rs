@@ -573,6 +573,8 @@ fn meter_booter(r: &mut Bar0, l: Leido) -> Result<Cargado, u32> {
 /// Suelta el booter ya cargado: la foto de antes, `wbinvd` y STARTCPU.
 /// `vigia` es la huella de lo que la 3060 solo lee, tomada por quien llama.
 fn soltar(r: &mut Bar0, c: Cargado, vigia: (u64, u64)) -> Result<u64, u32> {
+    // Un fallo del host queda antes de STARTCPU y no se rotula como 0x15.
+    if let Err(motivo) = gpu_gsp::auditar_meta(1) { return no(motivo); }
     let idx = c.idx;
     let m = IOVA_WPR_META;
     // La foto [0] de la autopsia, y el reloj del booter.
@@ -771,6 +773,8 @@ fn autopsiar(r: &mut Bar0) {
     if AUTOPSIA[1].load(Ordering::Acquire) != 0 {
         return;
     }
+    // Despues solo informa: bootCount/verified pueden cambiar legitimamente.
+    let _ = gpu_gsp::auditar_meta(2);
     let hz = (crate::ring0::task::scheduler::tsc_freq() / 1_000_000).max(1);
     let us = crate::ring0::task::scheduler::rdtsc().saturating_sub(BOOTER_TSC.load(Ordering::Acquire)) / hz;
     use bmo_gpu_ga10x::Registros;

@@ -126,7 +126,7 @@ pub fn version_de(digesto: &[u8; 32]) -> Option<Version> {
 
 /// No esta `fw/gsp/gsp.bin` o `bootldr.bin` en el volumen de datos.
 pub const IOMMU_NO_GSP_FICHERO: u32 = 26;
-/// Estan, pero no son lo que se espera (el ELF, sus secciones, el bootloader).
+/// Forma GSP/bootloader invalida, o copia WPR distinta antes de STARTCPU.
 pub const IOMMU_NO_GSP_FORMATO: u32 = 27;
 /// No hubo marcos para la imagen, la radix3 o lo auxiliar.
 pub const IOMMU_NO_GSP_MARCOS: u32 = 28;
@@ -138,7 +138,7 @@ pub const IOMMU_NO_GSP_DISCO: u32 = 30;
 pub const IOMMU_NO_GSP_YA_PRESTADO: u32 = 31;
 /// La VRAM no se deja repartir (`wpr::mapa`).
 pub const IOMMU_NO_GSP_SIN_VRAM: u32 = 32;
-/// La radix3 no lleva, por la IOMMU, a donde tiene que llevar.
+/// Radix3 o WPR no llevan, por la IOMMU/permisos, a donde tienen que llevar.
 pub const IOMMU_NO_GSP_RADIX: u32 = 33;
 /// F2a (20-10): el paso habla el idioma de la 570.144 (`SET_SYSTEM_INFO`,
 /// el secuenciador) y el GSP-RM prestado es la 615.78.08, que no lo
@@ -504,6 +504,52 @@ pub fn huella_prestada(h: &mut bmo_hash::Hasher) -> bool {
 
 /// Las 32 palabras de 8 bytes de la meta, como las escribio BMO-X.
 static META_ESCRITA: [AtomicU64; 32] = [const { AtomicU64::new(0) }; 32];
+static FOTOS_META: AtomicU64 = AtomicU64::new(0);
+
+/// Fase 1: valida antes de STARTCPU; fase 2: solo informa en la autopsia.
+/// El oraculo recorre tablas RAM, no comprueba el TLB ni DMA real de la GPU.
+pub fn auditar_meta(fase: u64) -> Result<(), u32> {
+    use wpr::auditoria::{self as a, Estado};
+    let aux = AUX.load(Ordering::Acquire);
+    let prestada = PRESTADO.load(Ordering::Acquire) & PRESTADO_META != 0;
+    let base = if aux != 0 && prestada { aux + AUX_META * PAGINA } else { 0 };
+    let iova = IOVA_GSP_AUX + AUX_META * PAGINA;
+    let desde = crate::ring0::task::scheduler::rdtsc();
+    let inicio = io::ve_la_gpu(iova);
+    let fin = io::ve_la_gpu(iova + wpr::WPR_META as u64 - 1);
+    let esperada = core::array::from_fn(|i| META_ESCRITA[i].load(Ordering::Acquire));
+    // El lector solo es llamado con la base NEUTRO propia y enlace exacto.
+    let (estado, actual) = a::auditar(base, inicio, fin, &esperada, palabra_en);
+    let hasta = crate::ring0::task::scheduler::rdtsc();
+    let id = FOTOS_META.fetch_add(1, Ordering::AcqRel) + 1;
+    if id <= 2 {
+        let c = |t: &'static str, v: u64| crate::ring0::cabina::info("gpu", t, v);
+        c("WPR foto: id local", id);
+        c("WPR foto: fase (1 antes,2 autopsia)", fase);
+        c("WPR foto: TSC antes", desde);
+        c("WPR foto: TSC despues", hasta);
+        c("WPR foto: IOVA", iova);
+        c("WPR foto: fisica propia esperada", base);
+        c("WPR foto: fisica inicio (MAX sin traduccion)", inicio.map(|v| v.0).unwrap_or(u64::MAX));
+        c("WPR foto: fisica fin (MAX sin traduccion)", fin.map(|v| v.0).unwrap_or(u64::MAX));
+        c("WPR foto: permisos inicio presente/RW, fin presente/RW", inicio.map(|v| 1 | (v.1 as u64) << 1).unwrap_or(0)
+            | fin.map(|v| 4 | (v.1 as u64) << 3).unwrap_or(0));
+        c("WPR foto: estado host (no retorno firmware)", estado as u64);
+        c("WPR foto: copia observada disponible", actual.is_some() as u64);
+        c("WPR foto: mascara diferencias (solo con copia)", actual.as_ref().map(|v| a::diferencias(&esperada, v) as u64).unwrap_or(0));
+        for i in 0..a::PALABRAS {
+            c("WPR foto: palabra indice", i as u64);
+            c("WPR foto: palabra esperada", esperada[i]);
+            if let Some(v) = actual.as_ref() { c("WPR foto: palabra observada", v[i]); }
+        }
+        c("WPR foto: cierre id local", id);
+    }
+    match estado {
+        Estado::Coincide => Ok(()),
+        Estado::ContenidoDistinto | Estado::SinCopia => Err(IOMMU_NO_GSP_FORMATO),
+        _ => Err(IOMMU_NO_GSP_RADIX),
+    }
+}
 
 /// **La meta ahora, contra la escrita**: `(mascara de palabras cambiadas,
 /// bootCount, verified)`. `None` si aun no se presto.
