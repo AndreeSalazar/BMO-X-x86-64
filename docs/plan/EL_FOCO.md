@@ -66,6 +66,10 @@ Preparado el [lente temporal de colas 615](../metal/F2B_LENTE_COLAS_2026-10-21.m
 TX/RX, cabeceras RAM, estado GSP y huella del INIT construido; ocho fotos
 como maximo hasta 29 s y respuesta. Pendiente metal: distinguir falta de
 avance TX, publicacion RX y respuesta; no cambia la receta del booter.
+El [metal 5A1C419F9 de las 13:19](../metal/G0_2026-10-21_5A1C419F9.md)
+confirma paquete nuevo, pero sus cuatro conjuntos nuevos terminan en 0x15,
+LOGINIT cero y sin publicar INIT. Las cuatro capturas anteriores siguen en
+la carpeta; no son resultados nuevos. El lente de colas no se alcanzo.
 
 Auditoria GPU/PROTON-X del 18-10: [matriz para Cyberpunk](PLAN_PROTON_X.md).
 Orden de entrega G0 -> Q0a3/MUNDO conservado; se puede avanzar en host con
