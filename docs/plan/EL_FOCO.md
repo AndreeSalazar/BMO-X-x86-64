@@ -1,6 +1,6 @@
 # EL FOCO -- estado vigente y orden de trabajo
 
-**Actualizado el 20-10-2026.** Este bloque decide el trabajo actual. Las
+**Actualizado el 21-10-2026.** Este bloque decide el trabajo actual. Las
 notas de tandas anteriores y el plan acumulado conservan su fecha; no
 sustituyen el ultimo resultado. [Indice de documentos](../README.md).
 
@@ -29,6 +29,12 @@ Aplicado el [camino inicial F2b](../metal/F2B_615_INICIAL_2026-10-20.md):
 punteros en registros, MCTP/NVDM, GSP_INIT GMCAPI/NVKV y HS Ampere acotado.
 Pendiente comprobar respuesta en metal; RPC posteriores de 570 cerradas
 para 615. El 0x15 sigue su investigacion separada, sin cambiar el booter.
+La [tanda 0D214540D del 21-10](../metal/G0_2026-10-21_0D214540D.md)
+valida cuatro conjuntos: todos SEC2 0x15, PUT LIBOS cero y sin alcanzar
+GSP_INIT. Build nuevo confirmado; TX_HEAD cero observado antes del booter.
+No prueba fallo del intercambio F2b, que no se intento. Prioridad: comparar
+preparacion/entradas del booter con OpenRM 615 y el conjunto bueno guardado;
+el retorno aislado no identifica una correccion causal.
 
 Auditoria GPU/PROTON-X del 18-10: [matriz para Cyberpunk](PLAN_PROTON_X.md).
 Orden de entrega G0 -> Q0a3/MUNDO conservado; se puede avanzar en host con
